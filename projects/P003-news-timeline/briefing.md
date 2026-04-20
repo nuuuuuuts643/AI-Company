@@ -4,9 +4,9 @@
 話題のニュースを時系列で追うWebアプリ。RSSを自動取得してトピックに分類、上昇中/ピーク/減衰中を判定。
 
 ## 現状
-- last_run: 2026-04-20
-- status: **本番稼働中**
-- done_this_run: AWSデプロイ完了・初回ニュース取得完了（46記事・46トピック）
+- last_run: 2026-04-21
+- status: **本番稼働中** ✅
+- done_this_run: briefing更新（完了条件を実態に合わせて修正）
 
 ## 本番URL
 - サイト: http://p003-news-946554699567.s3-website-ap-northeast-1.amazonaws.com
@@ -28,17 +28,16 @@
 - [x] Lambda(API) コード完成
 - [x] フロントエンド完成
 - [x] deploy.sh完成
-- [ ] AWSデプロイ実施
-- [ ] 動作確認（ニュースが取得・表示される）
+- [x] AWSデプロイ実施
+- [x] 動作確認（ニュースが取得・表示される）
 
 ## next_action
-- Claude: コードの品質チェック・改善できる箇所があれば対応する
-- 社長（ブロッカー）: AWSのIAMユーザー「Claude」に `AdministratorAccess` ポリシーを付与する
-  → AWS Console → IAM → ユーザー → Claude → 許可を追加 → AdministratorAccess
+- Claude: UI改善・トピック分類精度向上・エラーハンドリング強化など品質改善できる箇所を実施
+- 社長: 特になし（自動稼働中）
 
 ## ブロッカー
-**AWS認証情報の設定が必要**
-IAMユーザー「Claude」にAdministratorAccessが付与されたら、`bash deploy.sh` で即デプロイ可能。
+なし
 
 ## 作業ログ
-- 2026-04-20: コード一式確認。デプロイ待ち状態。AWS権限付与後に即デプロイ予定。
+- 2026-04-20: コード一式確認。AWSデプロイ完了。30分ごと自動実行稼働中。初回46記事・46トピック取得確認。
+- 2026-04-21: 本番稼働確認。briefing完了条件を実態に合わせ更新。
