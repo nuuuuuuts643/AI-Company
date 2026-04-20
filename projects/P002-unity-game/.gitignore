@@ -1,0 +1,23 @@
+# Unity generated
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Ll]ogs/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# Build output
+[Bb]uild/
+[Bb]uilds/
+[Uu]ser[Ss]ettings/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+*.sln.docstates
+
+# OS
+.DS_Store
+Thumbs.db
