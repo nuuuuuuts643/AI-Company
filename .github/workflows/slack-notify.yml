@@ -1,0 +1,36 @@
+name: Slack通知
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: コミット情報を取得してSlackに送信
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+          COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an")
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD | head -20 | tr '\n' ', ' | sed 's/,$//')
+
+          if echo "$COMMIT_MSG" | grep -q "secretary-run"; then
+            TEXT="【AI-Company 定期報告】\n$COMMIT_MSG\n\n変更ファイル: $CHANGED_FILES"
+          else
+            TEXT="【AI-Company】$COMMIT_AUTHOR がpushしました\n$COMMIT_MSG\n\n変更ファイル: $CHANGED_FILES"
+          fi
+
+          python3 -c "
+          import urllib.request, json, sys, os
+          text = sys.argv[1]
+          webhook = os.environ['SLACK_WEBHOOK_URL']
+          data = json.dumps({'text': text}).encode('utf-8')
+          req = urllib.request.Request(webhook, data=data, headers={'Content-Type': 'application/json'})
+          urllib.request.urlopen(req)
+          " "$TEXT"
