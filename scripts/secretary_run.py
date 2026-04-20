@@ -22,8 +22,8 @@ def read_file(rel_path):
 
 def call_claude(prompt):
     data = json.dumps({
-        "model": "claude-sonnet-4-6",
-        "max_tokens": 8096,
+        "model": "claude-opus-4-5",
+        "max_tokens": 4096,
         "messages": [{"role": "user", "content": prompt}]
     }).encode()
     req = urllib.request.Request(
@@ -35,8 +35,13 @@ def call_claude(prompt):
             "anthropic-version": "2023-06-01"
         }
     )
-    resp = urllib.request.urlopen(req, timeout=120)
-    return json.loads(resp.read())["content"][0]["text"]
+    try:
+        resp = urllib.request.urlopen(req, timeout=120)
+        return json.loads(resp.read())["content"][0]["text"]
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"API Error {e.code}: {body}")
+        raise
 
 
 def send_slack(message):
