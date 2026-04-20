@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>トピック詳細 | ニュースタイムライン</title>
+  <meta name="description" content="このトピックの記事数推移と関連記事一覧。">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="inner">
+    <a href="index.html" class="back-link">← 一覧に戻る</a>
+    <h1 id="topic-title" style="font-size:1.1rem;font-weight:700;">読み込み中...</h1>
+  </div>
+</header>
+
+<main class="container">
+
+  <div id="status-badge" class="status-badge" style="display:none;"></div>
+
+  <!-- 広告枠 -->
+  <div class="ad-slot">広告枠</div>
+
+  <div class="card">
+    <h2>記事数の推移</h2>
+    <canvas id="timeline-chart"></canvas>
+    <p id="no-data" style="color:#9ca3af;font-size:.85rem;display:none;margin-top:8px;">
+      まだデータが蓄積されていません（30分ごとに自動更新されます）
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>最新の関連記事</h2>
+    <div id="articles-list">
+      <div class="loading"><div class="spinner"></div>読み込み中...</div>
+    </div>
+  </div>
+
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
