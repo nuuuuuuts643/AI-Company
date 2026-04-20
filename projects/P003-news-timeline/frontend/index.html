@@ -3,45 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ニュースタイムライン | 話題の盛り上がりを時系列で追う</title>
-  <meta name="description" content="複数ニュースを同じ話題ごとにまとめ、記事数の増減から「上昇中・ピーク・減衰中」を判定。時間軸でニュースの流れを把握できます。">
-  <meta property="og:title" content="ニュースタイムライン">
-  <meta property="og:description" content="ニュースの盛り上がりを時系列で追うサービス">
-  <meta property="og:type" content="website">
+  <title>ニュースタイムライン | 話題の盛り上がりを時系列で</title>
+  <meta name="description" content="同じ話題のニュースをまとめ、時間軸で推移を可視化します。">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
 <header>
   <div class="inner">
     <h1>📰 ニュースタイムライン</h1>
     <p>話題の盛り上がりを時系列で追う</p>
   </div>
 </header>
-
 <main class="container">
-
-  <!-- 広告枠（AdSense審査通過後にコードを差し込む） -->
   <div class="ad-slot">広告枠</div>
-
-  <div class="filter-bar">
-    <button class="filter-btn active" data-status="all">すべて</button>
-    <button class="filter-btn" data-status="rising">🔺 上昇中</button>
-    <button class="filter-btn" data-status="peak">🔷 ピーク</button>
-    <button class="filter-btn" data-status="declining">🔻 減衰中</button>
-  </div>
-
+  <div id="lang-filter" class="filter-bar"></div>
+  <div id="status-filter" class="filter-bar"></div>
+  <div id="genre-filter" class="filter-bar genre-bar"></div>
   <div id="last-updated" class="last-updated"></div>
-
   <div id="topics-grid" class="topics-grid">
-    <div class="loading">
-      <div class="spinner"></div>
-      読み込み中...
-    </div>
+    <div class="loading"><div class="spinner"></div>読み込み中...</div>
   </div>
-
 </main>
-
 <script src="config.js"></script>
 <script src="app.js"></script>
 </body>
