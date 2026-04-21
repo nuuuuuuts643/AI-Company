@@ -1,0 +1,50 @@
+name: P003 デプロイ（Lambda + フロントエンド）
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: AWS認証情報を設定
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: Fetcher Lambda更新
+        run: |
+          cd projects/P003-news-timeline/lambda/fetcher
+          zip -q function.zip handler.py
+          aws lambda update-function-code \
+            --function-name p003-fetcher \
+            --zip-file fileb://function.zip \
+            --region ap-northeast-1
+          aws lambda wait function-updated \
+            --function-name p003-fetcher \
+            --region ap-northeast-1
+          echo "✅ Fetcher Lambda更新完了"
+
+      - name: フロントエンドをS3に同期
+        run: |
+          aws s3 sync projects/P003-news-timeline/frontend/ \
+            s3://p003-news-946554699567/ \
+            --region ap-northeast-1
+          echo "✅ フロントエンド同期完了"
+
+      - name: Lambdaをテスト実行（非同期）
+        run: |
+          aws lambda invoke \
+            --function-name p003-fetcher \
+            --invocation-type Event \
+            --region ap-northeast-1 \
+            /tmp/r.json
+          echo "✅ Lambda実行開始（非同期）"
+          echo "5分後にサイトを確認: <http://p003-news-946554699567.s3-website-ap-northeast-1.amazonaws.com>"
