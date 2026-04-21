@@ -1,0 +1,31 @@
+name: コードを最新版に更新
+
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: モデル変更・cron修正・クリーンアップ
+        run: |
+          sed -i 's/claude-opus-4-5/claude-haiku-4-5-20251001/g' scripts/secretary_run.py
+          sed -i "s/0 0,8,16/0 0/" .github/workflows/secretary.yml
+          rm -f notion-sync.js package.json package-lock.json
+          rm -rf node_modules
+          echo "完了"
+
+      - name: コミット・プッシュ
+        run: |
+          git config user.email "secretary@ai-company.local"
+          git config user.name "AI-Company Secretary"
+          git add -A
+          git diff --cached --quiet || git commit -m "[fix] モデル変更・cron修正・クリーンアップ"
+          git push
