@@ -55,7 +55,7 @@
 |---|---|---|
 | P003 ニュースタイムライン | 稼働中 | Lambda 30分毎実行、S3ホスティング |
 | P002 Unityゲーム | 開発中 | 生成アセット(sword/shield/coin.svg)あり |
-| P005 メモリDB | 承認済み・未着手 | DynamoDB ai-company-memory |
+| P005 メモリDB | 稼働中 | DynamoDB ai-company-memory (ap-northeast-1) 2026-04-22構築完了 |
 | P004 Slackボット | 計画中 | 承認ループ構築用 |
 
 ## 承認済み・実行待ちタスク
@@ -78,9 +78,7 @@
 
 ## 未解決の問題
 
-- P003 UIの最新版（サムネイル横並びレイアウト）がS3に未反映 → deploy-all.sh実行で解決
-- Lambda実際に動いているか未確認 → deploy-all.sh実行後に確認
-- CEOの日次Slack通知（翌朝8:30 JST）— 明日届くか確認待ち
+- CEOの日次Slack通知（毎朝9:00 JST）— 稼働中（要継続モニタリング）
 
 ## セッション更新ルール
 
