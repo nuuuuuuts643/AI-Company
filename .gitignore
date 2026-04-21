@@ -18,3 +18,11 @@ node_modules/
 .DS_Store
 AWSCLIV2.pkg
 projects/P002-unity-game/P002-unity-game/Assets/_Game/Fonts/HiraginoW3.ttc
+
+# ローカル専用スクリプト（シークレットが含まれる可能性）
+setup_api_key.sh
+push-fixes.command
+*.command
+scripts/__pycache__/
+fetch_notion.py
+runner/
