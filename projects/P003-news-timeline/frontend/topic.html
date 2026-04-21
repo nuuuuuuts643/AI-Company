@@ -6,6 +6,8 @@
   <title>トピック詳細 | ニュースタイムライン</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 </head>
 <body>
 <header>
@@ -22,25 +24,37 @@
 
   <div class="ad-slot">広告枠</div>
 
-  <div class="card">
-    <h2>バズスコア推移</h2>
-    <canvas id="score-chart"></canvas>
-    <p id="no-data" style="color:#9ca3af;font-size:.85rem;display:none;margin-top:8px;">
-      まだデータが蓄積されていません（30分ごとに自動更新）
-    </p>
-    <p class="score-note">スコア ＝ 報道メディア数×10 ＋ はてなブックマーク数</p>
-  </div>
-
-  <div class="card" id="hatena-card" style="display:none;">
-    <h2>🔖 はてブ 30分ごとの増加数</h2>
-    <canvas id="hatena-chart"></canvas>
-    <p class="score-note">日本語記事のみ。増加が大きいほど「今まさにバズっている」サイン。</p>
+  <div class="card summary-card">
+    <h2>🤖 AI要約</h2>
+    <p class="summary-placeholder">このトピックのAI要約は準備中です。</p>
   </div>
 
   <div class="card">
     <h2>📖 ストーリーの経緯</h2>
-    <p class="story-note">各時点でどのような見出しが報じられたか</p>
     <div id="story-timeline"></div>
+  </div>
+
+  <div class="card">
+    <div class="chart-header">
+      <h2>推移グラフ</h2>
+      <div class="timerange-btns">
+        <button class="tr-btn active" data-range="1d">24h</button>
+        <button class="tr-btn" data-range="3d">3日</button>
+        <button class="tr-btn" data-range="7d">7日</button>
+        <button class="tr-btn" data-range="all">全期間</button>
+      </div>
+    </div>
+    <p id="no-data" style="color:#9ca3af;font-size:.85rem;display:none;margin-top:8px;">データ蓄積中（30分ごとに更新）</p>
+    <div class="charts-row">
+      <div class="chart-col">
+        <div class="chart-col-title">閲覧数増減（昨日比）</div>
+        <canvas id="score-chart"></canvas>
+      </div>
+      <div class="chart-col">
+        <div class="chart-col-title">閲覧数累計</div>
+        <canvas id="views-chart"></canvas>
+      </div>
+    </div>
   </div>
 
 </main>

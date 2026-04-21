@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <\!-- 刀身 -->
+  <polygon points="32,4 36,28 32,32 28,28" fill="#C0C8D0" stroke="#8090A0" stroke-width="1"/>
+  <\!-- 刃の光沢 -->
+  <polygon points="32,4 34,20 32,24" fill="#E8EEF4" opacity="0.8"/>
+  <\!-- 鍔 -->
+  <rect x="22" y="28" width="20" height="5" rx="2" fill="#B8960C" stroke="#8B6914" stroke-width="1"/>
+  <\!-- 柄 -->
+  <rect x="29" y="33" width="6" height="16" rx="1" fill="#6B3A2A" stroke="#4A2819" stroke-width="1"/>
+  <\!-- 柄巻き -->
+  <line x1="29" y1="37" x2="35" y2="37" stroke="#8B4513" stroke-width="1.5"/>
+  <line x1="29" y1="41" x2="35" y2="41" stroke="#8B4513" stroke-width="1.5"/>
+  <line x1="29" y1="45" x2="35" y2="45" stroke="#8B4513" stroke-width="1.5"/>
+  <\!-- 柄頭 -->
+  <ellipse cx="32" cy="50" rx="5" ry="3" fill="#B8960C" stroke="#8B6914" stroke-width="1"/>
+</svg>

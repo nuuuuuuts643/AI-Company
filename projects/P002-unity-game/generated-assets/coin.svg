@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <\!-- 影 -->
+  <ellipse cx="33" cy="50" rx="18" ry="5" fill="#00000022"/>
+  <\!-- コイン本体 -->
+  <circle cx="32" cy="30" r="20" fill="#DAA520" stroke="#B8860B" stroke-width="2"/>
+  <\!-- 光沢 -->
+  <circle cx="32" cy="30" r="20" fill="url(#coinGrad)"/>
+  <defs>
+    <radialGradient id="coinGrad" cx="40%" cy="35%">
+      <stop offset="0%" stop-color="#FFE55C"/>
+      <stop offset="60%" stop-color="#DAA520"/>
+      <stop offset="100%" stop-color="#8B6914"/>
+    </radialGradient>
+  </defs>
+  <\!-- 刻印 -->
+  <circle cx="32" cy="30" r="14" fill="none" stroke="#B8860B" stroke-width="1.5" opacity="0.6"/>
+  <text x="32" y="35" text-anchor="middle" font-size="16" font-weight="bold" fill="#8B6914" opacity="0.8">G</text>
+</svg>
