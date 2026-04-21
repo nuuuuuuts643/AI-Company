@@ -9,14 +9,19 @@
 </head>
 <body>
 <header>
-  <div class="inner">
-    <h1>📰 ニュースタイムライン</h1>
-    <p>話題の盛り上がりを時系列で追う</p>
+  <div class="inner header-inner">
+    <div>
+      <h1>📰 ニュースタイムライン</h1>
+      <p>話題の盛り上がりを時系列で追う</p>
+    </div>
+    <div id="weather-widget" class="weather-widget"></div>
   </div>
 </header>
 <main class="container">
   <div class="ad-slot">広告枠</div>
-  <div id="lang-filter" class="filter-bar"></div>
+  <div class="search-bar">
+    <input type="text" id="search-input" placeholder="🔍 キーワードで検索..." autocomplete="off">
+  </div>
   <div id="status-filter" class="filter-bar"></div>
   <div id="genre-filter" class="filter-bar genre-bar"></div>
   <div id="last-updated" class="last-updated"></div>

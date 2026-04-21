@@ -1,12 +1,12 @@
-name: AI-Company 秘書定期実行
+name: AI-Company CEO定期実行
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 毎日 09:00 JST (UTC+0:00 = JST-9)
+    - cron: '30 23 * * *'  # 毎日 08:30 JST (UTC 23:30 = JST翌08:30)
   workflow_dispatch:
 
 jobs:
-  secretary:
+  ceo:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -16,16 +16,16 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 秘書スクリプト実行
+      - name: CEOスクリプト実行
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: python3 scripts/secretary_run.py
+        run: python3 scripts/ceo_run.py
 
       - name: 変更をコミット・プッシュ
         run: |
-          git config user.email "secretary@ai-company.local"
-          git config user.name "AI-Company Secretary"
+          git config user.email "ceo@ai-company.local"
+          git config user.name "AI-Company CEO"
           git add -A
-          git diff --cached --quiet || git commit -m "[secretary-run] $(date +%Y-%m-%d) 定期実行"
+          git diff --cached --quiet || git commit -m "[ceo-run] $(date +%Y-%m-%d) CEO日次実行"
           git push

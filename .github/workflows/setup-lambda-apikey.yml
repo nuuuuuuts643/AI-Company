@@ -6,6 +6,7 @@ on:
 jobs:
   setup:
     runs-on: ubuntu-latest
+
     steps:
       - name: AWS認証情報を設定
         uses: aws-actions/configure-aws-credentials@v4
@@ -13,14 +14,20 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-1
-      - name: p003-fetcher にAPIキーを設定
+
+      - name: p003-fetcher に ANTHROPIC_API_KEY を設定
         run: |
           aws lambda update-function-configuration \
             --function-name p003-fetcher \
             --environment "Variables={TABLE_NAME=p003-topics,REGION=ap-northeast-1,ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}}" \
             --region ap-northeast-1
-          echo "完了"
-      - name: テスト実行
+          echo "✅ p003-fetcher へのAPIキー設定完了"
+
+      - name: Lambdaをテスト実行
         run: |
-          aws lambda invoke --function-name p003-fetcher --region ap-northeast-1 /tmp/r.json
-          cat /tmp/r.json
+          aws lambda invoke \
+            --function-name p003-fetcher \
+            --region ap-northeast-1 \
+            /tmp/result.json
+          cat /tmp/result.json
+          echo "✅ テスト実行完了"
