@@ -49,21 +49,25 @@
 - **CEO**: Claude（自律的に会社を動かす）
 - **方針**: 指示を待たず毎日前進する。空報告禁止。実行した証拠がないものは完了扱いしない。
 
-## 現在のプロジェクト状態（最終更新: 2026-04-21）
+## 現在のプロジェクト状態（最終更新: 2026-04-22 P004実装）
 
 | プロジェクト | 状態 | 備考 |
 |---|---|---|
 | P003 ニュースタイムライン | 稼働中 | Lambda 30分毎実行、S3ホスティング |
 | P002 Unityゲーム | 開発中 | 生成アセット(sword/shield/coin.svg)あり |
 | P005 メモリDB | 稼働中 | DynamoDB ai-company-memory (ap-northeast-1) 2026-04-22構築完了 |
-| P004 Slackボット | 計画中 | 承認ループ構築用 |
+| P004 Slackボット | 実装完了・デプロイ待ち | handler.py完成・全ユニットテスト通過。Slack App作成 + deploy.sh実行が残り |
 
 ## 承認済み・実行待ちタスク
 
-### PC帰宅後に実行が必要なもの
-1. `bash ~/ai-company/deploy-all.sh` — CEO agent・ceo-constitution・ceo-run.yml をGitHubにpush、P003をS3にデプロイ
-2. Claude デスクトップ → Settings → Desktop app → **Computer use をON**（URLの自律確認のため）
-3. **AWS MCPサーバー設定**（承認済み #001）— CoworkからAWSを直接操作できるようにする
+### 残タスク
+- **AWS MCPサーバー設定**（承認済み #001）— CoworkからAWSを直接操作できるようにする（手動設定が必要）
+
+### 完了済みタスク（2026-04-22）
+- ✅ `deploy-all.sh` 実行 — CEO agent・GitHub push・P003 S3デプロイ完了
+- ✅ Computer use（Claude in Chrome）有効化
+- ✅ Slack webhook更新（SLACK_WEBHOOK_URL → B0AUJ9K64KE）通知到達確認済み
+- ✅ CEO日次実行 Run #2（24751739955）成功・Slack通知届いた
 
 ### 承認済み提案
 - **#001**: AWS MCP接続 + P005メモリDB構築（2026-04-21承認）
@@ -78,7 +82,8 @@
 
 ## 未解決の問題
 
-- CEOの日次Slack通知（毎朝9:00 JST）— 稼働中（要継続モニタリング）
+- CEOの日次Slack通知（毎朝9:00 JST）— ✅ 2026-04-22 動作確認済み。継続モニタリング中
+- AWS MCPサーバー設定 — 手動でClaude desktopの設定ファイルを編集する必要あり（承認済み未実行）
 
 ## セッション更新ルール
 
