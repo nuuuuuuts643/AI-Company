@@ -1,0 +1,90 @@
+name: コードを最新版に更新
+
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 秘書スクリプトを修正版に更新
+        run: |
+          cat > scripts/secretary_run.py << 'PYEOF'
+#!/usr/bin/env python3
+import json, os, re, sys
+from pathlib import Path
+import urllib.request
+from datetime import date
+
+ANTHROPIC_API_KEY = os.environ['ANTHROPIC_API_KEY']
+SLACK_WEBHOOK_URL = os.environ.get('SLACK_WEBHOOK_URL', '')
+REPO_ROOT = Path(__file__).parent.parent
+TODAY = date.today().isoformat()
+
+def read_file(rel_path):
+    try:
+        return (REPO_ROOT / rel_path).read_text(encoding='utf-8')
+    except Exception as e:
+        return f"[読み込みエラー: {e}]"
+
+def call_claude(prompt):
+    data = json.dumps({"model": "claude-haiku-4-5-20251001","max_tokens": 8192,"messages": [{"role": "user", "content": prompt}]}).encode()
+    req = urllib.request.Request("<https://api.anthropic.com/v1/messages>", data=data, headers={"Content-Type": "application/json","x-api-key": ANTHROPIC_API_KEY,"anthropic-version": "2023-06-01"})
+    resp = urllib.request.urlopen(req, timeout=180)
+    return json.loads(resp.read())["content"][0]["text"]
+
+def send_slack(message):
+    if not SLACK_WEBHOOK_URL:
+        print("Slack未設定"); return
+    data = json.dumps({"text": message}).encode()
+    urllib.request.urlopen(urllib.request.Request(SLACK_WEBHOOK_URL, data=data, headers={"Content-Type": "application/json"}), timeout=10)
+
+def parse_file_blocks(r):
+    return [{"path": m[0], "content": m[1].lstrip('\n')} for m in re.findall(r'<FILE path="([^"]+)">(.*?)</FILE>', r, re.DOTALL)]
+
+def parse_slack_block(r):
+    m = re.search(r'<SLACK>(.*?)</SLACK>', r, re.DOTALL)
+    return m.group(1).strip() if m else None
+
+def main():
+    files = ["company/secretary-protocol.md","company/decision-rules.md","company/constitution.md","dashboard/overview.md","dashboard/active-projects.md","inbox/slack-messages.md","inbox/raw-ideas.md","projects/P001-ai-company-base/briefing.md","projects/P003-news-timeline/briefing.md","projects/P004-slack-bot/README.md"]
+    context = "\n\n".join(f"=== {f} ===\n{read_file(f)}" for f in files)
+    prompt = f'あなたはAI-Companyの秘書です。今日は{TODAY}。secretary-protocol.mdのStep1〜7を実行してください。\n\n{context}\n\n---\n更新ファイルは<FILE path="パス">内容</FILE>形式で。Slackは<SLACK>内容</SLACK>形式で。必須: dashboard/overview.md, dashboard/active-projects.md, projects/P001-ai-company-base/briefing.md, projects/P003-news-timeline/briefing.md, inbox/slack-messages.md'
+    print(f"API呼び出し中... {TODAY}")
+    response = call_claude(prompt)
+    updates = parse_file_blocks(response)
+    if not updates:
+        send_slack(f"【秘書エラー】{TODAY} ファイル抽出失敗"); sys.exit(1)
+    for u in updates:
+        p = REPO_ROOT / u["path"]; p.parent.mkdir(parents=True, exist_ok=True); p.write_text(u["content"], encoding="utf-8"); print(f"更新: {u['path']}")
+    send_slack(parse_slack_block(response) or f"【AI-Company報告】{TODAY} {len(updates)}ファイル更新完了")
+    print("完了")
+
+if __name__ == "__main__":
+    main()
+PYEOF
+
+      - name: cron変更・不要ファイル削除
+        run: |
+          sed -i "s|cron: '0 0,8,16 \* \* \*'.*|cron: '0 0 * * *'  # 毎日09:00 JST|" .github/workflows/secretary.yml
+          rm -f notion-sync.js package.json package-lock.json fetch_notion.py setup_api_key.sh
+          rm -f projects/P004-slack-bot/lambda/function.zip
+          rm -f projects/P003-news-timeline/lambda/tracker/tracker.zip
+          rm -rf node_modules
+          echo "クリーンアップ完了"
+
+      - name: コミット・プッシュ
+        run: |
+          git config user.email "secretary@ai-company.local"
+          git config user.name "AI-Company Secretary"
+          git add -A
+          git diff --cached --quiet || git commit -m "[fix] 秘書修正・cron1日1回・クリーンアップ"
+          git push
+          echo "完了"
