@@ -23,7 +23,7 @@ def read_file(rel_path):
 
 def call_claude(prompt):
     data = json.dumps({
-        "model": "claude-haiku-4-5-20251001",
+        "model": "claude-sonnet-4-6",
         "max_tokens": 8192,
         "messages": [{"role": "user", "content": prompt}]
     }).encode()
@@ -213,7 +213,7 @@ Slackへの報告は <SLACK> タグで囲んでください:
 
 ■ 出資者への提案（承認待ち）
   提案#001: [タイトル]（想定効果: ...）
-  → 承認する場合は「承認 #001」とSlackに返信してください
+  → 承認はCoworkのチャットで「承認 #001」と伝えてください
   ※提案がない場合は「なし」
 
 ■ KPI
