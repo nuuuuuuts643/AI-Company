@@ -129,6 +129,11 @@ Slackへの報告は <SLACK> タグで囲んでください:
 - projects/P001-ai-company-base/briefing.md（last_run, done_this_run, next_action を更新）
 - projects/P003-news-timeline/briefing.md（last_run を更新）
 - inbox/slack-messages.md（処理済みに ✅ を追加）
+
+【絶対ルール】
+- 出力できる <FILE> タグは上記5ファイルのみ。それ以外は一切出力禁止。
+- frontend/ lambda/ scripts/ .github/ のコードファイルは絶対に変更しないこと。
+- コードを改善・提案したい場合はSlackメッセージのみで報告すること。
 """
 
     print(f"Claude API呼び出し中... ({TODAY})")
