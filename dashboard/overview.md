@@ -6,9 +6,9 @@
 
 | ID | 名前 | ステータス | 完成度 |
 |----|------|----------|----|
-| P001 | AI会社 基盤構築 | GitHub Actions設置済み・API待ち | ベータ |
+| P001 | AI会社 基盤構築 | GitHub Actions設置済み・APIクレジット待ち | ベータ |
 | P002 | Unityゲーム（要塞都市育成） | スクリプト完了・Unity組み上げ待ち | ベータ |
-| P003 | ニュースタイムライン | **本番稼働中** 🟢 | 完成候補 |
+| P003 | ニュースタイムライン | **本番稼働中・品質改善継続中** 🟢 | 完成候補 |
 
 ## 自動化状況
 
@@ -21,14 +21,14 @@
 
 ## Next Actions
 
-1. **社長アクション**: https://console.anthropic.com/settings/billing でAPIクレジット購入 → 秘書自動化が動く
-2. **社長アクション**: Unity Editorで `FortressCity > Setup Everything` 実行 → P002プレイテスト
-3. **Claude**: P002スクリプト品質チェック・改善（随時）
+1. **社長アクション（ブロッカー）**: https://console.anthropic.com/settings/billing でAPIクレジット購入 → 秘書自動化が動く
+2. **社長アクション（ブロッカー）**: Unity Editorで `FortressCity > Setup Everything` 実行 → P002プレイテスト
+3. **Claude**: P003本番コードの詳細レビュー・品質改善（コード提供後）
 
 ## ブロッカー一覧
 
-| 案件 | ブロッカー | 担当 |
-|------|-----------|------|
-| P001 | Anthropic APIクレジット | 社長 |
-| P002 | Unity Editor操作 | 社長 |
-| P003 | なし | — |
+| 案件 | ブロッカー | 担当 | 優先度 |
+|------|-----------|------|--------|
+| P001 | Anthropic APIクレジット購入 | 社長 | 中 |
+| P002 | Unity Editor操作（Setup Everything実行） | 社長 | 中 |
+| P003 | なし | — | — |
