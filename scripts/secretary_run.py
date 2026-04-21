@@ -2,6 +2,7 @@
 """AI-Company 秘書スクリプト - GitHub Actions から実行される"""
 import json
 import os
+import re
 import sys
 from pathlib import Path
 import urllib.request
@@ -15,15 +16,15 @@ TODAY = date.today().isoformat()
 
 def read_file(rel_path):
     try:
-        return (REPO_ROOT / rel_path).read_text()
+        return (REPO_ROOT / rel_path).read_text(encoding='utf-8')
     except Exception as e:
-        return f"[読み込みエラー: {e}]"
+        return f"W読み込みエラー: {e}]"
 
 
 def call_claude(prompt):
     data = json.dumps({
-        "model": "claude-opus-4-5",
-        "max_tokens": 4096,
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 8192,
         "messages": [{"role": "user", "content": prompt}]
     }).encode()
     req = urllib.request.Request(
@@ -36,7 +37,7 @@ def call_claude(prompt):
         }
     )
     try:
-        resp = urllib.request.urlopen(req, timeout=120)
+        resp = urllib.request.urlopen(req, timeout=180)
         return json.loads(resp.read())["content"][0]["text"]
     except urllib.error.HTTPError as e:
         body = e.read().decode()
@@ -58,6 +59,22 @@ def send_slack(message):
     print("Slack通知送信完了")
 
 
+def parse_file_blocks(response):
+    """
+    <FILE path="...">内容</FILE> 形式でファイル更新を抽出する
+    JSONより改行に強いフォーマット
+    """
+    pattern = r'<FILE path="([^"]+)">(.*?)</FILE>'
+    matches = re.findall(pattern, response, re.DOTALL)
+    return [{"path": m[0], "content": m[1].lstrip('\n')} for m in matches]
+
+
+def parse_slack_block(response):
+    """<SLACK>内容</SLACK> 形式でSlackメッセージを抽出"""
+    match = re.search(r'<SLACK>(.*?)</SLACK>', response, re.DOTALL)
+    return match.group(1).strip() if match else None
+
+
 def main():
     files_to_read = [
         "company/secretary-protocol.md",
@@ -68,8 +85,8 @@ def main():
         "inbox/slack-messages.md",
         "inbox/raw-ideas.md",
         "projects/P001-ai-company-base/briefing.md",
-        "projects/P002-unity-game/briefing.md",
         "projects/P003-news-timeline/briefing.md",
+        "projects/P004-slack-bot/README.md",
     ]
 
     context_parts = []
@@ -85,22 +102,15 @@ def main():
 
 ---
 
-全ての分析・判断を終えたら、以下のJSON形式だけで返答してください（他のテキスト不要）:
-{{
-  "file_updates": [
-    {{"path": "ファイルのパス(リポジトリルートからの相対パス)", "content": "ファイルの全内容"}}
-  ],
-  "slack_message": "Slackに送る報告メッセージ（\\nで改行）",
-  "summary": "今回やったことの要約（1〜3行）"
-}}
+全ての分析・判断を終えたら、以下の形式で出力してください。
 
-必ずfile_updatesには以下を含めること:
-- dashboard/overview.md (更新)
-- dashboard/active-projects.md (更新)
-- 各案件のbriefing.md (last_run, status, done_this_run, next_action を更新)
-- inbox/slack-messages.md (処理済みアイテムに ✅ を追加)
+更新するファイルは <FILE path="相対パス"> タグで囲んでください:
+<FILE path="dashboard/overview.md">
+ファイルの全内容をここに書く
+</FILE>
 
-slack_messageは以下フォーマット:
+Slackへの報告は <SLACK> タグで囲んでください:
+<SLACK>
 【AI-Company 定期報告】{TODAY}
 
 ■ 今回やったこと
@@ -111,40 +121,41 @@ slack_messageは以下フォーマット:
 
 ■ 次回予定
   - 内容
+</SLACK>
+
+必ず以下のファイルを <FILE> タグで出力すること:
+- dashboard/overview.md
+- dashboard/active-projects.md
+- projects/P001-ai-company-base/briefing.md（last_run, done_this_run, next_action を更新）
+- projects/P003-news-timeline/briefing.md（last_run を更新）
+- inbox/slack-messages.md（処理済みに ✅ を追加）
 """
 
     print(f"Claude API呼び出し中... ({TODAY})")
     response = call_claude(prompt)
+    print("レスポンス受信完了")
 
-    # JSON抽出
-    try:
-        start = response.find('{')
-        end = response.rfind('}') + 1
-        if start == -1:
-            raise ValueError("JSONが見つかりません")
-        result = json.loads(response[start:end])
-    except Exception as e:
-        print(f"JSONパースエラー: {e}")
-        print(f"レスポンス冒頭: {response[:300]}")
-        # フォールバック: Slackにエラー通知
-        send_slack(f"【AI-Company 秘書エラー】{TODAY}\nJSONパースに失敗しました。手動確認が必要です。")
+    # ファイル更新を抽出
+    file_updates = parse_file_blocks(response)
+    if not file_updates:
+        print("警告: ファイル更新が見つかりませんでした")
+        print(f"レスポンス冒頭: {response[:200]}")
+        send_slack(f"【AI-Company 秘書エラー】{TODAY}\nファイル更新の抽出に失敗しました。手動確認が必要です。")
         sys.exit(1)
 
-    print(f"サマリー: {result.get('summary', '(なし)')}")
-
-    # ファイル更新
-    for update in result.get("file_updates", []):
+    # ファイル書き込み
+    for update in file_updates:
         path = REPO_ROOT / update["path"]
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(update["content"], encoding="utf-8")
         print(f"更新: {update['path']}")
 
     # Slack通知
-    slack_msg = result.get(
-        "slack_message",
-        f"【AI-Company 定期報告】{TODAY}\n\n{result.get('summary', '秘書実行完了')}"
-    )
+    slack_msg = parse_slack_block(response)
+    if not slack_msg:
+        slack_msg = f"【AI-Company 定期報告】{TODAY}\n秘書実行完了（{len(file_updates)}ファイル更新）"
     send_slack(slack_msg)
+    print("完了")
 
 
 if __name__ == "__main__":
