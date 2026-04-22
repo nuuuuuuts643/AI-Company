@@ -1,5 +1,5 @@
 // API_BASE: S3静的ホスティング（topics.json等を直接読む設計）
-const API_BASE       = 'http://p003-news-946554699567.s3-website-ap-northeast-1.amazonaws.com/api/';
+const API_BASE       = 'https://flotopic.com/api/';
 const COMMENTS_URL   = 'https://kj22x2hxiqus7p65jebstcf5fe0xwvwr.lambda-url.ap-northeast-1.on.aws/';
 const AUTH_URL       = 'https://jimustpeaznrwhdrz5lstddz640ftmjp.lambda-url.ap-northeast-1.on.aws/';
 const FAVORITES_URL  = 'https://mumlvztiuzh5pqxgndgn4anzfu0wzvlt.lambda-url.ap-northeast-1.on.aws/';
