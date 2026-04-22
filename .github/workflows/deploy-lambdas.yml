@@ -1,0 +1,161 @@
+name: Lambda デプロイ（全関数）
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "projects/P003-news-timeline/lambda/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: AWS認証情報を設定
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      # ----------------------------------------------------------------
+      # fetcher Lambda
+      # ----------------------------------------------------------------
+      - name: fetcher Lambda をデプロイ
+        id: deploy_fetcher
+        run: |
+          cd projects/P003-news-timeline/lambda/fetcher
+          zip -q function.zip handler.py
+          aws lambda update-function-code \
+            --function-name p003-fetcher \
+            --zip-file fileb://function.zip \
+            --region ap-northeast-1
+          aws lambda wait function-updated \
+            --function-name p003-fetcher \
+            --region ap-northeast-1
+          echo "status=ok" >> $GITHUB_OUTPUT
+          echo "[OK] fetcher デプロイ完了"
+
+      # ----------------------------------------------------------------
+      # comments Lambda
+      # ----------------------------------------------------------------
+      - name: comments Lambda をデプロイ
+        id: deploy_comments
+        run: |
+          cd projects/P003-news-timeline/lambda/comments
+          zip -q function.zip handler.py
+          aws lambda update-function-code \
+            --function-name p003-comments \
+            --zip-file fileb://function.zip \
+            --region ap-northeast-1
+          aws lambda wait function-updated \
+            --function-name p003-comments \
+            --region ap-northeast-1
+          echo "status=ok" >> $GITHUB_OUTPUT
+          echo "[OK] comments デプロイ完了"
+
+      # ----------------------------------------------------------------
+      # auth Lambda
+      # ----------------------------------------------------------------
+      - name: auth Lambda をデプロイ
+        id: deploy_auth
+        run: |
+          cd projects/P003-news-timeline/lambda/auth
+          zip -q function.zip handler.py
+          aws lambda update-function-code \
+            --function-name p003-auth \
+            --zip-file fileb://function.zip \
+            --region ap-northeast-1
+          aws lambda wait function-updated \
+            --function-name p003-auth \
+            --region ap-northeast-1
+          echo "status=ok" >> $GITHUB_OUTPUT
+          echo "[OK] auth デプロイ完了"
+
+      # ----------------------------------------------------------------
+      # favorites Lambda
+      # ----------------------------------------------------------------
+      - name: favorites Lambda をデプロイ
+        id: deploy_favorites
+        run: |
+          cd projects/P003-news-timeline/lambda/favorites
+          zip -q function.zip handler.py
+          aws lambda update-function-code \
+            --function-name p003-favorites \
+            --zip-file fileb://function.zip \
+            --region ap-northeast-1
+          aws lambda wait function-updated \
+            --function-name p003-favorites \
+            --region ap-northeast-1
+          echo "status=ok" >> $GITHUB_OUTPUT
+          echo "[OK] favorites デプロイ完了"
+
+      # ----------------------------------------------------------------
+      # analytics Lambda
+      # ----------------------------------------------------------------
+      - name: analytics Lambda をデプロイ
+        id: deploy_analytics
+        run: |
+          cd projects/P003-news-timeline/lambda/analytics
+          zip -q function.zip handler.py
+          aws lambda update-function-code \
+            --function-name p003-analytics \
+            --zip-file fileb://function.zip \
+            --region ap-northeast-1
+          aws lambda wait function-updated \
+            --function-name p003-analytics \
+            --region ap-northeast-1
+          echo "status=ok" >> $GITHUB_OUTPUT
+          echo "[OK] analytics デプロイ完了"
+
+      # ----------------------------------------------------------------
+      # Slack 通知（成功）
+      # ----------------------------------------------------------------
+      - name: Slack通知（成功）
+        if: success()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+          COMMIT_SHA=$(git log -1 --pretty=format:"%h")
+          python3 -c "
+          import urllib.request, json, sys, os
+          webhook = os.environ['SLACK_WEBHOOK_URL']
+          text = (
+            'Lambda デプロイ成功\n'
+            'コミット: ${COMMIT_SHA} - ${COMMIT_MSG}\n'
+            'デプロイ済み: fetcher / comments / auth / favorites / analytics\n'
+            'リージョン: ap-northeast-1'
+          )
+          data = json.dumps({'text': text}).encode('utf-8')
+          req = urllib.request.Request(webhook, data=data, headers={'Content-Type': 'application/json'})
+          urllib.request.urlopen(req)
+          "
+
+      # ----------------------------------------------------------------
+      # Slack 通知（失敗）
+      # ----------------------------------------------------------------
+      - name: Slack通知（失敗）
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+          COMMIT_SHA=$(git log -1 --pretty=format:"%h")
+          python3 -c "
+          import urllib.request, json, sys, os
+          webhook = os.environ['SLACK_WEBHOOK_URL']
+          text = (
+            'Lambda デプロイ失敗\n'
+            'コミット: ${COMMIT_SHA} - ${COMMIT_MSG}\n'
+            'GitHub Actionsのログを確認してください: https://github.com/\${{ github.repository }}/actions'
+          )
+          data = json.dumps({'text': text}).encode('utf-8')
+          req = urllib.request.Request(webhook, data=data, headers={'Content-Type': 'application/json'})
+          urllib.request.urlopen(req)
+          "
