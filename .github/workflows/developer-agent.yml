@@ -1,8 +1,10 @@
 name: AI Developer Agent（自動実装）
 
 on:
-  schedule:
-    - cron: '0 2 * * *'  # 11:00 JST (UTC 02:00)
+  push:
+    branches: [main]
+    paths:
+      - 'tasks/queue.md'
   workflow_dispatch:
     inputs:
       task:
