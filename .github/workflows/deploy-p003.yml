@@ -2,6 +2,11 @@ name: P003 デプロイ（Lambda + フロントエンド）
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'projects/P003-news-timeline/frontend/**'
+      - 'projects/P003-news-timeline/lambda/**'
 
 jobs:
   deploy:
