@@ -1,0 +1,116 @@
+name: CI（構文チェック・品質確認）
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, staging]
+
+jobs:
+  lint-frontend:
+    name: フロントエンド構文チェック
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node.js セットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: JS 構文チェック（node --check）
+        run: |
+          echo "=== フロントエンド JS 構文チェック ==="
+          ERRORS=0
+          for f in projects/P003-news-timeline/frontend/*.js; do
+            node --check "$f" 2>&1 && echo "  ✅ $f" || { echo "  ❌ $f"; ERRORS=$((ERRORS+1)); }
+          done
+          if [ $ERRORS -gt 0 ]; then
+            echo "::error::JS構文エラーが $ERRORS 件あります"
+            exit 1
+          fi
+          echo "✅ 全JSファイル 構文OK"
+
+      - name: HTML 基本チェック（必須要素の確認）
+        run: |
+          echo "=== HTML 基本チェック ==="
+          for f in projects/P003-news-timeline/frontend/*.html; do
+            if ! grep -q 'charset="UTF-8"' "$f"; then
+              echo "::warning::$f に charset=UTF-8 がありません"
+            fi
+            if ! grep -q 'viewport' "$f"; then
+              echo "::warning::$f に viewport meta がありません"
+            fi
+            echo "  ✅ $f"
+          done
+
+  lint-lambda:
+    name: Lambda 構文チェック
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python セットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Python 構文チェック（ast.parse）
+        run: |
+          echo "=== Lambda Python 構文チェック ==="
+          ERRORS=0
+          find projects/P003-news-timeline/lambda -name "*.py" | while read f; do
+            python3 -c "
+import ast, sys
+try:
+    ast.parse(open('$f').read())
+    print('  OK:', '$f')
+except SyntaxError as e:
+    print('  NG:', '$f', '-', e)
+    sys.exit(1)
+" || ERRORS=$((ERRORS+1))
+          done
+          find scripts -name "*.py" 2>/dev/null | while read f; do
+            python3 -c "
+import ast, sys
+try:
+    ast.parse(open('$f').read())
+    print('  OK:', '$f')
+except SyntaxError as e:
+    print('  NG:', '$f', '-', e)
+    sys.exit(1)
+" || true
+          done
+          echo "✅ Lambda 構文チェック完了"
+
+      - name: 危険パターン検出
+        run: |
+          echo "=== 危険パターン検出 ==="
+          # ハードコードされたシークレットチェック
+          if grep -rn "sk-ant-\|AKIA[A-Z0-9]" \
+               projects/P003-news-timeline/lambda/ scripts/ 2>/dev/null; then
+            echo "::error::APIキーがコードにハードコードされています"
+            exit 1
+          fi
+          # デバッグ用 print 過剰チェック（警告のみ）
+          COUNT=$(grep -rn "^print(" projects/P003-news-timeline/lambda/ 2>/dev/null | wc -l)
+          if [ "$COUNT" -gt 20 ]; then
+            echo "::warning::Lambdaにprint文が多いです（$COUNT 件）。本番ログが汚れます"
+          fi
+          echo "✅ 危険パターンなし"
+
+  lint-scripts:
+    name: エージェントスクリプト チェック
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: scripts/ Python 構文チェック
+        run: |
+          ERRORS=0
+          for f in scripts/*.py; do
+            python3 -m py_compile "$f" 2>&1 && echo "  ✅ $f" || { echo "  ❌ $f"; ERRORS=$((ERRORS+1)); }
+          done
+          [ $ERRORS -eq 0 ] || exit 1

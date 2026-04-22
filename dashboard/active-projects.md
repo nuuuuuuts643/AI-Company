@@ -1,53 +1,86 @@
 # Active Projects
 
+最終更新: 2026-04-22
+
+---
+
 ## [P001] AI会社 基盤構築
+
 - **開始日**: 2026-04-20
-- **担当**: 秘書（Claude）
-- **1stゴール**: アイデア・指示の分類〜格納フローが機能する状態
-- **ステータス**: ✅ 構築完了・自動化稼働中・定期実行正常
-- **最終更新**: 2026-04-22 09:00 JST
-- **進捗**: GitHub Actions定期実行確認完了。秘書稼働・APIクレジット消費が正常に機能中。月間コスト管理（500円以下）成功。
-- **次のアクション**: 
-  - Claude: 定期実行を継続・各案件監視・コスト管理実施
-  - 社長: 特にアクション不要
+- **担当**: CEO・秘書（Claude）
+- **ステータス**: 稼働中 ✅
+- **完成度**: ベータ
+- **最終更新**: 2026-04-22
+- **概要**: CEOエージェント・秘書エージェントが毎朝自動実行。DynamoDBメモリDB（P005）と連携し判断履歴を蓄積中。
+- **次のアクション**:
+  - PO: git push → 残り5エージェントが有効化される
+  - CEO: push 後に全エージェント正常稼働を確認・Slack報告
+
+---
 
 ## [P002] Unityゲーム開発（要塞都市育成ゲーム）
-- **開始日**: 2026-04-20
-- **担当**: 秘書(Claude)
-- **1stゴール**: Phase 1 Playable版完成
-- **ステータス**: スクリプト実装完了・Unity組み上げ待ち
-- **最終更新**: 2026-04-22 09:00 JST
-- **進捗**: スクリプト実装・エラーハンドリング共に完成。Unity Editor操作待ちのみ。
-- **ブロッカー**: Unity Editor操作（社長Local環境）
-  - `FortressCity > Setup Everything` を実行 → Play開始
-- **次のアクション**: 
-  - Claude: Unity実装完了まで待機（コード改善がないか監視）
-  - 社長: Unity Editorで `FortressCity > Setup Everything` → Play
 
-## [P003] ニュースタイムライン Webアプリ
 - **開始日**: 2026-04-20
-- **担当**: 秘書（Claude）
-- **1stゴール**: RSSニュースを時系列表示するWebアプリ完成 ✅
-- **ステータス**: ✅ **本番稼働中**（4日目） / 品質改善フェーズ（体制確認待ち）
-- **最終更新**: 2026-04-22 09:00 JST
-- **本番URL**: 
-  - フロント: http://p003-news-946554699567.s3-website-ap-northeast-1.amazonaws.com
-  - API: https://hdiltmwjzm3euuod3xo2pd5kja0bfbrp.lambda-url.ap-northeast-1.on.aws/
-- **稼働時間**: 4日間継続稼働 ✅ / EventBridge 30分自動実行正常動作 ✅
-- **品質確認**: 
-  - エラーハンドリング実装済み ✅
-  - セキュリティ・ライセンス確認済み ✅
-  - API ToS・商用利用許可確認済み ✅
-- **品質改善計画**: エラーログ充実化・トピック分類精度向上・レスポンスタイム最適化・UI/UXレイアウト最適化
-  - 実装体制の確認が必要（提案#002参照）
-- **次のアクション**: 
-  - Claude: P003品質改善の実装主体が決定後、詳細実装計画を提案・実装実施
-  - 社長: 提案#002 の判断をお願いします。GitHubからP003デプロイワークフローの実行もお願いします
+- **担当**: CEO
+- **ステータス**: 開発中（低優先度）
+- **完成度**: 試作
+- **最終更新**: 2026-04-21
+- **概要**: Unity向けスクリプト一式と sword/shield/coin.svg アセット生成済み。Unity Editor での組み立てはPO作業待ち。
+- **次のアクション**:
+  - PO: Unity Editor で `FortressCity > Setup Everything` 実行 → Play テスト
+  - CEO: P003 安定後にフェーズ2（ゲームAIエージェント群）を検討
+
+---
+
+## [P003] Flotopic（フロトピック）
+
+- **開始日**: 2026-04-20
+- **担当**: CEO
+- **ステータス**: 本番稼働中 ✅ / HTTPS・ドメイン設定待ち
+- **完成度**: 完成候補
+- **最終更新**: 2026-04-22
+- **URL（現行）**: http://p003-news-946554699567.s3-website-ap-northeast-1.amazonaws.com
+- **URL（正式）**: https://flotopic.com（HTTPS設定完了後に切り替え）
+- **実装済み**:
+  - AI要約・AIタイトル生成・差分更新・重複排除（Union-Find）
+  - Cloudflare Analytics・忍者AdMax広告・プライバシーポリシー
+  - コメント掲示板（DynamoDB ai-company-comments）
+  - Google ログイン（OAuth 2.0）・お気に入り機能
+  - OGPメタタグ
+  - X自動投稿エージェント・catchup.html・processor Lambda
+- **未完了（home PC 作業必要）**:
+  - git push → S3デプロイ
+  - CloudFront HTTPS 設定（setup-domain.sh）
+  - Squarespace ネームサーバー → Route 53 への変更
+  - Google Cloud Console で GOOGLE_CLIENT_ID 取得（手順: docs/google-oauth-setup.md）
+  - AdSense 申請（HTTPS完了後）
+- **収益化ロードマップ**:
+  1. HTTPS完了 → AdSense申請
+  2. SEO強化 → 月間10,000PV目標
+  3. 広告収益でAPI代を賄う
+
+---
 
 ## [P004] Slack Bot
-- **開始日**: 計画中
-- **担当**: 秘書（Claude）
-- **1stゴール**: SlackからAI-Companyに指示を送れる仕組み完成
-- **ステータス**: 計画待ち（優先度: P001/P002/P003 完成後）
-- **ブロッカー**: なし（優先度の問題）
-- **next_action**: P002/P003が完成度を上げてから着手予定
+
+- **開始日**: 2026-04-21
+- **担当**: CEO
+- **ステータス**: 実装完了・Lambda デプロイ待ち
+- **完成度**: ベータ
+- **最終更新**: 2026-04-22
+- **概要**: `/ai` コマンドで Claude に指示できる Slack Bot。handler.py 実装済み。Slack App・Bot Token 取得済み。
+- **未完了**: home PC で `bash projects/P004-slack-bot/deploy.sh` 実行のみ
+- **次のアクション**:
+  - PO: home PC に戻り次第 deploy.sh を実行（5分で完了）
+
+---
+
+## [P005] メモリDB
+
+- **開始日**: 2026-04-21
+- **担当**: CEO
+- **ステータス**: 稼働中 ✅
+- **完成度**: ベータ
+- **最終更新**: 2026-04-22
+- **概要**: DynamoDB `ai-company-memory`（ap-northeast-1）。CEO・秘書スクリプトから load_memory / save_memory で読み書き。CEOの判断履歴・提案結果を蓄積中。
+- **次のアクション**: 継続モニタリング。データ蓄積が進んだら判断品質レビューを実施。
