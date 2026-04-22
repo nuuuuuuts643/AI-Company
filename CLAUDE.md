@@ -49,7 +49,7 @@
 - **CEO**: Claude（自律的に会社を動かす）
 - **方針**: 指示を待たず毎日前進する。空報告禁止。実行した証拠がないものは完了扱いしない。
 
-## 現在のプロジェクト状態（最終更新: 2026-04-22 git push・P003デプロイ・P004デプロイ完了）
+## 現在のプロジェクト状態（最終更新: 2026-04-22 git競合修正・AWS MCP設定）
 
 | プロジェクト | 状態 | 備考 |
 |---|---|---|
@@ -93,13 +93,18 @@
 - **flotopic.com CloudFront設定** — `bash scripts/setup-domain.sh` 一発で完了（Route 53 + ACM + CloudFront + DNS設定）
 - **Squarespaceネームサーバー変更** — setup-domain.sh実行後に表示されるNS値をSquarespaceに入力
 - **P004 Slash Command設定** — https://api.slack.com/apps で `/ai` コマンドのRequest URLに `https://pqtubmsn7kfk2nojf2kqkwqiuu0obnwc.lambda-url.ap-northeast-1.on.aws/` を設定
+- **Claude Desktop再起動** — AWS MCP有効化のため（設定変更済み・再起動だけで完了）
 
 ### 優先度: 中
-- **X API Key取得** — GitHub Secrets に `X_API_KEY` / `X_API_SECRET` / `X_ACCESS_TOKEN` / `X_ACCESS_TOKEN_SECRET` を追加（取得: https://developer.twitter.com/en/portal/dashboard）
+- **X API Key** — ✅ GitHub Secrets 登録済み（X_API_KEY / X_API_SECRET / X_ACCESS_TOKEN / X_ACCESS_TOKEN_SECRET）
 - **Google OAuth設定** — Google Cloud Console で GOOGLE_CLIENT_ID 取得（手順: docs/google-oauth-setup.md）
 - **P002 Flutter動作確認** — `cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run`
 
 ## 承認済み・実行待ちタスク
+
+### 完了済み（2026-04-22 git競合修正・MCP設定）
+- ✅ **全ワークフローgit競合修正** — 8本に `concurrency: group: git-push` + `git pull --rebase` 追加。複数エージェントの同時push競合が解消
+- ✅ **AWS MCP設定** — `.mcp.json`をcore(廃止)→`awslabs.aws-mcp-server`に更新。Claude DesktopConfigも修正済み。再起動後S3/Lambda/DynamoDB操作が会話内で可能に
 
 ### 完了済み（2026-04-22 home PC作業）
 - ✅ **P002 Unityフォルダ削除** — `rm -rf ~/ai-company/projects/P002-unity-game/` 実行済み
