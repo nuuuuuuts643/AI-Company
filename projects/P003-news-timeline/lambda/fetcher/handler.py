@@ -63,7 +63,8 @@ RSS_FEEDS = [
     {'url': 'https://news.google.com/rss/search?q=%E6%B1%BA%E7%AE%97+%E4%B8%8A%E5%A0%B4+%E6%A0%AA%E5%BC%8F&hl=ja&gl=JP&ceid=JP:ja', 'genre': '株・金融'},
 ]
 
-JACCARD_THRESHOLD = 0.25  # 0.3→0.25に下げて類似記事をより積極的にまとめる
+JACCARD_THRESHOLD = 0.35  # 0.25→0.35に戻す（過剰クラスタリング防止）
+MAX_CLUSTER_SIZE  = 20    # 1トピックの最大記事数（超えたら新クラスタに分割）
 
 AI_GENERATION_LIMIT = 10   # スコア上位10件のみAI生成対象（コスト削減）
 MAX_API_CALLS = 20          # 1Lambda実行あたりのClaude API呼び出し上限（タイトル10＋要約10）
@@ -82,6 +83,11 @@ STOP_WORDS = {
     'は','が','を','に','の','と','で','も','や','か','へ','より','から','まで',
     'という','として','による','において','について','した','する','して',
     'された','される','てい','ます','です','だっ','ある','いる','なっ','れる',
+    # ニュースサイト・メディア名ノイズ
+    'ニュース','news','yahoo','google','livedoor','narinari','gigazine','gizmodo',
+    'itmatedia','itmedia','watch','ascii','pc','日経','読売','毎日','朝日','nhk',
+    'reuters','bloomberg','報道','記事','速報','最新','情報','解説','まとめ',
+    '続報','詳細','動画','写真','インタビュー','コメント','発表','掲載',
     # 英語
     'the','a','an','is','are','was','were','be','been','of','in','to','for',
     'on','at','by','with','as','from','that','this','it','its','and','or',
@@ -236,9 +242,7 @@ def fetch_rss(feed):
 def cluster(articles):
     """
     Union-Find によるクラスタリング。
-    旧実装（seed比較のみ）では推移的な類似を見逃していた。
-    例: A≈B、B≈C だが A≉C のとき、旧実装はA,Cを別クラスタにしてしまう。
-    Union-Findなら全ペアを比較して同一トピックを正しく統合できる。
+    MAX_CLUSTER_SIZE を超えたクラスタは分割して過剰クラスタを防ぐ。
     """
     n = len(articles)
     parent = list(range(n))
@@ -254,10 +258,21 @@ def cluster(articles):
         if px != py:
             parent[px] = py
 
+    # クラスタサイズを追跡してMAX_CLUSTER_SIZEを超えないようにする
+    cluster_size = {i: 1 for i in range(n)}
+
     for i in range(n):
         for j in range(i + 1, n):
+            ri, rj = find(i), find(j)
+            if ri == rj:
+                continue
+            # 統合後のサイズがMAX_CLUSTER_SIZEを超える場合はスキップ
+            if cluster_size.get(ri, 1) + cluster_size.get(rj, 1) > MAX_CLUSTER_SIZE:
+                continue
             if jaccard(articles[i]['title'], articles[j]['title']) >= JACCARD_THRESHOLD:
+                new_size = cluster_size.get(ri, 1) + cluster_size.get(rj, 1)
                 union(i, j)
+                cluster_size[find(i)] = new_size
 
     groups_dict = {}
     for i in range(n):
@@ -370,10 +385,12 @@ def apply_time_decay(score: int, last_article_ts: int) -> int:
         decay = 0.85
     elif hours_old < 24:
         decay = 0.65
+    elif hours_old < 48:
+        decay = 0.30
     elif hours_old < 72:
-        decay = 0.40
+        decay = 0.12
     else:
-        decay = 0.20
+        decay = 0.04
 
     return max(1, int(score * decay))
 
@@ -592,12 +609,15 @@ def find_related_topics(topics: list, max_related: int = 5) -> dict:
                 continue
             other_entities = topic_entities.get(oid, set())
             shared = my_entities & other_entities
-            if shared:
+            # 汎用エンティティ（1文字・AI等）だけの一致は除外
+            GENERIC = {'ai', 'it', 'ec', 'pc', 'sns', 'dx'}
+            meaningful = {e for e in shared if len(e) > 1 and e.lower() not in GENERIC}
+            if len(meaningful) >= 2 or (len(meaningful) == 1 and len(shared) >= 2):
                 candidates.append({
                     'topicId': oid,
                     'title': other.get('generatedTitle') or other.get('title', ''),
-                    'sharedEntities': list(shared),
-                    'overlapScore': len(shared),
+                    'sharedEntities': list(meaningful or shared),
+                    'overlapScore': len(meaningful) + len(shared),
                 })
 
         # Sort by overlap score desc, take top N
@@ -807,69 +827,52 @@ def save_summary_cache(topic_id, articles_hash, title, summary):
 
 # 戦略2: 抽出的タイトル・要約（Claude不要・コストゼロ）
 
+def clean_title(title):
+    """記事タイトルからメディア名サフィックスを除去 例: '記事 - 毎日新聞' → '記事'"""
+    import re as _re
+    t = _re.sub(r'\s*[-－–|｜]\s*[^\s].{1,25}$', '', title).strip()
+    t = _re.sub(r'^\[.{1,20}\]\s*', '', t).strip()  # '[ITmedia News] タイトル' → 'タイトル'
+    return t or title
+
+
 def extractive_title(articles):
     """
-    AIを使わない抽出的タイトル生成。【Claude不要ルート・コストゼロ】
-    全記事タイトルから最頻出キーワードを抽出し、テンプレートで組み立てる。
+    AIを使わない抽出的タイトル生成。最初の記事タイトルをそのまま使う（Claude不要）。
+    テンプレートは使わない（「ニュースをめぐる動き」等の無意味タイトル防止）。
     """
-    word_counter = Counter()
-    for a in articles:
-        words = normalize(a['title']) - STOP_WORDS
-        word_counter.update(w for w in words if len(w) >= 2)
-    top_words = [w for w, _ in word_counter.most_common(5) if word_counter[w] >= 2]
-
-    # エンティティが含まれていればそれを優先的に使う
-    all_text = ' '.join(a['title'] for a in articles)
-    entities = list(extract_entities(all_text))
-
-    if entities and top_words:
-        return f'{entities[0]}と{top_words[0]}をめぐる動き'
-    elif entities:
-        return f'{entities[0]}に関する動向'
-    elif top_words:
-        return f'{top_words[0]}をめぐる動き'
-    else:
-        # フォールバック: 最初の記事タイトルを短縮
-        first = articles[0]['title']
-        return first[:25] + ('…' if len(first) > 25 else '')
+    if not articles:
+        return ''
+    # 最もスコアが高い記事（最初の記事）のタイトルをクリーニングして使う
+    first = clean_title(articles[0]['title'])
+    return first[:40] + ('…' if len(first) > 40 else '')
 
 
 def extractive_summary(articles):
     """
-    AIを使わない抽出的要約。【Claude不要ルート・コストゼロ】
-    1. 全記事タイトルから最頻出キーワードを抽出
-    2. キーワードを含む代表的な見出しを選択
-    3. テンプレートで組み立て: 「{entity}に関してN件の報道。{headline}など。」
+    AIを使わない抽出的要約（Claude不要）。
+    複数記事タイトルから状況を読み取れる形で列挙。
+    Claude版が生成されるまでの仮表示。
     """
-    n = len(articles)
-    # キーワード抽出
-    word_counter = Counter()
-    for a in articles:
-        words = normalize(a['title']) - STOP_WORDS
-        word_counter.update(w for w in words if len(w) >= 2)
-    top_keywords = [w for w, _ in word_counter.most_common(3) if word_counter[w] >= 2]
-
-    # エンティティ抽出
-    all_text = ' '.join(a['title'] for a in articles)
-    entities = list(extract_entities(all_text))
-
-    # 代表見出し（最もキーワードが多く含まれる記事）
-    def keyword_score(article):
-        return sum(1 for kw in top_keywords if kw in article['title'])
-    sorted_articles = sorted(articles, key=keyword_score, reverse=True)
-    rep_title = sorted_articles[0]['title'] if sorted_articles else articles[0]['title']
-
-    # ソース一覧（最大3件）
-    sources = list({a['source'] for a in articles if a.get('source') and a['source'] != 'Unknown'})[:3]
-    source_str = '・'.join(sources) if sources else ''
-
-    # テンプレート組み立て
-    subject = entities[0] if entities else (top_keywords[0] if top_keywords else 'このトピック')
-    parts = [f'{subject}に関して{n}件の報道。']
-    parts.append(f'「{rep_title[:40]}」など。')
-    if source_str:
-        parts.append(f'（{source_str}）')
-    return ''.join(parts)
+    if not articles:
+        return None
+    seen = set()
+    lines = []
+    for a in articles[:10]:
+        t = clean_title(a.get('title', ''))
+        if t and t not in seen:
+            seen.add(t)
+            lines.append(t)
+        if len(lines) >= 5:
+            break
+    if not lines:
+        return None
+    if len(lines) == 1:
+        return lines[0]
+    # 最初の見出しをリード文に、残りをサポートとして列挙
+    lead = lines[0]
+    rest = lines[1:]
+    rest_text = '、'.join(f'「{l[:25]}」' for l in rest)
+    return f'{lead}。関連して{rest_text}など複数の報道。'
 
 
 # 戦略5: 差分更新（新記事のみClaudeに渡す・トークン削減）
@@ -1043,7 +1046,7 @@ def get_all_topics():
     items, kwargs = [], {
         'FilterExpression': 'SK = :m',
         'ExpressionAttributeValues': {':m': 'META'},
-        'ProjectionExpression': 'topicId,title,generatedTitle,generatedSummary,imageUrl,#s,articleCount,lastUpdated,genre,genres,#l,score,mediaCount,hatenaCount',
+        'ProjectionExpression': 'topicId,title,generatedTitle,generatedSummary,imageUrl,#s,articleCount,lastUpdated,genre,genres,#l,score,mediaCount,hatenaCount,lastArticleAt,velocityScore,lifecycleStatus,pendingAI,aiGenerated,relatedTopics,sources',
         'ExpressionAttributeNames': {'#s': 'status', '#l': 'lang'},
     }
     while True:
@@ -1051,6 +1054,31 @@ def get_all_topics():
         items.extend(r.get('Items', []))
         if not r.get('LastEvaluatedKey'): break
         kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
+    # 時間減衰を topics.json 書き出し時に再適用（DynamoDB保存スコアは古い場合がある）
+    for item in items:
+        raw_score = int(item.get('score', 0) or 0)
+        last_ts   = int(item.get('lastArticleAt', 0) or 0)
+        # lastArticleAt 未設定の旧データは lastUpdated をフォールバックに使う
+        if last_ts == 0:
+            lu = item.get('lastUpdated', '')
+            if lu:
+                try:
+                    # ISO形式 "2026-04-20T16:29:09.737353+00:00" を unix ts に変換
+                    lu_norm = lu[:19].replace('T', ' ')
+                    from datetime import datetime as _dt, timezone as _tz
+                    last_ts = int(_dt.strptime(lu_norm, '%Y-%m-%d %H:%M:%S').replace(tzinfo=_tz.utc).timestamp())
+                except Exception:
+                    pass
+        decayed = apply_time_decay(raw_score, last_ts)
+        # 過剰クラスターペナルティ: 記事数/メディア数 > 8 は品質低下フラグ
+        cnt   = int(item.get('articleCount', 1) or 1)
+        media = int(item.get('mediaCount',   1) or 1)
+        ratio = cnt / max(media, 1)
+        if ratio > 15:
+            decayed = max(1, int(decayed * 0.15))   # 激しい過剰クラスター
+        elif ratio > 8:
+            decayed = max(1, int(decayed * 0.35))   # 過剰クラスター
+        item['score'] = decayed
     items.sort(key=lambda x: int(x.get('score', 0) or 0), reverse=True)
     return items
 
@@ -1480,7 +1508,21 @@ def lambda_handler(event, context):
             if tid in parent_to_children:
                 t['childTopics'] = parent_to_children[tid]
         # ─────────────────────────────────────────────────────────────────
-        write_s3('api/topics.json', {'topics': topics, 'trendingKeywords': extract_trending_keywords(topics), 'updatedAt': ts_iso})
+        # 重複タイトルを排除（全角/半角正規化後に同一タイトルのものはスコア高い方を残す）
+        def _norm_title(t):
+            s = (t.get('generatedTitle') or t.get('title', '')).strip()
+            s = s.replace('｢','「').replace('｣','」').replace('　',' ')
+            s = re.sub(r'\s+', ' ', s)
+            s = re.sub(r'\s*[-－–|｜]\s*[^\s].{1,25}$', '', s)
+            return s.lower()[:50]
+        dedup_map = {}
+        for t in topics:
+            key = _norm_title(t)
+            sc  = int(t.get('score', 0) or 0)
+            if key not in dedup_map or sc > int(dedup_map[key].get('score', 0) or 0):
+                dedup_map[key] = t
+        topics_deduped = sorted(dedup_map.values(), key=lambda x: int(x.get('score', 0) or 0), reverse=True)
+        write_s3('api/topics.json', {'topics': topics_deduped, 'trendingKeywords': extract_trending_keywords(topics_deduped), 'updatedAt': ts_iso})
         generate_rss(topics, ts_iso)
         generate_sitemap(topics)
         for tid in saved_ids:
