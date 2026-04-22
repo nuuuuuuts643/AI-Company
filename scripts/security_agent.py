@@ -126,6 +126,7 @@ EXCLUDE_PATTERNS = [
     re.compile(r'<YOUR_'),
     re.compile(r'example\.com'),
     re.compile(r'PLACEHOLDER'),
+    re.compile(r'\.apps\.googleusercontent\.com'),  # Google OAuth Client ID（公開情報）
 ]
 
 # スキャン対象ディレクトリ・拡張子
