@@ -37,13 +37,12 @@ table    = dynamodb.Table(TABLE_NAME)
 s3       = boto3.client('s3', region_name=REGION)
 
 # 1回のバッチ処理でのClaude API呼び出し上限
-# 1日3回 × 最大10 = 最大30呼び出し/日
-MAX_API_CALLS = 10
+# 1日3回 × 最大50 = 最大150呼び出し/日（claude-haiku-4-5は激安なので余裕）
+MAX_API_CALLS = 50
 
-# Claude呼び出し条件
-MIN_ARTICLES_FOR_TITLE   = 3   # 3件以上あればタイトル生成 → 【Claude必要ルート】
-MIN_ARTICLES_FOR_SUMMARY = 5   # 5件以上あれば要約生成  → 【Claude必要ルート】
-# 上記未満は extractive_title/extractive_summary のまま → 【Claude不要ルート】
+# Claude呼び出し条件: 記事1件以上あれば生成（ほぼ全トピック対象）
+MIN_ARTICLES_FOR_TITLE   = 1   # 1件以上あればタイトル生成
+MIN_ARTICLES_FOR_SUMMARY = 1   # 1件以上あれば要約生成
 
 # ── テキスト正規化 ─────────────────────────────────────────────────────────
 STOP_WORDS = {
@@ -124,21 +123,24 @@ def extractive_title(articles):
 
 # ── Claude生成関数（このLambdaだけが呼び出す） ────────────────────────────
 
+def clean_headline(title):
+    """記事タイトルからメディア名サフィックスを除去 例: '記事 - 毎日新聞' → '記事'"""
+    return re.sub(r'\s*[-－–|｜]\s*[^\s].{1,20}$', '', title).strip()
+
+
 def generate_title(articles):
-    """
-    Claude Haiku でトピックタイトルを生成。
-    【Claude必要ルート】: MIN_ARTICLES_FOR_TITLE 以上の記事がある場合のみ呼ばれる。
-    """
+    """Claude Haiku でトピックタイトルを生成。"""
     if not ANTHROPIC_API_KEY:
         return None
-    headlines = '\n'.join(a.get('title', '') for a in articles[:6])
+    headlines = '\n'.join(clean_headline(a.get('title', '')) for a in articles[:8])
     prompt = (
         '以下はニュース記事の見出しです。\n'
         'これらが共通して報じているトピックを表す、概念的で簡潔な日本語タイトルを作ってください。\n\n'
         '【出力ルール】\n'
-        '- 12〜20文字程度の短いタイトル\n'
-        '- 「〇〇事件」「△△問題」「▲▲の動向」「◇◇をめぐる動き」などの形式が望ましい\n'
+        '- 15〜25文字程度の短いタイトル\n'
+        '- 「〇〇事件」「△△問題」「△△の動向」「◇◇をめぐる動き」などの形式が望ましい\n'
         '- 記事タイトルをそのままコピーしないこと\n'
+        '- メディア名（例: 毎日新聞、NHK等）は絶対に含めないこと\n'
         '- 固有名詞や核心キーワードは必ず含める\n'
         '- 説明文・句読点・かぎかっこ不要。タイトルのみ1行で出力\n\n'
         f'見出し:\n{headlines}'
@@ -168,23 +170,26 @@ def generate_title(articles):
 
 
 def generate_summary(articles):
-    """
-    Claude Haiku でトピック要約を生成。
-    【Claude必要ルート】: MIN_ARTICLES_FOR_SUMMARY 以上の記事がある場合のみ呼ばれる。
-    """
+    """Claude Haiku でトピック要約を生成。"""
     if not ANTHROPIC_API_KEY:
         return None
-    headlines = '\n'.join(a.get('title', '') for a in articles[:8])
+    headlines = '\n'.join(clean_headline(a.get('title', '')) for a in articles[:15])
     prompt = (
         '以下は同じニューストピックを報じた見出し一覧です。\n'
-        'このトピックの概要を分かりやすく2〜3文で要約してください。\n'
-        '日本語で150字以内にまとめてください。箇条書き不要。自然な文章のみ出力。\n\n'
+        'このトピックについて、詳しくない読者でも状況を把握できるよう要約してください。\n\n'
+        '【出力ルール】\n'
+        '- 日本語で150〜300文字\n'
+        '- 最初の文に「何が起きているか」を端的に書く\n'
+        '- 続けて「なぜ注目されているか・背景」を書く\n'
+        '- 最後に「現在の状況・今後」を書く\n'
+        '- メディア名・社名略称は含めない\n'
+        '- 箇条書き不要。自然な文章3〜4文\n\n'
         f'見出し:\n{headlines}'
     )
     try:
         body = json.dumps({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 150,
+            'max_tokens': 400,
             'messages': [{'role': 'user', 'content': prompt}],
         }).encode('utf-8')
         req = urllib.request.Request(
@@ -229,19 +234,24 @@ def get_pending_topics(max_topics=100):
 
 
 def get_latest_articles_for_topic(tid):
-    """
-    最新 SNAP# アイテムから記事リストを取得。
-    fetcher が SNAP# に articles フィールドを保存している。
-    """
+    """最新SNAPを優先しつつ過去スナップも合わせて最大20件の記事を返す（重複排除済み）"""
     try:
         r = table.query(
             KeyConditionExpression=Key('topicId').eq(tid) & Key('SK').begins_with('SNAP#'),
             ScanIndexForward=False,
-            Limit=1,
+            Limit=5,
         )
-        items = r.get('Items', [])
-        if items:
-            return items[0].get('articles', [])
+        seen_urls = set()
+        articles = []
+        for item in r.get('Items', []):
+            for a in item.get('articles', []):
+                url = a.get('url', '')
+                if url and url not in seen_urls:
+                    seen_urls.add(url)
+                    articles.append(a)
+                    if len(articles) >= 20:
+                        return articles
+        return articles
     except Exception as e:
         print(f'get_latest_articles_for_topic error [{tid}]: {e}')
     return []
