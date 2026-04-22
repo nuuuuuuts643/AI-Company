@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>しばらくぶりに見る | Flotopic</title>
+  <meta name="description" content="N日ぶりに帰ってきた方へ。あなたが離れていた間に起きたことをまとめてお届けします。">
+  <meta property="og:title" content="しばらくぶりに見る | Flotopic">
+  <meta property="og:description" content="あなたが離れていた間に勃発・急上昇したトピックを優先表示。文脈をすばやく取り戻せます。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://flotopic.com/catchup.html">
+  <meta property="og:image" content="https://flotopic.com/ogp.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+  <style>
+    /* ===== キャッチアップ専用スタイル ===== */
+    .catchup-hero {
+      background: linear-gradient(135deg, #1a1f3a 0%, #0f1629 100%);
+      padding: 40px 20px 32px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .catchup-hero h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin: 0 0 8px;
+    }
+    .catchup-hero p {
+      color: #94a3b8;
+      font-size: 0.95rem;
+      margin: 0 0 28px;
+    }
+
+    /* ── 期間セレクター ── */
+    .period-selector {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .period-btn {
+      padding: 10px 22px;
+      border-radius: 24px;
+      border: 1.5px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.05);
+      color: #cbd5e1;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+    .period-btn:hover {
+      border-color: #3b82f6;
+      color: #93c5fd;
+    }
+    .period-btn.active {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* ── フィルターバー ── */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 20px;
+      background: #0f1629;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .filter-bar label {
+      color: #94a3b8;
+      font-size: 0.85rem;
+    }
+    .lifecycle-btn {
+      padding: 5px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: transparent;
+      color: #94a3b8;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .lifecycle-btn.active {
+      border-color: #22c55e;
+      color: #22c55e;
+      background: rgba(34,197,94,0.08);
+    }
+    .lifecycle-btn[data-lc="cooling"].active {
+      border-color: #f59e0b;
+      color: #f59e0b;
+      background: rgba(245,158,11,0.08);
+    }
+    .lifecycle-btn[data-lc="archived"].active {
+      border-color: #6b7280;
+      color: #9ca3af;
+      background: rgba(107,114,128,0.08);
+    }
+    .result-count {
+      margin-left: auto;
+      color: #64748b;
+      font-size: 0.82rem;
+    }
+
+    /* ── トピックカード ── */
+    .catchup-list {
+      max-width: 720px;
+      margin: 24px auto;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .catchup-card {
+      background: #1e2540;
+      border-radius: 12px;
+      border-left: 4px solid #22c55e;
+      padding: 18px 20px;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .catchup-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+    }
+    .catchup-card[data-lc="cooling"] {
+      border-left-color: #f59e0b;
+    }
+    .catchup-card[data-lc="archived"] {
+      border-left-color: #4b5563;
+      opacity: 0.7;
+    }
+
+    /* 新着バッジ */
+    .badge-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .badge-new {
+      background: #dc2626;
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      letter-spacing: 0.05em;
+    }
+    .badge-hot {
+      background: #ea580c;
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+    .badge-lc {
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .badge-lc.active   { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .badge-lc.cooling  { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .badge-lc.archived { background: rgba(107,114,128,0.15); color: #9ca3af; }
+
+    .catchup-card h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin: 0 0 8px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* 期間概要（いつ始まり、どう展開したか） */
+    .catchup-timeline {
+      font-size: 0.82rem;
+      color: #64748b;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .catchup-timeline::before {
+      content: '🕐';
+    }
+
+    .catchup-summary {
+      font-size: 0.88rem;
+      color: #94a3b8;
+      line-height: 1.55;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .catchup-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.78rem;
+      color: #64748b;
+      flex-wrap: wrap;
+    }
+    .catchup-meta .genre-tag {
+      background: rgba(255,255,255,0.06);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .velocity-bar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .velocity-bar .bar {
+      height: 4px;
+      border-radius: 2px;
+      background: #22c55e;
+      min-width: 2px;
+    }
+
+    /* ── スケルトン ── */
+    .skeleton-card {
+      background: #1e2540;
+      border-radius: 12px;
+      padding: 18px 20px;
+      border-left: 4px solid #2d3a5a;
+    }
+    .skeleton-line {
+      height: 12px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #2d3a5a 25%, #374562 50%, #2d3a5a 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      margin-bottom: 10px;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ── 空状態 ── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #64748b;
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-state p { font-size: 0.95rem; }
+
+    /* ── ページネーション ── */
+    .load-more-wrap {
+      text-align: center;
+      padding: 20px;
+    }
+    .load-more-btn {
+      padding: 10px 32px;
+      border-radius: 24px;
+      border: 1.5px solid rgba(255,255,255,0.15);
+      background: transparent;
+      color: #94a3b8;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .load-more-btn:hover {
+      border-color: #3b82f6;
+      color: #93c5fd;
+    }
+
+    /* ── ナビゲーション ── */
+    .catchup-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: #0a0e1f;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .catchup-nav .logo {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #60a5fa;
+      text-decoration: none;
+    }
+    .catchup-nav .home-link {
+      font-size: 0.85rem;
+      color: #64748b;
+      text-decoration: none;
+    }
+    .catchup-nav .home-link:hover {
+      color: #94a3b8;
+    }
+
+    @media (max-width: 480px) {
+      .catchup-hero h1 { font-size: 1.4rem; }
+      .period-btn { font-size: 0.85rem; padding: 8px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ナビゲーション -->
+<nav class="catchup-nav">
+  <a href="/" class="logo">Flotopic</a>
+  <a href="/" class="home-link">← トップに戻る</a>
+</nav>
+
+<!-- ヒーロー：期間セレクター -->
+<div class="catchup-hero">
+  <h1>しばらくぶりですね 👋</h1>
+  <p>離れていた間に起きたことをまとめてお届けします</p>
+
+  <div class="period-selector" id="periodSelector">
+    <button class="period-btn" data-days="1">昨日（1日）</button>
+    <button class="period-btn active" data-days="3">3日ぶり</button>
+    <button class="period-btn" data-days="7">1週間ぶり</button>
+    <button class="period-btn" data-days="14">2週間ぶり</button>
+    <button class="period-btn" data-days="30">1ヶ月ぶり</button>
+  </div>
+</div>
+
+<!-- フィルターバー -->
+<div class="filter-bar">
+  <label>状況：</label>
+  <button class="lifecycle-btn active" data-lc="active">🟢 進行中</button>
+  <button class="lifecycle-btn active" data-lc="cooling">🟡 沈静化</button>
+  <button class="lifecycle-btn" data-lc="archived">⚫ 終息</button>
+  <span class="result-count" id="resultCount">読み込み中…</span>
+</div>
+
+<!-- トピックリスト -->
+<div class="catchup-list" id="catchupList">
+  <!-- スケルトンローダー -->
+  <div class="skeleton-card">
+    <div class="skeleton-line" style="width:60%"></div>
+    <div class="skeleton-line" style="width:90%"></div>
+    <div class="skeleton-line" style="width:75%"></div>
+  </div>
+  <div class="skeleton-card">
+    <div class="skeleton-line" style="width:50%"></div>
+    <div class="skeleton-line" style="width:85%"></div>
+    <div class="skeleton-line" style="width:65%"></div>
+  </div>
+  <div class="skeleton-card">
+    <div class="skeleton-line" style="width:70%"></div>
+    <div class="skeleton-line" style="width:80%"></div>
+    <div class="skeleton-line" style="width:55%"></div>
+  </div>
+</div>
+
+<div class="load-more-wrap" id="loadMoreWrap" style="display:none">
+  <button class="load-more-btn" id="loadMoreBtn">さらに読み込む</button>
+</div>
+
+<script>
+// ── 状態管理 ─────────────────────────────────────────────────────────────────
+let allTopics     = [];        // APIから取得した全トピック
+let selectedDays  = 3;         // 選択中の期間（日数）
+let activeLCSet   = new Set(['active', 'cooling']); // 有効なlifecycleStatus
+let displayedCount = 0;
+const PAGE_SIZE    = 15;
+
+// ── 日付ユーティリティ ────────────────────────────────────────────────────────
+function relativeTime(isoStr) {
+  if (!isoStr) return '';
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 60)  return `${m}分前`;
+  const h = Math.floor(m / 60);
+  if (h < 24)  return `${h}時間前`;
+  return `${Math.floor(h / 24)}日前`;
+}
+
+function formatDate(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  return `${d.getMonth()+1}月${d.getDate()}日`;
+}
+
+function isWithinDays(isoStr, days) {
+  if (!isoStr) return false;
+  const cutoff = Date.now() - days * 24 * 60 * 3600 * 1000;
+  return new Date(isoStr).getTime() >= cutoff;
+}
+
+// ── トピックデータ取得 ────────────────────────────────────────────────────────
+async function fetchTopics() {
+  try {
+    const url = (typeof API_BASE !== 'undefined' ? API_BASE : '') + 'api/topics.json';
+    const resp = await fetch(url, { cache: 'no-store' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    allTopics = Array.isArray(data) ? data : (data.topics || []);
+  } catch (e) {
+    console.error('トピック取得エラー:', e);
+    allTopics = [];
+  }
+}
+
+// ── フィルタリング & ソート ───────────────────────────────────────────────────
+function getFilteredTopics() {
+  const now     = Date.now();
+  const cutoff  = now - selectedDays * 24 * 60 * 60 * 1000;
+
+  return allTopics
+    .filter(t => {
+      // lifecycleStatusフィルタ
+      const lc = t.lifecycleStatus || 'active';
+      if (!activeLCSet.has(lc)) return false;
+
+      // 期間フィルタ: 期間内に「勃発(created)」または「急上昇(velocity)」したか
+      const created   = t.createdAt   ? new Date(t.createdAt).getTime()   : 0;
+      const updated   = t.updatedAt   ? new Date(t.updatedAt).getTime()   : 0;
+      const velocity  = parseInt(t.velocityScore || 0);
+
+      // ① 期間内に作成されたトピック（新規勃発）
+      if (created >= cutoff) return true;
+      // ② 期間内に更新されており、かつvelocity > 10（急上昇判定）
+      if (updated >= cutoff && velocity > 10) return true;
+
+      return false;
+    })
+    .sort((a, b) => {
+      // 優先度: ① 期間内に作成（新規勃発） ② velocityScore 降順
+      const aNew = new Date(a.createdAt || 0).getTime() >= cutoff ? 1 : 0;
+      const bNew = new Date(b.createdAt || 0).getTime() >= cutoff ? 1 : 0;
+      if (bNew !== aNew) return bNew - aNew;
+      return parseInt(b.velocityScore || 0) - parseInt(a.velocityScore || 0);
+    });
+}
+
+// ── カード生成 ────────────────────────────────────────────────────────────────
+function buildTimelineText(topic) {
+  const created  = topic.createdAt  ? formatDate(topic.createdAt)  : null;
+  const updated  = topic.updatedAt  ? formatDate(topic.updatedAt)  : null;
+  const cnt      = parseInt(topic.articleCount || 0);
+  const velocity = parseInt(topic.velocityScore || 0);
+
+  let text = '';
+  if (created && created !== updated) {
+    text += `${created}〜${updated || '現在'} `;
+  } else if (updated) {
+    text += `${updated} `;
+  }
+  if (velocity > 30) text += '🔥 急上昇中 ';
+  else if (velocity > 10) text += '📈 注目上昇中 ';
+  text += `${cnt}件の記事が集まっています`;
+  return text;
+}
+
+function buildVelocityBar(velocityScore) {
+  const v     = Math.min(parseInt(velocityScore || 0), 100);
+  const width = Math.max(2, Math.round(v / 100 * 80)); // px 最大80px
+  const color = v > 30 ? '#ef4444' : v > 10 ? '#f97316' : '#22c55e';
+  return `<div class="velocity-bar">
+    <div class="bar" style="width:${width}px;background:${color}"></div>
+    <span>velocity ${v}</span>
+  </div>`;
+}
+
+function buildCard(topic) {
+  const lc      = topic.lifecycleStatus || 'active';
+  const title   = topic.generatedTitle || topic.title || '（タイトルなし）';
+  const summary = topic.generatedSummary || topic.extractiveSummary || '';
+  const cnt     = parseInt(topic.articleCount || 0);
+  const genre   = topic.genre || '総合';
+  const tid     = topic.topicId || '';
+  const updated = topic.updatedAt || '';
+  const created = topic.createdAt || '';
+  const url     = `topic.html?id=${encodeURIComponent(tid)}`;
+  const velocity = parseInt(topic.velocityScore || 0);
+
+  // バッジ
+  const isNew    = isWithinDays(created, 1);
+  const isHot    = velocity > 30;
+  const lcLabels = { active: 'active', cooling: 'cooling', archived: 'archived' };
+  const lcTexts  = { active: '進行中', cooling: '沈静化中', archived: '終息' };
+
+  const badges = `
+    <div class="badge-row">
+      ${isNew ? '<span class="badge-new">NEW</span>' : ''}
+      ${isHot && !isNew ? '<span class="badge-hot">🔥 急上昇</span>' : ''}
+      <span class="badge-lc ${lcLabels[lc] || 'active'}">${lcTexts[lc] || '進行中'}</span>
+    </div>`;
+
+  const timelineText = buildTimelineText(topic);
+
+  return `
+    <a href="${url}" class="catchup-card" data-lc="${lc}">
+      ${badges}
+      <h2>${escapeHtml(title)}</h2>
+      <div class="catchup-timeline">${escapeHtml(timelineText)}</div>
+      <p class="catchup-summary">${escapeHtml(summary)}</p>
+      <div class="catchup-meta">
+        <span class="genre-tag">${escapeHtml(genre)}</span>
+        <span>📄 ${cnt}件</span>
+        <span>🕐 ${relativeTime(updated)}</span>
+        ${buildVelocityBar(velocity)}
+      </div>
+    </a>`;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ── レンダリング ──────────────────────────────────────────────────────────────
+function render(append = false) {
+  const filtered = getFilteredTopics();
+  const list     = document.getElementById('catchupList');
+  const wrap     = document.getElementById('loadMoreWrap');
+  const count    = document.getElementById('resultCount');
+
+  count.textContent = `${filtered.length}件のトピック`;
+
+  if (filtered.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">🌅</div>
+        <p>この期間に注目されたトピックはありません。<br>期間を広げてみてください。</p>
+      </div>`;
+    wrap.style.display = 'none';
+    return;
+  }
+
+  if (!append) {
+    displayedCount = 0;
+    list.innerHTML = '';
+  }
+
+  const slice = filtered.slice(displayedCount, displayedCount + PAGE_SIZE);
+  slice.forEach(t => {
+    list.insertAdjacentHTML('beforeend', buildCard(t));
+  });
+  displayedCount += slice.length;
+
+  wrap.style.display = displayedCount < filtered.length ? 'block' : 'none';
+}
+
+// ── イベント: 期間ボタン ──────────────────────────────────────────────────────
+document.getElementById('periodSelector').addEventListener('click', e => {
+  const btn = e.target.closest('.period-btn');
+  if (!btn) return;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedDays = parseInt(btn.dataset.days);
+  render();
+});
+
+// ── イベント: lifecycleフィルター ────────────────────────────────────────────
+document.querySelectorAll('.lifecycle-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const lc = btn.dataset.lc;
+    if (activeLCSet.has(lc)) {
+      activeLCSet.delete(lc);
+      btn.classList.remove('active');
+    } else {
+      activeLCSet.add(lc);
+      btn.classList.add('active');
+    }
+    render();
+  });
+});
+
+// ── イベント: もっと読み込む ──────────────────────────────────────────────────
+document.getElementById('loadMoreBtn').addEventListener('click', () => {
+  render(true);
+});
+
+// ── 初期化 ───────────────────────────────────────────────────────────────────
+(async () => {
+  // URLパラメータで期間を初期設定できる: catchup.html?days=7
+  const params = new URLSearchParams(location.search);
+  if (params.has('days')) {
+    const d = parseInt(params.get('days'));
+    if ([1,3,7,14,30].includes(d)) {
+      selectedDays = d;
+      document.querySelectorAll('.period-btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.days) === d);
+      });
+    }
+  }
+
+  await fetchTopics();
+  render();
+})();
+</script>
+</body>
+</html>

@@ -5,11 +5,15 @@ set -e
 REGION="ap-northeast-1"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 TABLE="p003-topics"
+COMMENTS_TABLE="ai-company-comments"
 BUCKET="p003-news-${ACCOUNT_ID}"
 FETCHER="p003-fetcher"
+PROCESSOR="p003-processor"
 API_FN="p003-api"
+COMMENTS_FN="p003-comments"
 ROLE="p003-lambda-role"
-ENV_VARS="Variables={TABLE_NAME=${TABLE},REGION=${REGION}}"
+ENV_VARS="Variables={TABLE_NAME=${TABLE},REGION=${REGION},SITE_URL=https://flotopic.com}"
+COMMENTS_ENV_VARS="Variables={COMMENTS_TABLE=${COMMENTS_TABLE},REGION=${REGION}}"
 
 echo ""
 echo "======================================="
@@ -19,8 +23,8 @@ echo "  リージョン   : $REGION"
 echo "======================================="
 echo ""
 
-# ---- 1. DynamoDB ----
-echo "[1/7] DynamoDB テーブル作成..."
+# ---- 1. DynamoDB (ニューストピック) ----
+echo "[1/8] DynamoDB テーブル作成..."
 aws dynamodb create-table \
   --table-name "$TABLE" \
   --attribute-definitions \
@@ -34,8 +38,32 @@ aws dynamodb create-table \
   && echo "  -> 作成完了" \
   || echo "  -> 既に存在（スキップ）"
 
+# ---- 1b. DynamoDB (コメント) ----
+echo "  -> コメントテーブル作成..."
+aws dynamodb create-table \
+  --table-name "$COMMENTS_TABLE" \
+  --attribute-definitions \
+    AttributeName=topicId,AttributeType=S \
+    AttributeName=SK,AttributeType=S \
+  --key-schema \
+    AttributeName=topicId,KeyType=HASH \
+    AttributeName=SK,KeyType=RANGE \
+  --billing-mode PAY_PER_REQUEST \
+  --region "$REGION" 2>/dev/null \
+  && {
+    echo "  -> コメントテーブル作成完了"
+    # TTL 有効化（レートリミット & コメント自動削除）
+    sleep 5
+    aws dynamodb update-time-to-live \
+      --table-name "$COMMENTS_TABLE" \
+      --time-to-live-specification "Enabled=true,AttributeName=ttl" \
+      --region "$REGION" > /dev/null 2>&1 \
+      && echo "  -> TTL 有効化完了" || echo "  -> TTL 設定スキップ"
+  } \
+  || echo "  -> コメントテーブル既に存在（スキップ）"
+
 # ---- 2. S3 ----
-echo "[2/7] S3 バケット作成..."
+echo "[2/8] S3 バケット作成..."
 aws s3api create-bucket \
   --bucket "$BUCKET" \
   --region "$REGION" \
@@ -54,11 +82,11 @@ aws s3api put-bucket-policy --bucket "$BUCKET" --policy "{
   }]
 }"
 aws s3api put-bucket-website --bucket "$BUCKET" \
-  --website-configuration '{"IndexDocument":{"Suffix":"index.html"},"ErrorDocument":{"Key":"index.html"}}'
+  --website-configuration '{"IndexDocument":{"Suffix":"index.html"},"ErrorDocument":{"Key":"404.html"}}'
 echo "  -> 静的サイトホスティング設定完了"
 
 # ---- 3. IAM ロール ----
-echo "[3/7] Lambda 実行ロール作成..."
+echo "[3/8] Lambda 実行ロール作成..."
 aws iam create-role \
   --role-name "$ROLE" \
   --assume-role-policy-document '{
@@ -81,7 +109,7 @@ sleep 15
 ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE}"
 
 # ---- 4. Fetcher Lambda ----
-echo "[4/7] Fetcher Lambda デプロイ..."
+echo "[4/8] Fetcher Lambda デプロイ..."
 cd lambda/fetcher
 zip -q function.zip handler.py
 aws lambda create-function \
@@ -104,7 +132,7 @@ rm function.zip
 cd ../..
 
 # ---- 5. API Lambda ----
-echo "[5/7] API Lambda デプロイ..."
+echo "[5/8] API Lambda デプロイ..."
 cd lambda/api
 zip -q function.zip handler.py
 aws lambda create-function \
@@ -157,11 +185,91 @@ aws lambda add-permission \
 
 echo "  -> API URL: $API_URL"
 
-# ---- 6. EventBridge ----
-echo "[6/7] EventBridge スケジュール設定..."
-RULE_ARN=$(aws events put-rule \
+# ---- 6. Comments Lambda ----
+echo "[6/8] Comments Lambda デプロイ..."
+cd lambda/comments
+zip -q function.zip handler.py
+aws lambda create-function \
+  --function-name "$COMMENTS_FN" \
+  --runtime python3.12 \
+  --role "$ROLE_ARN" \
+  --handler handler.lambda_handler \
+  --zip-file fileb://function.zip \
+  --timeout 15 --memory-size 128 \
+  --environment "$COMMENTS_ENV_VARS" \
+  --region "$REGION" 2>/dev/null \
+  && echo "  -> 新規作成完了" \
+  || {
+    aws lambda update-function-code --function-name "$COMMENTS_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
+    aws lambda wait function-updated --function-name "$COMMENTS_FN" --region "$REGION"
+    aws lambda update-function-configuration --function-name "$COMMENTS_FN" --timeout 15 --memory-size 128 --environment "$COMMENTS_ENV_VARS" --region "$REGION" > /dev/null
+    echo "  -> 更新完了"
+  }
+rm function.zip
+cd ../..
+
+# Comments Function URL
+echo "  -> Comments Function URL 設定..."
+aws lambda wait function-updated --function-name "$COMMENTS_FN" --region "$REGION" 2>/dev/null || true
+aws lambda wait function-active  --function-name "$COMMENTS_FN" --region "$REGION"
+
+COMMENTS_URL=$(aws lambda get-function-url-config \
+  --function-name "$COMMENTS_FN" --region "$REGION" \
+  --query FunctionUrl --output text 2>/dev/null) || COMMENTS_URL=""
+
+if [ -z "$COMMENTS_URL" ] || [ "$COMMENTS_URL" = "None" ]; then
+  COMMENTS_URL=$(aws lambda create-function-url-config \
+    --function-name "$COMMENTS_FN" \
+    --auth-type NONE \
+    --cors '{"AllowOrigins":["*"],"AllowMethods":["GET","POST","OPTIONS"],"AllowHeaders":["Content-Type"]}' \
+    --region "$REGION" \
+    --query FunctionUrl --output text)
+  echo "  -> 新規作成: $COMMENTS_URL"
+else
+  echo "  -> 既存URLを使用: $COMMENTS_URL"
+fi
+
+aws lambda add-permission \
+  --function-name "$COMMENTS_FN" \
+  --statement-id AllowPublicAccess \
+  --action lambda:InvokeFunctionUrl \
+  --principal "*" \
+  --function-url-auth-type NONE \
+  --region "$REGION" 2>/dev/null || true
+
+echo "  -> Comments URL: $COMMENTS_URL"
+
+# ---- 4b. Processor Lambda ----
+PROCESSOR_ENV_VARS="Variables={TABLE_NAME=${TABLE},S3_BUCKET=${BUCKET},REGION=${REGION},SITE_URL=https://flotopic.com}"
+echo "[4b] Processor Lambda デプロイ（バッチAI処理）..."
+cd lambda/processor
+zip -q function.zip handler.py
+aws lambda create-function \
+  --function-name "$PROCESSOR" \
+  --runtime python3.12 \
+  --role "$ROLE_ARN" \
+  --handler handler.lambda_handler \
+  --zip-file fileb://function.zip \
+  --timeout 300 --memory-size 256 \
+  --environment "$PROCESSOR_ENV_VARS" \
+  --region "$REGION" 2>/dev/null \
+  && echo "  -> 新規作成完了" \
+  || {
+    aws lambda update-function-code --function-name "$PROCESSOR" --zip-file fileb://function.zip --region "$REGION" > /dev/null
+    aws lambda wait function-updated --function-name "$PROCESSOR" --region "$REGION"
+    aws lambda update-function-configuration --function-name "$PROCESSOR" --timeout 300 --memory-size 256 --environment "$PROCESSOR_ENV_VARS" --region "$REGION" > /dev/null
+    echo "  -> 更新完了"
+  }
+rm function.zip
+cd ../..
+
+# ---- 7. EventBridge ----
+echo "[7/8] EventBridge スケジュール設定..."
+
+# Fetcher: 5分ごと（rate(5 minutes)）← 旧30分から短縮・Claude不要なので安価
+FETCHER_RULE_ARN=$(aws events put-rule \
   --name "p003-schedule" \
-  --schedule-expression "rate(30 minutes)" \
+  --schedule-expression "rate(5 minutes)" \
   --state ENABLED \
   --region "$REGION" \
   --query RuleArn --output text)
@@ -172,28 +280,347 @@ aws lambda add-permission \
   --statement-id AllowEventBridge \
   --action lambda:InvokeFunction \
   --principal events.amazonaws.com \
-  --source-arn "$RULE_ARN" \
+  --source-arn "$FETCHER_RULE_ARN" \
   --region "$REGION" 2>/dev/null || true
 
 aws events put-targets \
   --rule "p003-schedule" \
   --targets "Id=1,Arn=${FETCHER_ARN}" \
   --region "$REGION" > /dev/null
-echo "  -> 30分ごとの自動実行を設定完了"
+echo "  -> Fetcher: 5分ごとの自動実行を設定完了"
 
-# ---- 7. フロントエンド ----
-echo "[7/7] フロントエンドをアップロード..."
-echo "const API_BASE = '${API_URL}';" > frontend/config.js
+# Processor: 1日3回 JST 7:00 / 12:00 / 18:00
+# UTC換算: 22:00 / 03:00 / 09:00（JST = UTC+9）
+# cron(分 時 日 月 曜 年) ← AWS EventBridge書式
+PROCESSOR_RULE_ARN=$(aws events put-rule \
+  --name "p003-processor-schedule" \
+  --schedule-expression "cron(0 22,3,9 * * ? *)" \
+  --state ENABLED \
+  --region "$REGION" \
+  --query RuleArn --output text)
+
+PROCESSOR_ARN="arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${PROCESSOR}"
+aws lambda add-permission \
+  --function-name "$PROCESSOR" \
+  --statement-id AllowEventBridgeProcessor \
+  --action lambda:InvokeFunction \
+  --principal events.amazonaws.com \
+  --source-arn "$PROCESSOR_RULE_ARN" \
+  --region "$REGION" 2>/dev/null || true
+
+aws events put-targets \
+  --rule "p003-processor-schedule" \
+  --targets "Id=1,Arn=${PROCESSOR_ARN}" \
+  --region "$REGION" > /dev/null
+echo "  -> Processor: JST 7:00/12:00/18:00 の自動実行を設定完了 (UTC 22:00/03:00/09:00)"
+
+# ---- 8. フロントエンド (config.js は全Lambda URL確定後に書き込み) ----
+echo "[8/8] フロントエンドデプロイの準備..."
+SITE_URL="https://flotopic.com"
+
+
+
+# ---- 6b. Auth Lambda ----
+AUTH_FN="flotopic-auth"
+AUTH_ENV_VARS="Variables={REGION=${REGION},TABLE_NAME=${TABLE}}"
+echo "[6b] Auth Lambda デプロイ..."
+cd lambda/auth
+zip -q function.zip handler.py
+aws lambda create-function \
+  --function-name "$AUTH_FN" \
+  --runtime python3.12 \
+  --role "$ROLE_ARN" \
+  --handler handler.lambda_handler \
+  --zip-file fileb://function.zip \
+  --timeout 15 --memory-size 128 \
+  --environment "$AUTH_ENV_VARS" \
+  --region "$REGION" 2>/dev/null \
+  && echo "  -> 新規作成完了" \
+  || {
+    aws lambda update-function-code --function-name "$AUTH_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
+    aws lambda wait function-updated --function-name "$AUTH_FN" --region "$REGION"
+    aws lambda update-function-configuration --function-name "$AUTH_FN" --timeout 15 --memory-size 128 --environment "$AUTH_ENV_VARS" --region "$REGION" > /dev/null
+    echo "  -> 更新完了"
+  }
+rm function.zip
+cd ../..
+
+# Auth Function URL
+echo "  -> Auth Function URL 設定..."
+aws lambda wait function-updated --function-name "$AUTH_FN" --region "$REGION" 2>/dev/null || true
+aws lambda wait function-active  --function-name "$AUTH_FN" --region "$REGION"
+
+AUTH_URL=$(aws lambda get-function-url-config \
+  --function-name "$AUTH_FN" --region "$REGION" \
+  --query FunctionUrl --output text 2>/dev/null) || AUTH_URL=""
+
+if [ -z "$AUTH_URL" ] || [ "$AUTH_URL" = "None" ]; then
+  AUTH_URL=$(aws lambda create-function-url-config \
+    --function-name "$AUTH_FN" \
+    --auth-type NONE \
+    --cors '{"AllowOrigins":["*"],"AllowMethods":["POST","OPTIONS"],"AllowHeaders":["Content-Type","Authorization"]}' \
+    --region "$REGION" \
+    --query FunctionUrl --output text)
+  echo "  -> 新規作成: $AUTH_URL"
+else
+  echo "  -> 既存URLを使用: $AUTH_URL"
+fi
+
+aws lambda add-permission \
+  --function-name "$AUTH_FN" \
+  --statement-id AllowPublicAccess \
+  --action lambda:InvokeFunctionUrl \
+  --principal "*" \
+  --function-url-auth-type NONE \
+  --region "$REGION" 2>/dev/null || true
+
+echo "  -> Auth URL: $AUTH_URL"
+
+# ---- 6c. Favorites Lambda ----
+FAVORITES_FN="flotopic-favorites"
+FAVORITES_TABLE="flotopic-favorites"
+FAVORITES_ENV_VARS="Variables={REGION=${REGION},FAVORITES_TABLE=${FAVORITES_TABLE}}"
+echo "[6c] Favorites Lambda デプロイ..."
+cd lambda/favorites
+zip -q function.zip handler.py
+aws lambda create-function \
+  --function-name "$FAVORITES_FN" \
+  --runtime python3.12 \
+  --role "$ROLE_ARN" \
+  --handler handler.lambda_handler \
+  --zip-file fileb://function.zip \
+  --timeout 15 --memory-size 128 \
+  --environment "$FAVORITES_ENV_VARS" \
+  --region "$REGION" 2>/dev/null \
+  && echo "  -> 新規作成完了" \
+  || {
+    aws lambda update-function-code --function-name "$FAVORITES_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
+    aws lambda wait function-updated --function-name "$FAVORITES_FN" --region "$REGION"
+    aws lambda update-function-configuration --function-name "$FAVORITES_FN" --timeout 15 --memory-size 128 --environment "$FAVORITES_ENV_VARS" --region "$REGION" > /dev/null
+    echo "  -> 更新完了"
+  }
+rm function.zip
+cd ../..
+
+# Favorites Function URL
+echo "  -> Favorites Function URL 設定..."
+aws lambda wait function-updated --function-name "$FAVORITES_FN" --region "$REGION" 2>/dev/null || true
+aws lambda wait function-active  --function-name "$FAVORITES_FN" --region "$REGION"
+
+FAVORITES_URL=$(aws lambda get-function-url-config \
+  --function-name "$FAVORITES_FN" --region "$REGION" \
+  --query FunctionUrl --output text 2>/dev/null) || FAVORITES_URL=""
+
+if [ -z "$FAVORITES_URL" ] || [ "$FAVORITES_URL" = "None" ]; then
+  FAVORITES_URL=$(aws lambda create-function-url-config \
+    --function-name "$FAVORITES_FN" \
+    --auth-type NONE \
+    --cors '{"AllowOrigins":["*"],"AllowMethods":["GET","POST","DELETE","OPTIONS"],"AllowHeaders":["Content-Type","Authorization"]}' \
+    --region "$REGION" \
+    --query FunctionUrl --output text)
+  echo "  -> 新規作成: $FAVORITES_URL"
+else
+  echo "  -> 既存URLを使用: $FAVORITES_URL"
+fi
+
+aws lambda add-permission \
+  --function-name "$FAVORITES_FN" \
+  --statement-id AllowPublicAccess \
+  --action lambda:InvokeFunctionUrl \
+  --principal "*" \
+  --function-url-auth-type NONE \
+  --region "$REGION" 2>/dev/null || true
+
+echo "  -> Favorites URL: $FAVORITES_URL"
+
+# ---- 6d. Analytics Lambda ----
+ANALYTICS_FN="flotopic-analytics"
+ANALYTICS_TABLE="flotopic-analytics"
+ANALYTICS_ENV_VARS="Variables={REGION=${REGION},ANALYTICS_TABLE=${ANALYTICS_TABLE}}"
+echo "[6d] Analytics Lambda デプロイ..."
+cd lambda/analytics
+zip -q function.zip handler.py
+aws lambda create-function \
+  --function-name "$ANALYTICS_FN" \
+  --runtime python3.12 \
+  --role "$ROLE_ARN" \
+  --handler handler.lambda_handler \
+  --zip-file fileb://function.zip \
+  --timeout 15 --memory-size 128 \
+  --environment "$ANALYTICS_ENV_VARS" \
+  --region "$REGION" 2>/dev/null \
+  && echo "  -> 新規作成完了" \
+  || {
+    aws lambda update-function-code --function-name "$ANALYTICS_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
+    aws lambda wait function-updated --function-name "$ANALYTICS_FN" --region "$REGION"
+    aws lambda update-function-configuration --function-name "$ANALYTICS_FN" --timeout 15 --memory-size 128 --environment "$ANALYTICS_ENV_VARS" --region "$REGION" > /dev/null
+    echo "  -> 更新完了"
+  }
+rm function.zip
+cd ../..
+
+# Analytics Function URL
+echo "  -> Analytics Function URL 設定..."
+aws lambda wait function-updated --function-name "$ANALYTICS_FN" --region "$REGION" 2>/dev/null || true
+aws lambda wait function-active  --function-name "$ANALYTICS_FN" --region "$REGION"
+
+ANALYTICS_URL=$(aws lambda get-function-url-config \
+  --function-name "$ANALYTICS_FN" --region "$REGION" \
+  --query FunctionUrl --output text 2>/dev/null) || ANALYTICS_URL=""
+
+if [ -z "$ANALYTICS_URL" ] || [ "$ANALYTICS_URL" = "None" ]; then
+  ANALYTICS_URL=$(aws lambda create-function-url-config \
+    --function-name "$ANALYTICS_FN" \
+    --auth-type NONE \
+    --cors '{"AllowOrigins":["*"],"AllowMethods":["POST","OPTIONS"],"AllowHeaders":["Content-Type","Authorization"]}' \
+    --region "$REGION" \
+    --query FunctionUrl --output text)
+  echo "  -> 新規作成: $ANALYTICS_URL"
+else
+  echo "  -> 既存URLを使用: $ANALYTICS_URL"
+fi
+
+aws lambda add-permission \
+  --function-name "$ANALYTICS_FN" \
+  --statement-id AllowPublicAccess \
+  --action lambda:InvokeFunctionUrl \
+  --principal "*" \
+  --function-url-auth-type NONE \
+  --region "$REGION" 2>/dev/null || true
+
+echo "  -> Analytics URL: $ANALYTICS_URL"
+
+# ---- config.js に全URL書き込み（GOOGLE_CLIENT_IDは既存値を保持） ----
+echo "  -> config.js に全Lambda URL を書き込み..."
+# 既存のGOOGLE_CLIENT_IDを保持
+EXISTING_CLIENT_ID=""
+if [ -f "frontend/config.js" ]; then
+  EXISTING_CLIENT_ID=$(grep -oP "(?<=GOOGLE_CLIENT_ID = ')[^']*" frontend/config.js 2>/dev/null || true)
+fi
+GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-${EXISTING_CLIENT_ID}}"
+
+cat > frontend/config.js << EOF
+// Lambda URLs（deploy.sh が自動書き込み）
+const API_BASE       = '${API_URL}';
+const COMMENTS_URL   = '${COMMENTS_URL}';
+const AUTH_URL       = '${AUTH_URL}';
+const FAVORITES_URL  = '${FAVORITES_URL}';
+const ANALYTICS_URL  = '${ANALYTICS_URL}';
+
+// Google OAuth Client ID
+// Google Cloud Console → APIs & Services → OAuth 2.0 Client IDs で取得
+// 許可済みOrigin: https://flotopic.com を追加すること
+const GOOGLE_CLIENT_ID = '${GOOGLE_CLIENT_ID}';
+EOF
+echo "  -> config.js 更新完了（GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-未設定}）"
+
+# ---- deploy-security.sh でDynamoDBテーブル作成 ----
+echo "[後処理] セキュリティ用DynamoDBテーブル作成..."
+bash "$(dirname "$0")/deploy-security.sh" || echo "  -> deploy-security.sh 実行失敗（手動確認が必要）"
+
+# ---- フロントエンドをS3にアップロード ----
+echo "[フロントエンド] S3にアップロード..."
 aws s3 sync frontend/ "s3://${BUCKET}/" --delete
 
-SITE_URL="http://${BUCKET}.s3-website-${REGION}.amazonaws.com"
+# SEOファイルを正しい Content-Type で明示的にアップロード
+echo "  -> SEOファイルを Content-Type 指定でアップロード..."
+aws s3 cp frontend/robots.txt  "s3://${BUCKET}/robots.txt"  \
+  --content-type "text/plain" --cache-control "public, max-age=86400" --region "$REGION"
+aws s3 cp frontend/sitemap.xml "s3://${BUCKET}/sitemap.xml" \
+  --content-type "application/xml" --cache-control "public, max-age=3600" --region "$REGION"
+aws s3 cp frontend/ogp.png     "s3://${BUCKET}/ogp.png"     \
+  --content-type "image/png"  --cache-control "public, max-age=604800" --region "$REGION"
+echo "  -> robots.txt / sitemap.xml / ogp.png アップロード完了"
+aws s3 cp frontend/404.html "s3://${BUCKET}/404.html" \
+  --content-type "text/html" --cache-control "public, max-age=300" --region "$REGION"
+echo "  -> 404.html アップロード完了"
+
+# ---- Lambda 同時実行数制限（DDoS/コスト防衛） ----
+echo "  -> Lambda 同時実行数制限を設定..."
+aws lambda put-function-concurrency \
+  --function-name "$COMMENTS_FN" \
+  --reserved-concurrent-executions 20 \
+  --region "$REGION" > /dev/null 2>&1 && echo "  -> $COMMENTS_FN: max 20" || true
+aws lambda put-function-concurrency \
+  --function-name "$AUTH_FN" \
+  --reserved-concurrent-executions 10 \
+  --region "$REGION" > /dev/null 2>&1 && echo "  -> $AUTH_FN: max 10" || true
+aws lambda put-function-concurrency \
+  --function-name "$ANALYTICS_FN" \
+  --reserved-concurrent-executions 10 \
+  --region "$REGION" > /dev/null 2>&1 && echo "  -> $ANALYTICS_FN: max 10" || true
+aws lambda put-function-concurrency \
+  --function-name "$FAVORITES_FN" \
+  --reserved-concurrent-executions 20 \
+  --region "$REGION" > /dev/null 2>&1 && echo "  -> $FAVORITES_FN: max 20" || true
+echo "  -> 同時実行数制限設定完了"
+
+# ---- 6e. Lifecycle Lambda ----
+LIFECYCLE_FN="flotopic-lifecycle"
+LIFECYCLE_ENV_VARS="Variables={REGION=${REGION},TABLE_NAME=${TABLE_NAME},SLACK_WEBHOOK=${SLACK_WEBHOOK}}"
+echo "[6e] Lifecycle Lambda デプロイ..."
+cd lambda/lifecycle
+zip -q function.zip handler.py
+aws lambda create-function \
+  --function-name "$LIFECYCLE_FN" \
+  --runtime python3.12 \
+  --role "$ROLE_ARN" \
+  --handler handler.lambda_handler \
+  --zip-file fileb://function.zip \
+  --timeout 300 --memory-size 256 \
+  --environment "$LIFECYCLE_ENV_VARS" \
+  --region "$REGION" 2>/dev/null \
+  && echo "  -> 新規作成完了" \
+  || {
+    aws lambda update-function-code --function-name "$LIFECYCLE_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
+    aws lambda wait function-updated --function-name "$LIFECYCLE_FN" --region "$REGION"
+    aws lambda update-function-configuration --function-name "$LIFECYCLE_FN" --timeout 300 --memory-size 256 --environment "$LIFECYCLE_ENV_VARS" --region "$REGION" > /dev/null
+    echo "  -> 更新完了"
+  }
+rm function.zip
+cd ../..
+
+# EventBridge ルール（毎週月曜 02:00 UTC = 11:00 JST）
+aws events put-rule \
+  --name "flotopic-lifecycle-weekly" \
+  --schedule-expression "cron(0 2 ? * MON *)" \
+  --state ENABLED \
+  --region "$REGION" > /dev/null 2>&1 && echo "  -> EventBridge ルール設定完了" || true
+
+LIFECYCLE_ARN=$(aws lambda get-function \
+  --function-name "$LIFECYCLE_FN" --region "$REGION" \
+  --query Configuration.FunctionArn --output text 2>/dev/null) || LIFECYCLE_ARN=""
+
+if [ -n "$LIFECYCLE_ARN" ]; then
+  aws lambda add-permission \
+    --function-name "$LIFECYCLE_FN" \
+    --statement-id AllowEventBridgeInvoke \
+    --action lambda:InvokeFunction \
+    --principal events.amazonaws.com \
+    --region "$REGION" 2>/dev/null || true
+
+  RULE_ARN=$(aws events describe-rule \
+    --name "flotopic-lifecycle-weekly" --region "$REGION" \
+    --query RuleArn --output text 2>/dev/null) || RULE_ARN=""
+
+  if [ -n "$RULE_ARN" ]; then
+    aws events put-targets \
+      --rule "flotopic-lifecycle-weekly" \
+      --targets "Id=lifecycle-target,Arn=${LIFECYCLE_ARN}" \
+      --region "$REGION" > /dev/null 2>&1 && echo "  -> EventBridge → Lifecycle Lambda ターゲット設定完了" || true
+  fi
+fi
 
 echo ""
 echo "======================================="
 echo "  デプロイ完了！"
 echo "======================================="
-echo "  サイトURL : $SITE_URL"
-echo "  API URL   : $API_URL"
+echo "  サイトURL      : $SITE_URL"
+echo "  API URL        : $API_URL"
+echo "  Comments URL   : $COMMENTS_URL"
+echo "  Auth URL       : $AUTH_URL"
+echo "  Favorites URL  : $FAVORITES_URL"
+echo "  Analytics URL  : $ANALYTICS_URL"
 echo ""
 echo "  最初のニュース取得を実行中..."
 aws lambda invoke \

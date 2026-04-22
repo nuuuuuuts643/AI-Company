@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>プライバシーポリシー | Flotopic</title>
+  <meta name="description" content="Flotopicのプライバシーポリシーです。">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .privacy-container { max-width: 800px; margin: 40px auto; padding: 0 16px 60px; }
+    .privacy-container h1 { font-size: 1.6rem; margin-bottom: 8px; }
+    .privacy-container .updated { color: #64748b; font-size: .85rem; margin-bottom: 32px; }
+    .privacy-container h2 { font-size: 1.1rem; font-weight: 700; margin: 28px 0 8px; border-left: 4px solid #3b82f6; padding-left: 10px; }
+    .privacy-container p { line-height: 1.8; color: #374151; margin-bottom: 12px; }
+    .privacy-container ul { padding-left: 1.5em; line-height: 1.9; color: #374151; }
+    .back-link { display: inline-block; margin: 24px 16px 0; color: #3b82f6; text-decoration: none; font-size: .9rem; }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="inner header-inner">
+    <div>
+      <h1>📰 Flotopic</h1>
+      <p>話題の盛り上がりをAIで追う</p>
+    </div>
+  </div>
+</header>
+
+<a href="index.html" class="back-link">← トップに戻る</a>
+
+<div class="privacy-container">
+  <h1>プライバシーポリシー</h1>
+  <p class="updated">最終更新日：2026年4月22日</p>
+
+  <h2>1. 基本方針</h2>
+  <p>Flotopic（以下「本サービス」）は、ユーザーのプライバシーを尊重し、個人情報の適切な保護に努めます。本ポリシーは、本サービスにおける情報の取り扱いについて説明します。</p>
+
+  <h2>2. 収集する情報</h2>
+  <p>本サービスでは、サービス改善を目的として以下の情報を収集する場合があります。</p>
+  <ul>
+    <li>アクセスログ（IPアドレス、ブラウザ種別、参照元URL、アクセス日時）</li>
+    <li>ページビュー数・滞在時間などの匿名利用統計情報（サービス改善目的、個人を特定しない形で収集）</li>
+    <li>ログイン時：Googleアカウントの表示名およびプロフィール画像URL（DynamoDBに保存）</li>
+    <li>お気に入りトピックの選択情報（アカウントごとにDynamoDBに保存）</li>
+  </ul>
+  <p>パスワードやGoogle アカウントの詳細なプロフィールデータ（メールアドレスの生データ等）は収集・保存しません。</p>
+
+  <h2>3. アカウントと認証</h2>
+  <p>本サービスでは、Googleアカウントによる認証（Google OAuth 2.0）を使用しています。</p>
+  <ul>
+    <li>認証に利用するGoogleのユーザーID（sub ID）、表示名、プロフィール画像URLをDynamoDBに保存します</li>
+    <li>パスワードは本サービスでは一切保存しません。認証はすべてGoogleのサーバーで行われます</li>
+    <li>お気に入りトピックはユーザーIDに紐づけてDynamoDBに保存します</li>
+    <li>アカウントデータの削除をご希望の場合は、本ページ末尾のお問い合わせ先までご連絡ください。速やかにデータを削除します</li>
+  </ul>
+  <p>Google OAuth の詳細については <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google プライバシーポリシー</a> をご確認ください。</p>
+
+  <h2>4. アクセス解析ツールの使用</h2>
+  <p>本サービスでは、Cloudflare Web Analytics を使用してアクセス状況を解析しています。Cloudflare Web Analytics はCookieを使用せず、個人を特定しない形で情報を収集します。詳細は <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare プライバシーポリシー</a> をご確認ください。</p>
+
+  <h2>5. 広告について</h2>
+  <p>本サービスでは、第三者配信の広告サービスを利用する場合があります。広告配信事業者はCookieを使用して、ユーザーの興味に応じた広告を表示することがあります。Cookieを無効にする方法については、各ブラウザの設定をご参照ください。</p>
+
+  <h2>6. 外部リンク</h2>
+  <p>本サービスには外部サイトへのリンクが含まれています。リンク先のプライバシーポリシーについては、各サイトの方針に従ってください。本サービスは外部サイトの情報管理に関して責任を負いません。</p>
+
+  <h2>7. 免責事項</h2>
+  <p>本サービスに掲載されるニュース情報はRSSフィードおよびAIによる要約を含みます。内容の正確性・完全性を保証するものではありません。情報の利用は自己責任でお願いします。</p>
+
+  <h2>8. プライバシーポリシーの変更</h2>
+  <p>本ポリシーは必要に応じて改定することがあります。重要な変更がある場合は本ページにて告知します。</p>
+
+  <h2>9. お問い合わせ</h2>
+  <p>本ポリシーに関するお問い合わせ（データ削除依頼を含む）は、メール <a href="mailto:mrkm.naoya643@gmail.com">mrkm.naoya643@gmail.com</a> までご連絡ください。</p>
+</div>
+
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "099f0d39ef2649a5b3b9421595dd5474"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>

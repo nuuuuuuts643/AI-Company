@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>アーカイブ — 過去の注目トピック | Flotopic</title>
+  <meta name="description" content="話題が落ち着いたトピックのアーカイブです。当時の盛り上がりを振り返れます。">
+  <meta property="og:title" content="アーカイブ — 過去の注目トピック | Flotopic">
+  <meta property="og:description" content="話題が落ち着いたトピックのアーカイブです。当時の盛り上がりを振り返れます。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://flotopic.com/legacy.html">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    /* ===== 認証UI (index.htmlと同じ) ===== */
+    .auth-area { display: flex; align-items: center; gap: 8px; }
+    .auth-user-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; display: none; vertical-align: middle; }
+    .auth-user-name { font-size: .85rem; color: #e2e8f0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .auth-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; border: none; cursor: pointer; font-size: .82rem; font-weight: 600; transition: opacity .2s; }
+    .auth-btn:hover { opacity: .85; }
+    #auth-signin-btn { background: #fff; color: #374151; }
+    #auth-signout-btn { display: none; background: rgba(255,255,255,.15); color: #fff; }
+
+    /* ===== アーカイブページ固有 ===== */
+    .page-hero {
+      margin-bottom: 28px;
+    }
+    .page-hero h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+    .page-hero p {
+      color: #64748b;
+      font-size: .92rem;
+      line-height: 1.6;
+    }
+    .archive-empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: #9ca3af;
+      font-size: .95rem;
+      grid-column: 1 / -1;
+      line-height: 1.8;
+    }
+    .archive-empty .archive-empty-icon {
+      font-size: 3rem;
+      display: block;
+      margin-bottom: 16px;
+    }
+    .topic-card.archive-card {
+      border-left-color: #94a3b8;
+      opacity: .92;
+    }
+    .topic-status.archived {
+      color: #fff;
+      background: #94a3b8;
+    }
+    .card-thumb-placeholder.archived {
+      background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    }
+    .back-link-light {
+      color: #64748b;
+      text-decoration: none;
+      font-size: .85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 20px;
+      transition: color .15s;
+    }
+    .back-link-light:hover { color: #0f172a; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="inner header-inner">
+    <div>
+      <a href="index.html" style="text-decoration:none;color:inherit;">
+        <h1>📰 Flotopic</h1>
+        <p>話題の盛り上がりをAIで追う</p>
+      </a>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div id="weather-widget" class="weather-widget"></div>
+      <div class="auth-area">
+        <a id="mypage-link" href="mypage.html" style="display:none;color:#e2e8f0;font-size:.85rem;text-decoration:none;white-space:nowrap;">👤 マイページ</a>
+        <img id="auth-user-avatar" class="auth-user-avatar" src="" alt="アバター">
+        <span id="auth-user-name" class="auth-user-name"></span>
+        <button id="auth-signin-btn" class="auth-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Googleでログイン
+        </button>
+        <button id="auth-signout-btn" class="auth-btn">ログアウト</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="container" style="padding-top:24px;padding-bottom:48px;">
+
+  <a href="index.html" class="back-link-light">← トップに戻る</a>
+
+  <div class="page-hero">
+    <h2>📚 アーカイブ — 過去の注目トピック</h2>
+    <p>話題が落ち着いたトピックのアーカイブです。当時の盛り上がりを振り返れます。</p>
+  </div>
+
+  <div id="archive-genre-filter" class="filter-bar genre-bar"></div>
+
+  <div id="archive-grid" class="topics-grid">
+    <div class="loading"><div class="spinner"></div>読み込み中...</div>
+  </div>
+
+</main>
+
+<footer style="text-align:center;padding:20px;color:#94a3b8;font-size:.8rem;margin-top:40px;">
+  <a href="index.html" style="color:#94a3b8;text-decoration:underline;">トップ</a>
+  &nbsp;·&nbsp;
+  <a href="privacy.html" style="color:#94a3b8;text-decoration:underline;">プライバシーポリシー</a>
+</footer>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+// ===== アーカイブページ固有のロジック =====
+(function () {
+  'use strict';
+
+  const GENRES_ALL = ['すべて', '総合', '政治', 'ビジネス', '株・金融', 'テクノロジー', 'スポーツ', 'エンタメ', '科学', '健康', '国際'];
+  const GENRE_EMOJI_MAP = {
+    '政治': '🏛️', 'ビジネス': '💼', '株・金融': '📈', 'テクノロジー': '💻',
+    'スポーツ': '⚽', 'エンタメ': '🎬', '科学': '🔬', '健康': '💊', '国際': '🌏', '総合': '📰'
+  };
+
+  let archiveTopics = [];
+  let archiveGenre = 'すべて';
+
+  function daysAgo(dateStr) {
+    if (!dateStr) return '不明';
+    try {
+      const diff = Date.now() - new Date(dateStr).getTime();
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      if (days === 0) return '今日';
+      if (days === 1) return '1日前';
+      return days + '日前';
+    } catch (e) { return '不明'; }
+  }
+
+  function safeEsc(s) {
+    return typeof esc === 'function' ? esc(s) : String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function renderArchive(topics) {
+    const grid = document.getElementById('archive-grid');
+    if (!grid) return;
+
+    let filtered = topics.slice();
+    if (archiveGenre !== 'すべて') {
+      filtered = filtered.filter(t => (t.genres || [t.genre || '']).includes(archiveGenre));
+    }
+
+    if (!filtered.length) {
+      grid.innerHTML = [
+        '<div class="archive-empty">',
+        '  <span class="archive-empty-icon">📦</span>',
+        '  まだアーカイブされたトピックはありません。<br>',
+        '  活動が落ち着いたトピックが自動的にここに移動します。',
+        '</div>'
+      ].join('');
+      return;
+    }
+
+    grid.innerHTML = filtered.map(function (t) {
+      const primaryGenre = (t.genres || [t.genre || '総合'])[0];
+      const emoji = GENRE_EMOJI_MAP[primaryGenre] || '📰';
+      const lastDate = t.lastArticleAt || t.lastUpdated;
+      const title = t.generatedTitle || t.title || '(タイトルなし)';
+      const tid = t.topicId || '';
+      const genreBadges = (t.genres || [t.genre || '総合']).map(function (g) {
+        return '<span class="genre-tag">' + safeEsc(g) + '</span>';
+      }).join('');
+      const thumbHtml = t.imageUrl
+        ? '<div class="card-thumb"><img class="card-thumb-img" src="' + safeEsc(t.imageUrl) + '" alt="" loading="lazy" onerror="this.parentNode.innerHTML=\'<div class=\\\'card-thumb-placeholder archived\\\'>' + emoji + '</div>\'"></div>'
+        : '<div class="card-thumb"><div class="card-thumb-placeholder archived">' + emoji + '</div></div>';
+      return [
+        '<a class="topic-card archive-card" href="topic.html?id=' + safeEsc(tid) + '">',
+        '  ' + thumbHtml,
+        '  <div class="card-body">',
+        '    <div class="topic-status archived">📦 アーカイブ</div>',
+        '    <h3>' + safeEsc(title) + '</h3>',
+        '    <div class="topic-meta">',
+        '      ' + genreBadges,
+        '      <span>📅 最終更新: ' + daysAgo(lastDate) + '</span>',
+        '    </div>',
+        '  </div>',
+        '</a>'
+      ].join('\n');
+    }).join('\n');
+  }
+
+  function buildArchiveGenreFilter(topics) {
+    const gbar = document.getElementById('archive-genre-filter');
+    if (!gbar) return;
+
+    // Collect genres that actually appear in archive topics
+    const available = new Set(['すべて']);
+    topics.forEach(function (t) {
+      (t.genres || [t.genre || '総合']).forEach(function (g) { available.add(g); });
+    });
+    const genreList = GENRES_ALL.filter(function (g) { return available.has(g); });
+
+    gbar.innerHTML = genreList.map(function (g) {
+      return '<button class="filter-btn genre-btn' + (archiveGenre === g ? ' active' : '') + '" data-genre="' + safeEsc(g) + '">' + safeEsc(g) + '</button>';
+    }).join('');
+
+    gbar.querySelectorAll('.genre-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        gbar.querySelectorAll('.genre-btn').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        archiveGenre = btn.dataset.genre;
+        renderArchive(archiveTopics);
+      });
+    });
+  }
+
+  async function loadArchive() {
+    const grid = document.getElementById('archive-grid');
+    try {
+      const apiBase = (typeof API_BASE !== 'undefined') ? API_BASE : '';
+      const r = await fetch(apiBase + 'topics.json');
+      const data = await r.json();
+      const all = data.topics || [];
+
+      // Filter to only legacy/archived topics
+      archiveTopics = all.filter(function (t) {
+        return t.lifecycleStatus === 'legacy' || t.lifecycleStatus === 'archived';
+      });
+
+      buildArchiveGenreFilter(archiveTopics);
+      renderArchive(archiveTopics);
+    } catch (e) {
+      if (grid) {
+        grid.innerHTML = '<div class="archive-empty"><span class="archive-empty-icon">⚠️</span>データの読み込みに失敗しました。</div>';
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    loadArchive();
+  });
+
+})();
+</script>
+
+</body>
+</html>
