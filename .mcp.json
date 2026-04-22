@@ -1,9 +1,10 @@
 {
   "mcpServers": {
-    "awslabs.core-mcp-server": {
+    "awslabs.aws-mcp-server": {
       "command": "uvx",
-      "args": ["awslabs.core-mcp-server@latest"],
+      "args": ["awslabs.aws-mcp-server@latest"],
       "env": {
+        "AWS_PROFILE": "default",
         "AWS_REGION": "ap-northeast-1",
         "FASTMCP_LOG_LEVEL": "ERROR"
       }
