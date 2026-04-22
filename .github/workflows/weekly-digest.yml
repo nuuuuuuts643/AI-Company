@@ -6,6 +6,10 @@ on:
     - cron: '0 21 * * 0'
   workflow_dispatch:
 
+concurrency:
+  group: git-push
+  cancel-in-progress: false
+
 jobs:
   weekly-digest:
     name: Run Weekly Digest
@@ -46,4 +50,5 @@ jobs:
           git config user.name "AI-Company Weekly Digest Agent"
           git add dashboard/weekly-digest-log.md
           git diff --cached --quiet || git commit -m "[weekly-digest] $(date +%Y-%m-%d) 週次ダイジェスト更新"
+          git pull --rebase origin main
           git push
