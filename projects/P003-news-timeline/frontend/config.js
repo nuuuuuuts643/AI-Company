@@ -1,20 +1,11 @@
-// この値は deploy.sh 実行時に Lambda の Function URL で自動上書きされる。
-// ローカル確認用のプレースホルダー（実際の値は deploy.sh が書き込む）。
-const API_BASE      = 'https://YOUR_API_FUNCTION_URL/';
-const COMMENTS_URL  = 'https://YOUR_COMMENTS_FUNCTION_URL/';
+// API_BASE: S3静的ホスティング（topics.json等を直接読む設計）
+const API_BASE       = 'http://p003-news-946554699567.s3-website-ap-northeast-1.amazonaws.com/api/';
+const COMMENTS_URL   = 'https://kj22x2hxiqus7p65jebstcf5fe0xwvwr.lambda-url.ap-northeast-1.on.aws/';
+const AUTH_URL       = 'https://jimustpeaznrwhdrz5lstddz640ftmjp.lambda-url.ap-northeast-1.on.aws/';
+const FAVORITES_URL  = 'https://mumlvztiuzh5pqxgndgn4anzfu0wzvlt.lambda-url.ap-northeast-1.on.aws/';
+const ANALYTICS_URL  = 'https://2svmxx7aou6w5ekdruw5maqnfu0aplju.lambda-url.ap-northeast-1.on.aws/';
 
-// ===== 認証・ユーザー機能 =====
-// Google OAuth Client ID（Google Cloud Consoleで取得: APIs & Services → Credentials → OAuth 2.0 Client IDs）
-// 許可するOrigin: https://flotopic.com を追加すること
-const GOOGLE_CLIENT_ID = '';  // 例: '123456789-xxx.apps.googleusercontent.com'
-
-// 認証Lambda URL（deploy.sh実行後に自動設定）
-const AUTH_URL      = '';  // 例: 'https://xxx.lambda-url.ap-northeast-1.on.aws'
-
-// お気に入りLambda URL（deploy.sh実行後に自動設定）
-const FAVORITES_URL = '';  // 例: 'https://xxx.lambda-url.ap-northeast-1.on.aws'
-
-// ===== フェーズ管理 =====
-// Phase 2（Googleログイン）を解禁するにはGOOGLE_CLIENT_IDを設定する
-// Phase 3（コメント）を解禁するにはCOMMENTS_URLを設定する
-// 各フェーズの解禁条件は docs/flotopic-launch-strategy.md を参照
+// Google OAuth Client ID
+// Google Cloud Console → APIs & Services → OAuth 2.0 Client IDs で取得
+// 許可済みOrigin: https://flotopic.com を追加すること
+const GOOGLE_CLIENT_ID = '';

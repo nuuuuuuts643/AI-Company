@@ -12,7 +12,7 @@ PROCESSOR="p003-processor"
 API_FN="p003-api"
 COMMENTS_FN="p003-comments"
 ROLE="p003-lambda-role"
-ENV_VARS="Variables={TABLE_NAME=${TABLE},REGION=${REGION},SITE_URL=https://flotopic.com}"
+ENV_VARS="Variables={TABLE_NAME=${TABLE},REGION=${REGION},SITE_URL=https://flotopic.com,S3_BUCKET=${BUCKET}}"
 COMMENTS_ENV_VARS="Variables={COMMENTS_TABLE=${COMMENTS_TABLE},REGION=${REGION}}"
 
 echo ""
@@ -118,14 +118,14 @@ aws lambda create-function \
   --role "$ROLE_ARN" \
   --handler handler.lambda_handler \
   --zip-file fileb://function.zip \
-  --timeout 120 --memory-size 256 \
+  --timeout 300 --memory-size 256 \
   --environment "$ENV_VARS" \
   --region "$REGION" 2>/dev/null \
   && echo "  -> 新規作成完了" \
   || {
     aws lambda update-function-code --function-name "$FETCHER" --zip-file fileb://function.zip --region "$REGION" > /dev/null
     aws lambda wait function-updated --function-name "$FETCHER" --region "$REGION"
-    aws lambda update-function-configuration --function-name "$FETCHER" --timeout 120 --memory-size 256 --environment "$ENV_VARS" --region "$REGION" > /dev/null
+    aws lambda update-function-configuration --function-name "$FETCHER" --timeout 300 --memory-size 256 --environment "$ENV_VARS" --region "$REGION" > /dev/null
     echo "  -> 更新完了"
   }
 rm function.zip
@@ -500,8 +500,8 @@ fi
 GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-${EXISTING_CLIENT_ID}}"
 
 cat > frontend/config.js << EOF
-// Lambda URLs（deploy.sh が自動書き込み）
-const API_BASE       = '${API_URL}';
+// API_BASE: S3静的ホスティング（fetcher が api/topics.json を書き込む設計）
+const API_BASE       = 'http://p003-news-946554699567.s3-website-ap-northeast-1.amazonaws.com/api/';
 const COMMENTS_URL   = '${COMMENTS_URL}';
 const AUTH_URL       = '${AUTH_URL}';
 const FAVORITES_URL  = '${FAVORITES_URL}';
