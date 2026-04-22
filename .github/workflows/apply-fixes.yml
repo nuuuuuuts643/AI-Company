@@ -3,6 +3,10 @@ name: コードを最新版に更新
 on:
   workflow_dispatch:
 
+concurrency:
+  group: git-push
+  cancel-in-progress: false
+
 jobs:
   apply:
     runs-on: ubuntu-latest
@@ -55,6 +59,7 @@ jobs:
           git config user.name "AI-Company Secretary"
           git add -A
           git diff --cached --quiet || git commit -m "[fix] 秘書コードファイル変更禁止ルール追加 + P003 UI復元"
+          git pull --rebase origin main
           git push
 
       - name: AWS認証情報を設定
