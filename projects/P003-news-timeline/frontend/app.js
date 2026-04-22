@@ -1,4 +1,22 @@
 const REFRESH_MS = 5 * 60 * 1000;
+
+function showToast(msg, duration = 3000) {
+  let el = document.getElementById('flotopic-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'flotopic-toast';
+    el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:#1a1a1a;color:#fff;padding:10px 20px;border-radius:24px;font-size:.88rem;font-weight:600;z-index:9999;opacity:0;transition:all .3s ease;pointer-events:none;white-space:nowrap;';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  el.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(el._tid);
+  el._tid = setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(-50%) translateY(60px)';
+  }, duration);
+}
 const STATUS_LABEL = { rising:'🔺 上昇中', peak:'🔷 ピーク', declining:'🔻 減衰中' };
 const GENRES = ['すべて','総合','政治','ビジネス','株・金融','テクノロジー','スポーツ','エンタメ','科学','健康','国際'];
 const GENRE_EMOJI = {'政治':'🏛️','ビジネス':'💼','株・金融':'📈','テクノロジー':'💻','スポーツ':'⚽','エンタメ':'🎬','科学':'🔬','健康':'💊','国際':'🌏','総合':'📰'};
@@ -89,6 +107,7 @@ async function handleGoogleCredentialResponse(response) {
       };
       saveUser(currentUser);
       updateAuthUI();
+      showToast(`${currentUser.name || 'ログイン'} でログインしました`);
     } catch {}
     return;
   }
@@ -104,7 +123,7 @@ async function handleGoogleCredentialResponse(response) {
       currentUser = { ...data, token: idToken };
       saveUser(currentUser);
       updateAuthUI();
-      // コメントフォームを再描画（ログイン後に表示切替）
+      showToast(`${currentUser.name || 'ログイン'} でログインしました`);
       const topicId = new URLSearchParams(location.search).get('id');
       if (topicId) setupCommentForm(topicId);
     }
@@ -574,11 +593,22 @@ function renderDetail(data) {
 
   const summaryEl = document.querySelector('.summary-placeholder, .summary-text');
   if (summaryEl) {
-    if (meta.generatedSummary) {
+    const hasAISummary = meta.generatedSummary && !meta.pendingAI;
+    const hasExtractive = meta.generatedSummary && meta.pendingAI;
+    if (hasAISummary) {
       summaryEl.textContent = meta.generatedSummary;
       summaryEl.className = 'summary-text';
+    } else if (hasExtractive) {
+      const cnt = meta.articleCount || 1;
+      const sources = (meta.sources || []).slice(0, 3).join('・');
+      summaryEl.innerHTML =
+        `<p style="margin:0 0 8px;line-height:1.7;">${esc(meta.generatedSummary)}</p>` +
+        `<span style="color:var(--text-muted);font-size:.78rem;">⏳ AI要約生成中（1日3回更新）・${cnt}件の記事を追跡${sources ? `（${sources} ほか）` : ''}</span>`;
+      summaryEl.className = 'summary-placeholder';
     } else {
-      summaryEl.textContent = 'AI要約は次回の自動更新時に生成されます（30分ごと）。';
+      const cnt = meta.articleCount || 1;
+      const sources = (meta.sources || []).slice(0, 3).join('・');
+      summaryEl.innerHTML = `<span style="color:var(--text-muted);font-size:.85rem;">⏳ AI要約を生成中です（1日3回更新）。</span><br><span style="font-size:.82rem;color:var(--text-secondary);">${cnt}件の記事を追跡中${sources ? `（${sources} ほか）` : ''}。</span>`;
       summaryEl.className = 'summary-placeholder';
     }
   }
@@ -753,65 +783,91 @@ function renderDetail(data) {
       return `${m}月${day}日 ${h}:${min}`;
     };
 
+    const ARTICLES_PER_DAY = 3; // 1日あたり表示する記事数上限
+    const DAYS_INITIAL     = 7; // 初期表示する日数上限
+
+    const fmtDay = (ts) => {
+      const d = new Date(typeof ts === 'number' && ts < 1e11 ? ts * 1000 : ts);
+      return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+    };
+
     const renderTimeline = () => {
-      // Apply 30-day display window cap (oldest-first mode only)
-      const DISPLAY_WINDOW_DAYS = 30;
-      const cutoffTs = Date.now() / 1000 - DISPLAY_WINDOW_DAYS * 86400;
-      let displayArticles = allArticles.filter(a => (a.publishedAt || 0) >= cutoffTs);
-      if (displayArticles.length === 0) displayArticles = allArticles; // fallback for sparse topics
-
-      // Apply sort order
-      const ordered = timelineOrder === 'asc' ? [...displayArticles].reverse() : displayArticles;
-
-      // Group articles within 30 minutes of each other
-      const groups = [];
-      ordered.forEach(a => {
-        const ts = new Date(a._snapTs).getTime();
-        const lastGroup = groups[groups.length - 1];
-        if (lastGroup && Math.abs(ts - lastGroup.ts) <= 30 * 60 * 1000) {
-          lastGroup.articles.push(a);
-        } else {
-          groups.push({ ts, articles: [a] });
-        }
+      // 記事を日別にグルーピング（publishedAt → _snapTs の順で使用）
+      const dayMap = {};
+      allArticles.forEach(a => {
+        const ts = a.publishedAt ? a.publishedAt * 1000 : new Date(a._snapTs).getTime();
+        const key = fmtDay(new Date(ts));
+        if (!dayMap[key]) dayMap[key] = { ts, articles: [] };
+        dayMap[key].articles.push({ ...a, _ts: ts });
       });
 
-      storyEl.innerHTML = `
-        <div class="sort-toggle">
-          <span class="sort-label">並び順:</span>
-          <button class="sort-btn ${timelineOrder === 'desc' ? 'active' : ''}" data-order="desc">新しい順 ▾</button>
-          <button class="sort-btn ${timelineOrder === 'asc' ? 'active' : ''}" data-order="asc">古い順</button>
-        </div>
-        ${timelineOrder === 'asc' ? '<p class="timeline-window-note">📅 直近30日間の記事を表示</p>' : ''}
-        <div class="article-total-count">全${totalCount}件の記事</div>
-        <div class="story-timeline-wrap">
-          ${groups.map(g => `
-            <div class="timeline-item">
-              <div class="timeline-dot"></div>
-              <div class="timeline-content">
-                <div class="timeline-time">${fmtTl(g.ts)}</div>
-                ${g.articles.map(a => {
-                  const isNew = a.publishedAt && (Date.now() / 1000 - a.publishedAt) < 6 * 3600;
-                  return `<div class="timeline-article">
-                    <a href="${esc(a.url)}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}${isNew ? '<span class="new-badge">NEW</span>' : ''}</a>
-                    <div class="timeline-source">
-                      <img class="source-favicon" src="https://www.google.com/s2/favicons?domain=${esc(a.source)}&sz=16" alt="" width="12" height="12">
-                      ${esc(a.source)}
-                    </div>
-                  </div>`;
-                }).join('')}
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `;
+      // 日付降順 or 昇順に並べ替え
+      let days = Object.entries(dayMap).sort((a, b) =>
+        timelineOrder === 'asc' ? a[1].ts - b[1].ts : b[1].ts - a[1].ts
+      );
 
-      // Attach sort button listeners
+      const totalDays = days.length;
+      let showAll = false;
+
+      const buildHTML = () => {
+        const visibleDays = showAll ? days : days.slice(0, DAYS_INITIAL);
+        return `
+          <div class="sort-toggle">
+            <span class="sort-label">並び順:</span>
+            <button class="sort-btn ${timelineOrder === 'desc' ? 'active' : ''}" data-order="desc">新しい順 ▾</button>
+            <button class="sort-btn ${timelineOrder === 'asc' ? 'active' : ''}" data-order="asc">古い順</button>
+          </div>
+          <div class="article-total-count">全${totalCount}件の記事 · ${totalDays}日間</div>
+          <div class="story-timeline-wrap">
+            ${visibleDays.map(([dayKey, g]) => {
+              const sorted = [...g.articles].sort((a, b) => b._ts - a._ts);
+              const shown  = sorted.slice(0, ARTICLES_PER_DAY);
+              const rest   = sorted.slice(ARTICLES_PER_DAY);
+              return `<div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div class="timeline-content">
+                  <div class="timeline-time">${dayKey}</div>
+                  <div class="day-articles">
+                    ${shown.map(a => {
+                      const isNew = a.publishedAt && (Date.now() / 1000 - a.publishedAt) < 6 * 3600;
+                      return `<div class="timeline-article">
+                        <a href="${esc(a.url)}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}${isNew ? '<span class="new-badge">NEW</span>' : ''}</a>
+                        <div class="timeline-source">
+                          <img class="source-favicon" src="https://www.google.com/s2/favicons?domain=${esc(a.source)}&sz=16" alt="" width="12" height="12">
+                          ${esc(a.source)}
+                        </div>
+                      </div>`;
+                    }).join('')}
+                    ${rest.length ? `<details class="day-more-details"><summary class="day-more-btn">他${rest.length}件を表示</summary>${rest.map(a => `<div class="timeline-article">
+                        <a href="${esc(a.url)}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
+                        <div class="timeline-source"><img class="source-favicon" src="https://www.google.com/s2/favicons?domain=${esc(a.source)}&sz=16" alt="" width="12" height="12">${esc(a.source)}</div>
+                      </div>`).join('')}</details>` : ''}
+                  </div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+          ${!showAll && totalDays > DAYS_INITIAL ? `<button class="timeline-show-all-btn" id="tl-show-all">📅 全${totalDays}日間を表示</button>` : ''}
+        `;
+      };
+
+      storyEl.innerHTML = buildHTML();
+
       storyEl.querySelectorAll('.sort-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           timelineOrder = btn.dataset.order;
           renderTimeline();
         });
       });
+
+      const showAllBtn = document.getElementById('tl-show-all');
+      if (showAllBtn) {
+        showAllBtn.addEventListener('click', () => {
+          showAll = true;
+          storyEl.innerHTML = buildHTML();
+          storyEl.querySelectorAll('.sort-btn').forEach(b => b.addEventListener('click', () => { timelineOrder = b.dataset.order; renderTimeline(); }));
+        });
+      }
     };
 
     renderTimeline();
@@ -1227,8 +1283,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const refresh = () => fetch(apiUrl(`topic/${topicId}`))
       .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-      .then(renderDetail)
-      .catch(err => { console.error(err); showError(); });
+      .then(data => { try { renderDetail(data); } catch(e) { console.error('renderDetail error:', e); } })
+      .catch(err => { console.error('fetch error:', err); showError(); });
     refresh();
     setInterval(refresh, REFRESH_MS);
 
