@@ -49,35 +49,35 @@
 - **CEO**: Claude（自律的に会社を動かす）
 - **方針**: 指示を待たず毎日前進する。空報告禁止。実行した証拠がないものは完了扱いしない。
 
-## 現在のプロジェクト状態（最終更新: 2026-04-22 P003 X自動投稿・catchup.html・processor強化 完了 / git push待ち）
+## 現在のプロジェクト状態（最終更新: 2026-04-22 git push・P003デプロイ・P004デプロイ完了）
 
 | プロジェクト | 状態 | 備考 |
 |---|---|---|
-| P003 Flotopic | X自動投稿・catchup.html・processor完成 / git push待ち | flotopic.com。processor MAX_API_CALLS=10に修正済み。X自動投稿エージェント(scripts/x_agent.py)+x-agent.yml完成。catchup.html完成。home PCでgit push + deploy.sh実行が必要 |
-| P002 Flutterゲーム | Flutter+Flameで再構築中 | Unity版は停止。`projects/P002-flutter-game/` にFlutter+Flame実装済み（50+ファイル）。Unity版フォルダ（P002-unity-game）は帰宅後に手動削除予定。 |
+| P003 Flotopic | **本番稼働中** ✅ | flotopic.com。catchup.html・processor Lambda・X投稿AI全てデプロイ済み。HTTPS設定待ち（setup-domain.sh） |
+| P002 Flutterゲーム | Flutter+Flameで再構築中 | Unity版フォルダ削除済み。`projects/P002-flutter-game/` にFlutter+Flame実装済み（50+ファイル） |
+| P004 Slackボット | **デプロイ完了** ✅ | Bot URL: https://pqtubmsn7kfk2nojf2kqkwqiuu0obnwc.lambda-url.ap-northeast-1.on.aws/ Slack AppでSlash Command `/ai` 設定が必要 |
 | P005 メモリDB | 稼働中 | DynamoDB ai-company-memory (ap-northeast-1) 稼働中 |
-| P004 Slackボット | 実装完了・デプロイ待ち | handler.py完成。Slack App作成済み。home PCでdeploy.sh実行が必要 |
 
-## 専門AI稼働状況（git push後に全て有効化）
+## 専門AI稼働状況
 
 ### 運営エージェント
 | エージェント | スクリプト | スケジュール | 状態 |
 |---|---|---|---|
 | CEO | scripts/ceo_run.py | 毎朝8:30 JST | ✅ 稼働中 |
 | 秘書 | scripts/secretary_run.py | 毎朝9:00 JST | ✅ 稼働中（Notion同期強化済み） |
-| 開発監視AI | scripts/devops_agent.py | 毎時 | 🟡 push待ち |
-| マーケティングAI | scripts/marketing_agent.py | 毎朝10:00 JST | 🟡 push待ち |
-| 収益管理AI | scripts/revenue_agent.py | 毎週月曜9:30 JST | 🟡 push待ち |
-| 編集AI | scripts/editorial_agent.py | 毎週水曜9:00 JST | 🟡 push待ち |
-| SEO AI | scripts/seo_agent.py | 毎週月曜10:00 JST | 🟡 push待ち（新規追加）|
-| X投稿AI | scripts/x_agent.py | 日次8:00/週次月9:00/月次1日9:00 JST | 🟡 push待ち（新規追加）|
+| 開発監視AI | scripts/devops_agent.py | 毎時 | ✅ 有効（git push済み） |
+| マーケティングAI | scripts/marketing_agent.py | 毎朝10:00 JST | ✅ 有効（git push済み） |
+| 収益管理AI | scripts/revenue_agent.py | 毎週月曜9:30 JST | ✅ 有効（git push済み） |
+| 編集AI | scripts/editorial_agent.py | 毎週水曜9:00 JST | ✅ 有効（git push済み） |
+| SEO AI | scripts/seo_agent.py | 毎週月曜10:00 JST | ✅ 有効（git push済み）|
+| X投稿AI | scripts/x_agent.py | 日次8:00/週次月9:00/月次1日9:00 JST | ✅ 有効（git push済み・X API key未設定）|
 
 ### ガバナンスエージェント（CEO含む全エージェントを独立監視）
 | エージェント | スクリプト | スケジュール | 状態 | 報告先 |
 |---|---|---|---|---|
-| SecurityAI | scripts/security_agent.py | push時(L1/L2) + 毎週月曜8:00 JST(L3) | 🟡 push待ち | Slack（CRITICAL時はナオヤさん直報） |
-| LegalAI | scripts/legal_agent.py | push時(L2) + 毎月1日(L3) | 🟡 push待ち | Slack（要対応時はナオヤさん直報） |
-| AuditAI | scripts/audit_agent.py | push時 + 週次 | 🟡 push待ち | **ナオヤさん直接報告（CEOを経由しない）** |
+| SecurityAI | scripts/security_agent.py | push時(L1/L2) + 毎週月曜8:00 JST(L3) | ✅ 有効 | Slack（CRITICAL時はナオヤさん直報） |
+| LegalAI | scripts/legal_agent.py | push時(L2) + 毎月1日(L3) | ✅ 有効 | Slack（要対応時はナオヤさん直報） |
+| AuditAI | scripts/audit_agent.py | push時 + 週次 | ✅ 有効 | **ナオヤさん直接報告（CEOを経由しない）** |
 
 #### ガバナンス補助
 | ファイル | 役割 |
@@ -87,51 +87,25 @@
 | DynamoDB: ai-company-agent-status | 各エージェントのactive/paused/stopped状態管理 |
 | DynamoDB: ai-company-audit | 全監査ログの永続保存 |
 
-## home PCに戻ったら実行するコマンド（優先順）
+## 残タスク（ナオヤ手動作業必要）
 
-```bash
-cd ~/ai-company
+### 優先度: 高
+- **flotopic.com CloudFront設定** — `bash scripts/setup-domain.sh` 一発で完了（Route 53 + ACM + CloudFront + DNS設定）
+- **Squarespaceネームサーバー変更** — setup-domain.sh実行後に表示されるNS値をSquarespaceに入力
+- **P004 Slash Command設定** — https://api.slack.com/apps で `/ai` コマンドのRequest URLに `https://pqtubmsn7kfk2nojf2kqkwqiuu0obnwc.lambda-url.ap-northeast-1.on.aws/` を設定
 
-# 0. P002 Unityフォルダ削除（不要）
-rm -rf ~/ai-company/projects/P002-unity-game/
-
-# 1. 全変更をpush（P003改善・X投稿エージェント・catchup.html等）
-git add -A && git commit -m "P003 X自動投稿・catchup.html・processor実装" && git push
-
-# 2. P003 S3再デプロイ（processor Lambda + X agent + catchup.html含む）
-bash projects/P003-news-timeline/deploy.sh
-
-# 3. P004 Slackボット デプロイ
-GITHUB_TOKEN="***REDACTED-SEC3***" \
-SLACK_BOT_TOKEN="***REDACTED-SEC3***23616-10995291739264-bNUcli9Op3eos6H9tHCDDMMF" \
-SLACK_WEBHOOK="***REDACTED-SEC3***" \
-bash projects/P004-slack-bot/deploy.sh
-
-# 4. flotopic.com CloudFront + SSL + Route 53 セットアップ
-aws configure  # 未設定なら先に実行
-bash scripts/setup-domain.sh
-
-# 5. P002 Flutter動作確認
-cd ~/ai-company/projects/P002-flutter-game
-flutter pub get
-flutter run   # iOSシミュレータで起動確認
-```
-
-### ⚠️ X自動投稿の有効化に必要なもの（帰宅後にGitHub Secretsへ追加）
-- `X_API_KEY` / `X_API_SECRET` — Twitter Developer Portal で取得
-- `X_ACCESS_TOKEN` / `X_ACCESS_TOKEN_SECRET` — 同上（Write権限必要）
-- 取得URL: https://developer.twitter.com/en/portal/dashboard
-- 追加先: GitHub → Settings → Secrets → Actions
+### 優先度: 中
+- **X API Key取得** — GitHub Secrets に `X_API_KEY` / `X_API_SECRET` / `X_ACCESS_TOKEN` / `X_ACCESS_TOKEN_SECRET` を追加（取得: https://developer.twitter.com/en/portal/dashboard）
+- **Google OAuth設定** — Google Cloud Console で GOOGLE_CLIENT_ID 取得（手順: docs/google-oauth-setup.md）
+- **P002 Flutter動作確認** — `cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run`
 
 ## 承認済み・実行待ちタスク
 
-### 残タスク（home PC必要）
-- **git push** — ローカルコミット済み（ceo_run.py / secretary_run.py / P004 handler / P003 HTML等 + Flotopic名称変更）
-- **P003 S3再デプロイ** — git push後に実行
-- **P004 Lambdaデプロイ** — deploy.sh実行のみ
-- **flotopic.com CloudFront設定** — `bash scripts/setup-domain.sh` 一発で完了（Route 53 + ACM + CloudFront + DNS設定）
-- **AWS MCPサーバー設定**（承認済み #001）— `aws configure` 後にClaude desktop設定
-- **Squarespaceネームサーバー変更** — setup-domain.sh実行後に表示されるNS値をSquarespaceに入力
+### 完了済み（2026-04-22 home PC作業）
+- ✅ **P002 Unityフォルダ削除** — `rm -rf ~/ai-company/projects/P002-unity-game/` 実行済み
+- ✅ **git push** — 654ファイルをpush完了（f7cac05）
+- ✅ **P003 S3デプロイ** — catchup.html・processor Lambda・X投稿エージェント全てデプロイ済み
+- ✅ **P004 Lambdaデプロイ** — Bot URL: https://pqtubmsn7kfk2nojf2kqkwqiuu0obnwc.lambda-url.ap-northeast-1.on.aws/
 
 ### 完了済みタスク（2026-04-22 X投稿エージェント・processor強化・catchup.html）
 
