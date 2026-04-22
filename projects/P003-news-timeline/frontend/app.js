@@ -1215,14 +1215,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const topicId = new URLSearchParams(location.search).get('id');
   if (topicId) {
     trackView(topicId);
-    const refresh = () => fetch(apiUrl(`topic/${topicId}`)).then(r=>r.json()).then(renderDetail).catch(console.error);
+    const showError = () => {
+      const titleEl = document.getElementById('topic-title');
+      if (titleEl) titleEl.textContent = '読み込みに失敗しました';
+    };
+    const refresh = () => fetch(apiUrl(`topic/${topicId}`))
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(renderDetail)
+      .catch(err => { console.error(err); showError(); });
     refresh();
     setInterval(refresh, REFRESH_MS);
 
     loadComments(topicId);
     setupCommentForm(topicId);
     setInterval(() => loadComments(topicId), 3 * 60 * 1000);
-  } else {
+  } else if (document.getElementById('topics-grid')) {
     buildFilters();
     setupSearch();
     setupFavsToggle();
