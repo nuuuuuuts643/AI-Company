@@ -267,10 +267,16 @@ function renderKeywordStrip(keywords) {
 
   strip.style.display = 'flex';
 
+  // ランダムな急上昇キーワードをプレースホルダーに表示
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    const randomKw = keywords[Math.floor(Math.random() * keywords.length)].keyword;
+    searchInput.placeholder = `🔍 例：「${randomKw}」で検索...`;
+  }
+
   chips.querySelectorAll('.keyword-chip').forEach(btn => {
     btn.addEventListener('click', () => {
       const kw = btn.dataset.keyword;
-      const searchInput = document.getElementById('search-input');
       if (searchInput) {
         searchInput.value = kw;
         searchInput.dispatchEvent(new Event('input'));  // trigger search filter
