@@ -221,7 +221,7 @@ if [ -z "$COMMENTS_URL" ] || [ "$COMMENTS_URL" = "None" ]; then
   COMMENTS_URL=$(aws lambda create-function-url-config \
     --function-name "$COMMENTS_FN" \
     --auth-type NONE \
-    --cors '{"AllowOrigins":["*"],"AllowMethods":["GET","POST","OPTIONS"],"AllowHeaders":["Content-Type"]}' \
+    --cors '{"AllowOrigins":["*"],"AllowMethods":["GET","POST"],"AllowHeaders":["Content-Type"]}' \
     --region "$REGION" \
     --query FunctionUrl --output text)
   echo "  -> 新規作成: $COMMENTS_URL"
@@ -358,7 +358,7 @@ if [ -z "$AUTH_URL" ] || [ "$AUTH_URL" = "None" ]; then
   AUTH_URL=$(aws lambda create-function-url-config \
     --function-name "$AUTH_FN" \
     --auth-type NONE \
-    --cors '{"AllowOrigins":["*"],"AllowMethods":["POST","OPTIONS"],"AllowHeaders":["Content-Type","Authorization"]}' \
+    --cors '{"AllowOrigins":["*"],"AllowMethods":["POST"],"AllowHeaders":["Content-Type","Authorization"]}' \
     --region "$REGION" \
     --query FunctionUrl --output text)
   echo "  -> 新規作成: $AUTH_URL"
@@ -415,7 +415,7 @@ if [ -z "$FAVORITES_URL" ] || [ "$FAVORITES_URL" = "None" ]; then
   FAVORITES_URL=$(aws lambda create-function-url-config \
     --function-name "$FAVORITES_FN" \
     --auth-type NONE \
-    --cors '{"AllowOrigins":["*"],"AllowMethods":["GET","POST","DELETE","OPTIONS"],"AllowHeaders":["Content-Type","Authorization"]}' \
+    --cors '{"AllowOrigins":["*"],"AllowMethods":["GET","POST","DELETE"],"AllowHeaders":["Content-Type","Authorization"]}' \
     --region "$REGION" \
     --query FunctionUrl --output text)
   echo "  -> 新規作成: $FAVORITES_URL"
@@ -472,7 +472,7 @@ if [ -z "$ANALYTICS_URL" ] || [ "$ANALYTICS_URL" = "None" ]; then
   ANALYTICS_URL=$(aws lambda create-function-url-config \
     --function-name "$ANALYTICS_FN" \
     --auth-type NONE \
-    --cors '{"AllowOrigins":["*"],"AllowMethods":["POST","OPTIONS"],"AllowHeaders":["Content-Type","Authorization"]}' \
+    --cors '{"AllowOrigins":["*"],"AllowMethods":["POST"],"AllowHeaders":["Content-Type","Authorization"]}' \
     --region "$REGION" \
     --query FunctionUrl --output text)
   echo "  -> 新規作成: $ANALYTICS_URL"
