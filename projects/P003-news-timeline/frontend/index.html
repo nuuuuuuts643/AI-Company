@@ -1,26 +1,266 @@
-<!DOCTYPE html>
+<\!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ニュースタイムライン | 話題の盛り上がりを時系列で</title>
-  <meta name="description" content="同じ話題のニュースをまとめ、時間軸で推移を可視化します。">
+  <title>Flotopic | 話題の盛り上がりをAIで追う</title>
+  <meta name="description" content="同じ話題のニュースをAIがまとめ、時間軸で推移を可視化。30分ごと自動更新。">
+  <meta property="og:title" content="Flotopic | 話題の盛り上がりをAIで追う">
+  <meta property="og:description" content="同じ話題のニュースをAIがまとめ、時間軸で推移を可視化。30分ごと自動更新。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://flotopic.com/">
+  <meta property="og:image" content="https://flotopic.com/ogp.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Flotopic | 話題の盛り上がりをAIで追う">
+  <meta name="twitter:description" content="同じ話題のニュースをAIがまとめ、時間軸で推移を可視化。30分ごと自動更新。">
+  <link rel="alternate" type="application/rss+xml" title="Flotopic RSS" href="/rss.xml">
+  <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="style.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    /* ===== 認証UI ===== */
+    .auth-area {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .auth-user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: none;
+      vertical-align: middle;
+    }
+    .auth-user-name {
+      font-size: .85rem;
+      color: #e2e8f0;
+      max-width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .auth-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: none;
+      cursor: pointer;
+      font-size: .82rem;
+      font-weight: 600;
+      transition: opacity .2s;
+    }
+    .auth-btn:hover { opacity: .85; }
+    #auth-signin-btn {
+      background: #fff;
+      color: #374151;
+    }
+    #auth-signout-btn {
+      display: none;
+      background: rgba(255,255,255,.15);
+      color: #fff;
+    }
+    /* ===== お気に入りボタン ===== */
+    .topic-card-wrapper {
+      position: relative;
+    }
+    .fav-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(255,255,255,.85);
+      border: none;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      font-size: 16px;
+      cursor: pointer;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color .2s, background .2s;
+      z-index: 2;
+      line-height: 1;
+    }
+    .fav-btn:hover { color: #f43f5e; background: #fff; }
+    .fav-btn.fav-active { color: #f43f5e; }
+    /* ===== お気に入りフィルタートグル ===== */
+    .fav-toggle-btn {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #475569;
+      cursor: pointer;
+      font-size: .85rem;
+      font-weight: 600;
+      transition: background .2s, color .2s, border-color .2s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .fav-toggle-btn.active {
+      background: #3b82f6;
+      color: #fff;
+      border-color: #3b82f6;
+    }
+    .fav-toggle-btn:hover:not(.active) {
+      background: #f8fafc;
+    }
+    /* ===== もっと見るボタン ===== */
+    .load-more-container {
+      text-align: center;
+      margin: 24px 0 8px;
+    }
+    .load-more-btn {
+      padding: 12px 36px;
+      border-radius: 24px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #475569;
+      cursor: pointer;
+      font-size: .9rem;
+      font-weight: 600;
+      transition: background .2s, box-shadow .2s;
+    }
+    .load-more-btn:hover {
+      background: #f8fafc;
+      box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    }
+    /* ===== コメントログインプロンプト ===== */
+    .comment-login-prompt {
+      display: none;
+      padding: 20px;
+      text-align: center;
+      color: #64748b;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .comment-login-prompt p { margin: 0 0 12px; }
+    .comment-login-google-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: #fff;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: .9rem;
+      font-weight: 600;
+      color: #374151;
+      transition: box-shadow .2s;
+    }
+    .comment-login-google-btn:hover { box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+    /* ===== PWAインストールバナー ===== */
+    #pwa-install-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #1e293b;
+      color: #fff;
+      padding: 10px 16px;
+      font-size: .88rem;
+      flex-wrap: wrap;
+    }
+    #pwa-install-banner .pwa-banner-text {
+      flex: 1;
+      min-width: 0;
+    }
+    #pwa-install-banner .pwa-banner-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    #pwa-install-btn {
+      background: #3b82f6;
+      color: #fff;
+      border: none;
+      border-radius: 16px;
+      padding: 6px 16px;
+      font-size: .85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .2s;
+    }
+    #pwa-install-btn:hover { opacity: .85; }
+    #pwa-dismiss-btn {
+      background: transparent;
+      color: #94a3b8;
+      border: none;
+      font-size: 1.1rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color .2s;
+    }
+    #pwa-dismiss-btn:hover { color: #fff; }
+  </style>
 </head>
 <body>
+<!-- PWAインストールバナー -->
+<div id="pwa-install-banner" role="banner" aria-label="アプリインストール案内">
+  <span class="pwa-banner-text">📱 ホーム画面に追加してFlotopicをアプリとして使う</span>
+  <div class="pwa-banner-actions">
+    <button id="pwa-install-btn">インストール</button>
+    <button id="pwa-dismiss-btn" aria-label="閉じる">×</button>
+  </div>
+</div>
 <header>
   <div class="inner header-inner">
     <div>
-      <h1>📰 ニュースタイムライン</h1>
-      <p>話題の盛り上がりを時系列で追う</p>
+      <h1>📰 Flotopic</h1>
+      <p>話題の盛り上がりをAIで追う</p>
     </div>
-    <div id="weather-widget" class="weather-widget"></div>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div id="weather-widget" class="weather-widget"></div>
+      <div class="auth-area">
+        <a id="mypage-link" href="mypage.html" style="display:none;color:#e2e8f0;font-size:.85rem;text-decoration:none;white-space:nowrap;">👤 マイページ</a>
+        <img id="auth-user-avatar" class="auth-user-avatar" src="" alt="アバター">
+        <span id="auth-user-name" class="auth-user-name"></span>
+        <button id="auth-signin-btn" class="auth-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Googleでログイン
+        </button>
+        <button id="auth-signout-btn" class="auth-btn">ログアウト</button>
+      </div>
+    </div>
   </div>
 </header>
 <main class="container">
-  <div class="ad-slot">広告枠</div>
-  <div class="search-bar">
-    <input type="text" id="search-input" placeholder="🔍 キーワードで検索..." autocomplete="off">
+  <div class="ad-slot"><\!-- admax -->
+<script src="https://adm.shinobi.jp/s/570fe6c87677ba7c5417119c60ca979d"></script>
+<\!-- admax --></div>
+  <div style="display:flex;align-items:center;gap:8px;padding:6px 0 2px;">
+    <a href="catchup.html" style="
+      display:inline-flex;align-items:center;gap:6px;
+      padding:7px 16px;border-radius:20px;
+      background:rgba(59,130,246,0.12);border:1.5px solid rgba(59,130,246,0.35);
+      color:#93c5fd;font-size:0.82rem;text-decoration:none;
+      transition:background 0.15s;white-space:nowrap;
+    " onmouseover="this.style.background='rgba(59,130,246,0.22)'"
+       onmouseout="this.style.background='rgba(59,130,246,0.12)'">
+      🕰️ しばらくぶり？ここから
+    </a>
+  </div>
+  <div class="search-bar" style="display:flex;align-items:center;gap:8px;">
+    <input type="text" id="search-input" placeholder="🔍 キーワードで検索..." autocomplete="off" style="flex:1;">
+    <button id="fav-toggle-btn" class="fav-toggle-btn">⭐ お気に入りのみ</button>
+  </div>
+  <div id="keyword-strip" class="keyword-strip" style="display:none;">
+    <span class="keyword-strip-label">🏷️</span>
+    <div class="keyword-chips" id="keyword-chips"></div>
   </div>
   <div id="status-filter" class="filter-bar"></div>
   <div id="genre-filter" class="filter-bar genre-bar"></div>
@@ -28,8 +268,15 @@
   <div id="topics-grid" class="topics-grid">
     <div class="loading"><div class="spinner"></div>読み込み中...</div>
   </div>
+  <div id="load-more-container" class="load-more-container"></div>
 </main>
+<footer style="text-align:center;padding:20px;color:#94a3b8;font-size:.8rem;margin-top:40px;">
+  <a href="legacy.html" style="color:#94a3b8;text-decoration:underline;">アーカイブ</a>
+  &nbsp;·&nbsp;
+  <a href="privacy.html" style="color:#94a3b8;text-decoration:underline;">プライバシーポリシー</a>
+</footer>
 <script src="config.js"></script>
 <script src="app.js"></script>
+<\!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "099f0d39ef2649a5b3b9421595dd5474"}'></script><\!-- End Cloudflare Web Analytics -->
 </body>
 </html>

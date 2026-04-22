@@ -6,12 +6,63 @@ import re
 import sys
 from pathlib import Path
 import urllib.request
-from datetime import date
+from datetime import date, datetime, timezone
 
 ANTHROPIC_API_KEY = os.environ['ANTHROPIC_API_KEY']
 SLACK_WEBHOOK_URL = os.environ.get('SLACK_WEBHOOK_URL', '')
 REPO_ROOT = Path(__file__).parent.parent
 TODAY = date.today().isoformat()
+
+# DynamoDB設定
+MEMORY_TABLE = "ai-company-memory"
+MEMORY_PK = "CEO_MEMORY"
+AWS_REGION = os.environ.get('AWS_DEFAULT_REGION', 'ap-northeast-1')
+
+
+def load_memory(limit=10):
+    """DynamoDBから最近のCEO判断履歴を読み込む（失敗してもメイン処理は続行）"""
+    try:
+        import boto3
+        from boto3.dynamodb.conditions import Key
+        dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
+        table = dynamodb.Table(MEMORY_TABLE)
+        resp = table.query(
+            KeyConditionExpression=Key('pk').eq(MEMORY_PK),
+            ScanIndexForward=False,  # 降順（新しい順）
+            Limit=limit
+        )
+        items = resp.get('Items', [])
+        if not items:
+            return "(過去の記憶なし)"
+        lines = []
+        for item in items:
+            sk = item.get('sk', '')
+            summary = item.get('summary', '（サマリーなし）')
+            lines.append(f"- [{sk}] {summary}")
+        return "\n".join(lines)
+    except Exception as e:
+        print(f"[memory] load_memory失敗（メイン処理は継続）: {e}")
+        return "(メモリ読み込み失敗)"
+
+
+def save_memory(summary, proposals_count=0, files_updated=0):
+    """CEOの判断サマリーをDynamoDBに保存する（失敗してもメイン処理は続行）"""
+    try:
+        import boto3
+        dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
+        table = dynamodb.Table(MEMORY_TABLE)
+        sk = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
+        table.put_item(Item={
+            'pk': MEMORY_PK,
+            'sk': sk,
+            'date': TODAY,
+            'summary': summary,
+            'proposals_count': proposals_count,
+            'files_updated': files_updated,
+        })
+        print(f"[memory] 判断サマリーを保存しました (sk={sk})")
+    except Exception as e:
+        print(f"[memory] save_memory失敗（メイン処理は継続）: {e}")
 
 
 def read_file(rel_path):
@@ -19,6 +70,109 @@ def read_file(rel_path):
         return (REPO_ROOT / rel_path).read_text(encoding='utf-8')
     except Exception as e:
         return f"[読み込みエラー: {e}]"
+
+
+def compute_audience_analysis():
+    """
+    DynamoDB flotopic-analytics テーブルから直近7日間の新規/リピーター比率を集計し、
+    CEO向けの読者品質分析テキストを返す。失敗時は空文字を返す。
+    """
+    try:
+        import boto3
+        from boto3.dynamodb.conditions import Attr
+        from collections import defaultdict
+        import time
+
+        dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
+        table = dynamodb.Table('flotopic-analytics')
+        since = int(time.time()) - 86400 * 7  # 7日前
+
+        counts = defaultdict(lambda: {'views': 0, 'new_viewers': 0})
+        paginator_kwargs = {
+            'FilterExpression': Attr('timestamp').gte(since) & Attr('topicId').exists(),
+        }
+        last_key = None
+        while True:
+            if last_key:
+                paginator_kwargs['ExclusiveStartKey'] = last_key
+            result = table.scan(**paginator_kwargs)
+            for item in result.get('Items', []):
+                tid = item.get('topicId', '')
+                event_type = item.get('eventType', '')
+                if not tid:
+                    continue
+                if event_type in ('view', 'topic_click', 'page_view'):
+                    counts[tid]['views'] += 1
+                    if item.get('isNewViewer'):
+                        counts[tid]['new_viewers'] += 1
+            last_key = result.get('LastEvaluatedKey')
+            if not last_key:
+                break
+
+        if not counts:
+            return ""
+
+        # new_viewer_ratio 付きリスト
+        topics = []
+        for tid, v in counts.items():
+            total = v['views']
+            new_v = v['new_viewers']
+            ratio = round(new_v / total, 2) if total > 0 else 0
+            topics.append({'topicId': tid, 'views': total, 'new_viewers': new_v, 'ratio': ratio})
+
+        # Top5: バイラル（新規率高い順）
+        viral = sorted([t for t in topics if t['views'] >= 5], key=lambda x: x['ratio'], reverse=True)[:5]
+        viral_text = ', '.join([f"{t['topicId']}（新規率{int(t['ratio']*100)}%/計{t['views']}views）" for t in viral]) or 'なし'
+
+        # Top5: 総ビュー数（人気順）
+        popular = sorted(topics, key=lambda x: x['views'], reverse=True)[:5]
+        popular_text = ', '.join([f"{t['topicId']}（{t['views']}views/新規率{int(t['ratio']*100)}%）" for t in popular]) or 'なし'
+
+        # 固定読者トラップ（新規率 < 30% かつ総ビュー > 100）
+        loyal_trap = [t for t in topics if t['ratio'] < 0.3 and t['views'] > 100]
+        loyal_text = ', '.join([f"{t['topicId']}（{t['views']}views/新規率{int(t['ratio']*100)}%）" for t in loyal_trap]) or 'なし'
+
+        return f"""
+## 読者分析（先週 / flotopic-analytics）
+新規読者率が高いトピック（本当にバイラルなもの）：{viral_text}
+総ビュー数は高いがリピーターが多いトピック（固定読者）：{popular_text}
+固定読者トラップ（新規率<30% かつ total>100views）：{loyal_text}
+
+→ スコアリング調整提案：新規率>60%のトピックに急上昇ブーストを適用すべきか判断する
+"""
+    except Exception as e:
+        print(f"[audience] 読者分析失敗（メイン処理は継続）: {e}")
+        return ""
+
+
+def check_p003_health():
+    """P003のS3データが正常に更新されているかチェックする"""
+    # flotopic.comが稼働していればそちらを優先チェック
+    urls_to_try = [
+        "https://flotopic.com/api/topics.json",
+        "http://p003-news-946554699567.s3-website-ap-northeast-1.amazonaws.com/api/topics.json",
+    ]
+    url = urls_to_try[0]
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "AI-Company-CEO-HealthCheck/1.0"})
+        resp = urllib.request.urlopen(req, timeout=15)
+        data = json.loads(resp.read())
+        last_updated = data.get("last_updated", "")
+        topic_count = len(data.get("topics", []))
+        if last_updated:
+            from datetime import datetime, timezone, timedelta
+            try:
+                updated_dt = datetime.fromisoformat(last_updated.replace("Z", "+00:00"))
+                now = datetime.now(timezone.utc)
+                age_hours = (now - updated_dt).total_seconds() / 3600
+                if age_hours > 2:
+                    return f"⚠️ P003データが{age_hours:.1f}時間前から更新停止（トピック数: {topic_count}）"
+                return f"✅ P003正常稼働中（最終更新: {age_hours:.1f}時間前、トピック数: {topic_count}）"
+            except Exception:
+                pass
+        return f"✅ P003応答あり（トピック数: {topic_count}）"
+    except Exception as e:
+        return f"🚨 P003アクセス不能: {e}"
 
 
 def call_claude(prompt):
@@ -147,6 +301,16 @@ def main():
         "dashboard/active-projects.md",
         "projects/P003-news-timeline/briefing.md",
         "inbox/slack-messages.md",
+        "inbox/ceo-proposals.md",
+        "docs/flotopic-launch-strategy.md",
+        "docs/knowledge-and-ideas.md",
+        "company/departments/marketing.md",
+        "company/departments/devops.md",
+        "company/departments/revenue.md",
+        "company/departments/editorial.md",
+        "dashboard/marketing-log.md",
+        "dashboard/revenue-log.md",
+        "dashboard/seo-log.md",
     ]
 
     context_parts = []
@@ -158,13 +322,43 @@ def main():
     # 既存の提案ログも読み込む（重複提案を避けるため）
     existing_proposals = read_file("inbox/ceo-proposals.md")
 
+    # DynamoDBから過去の判断履歴を読み込む
+    print("[memory] 過去の判断履歴を読み込み中...")
+    memory_context = load_memory(limit=10)
+    print(f"[memory] 読み込み完了")
+
+    # P003ヘルスチェック
+    print("[health] P003稼働確認中...")
+    p003_health = check_p003_health()
+    print(f"[health] {p003_health}")
+
+    # 読者品質分析（DynamoDB flotopic-analytics）
+    print("[audience] 読者分析中...")
+    audience_analysis = compute_audience_analysis()
+    print(f"[audience] 完了 ({'データあり' if audience_analysis else 'データなし/エラー'})")
+
     prompt = f"""あなたはAI-CompanyのCEO Claudeです。今日は{TODAY}です。
 POさんは出資者・取締役として、あなたの提案を承認する立場です。
 あなたは事業執行者として、自律的に会社を動かします。
 
+【最重要姿勢】
+POが思いつくような一般的な改善・次の一手は、すべてあなたが先に考えて提案済みにしておくこと。
+「ユーザーが増えたらコメント解禁」「収益化は流入が安定してから」「セキュリティは後で」のような
+フェーズ判断を自律的に行い、条件が揃ったら即座に提案を出す。
+docs/flotopic-launch-strategy.md のKPI閾値を毎日チェックし、移行条件を満たしていれば提案を出す。
+手を止めることはCEO失格。常に次の一手を考え、動き続けること。
+
 以下の会社ファイルを読んで、ceo-constitution.mdに記載されたデイリールーティンを実行してください。
 
 {context}
+
+=== 過去の判断履歴（DynamoDB / 直近10件・新しい順） ===
+{memory_context}
+
+=== インフラヘルスチェック（リアルタイム） ===
+{p003_health}
+
+=== 読者品質分析（直近7日間・DynamoDB flotopic-analytics） ==={audience_analysis if audience_analysis else "（データ未蓄積またはアクセス不能）"}
 
 === 既存の提案ログ（重複登録を避けるために参照） ===
 {existing_proposals}
@@ -263,14 +457,34 @@ Slackへの報告は <SLACK> タグで囲んでください:
         path.write_text(update["content"], encoding="utf-8")
         print(f"更新: {update['path']}")
 
-    # Slack通知
+    # Slack通知（提案がある場合 or P003異常の場合のみ送信）
     slack_msg = parse_slack_block(response)
-    if not slack_msg:
-        slack_msg = (
-            f"【AI-Company CEO日次レポート】{TODAY}\n"
-            f"CEO実行完了（{len(file_updates)}ファイル更新、提案{len(proposals)}件）"
-        )
-    send_slack(slack_msg)
+    has_action = bool(proposals) or ("⚠️" in p003_health or "🚨" in p003_health)
+    if has_action:
+        if not slack_msg:
+            slack_msg = (
+                f"【AI-Company CEO提案】{TODAY}\n"
+                f"新規提案 {len(proposals)} 件 / インフラ状態: {p003_health}\n"
+                f"Coworkチャットで「承認 #XXX」と返信してください。"
+            )
+        send_slack(slack_msg)
+    else:
+        print(f"提案なし・インフラ正常 → Slack通知スキップ（{len(file_updates)}ファイル更新完了）")
+
+    # 今回の判断サマリーをDynamoDBに保存
+    print("[memory] 判断サマリーをDynamoDBに保存中...")
+    # EXECUTE タグからサマリーを抽出、なければ件数ベースの要約を使用
+    execute_match = re.search(r'<EXECUTE>(.*?)</EXECUTE>', response, re.DOTALL)
+    if execute_match:
+        execute_summary = execute_match.group(1).strip()[:500]  # 500文字以内
+    else:
+        execute_summary = f"ファイル{len(file_updates)}件更新、提案{len(proposals)}件"
+    save_memory(
+        summary=execute_summary,
+        proposals_count=len(proposals),
+        files_updated=len(file_updates),
+    )
+
     print("完了")
 
 

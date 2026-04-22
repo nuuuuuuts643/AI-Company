@@ -1,63 +1,83 @@
 # AI Company Overview
 
-最終更新: 2026-04-22 09:00 JST
+最終更新: 2026-04-22
 
 ## Active Projects
 
-| ID | 名前 | ステータス | 完成度 |
-|----|------|----------|----|
-| P001 | AI会社 基盤構築 | ✅ 自動化稼働中・定期実行正常 | ベータ |
-| P002 | Unityゲーム（要塞都市育成） | スクリプト完了・Unity組み上げ待ち | ベータ |
-| P003 | ニュースタイムライン | **✅ 本番稼働中**（4日目）| 完成候補 |
+| ID | 名前 | ステータス | 完成度 | URL |
+|----|------|----------|--------|-----|
+| P001 | AI会社 基盤構築 | 秘書・CEO 稼働中 | ベータ | — |
+| P002 | Unityゲーム（要塞都市育成） | スクリプト完了・Unity組み上げ待ち | 試作 | — |
+| P003 | Flotopic（フロトピック） | **本番稼働中** 🟢 HTTPS設定待ち | 完成候補 | flotopic.com |
+| P004 | Slack Bot | 実装完了・Lambdaデプロイ待ち | ベータ | — |
+| P005 | メモリDB | **稼働中** 🟢 | ベータ | DynamoDB ap-northeast-1 |
 
-## 自動化状況
+## AI エージェント稼働状況
+
+| エージェント | スケジュール | 状態 |
+|---|---|---|
+| CEO (ceo_run.py) | 毎朝8:30 JST | ✅ 稼働中 |
+| 秘書 (secretary_run.py) | 毎朝9:00 JST | ✅ 稼働中 |
+| 開発監視AI (devops_agent.py) | 毎時 | 🟡 git push 待ち |
+| マーケティングAI (marketing_agent.py) | 毎朝10:00 JST | 🟡 git push 待ち |
+| 収益管理AI (revenue_agent.py) | 毎週月曜9:30 JST | 🟡 git push 待ち |
+| 編集AI (editorial_agent.py) | 毎週水曜9:00 JST | 🟡 git push 待ち |
+| SEO AI (seo_agent.py) | 毎週月曜10:00 JST | 🟡 git push 待ち |
+| X投稿AI (x_agent.py) | 日次8:00 / 週次月9:00 / 月次1日9:00 | 🟡 git push 待ち |
+
+## P003 Flotopic 実装済み機能
 
 | 機能 | 状態 |
 |------|------|
-| Slack Bot (/ai コマンド) | ✅ 実装予定中 |
-| GitHub push → Slack通知 | ✅ 稼働中 |
-| P003 ニュース自動収集（30分ごと） | ✅ EventBridge設定済み・稼働中 ✅ |
-| 秘書 定期自動実行（毎4時間） | ✅ 稼働中・動作確認完了（APIクレジット購入済み） |
-| P003 UIサムネイル＋AI要約 | ✅ 実装済み・本番反映待ち（プルリクエスト待ち） |
+| ニュース自動収集（30分ごと / EventBridge） | ✅ 稼働中 |
+| AI要約・AIタイトル生成 | ✅ 実装済み |
+| 差分更新（seen_articles.json） | ✅ 実装済み |
+| 重複排除（Union-Find 閾値0.25） | ✅ 実装済み |
+| Cloudflare Web Analytics | ✅ 設置済み |
+| 忍者AdMax 広告 | ✅ 設置済み |
+| プライバシーポリシーページ | ✅ 作成済み |
+| コメント掲示板（DynamoDB） | ✅ 実装済み・デプロイ待ち |
+| Google ログイン（OAuth 2.0） | ✅ 実装済み・GOOGLE_CLIENT_ID設定待ち |
+| お気に入り機能 | ✅ 実装済み |
+| OGP メタタグ | ✅ 設定済み |
+| X自動投稿エージェント | ✅ 実装済み・デプロイ待ち |
+| catchup.html（N日ぶりモード） | ✅ 実装済み・デプロイ待ち |
+| HTTPS / CloudFront | 🟡 home PC 作業待ち |
+| flotopic.com DNS（Route 53） | 🟡 Squarespace NS 変更待ち |
+| Google AdSense | 🟡 HTTPS 完了後に申請 |
 
-## 本日のKPI
+## home PC に戻ったら実行するコマンド（優先順）
 
-| 指標 | 現状 | 目標 |
-|------|------|------|
-| アクティブプロジェクト数 | 3件 | 3件以上 ✅ |
-| ブロッカー件数 | 3件（全て社長アクション）| 最小化 |
-| 月間クラウドコスト | 月500円以下（見込み） | 1,000円以下 ✅ |
-| P003本番稼働日数 | 4日目継続 | 継続稼働 ✅ |
-| 秘書実行成功率 | 100%（1回目）| 95%以上 ✅ |
+```bash
+cd ~/ai-company
 
-## Next Actions（社長アクション待ち）
+# 1. 全変更をpush
+git push
 
-1. **提案#002への判断**: P003品質改善実装体制の確認（実装主体・優先度）
-2. **P003 デプロイ実行** → GitHubのP003デプロイワークフロー実行 → 本番UIを反映
-3. **P002** → Unity Editorで `FortressCity > Setup Everything` 実行 → プレイテスト開始
+# 2. P003 S3再デプロイ
+bash projects/P003-news-timeline/deploy.sh
+
+# 3. P004 Slackボット デプロイ
+bash projects/P004-slack-bot/deploy.sh
+
+# 4. flotopic.com CloudFront + SSL + Route 53 セットアップ
+bash scripts/setup-domain.sh
+```
 
 ## ブロッカー一覧
 
-| 案件 | ブロッカー | 担当 | 状態 |
-|------|-----------|------|------|
-| P002 | Unity Editor操作 | 社長 | 待機中 |
-| P003 UIデプロイ | GitHubからP003デプロイワークフロー実行 | 社長 | 待機中 |
-| P003品質改善 | 実装体制確認（提案#002） | 社長 | 待機中 |
+| 案件 | ブロッカー | 担当 |
+|------|-----------|------|
+| 全エージェント有効化 | git push | PO（home PC） |
+| P003 HTTPS / flotopic.com | setup-domain.sh 実行 + Squarespace NS 変更 | PO（home PC） |
+| P004 Lambda デプロイ | deploy.sh 実行 | PO（home PC） |
+| Google OAuth 有効化 | Google Cloud Console で Client ID 取得 → config.js に設定 | PO（手順: docs/google-oauth-setup.md） |
+| AdSense 申請 | HTTPS 完了後 | CEO |
 
 ## CEO実行状況
 
 - last_run: 2026-04-22 09:00 JST
 - 秘書稼働状態: ✅ 正常（GitHub Actions自動実行確認）
-- 提案キュー: 1件（承認待ち#002）
 - 未処理Slack: 0件（全処理完了）
 - セキュリティ確認: ✅ リスクなし（P003）
 - コスト管理: ✅ 月500円以下で運用中
-
-## 本番環境ステータス
-
-**P003 ニュースタイムライン**
-- 稼働状態: ✅ 正常
-- EventBridge自動実行: ✅ 30分スケジュール稼働中
-- 最新トピック数: リアルタイム更新中
-- エラー: 0件検出
-- 次の自動実行: 2026-04-22 09:30 JST予定
