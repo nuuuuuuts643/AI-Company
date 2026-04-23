@@ -1,8 +1,9 @@
 name: AI-Company CEO定期実行
 
 on:
-  schedule:
-    - cron: '30 23 * * *'  # 毎日 08:30 JST (UTC 23:30 = JST翌08:30)
+  # [PAUSED]
+  #   schedule:
+  #     - cron: '30 23 * * *'  # 毎日 08:30 JST (UTC 23:30 = JST翌08:30)
   workflow_dispatch:
 
 concurrency:
