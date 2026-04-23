@@ -1485,6 +1485,7 @@ def lambda_handler(event, context):
             'hatenaCount':  hb,
             'mediaCount':   media,
             'timestamp':    ts_iso,
+            'ttl':          int(time.time()) + 90 * 86400,  # 90日後に自動削除
             'articles': sort_by_pubdate(list({
                 a['source']: {
                     'title': a['title'], 'url': a['url'],
