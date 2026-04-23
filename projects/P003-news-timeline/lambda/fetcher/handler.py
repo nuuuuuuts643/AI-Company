@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from config import (
     ANTHROPIC_API_KEY, SLACK_WEBHOOK, S3_BUCKET,
-    RSS_FEEDS, MAX_API_CALLS, SNAP_TTL_DAYS,
+    RSS_FEEDS, MAX_API_CALLS, SNAP_TTL_DAYS, table,
 )
 from text_utils import (
     topic_fingerprint, dominant_genres, dominant_lang,
@@ -21,8 +21,8 @@ from text_utils import (
     _parse_pubdate_ts,
 )
 from storage import (
-    write_s3, get_all_topics, get_topic_detail, cleanup_stale,
-    log_summary_pattern, recent_counts, calc_velocity,
+    write_s3, get_all_topics, get_topic_detail,
+    recent_counts, calc_velocity,
     load_seen_articles, save_seen_articles,
     generate_rss, generate_sitemap,
 )
@@ -267,8 +267,6 @@ def lambda_handler(event, context):
     ogp_fetched = 0
     api_calls_this_run = 0
 
-    from config import table
-
     for rank, g in enumerate(groups_sorted):
         tid    = topic_fingerprint(g)
         cnt    = len(g)
@@ -305,10 +303,6 @@ def lambda_handler(event, context):
             not _is_old_extractive
         )
         pending_ai = not _has_valid_summary
-
-        _all_entities = extract_entities(' '.join(a['title'] for a in g))
-        _main_entity  = list(_all_entities)[0] if _all_entities else ''
-        log_summary_pattern(tid, _main_entity, cnt, 'extractive' if pending_ai else 'existing')
 
         image_url = existing.get('imageUrl') or next(
             (a.get('imageUrl') for a in g if a.get('imageUrl')), None
@@ -498,8 +492,6 @@ def lambda_handler(event, context):
     spikes = find_trending_spikes(groups_meta_list)
     if spikes:
         post_slack_spike(spikes)
-
-    cleanup_stale(now)
 
     save_seen_articles(current_urls)
 

@@ -6,6 +6,7 @@ S3_BUCKET         = os.environ.get('S3_BUCKET', '')
 REGION            = os.environ.get('REGION', 'ap-northeast-1')
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 SLACK_WEBHOOK     = os.environ.get('SLACK_WEBHOOK', '')
+SITE_URL          = os.environ.get('SITE_URL', 'https://flotopic.com')
 
 dynamodb = boto3.resource('dynamodb', region_name=REGION)
 table    = dynamodb.Table(TABLE_NAME)
