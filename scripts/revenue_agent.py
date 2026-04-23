@@ -212,12 +212,9 @@ def analyze_with_claude(
 # ---------------------------------------------------------------------------
 
 def append_to_log(analysis: str, aws_costs: dict, parsed: dict) -> None:
-    now = datetime.now(timezone.utc).astimezone(
-        timezone(datetime.now(timezone.utc).utcoffset() or timezone.utc)
-    )
-    jst_now = datetime.now(timezone(
-        __import__("datetime").timedelta(hours=9)
-    ))
+    from datetime import timedelta
+    JST = timezone(timedelta(hours=9))
+    jst_now = datetime.now(JST)
     timestamp = jst_now.strftime("%Y-%m-%d %H:%M JST")
 
     aws_summary = ""
