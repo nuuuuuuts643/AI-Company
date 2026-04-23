@@ -1,14 +1,13 @@
 import json
 import re
 import time
-import hashlib
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
 from config import (
-    ANTHROPIC_API_KEY, SLACK_WEBHOOK, S3_BUCKET,
-    RSS_FEEDS, MAX_API_CALLS, SNAP_TTL_DAYS, table,
+    SLACK_WEBHOOK, S3_BUCKET,
+    RSS_FEEDS, SNAP_TTL_DAYS, table, INACTIVE_LIFECYCLE_STATUSES,
 )
 from text_utils import (
     topic_fingerprint, dominant_genres, dominant_lang,
@@ -67,113 +66,6 @@ def fetch_ogp_image(url):
     except Exception:
         pass
     return None
-
-
-def generate_title(articles):
-    if not ANTHROPIC_API_KEY:
-        return None
-    headlines = '\n'.join(a['title'] for a in articles[:6])
-    prompt = (
-        '以下はニュース記事の見出しです。\n'
-        'これらが共通して報じているトピックを表す、概念的で簡潔な日本語タイトルを作ってください。\n\n'
-        '【出力ルール】\n'
-        '- 12〜20文字程度の短いタイトル\n'
-        '- 「〇〇事件」「△△問題」「▲▲の動向」「◇◇をめぐる動き」などの形式が望ましい\n'
-        '- 記事タイトルをそのままコピーしないこと\n'
-        '- 固有名詞や核心キーワードは必ず含める\n'
-        '- 説明文・句読点・かぎかっこ不要。タイトルのみ1行で出力\n\n'
-        f'見出し:\n{headlines}'
-    )
-    try:
-        body = json.dumps({
-            'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 30,
-            'messages': [{'role': 'user', 'content': prompt}],
-        }).encode('utf-8')
-        req = urllib.request.Request(
-            'https://api.anthropic.com/v1/messages',
-            data=body,
-            headers={
-                'x-api-key': ANTHROPIC_API_KEY,
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json',
-            },
-            method='POST',
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read())
-        return data['content'][0]['text'].strip()
-    except Exception as e:
-        print(f'Title generation error: {e}')
-        return None
-
-
-def generate_summary(articles):
-    if not ANTHROPIC_API_KEY:
-        return None
-    headlines = '\n'.join(a['title'] for a in articles[:8])
-    prompt = (
-        '以下は同じニューストピックを報じた見出し一覧です。\n'
-        'このトピックの概要を分かりやすく2〜3文で要約してください。\n'
-        '日本語で150字以内にまとめてください。箇条書き不要。自然な文章のみ出力。\n\n'
-        f'見出し:\n{headlines}'
-    )
-    try:
-        body = json.dumps({
-            'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 150,
-            'messages': [{'role': 'user', 'content': prompt}],
-        }).encode('utf-8')
-        req = urllib.request.Request(
-            'https://api.anthropic.com/v1/messages',
-            data=body,
-            headers={
-                'x-api-key': ANTHROPIC_API_KEY,
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json',
-            },
-            method='POST',
-        )
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            data = json.loads(resp.read())
-        return data['content'][0]['text'].strip()
-    except Exception as e:
-        print(f'Summary generation error: {e}')
-        return None
-
-
-def incremental_summary(existing_summary, new_articles):
-    if not ANTHROPIC_API_KEY or not new_articles or not existing_summary:
-        return None
-    new_headlines = '\n'.join(a['title'] for a in new_articles[:5])
-    prompt = (
-        f'既存の要約:\n{existing_summary}\n\n'
-        f'新着ニュース見出し:\n{new_headlines}\n\n'
-        '上記の新着情報を踏まえて、既存の要約を150字以内で更新してください。'
-        '日本語、自然な文章のみ出力。'
-    )
-    try:
-        body = json.dumps({
-            'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 150,
-            'messages': [{'role': 'user', 'content': prompt}],
-        }).encode('utf-8')
-        req = urllib.request.Request(
-            'https://api.anthropic.com/v1/messages',
-            data=body,
-            headers={
-                'x-api-key': ANTHROPIC_API_KEY,
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json',
-            },
-            method='POST',
-        )
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            data = json.loads(resp.read())
-        return data['content'][0]['text'].strip()
-    except Exception as e:
-        print(f'incremental_summary error: {e}')
-        return None
 
 
 def find_trending_spikes(groups_meta_list):
@@ -265,7 +157,6 @@ def lambda_handler(event, context):
     saved_ids = []
     groups_meta_list = []
     ogp_fetched = 0
-    api_calls_this_run = 0
 
     for rank, g in enumerate(groups_sorted):
         tid    = topic_fingerprint(g)
@@ -370,7 +261,7 @@ def lambda_handler(event, context):
 
     if S3_BUCKET:
         topics = get_all_topics()
-        topics_active = [t for t in topics if t.get('lifecycleStatus', 'active') not in ('legacy', 'archived')]
+        topics_active = [t for t in topics if t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES]
         topics_active = sorted(topics_active, key=lambda x: int(x.get('score', 0) or 0), reverse=True)[:1000]
         print(f'O(n²)処理対象: {len(topics_active)}件 / 全{len(topics)}件')
 
@@ -439,7 +330,7 @@ def lambda_handler(event, context):
                 dedup_core[kc] = t
 
         topics_deduped_all = sorted(dedup_long.values(), key=lambda x: int(x.get('score', 0) or 0), reverse=True)
-        topics_deduped = [t for t in topics_deduped_all if t.get('lifecycleStatus', 'active') not in ('legacy', 'archived')][:2000]
+        topics_deduped = [t for t in topics_deduped_all if t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES][:2000]
 
         write_s3('api/topics.json', {
             'topics': topics_deduped,
@@ -487,8 +378,6 @@ def lambda_handler(event, context):
                 })
         print(f'S3書き出し完了: {s3_written}件')
 
-    print(f'Claude API呼び出し回数: {api_calls_this_run} / {MAX_API_CALLS}')
-
     spikes = find_trending_spikes(groups_meta_list)
     if spikes:
         post_slack_spike(spikes)
@@ -496,4 +385,4 @@ def lambda_handler(event, context):
     save_seen_articles(current_urls)
 
     return {'statusCode': 200,
-            'body': json.dumps({'articles': len(all_articles), 'new': len(new_urls), 'topics': len(groups_sorted), 'api_calls': api_calls_this_run, 'ts': ts_key})}
+            'body': json.dumps({'articles': len(all_articles), 'new': len(new_urls), 'topics': len(groups_sorted), 'ts': ts_key})}

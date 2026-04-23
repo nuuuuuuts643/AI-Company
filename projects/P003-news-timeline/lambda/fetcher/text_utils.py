@@ -5,6 +5,7 @@ import json
 import urllib.request
 import urllib.parse
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from email.utils import parsedate_tz, mktime_tz
 from datetime import datetime, timezone
 
@@ -154,7 +155,7 @@ def hatena_count(url):
     try:
         api = 'https://b.hatena.ne.jp/entry/jsonlite/?url=' + urllib.parse.quote(url, safe='')
         req = urllib.request.Request(api, headers={'User-Agent': 'Flotopic/1.0'})
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=2) as resp:
             data = json.loads(resp.read())
         return int(data.get('count') or 0)
     except Exception:
@@ -233,10 +234,16 @@ def compute_lifecycle_status(score: int, last_article_ts: int, velocity_score: i
 
 def calc_score(articles):
     media = source_count(articles)
-    hb    = 0
     jp_articles = [a for a in articles if '.jp' in a.get('url', '') or 'nhk' in a.get('url', '')]
-    for a in jp_articles[:3]:
-        hb += hatena_count(a['url'])
+    urls = [a['url'] for a in jp_articles[:3]]
+    hb = 0
+    if urls:
+        with ThreadPoolExecutor(max_workers=len(urls)) as ex:
+            for count in as_completed([ex.submit(hatena_count, u) for u in urls], timeout=6):
+                try:
+                    hb += count.result()
+                except Exception:
+                    pass
 
     base = media * 10 + hb
 
