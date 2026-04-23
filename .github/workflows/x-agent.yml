@@ -1,13 +1,7 @@
 name: X Agent (Twitter自動投稿)
 
 on:
-  schedule:
-    # 日次: JST 8:00 = UTC 23:00（前日）
-    - cron: '0 23 * * *'
-    # 週次: 月曜 JST 9:00 = UTC 0:00
-    - cron: '0 0 * * 1'
-    # 月次: 毎月1日 JST 9:00 = UTC 0:00
-    - cron: '0 0 1 * *'
+  # schedule: 停止中（X API Basic $100/月が必要なため 2026-04-23）
   workflow_dispatch:
     inputs:
       mode:
