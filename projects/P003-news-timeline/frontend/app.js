@@ -192,6 +192,8 @@ function initGoogleAuth() {
         type: 'standard', theme: 'outline', size: 'medium',
         text: 'signin_with', locale: 'ja',
       });
+      // ログイン済みなら wrapper も即非表示
+      if (currentUser) btnWrap.style.display = 'none';
     }
   }
 

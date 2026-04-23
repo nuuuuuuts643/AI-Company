@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flotopic-v3';
+const CACHE_NAME = 'flotopic-v4';
 
 // Static assets: cache-first
 const STATIC_ASSETS = [
