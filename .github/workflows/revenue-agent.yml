@@ -36,6 +36,15 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'ap-northeast-1' }}
         run: python3 scripts/revenue_agent.py
 
+      - name: Notion 収益ダッシュボード同期
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DB_REVENUE: ${{ secrets.NOTION_DB_REVENUE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'ap-northeast-1' }}
+        run: python3 scripts/notion_revenue_sync.py
+
       - name: 変更をコミット・プッシュ
         run: |
           git config user.email "revenue-agent@ai-company.local"
