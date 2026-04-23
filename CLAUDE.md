@@ -53,7 +53,7 @@
 
 | プロジェクト | 状態 | 備考 |
 |---|---|---|
-| P003 Flotopic | **本番稼働中** ✅ | flotopic.com。catchup.html・processor Lambda・X投稿AI全てデプロイ済み。HTTPS設定待ち（setup-domain.sh） |
+| P003 Flotopic | **本番稼働中** ✅ | flotopic.com。catchup.html・processor Lambda・X投稿AI全てデプロイ済み。HTTPS化完了済み。AdSense申請が次のアクション。 |
 | P002 Flutterゲーム | Flutter+Flameで再構築中 | Unity版フォルダ削除済み。`projects/P002-flutter-game/` にFlutter+Flame実装済み（50+ファイル） |
 | P004 Slackボット | **デプロイ完了** ✅ | Bot URL: https://pqtubmsn7kfk2nojf2kqkwqiuu0obnwc.lambda-url.ap-northeast-1.on.aws/ Slack AppでSlash Command `/ai` 設定が必要 |
 | P005 メモリDB | 稼働中 | DynamoDB ai-company-memory (ap-northeast-1) 稼働中 |
@@ -90,8 +90,7 @@
 ## 残タスク（ナオヤ手動作業必要）
 
 ### 優先度: 高
-- **flotopic.com CloudFront設定** — `bash scripts/setup-domain.sh` 一発で完了（Route 53 + ACM + CloudFront + DNS設定）
-- **Squarespaceネームサーバー変更** — setup-domain.sh実行後に表示されるNS値をSquarespaceに入力
+- **Google AdSense申請** — https://www.google.com/adsense/ からflotopic.comで申請。HTTPS化済みなので申請可能。審査に数日〜数週間かかる。
 - **P004 Slash Command設定** — https://api.slack.com/apps で `/ai` コマンドのRequest URLに `https://pqtubmsn7kfk2nojf2kqkwqiuu0obnwc.lambda-url.ap-northeast-1.on.aws/` を設定
 - **Claude Desktop再起動** — AWS MCP有効化のため（設定変更済み・再起動だけで完了）
 
@@ -262,7 +261,7 @@
 
 - **P003 アイコン素材不足** — icon-192.png / icon-512.png / apple-touch-icon.png が未作成（ICONS-NEEDED.md参照）。PWAインストール時に必要。
 - **P003 GOOGLE_CLIENT_ID未設定** — Google Cloud ConsoleでOAuth 2.0 Client IDを作成しconfig.jsに設定する必要あり（deploy.sh実行後に自動保持されるが初回は手動）
-- **P003 HTTPS未対応** — CloudFront + ACMで解決予定（setup-domain.sh実行待ち）。HTTPS化後にAdSense申請可能。
+- **P003 AdSense審査待ち** — HTTPS化完了済み。申請後、審査通過まで数週間かかる場合あり。それまでは忍者AdMaxで代替。
 - **AWS MCPサーバー設定** — home PCで `aws configure` 後にClaude desktop設定ファイルを編集
 - **グラフデータ** — 現在データ蓄積中のため推移グラフは30分毎に更新。長期グラフ（1ヶ月〜1年）はデータ蓄積後に意味を持つ
 - **news.google.comがソースとして表示される問題** — RSSフィードがGoogle Newsアグリゲーターを経由している場合、ソース名がnews.google.comになる。元のソース名パースが必要（feedparserのauthor/sourceフィールド活用）

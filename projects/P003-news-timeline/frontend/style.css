@@ -485,6 +485,25 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
 }
 .timeline-window-note { font-size: .76rem; color: var(--text-muted); margin-bottom: 12px; }
 
+/* ===== TIMELINE DAY GROUPS ===== */
+.day-articles { display: flex; flex-direction: column; gap: 0; }
+.day-more-details { margin-top: 4px; }
+.day-more-btn {
+  font-size: .76rem; color: var(--accent); cursor: pointer;
+  padding: 4px 0; list-style: none; user-select: none;
+}
+.day-more-btn::-webkit-details-marker { display: none; }
+.day-more-btn::before { content: '▶ '; font-size: .7rem; }
+details[open] .day-more-btn::before { content: '▼ '; }
+.timeline-show-all-btn {
+  display: block; width: 100%; margin-top: 12px;
+  padding: 10px; border: 1.5px dashed var(--border);
+  border-radius: 8px; background: none; color: var(--text-secondary);
+  font-size: .82rem; font-weight: 600; cursor: pointer; font-family: inherit;
+  transition: all .15s;
+}
+.timeline-show-all-btn:hover { border-color: var(--accent); color: var(--accent); }
+
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
