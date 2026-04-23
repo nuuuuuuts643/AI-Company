@@ -166,3 +166,5 @@ SEEN_MAX = 3000
 
 # SNAPアイテムの保持期間（日）。DynamoDB TTLで自動削除される
 SNAP_TTL_DAYS = 7
+
+INACTIVE_LIFECYCLE_STATUSES = frozenset({'legacy', 'archived'})
