@@ -850,29 +850,38 @@ def extractive_title(articles):
 def extractive_summary(articles):
     """
     AIを使わない抽出的要約（Claude不要）。
-    複数記事タイトルから状況を読み取れる形で列挙。
+    複数記事見出しからストーリーの流れが読み取れる段落形式。
     Claude版が生成されるまでの仮表示。
     """
     if not articles:
         return None
+    # 時系列順（古い順）にソートして経緯を表現
+    sorted_arts = sorted(articles, key=lambda a: a.get('publishedAt', ''))
     seen = set()
     lines = []
-    for a in articles[:10]:
+    sources = set()
+    for a in sorted_arts[:15]:
         t = clean_title(a.get('title', ''))
+        src = a.get('source', '')
         if t and t not in seen:
             seen.add(t)
             lines.append(t)
-        if len(lines) >= 5:
+            if src:
+                sources.add(src)
+        if len(lines) >= 6:
             break
     if not lines:
         return None
     if len(lines) == 1:
         return lines[0]
-    # 最初の見出しをリード文に、残りをサポートとして列挙
     lead = lines[0]
-    rest = lines[1:]
-    rest_text = '、'.join(f'「{l[:25]}」' for l in rest)
-    return f'{lead}。関連して{rest_text}など複数の報道。'
+    mid = lines[1:-1]
+    last = lines[-1]
+    src_list = '、'.join(list(sources)[:3])
+    mid_text = ('また、' + '、'.join(f'「{l[:30]}」' for l in mid) + 'など') if mid else ''
+    closing = f'最新では「{last[:40]}」と報じられている。' if last != lead else ''
+    src_note = f'（{src_list} ほか{len(articles)}件）' if src_list else f'（{len(articles)}件）'
+    return f'{lead}。{mid_text}{closing}{src_note}'
 
 
 # 戦略5: 差分更新（新記事のみClaudeに渡す・トークン削減）
@@ -1078,6 +1087,11 @@ def get_all_topics():
             decayed = max(1, int(decayed * 0.15))   # 激しい過剰クラスター
         elif ratio > 8:
             decayed = max(1, int(decayed * 0.35))   # 過剰クラスター
+        # 大量クラスターのハードキャップ: 30件超のトピックは新鮮な単一ニュースに勝てない
+        if cnt > 50:
+            decayed = min(decayed, 25)
+        elif cnt > 30:
+            decayed = min(decayed, 30)
         item['score'] = decayed
         # lifecycleStatus 未設定の旧トピックに自動補完（フロントエンドのフィルタが機能するように）
         if not item.get('lifecycleStatus'):
