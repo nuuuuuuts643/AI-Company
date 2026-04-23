@@ -317,6 +317,8 @@ function renderTopics(topics) {
   }
   if (currentStatus !== 'all')    list = list.filter(t => t.status === currentStatus);
   if (currentGenre  !== 'すべて') list = list.filter(t => (t.genres||[t.genre]).includes(currentGenre));
+  // archivedは「すべて」でも非表示（legacyページ送り）
+  if (currentStatus === 'all')    list = list.filter(t => t.lifecycleStatus !== 'archived');
   // --- Task 1: favorites-only filter ---
   if (showFavsOnly) list = list.filter(t => userFavorites.has(t.topicId));
 
