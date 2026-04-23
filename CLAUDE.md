@@ -49,7 +49,7 @@
 - **CEO**: Claude（自律的に会社を動かす）
 - **方針**: 指示を待たず毎日前進する。空報告禁止。実行した証拠がないものは完了扱いしない。
 
-## 現在のプロジェクト状態（最終更新: 2026-04-22 git競合修正・AWS MCP設定）
+## 現在のプロジェクト状態（最終更新: 2026-04-24 P003保守性改善・はてなAPI並列化）
 
 | プロジェクト | 状態 | 備考 |
 |---|---|---|
@@ -101,6 +101,26 @@
 - **P002 Flutter動作確認** — `cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run`
 
 ## 承認済み・実行待ちタスク
+
+### 完了済み（2026-04-24 P003保守性改善・コスト削減）
+
+#### P003 Lambda保守性改善（fetcher / lifecycle）
+- ✅ **SNAP TTL 90日→7日** — DynamoDB 662K件ブロートの根本原因を修正
+- ✅ **lifecycle Lambda デプロイ** — `flotopic-lifecycle`（毎週月曜12:00 JST）。archivedトピックのSNAP削除、legacy昇格、低スコア削除
+- ✅ **`cleanup_stale()`削除** — SKにFilterExpressionを使う致命的バグ（動いていなかった）
+- ✅ **`log_summary_pattern()`削除** — 毎実行ごとai-company-memoryに無駄書きしていた
+- ✅ **`generate_title/summary/incremental_summary()`削除** — processorに移行済みのデッドコード（-830行）
+- ✅ **はてなAPI並列化** — ThreadPoolExecutorで最大3件同時呼び出し・タイムアウト5s→2s（最悪ケース750s→100s）
+- ✅ **`INACTIVE_LIFECYCLE_STATUSES`定数化** — `frozenset({'legacy', 'archived'})`をconfig.pyに一元化、2箇所のフィルタが参照
+- ✅ **`SITE_URL`・`SNAP_TTL_DAYS`定数化** — config.pyに集約（分散ハードコードを排除）
+- ✅ **ゴミファイル削除** — `handler.py.bak`、`function_backup.zip`
+- ✅ **`delete_snaps`ページネーション修正** — 1MB超のSNAPも全件削除できるよう修正
+
+#### Notion収益可視化・コスト削減
+- ✅ **notion_revenue_sync.py** — 月次収益/AWS/Claude APIコストをNotion DBに自動同期
+- ✅ **revenue_agent.py** — claude-opus→claude-haikuに変更、Claude API費用推定追加
+- ✅ **editorial_agent.py** — claude-opus→claude-sonnetに変更
+- ✅ **notion-revenue-daily.yml** — 毎日09:00 JST自動実行
 
 ### 完了済み（2026-04-22 git競合修正・MCP設定）
 - ✅ **全ワークフローgit競合修正** — 8本に `concurrency: group: git-push` + `git pull --rebase` 追加。複数エージェントの同時push競合が解消
