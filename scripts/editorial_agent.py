@@ -38,7 +38,7 @@ ANALYTICS_TABLE = "flotopic-analytics"
 def call_claude(prompt: str, max_tokens: int = 2000) -> str:
     """Anthropic Messages API を urllib で呼び出す"""
     payload = json.dumps({
-        "model": "claude-opus-4-6",
+        "model": "claude-sonnet-4-6",
         "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": prompt}],
     }).encode()
