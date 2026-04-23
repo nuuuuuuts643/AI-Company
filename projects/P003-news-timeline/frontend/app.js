@@ -72,19 +72,22 @@ function updateAuthUI() {
   const mypageLink = document.getElementById('mypage-link');
 
   if (mypageLink) mypageLink.style.display = 'inline-flex';
+  const googleBtnWrap = document.getElementById('google-btn-wrap');
   if (currentUser) {
-    if (signInBtn)  signInBtn.style.display  = 'none';
-    if (signOutBtn) signOutBtn.style.display = 'inline-flex';
+    if (signInBtn)     signInBtn.style.display     = 'none';
+    if (googleBtnWrap) googleBtnWrap.style.display = 'none';
+    if (signOutBtn)    signOutBtn.style.display    = 'inline-flex';
     if (userAvatar) {
       userAvatar.src     = currentUser.picture || '';
       userAvatar.style.display = currentUser.picture ? 'inline-block' : 'none';
     }
     if (userName) userName.textContent = currentUser.name || '';
   } else {
-    if (signInBtn)  signInBtn.style.display  = 'inline-flex';
-    if (signOutBtn) signOutBtn.style.display = 'none';
-    if (userAvatar) userAvatar.style.display = 'none';
-    if (userName)   userName.textContent     = '';
+    if (signInBtn)     signInBtn.style.display     = 'none';
+    if (googleBtnWrap) googleBtnWrap.style.display = 'inline-block';
+    if (signOutBtn)    signOutBtn.style.display    = 'none';
+    if (userAvatar)    userAvatar.style.display    = 'none';
+    if (userName)      userName.textContent        = '';
   }
 }
 
@@ -181,6 +184,7 @@ function initGoogleAuth() {
     if (signInBtn) {
       // renderButtonでGoogle標準ボタンを差し込む（One Tapより確実）
       const btnWrap = document.createElement('div');
+      btnWrap.id = 'google-btn-wrap';
       btnWrap.style.display = 'inline-block';
       signInBtn.parentNode.insertBefore(btnWrap, signInBtn);
       signInBtn.style.display = 'none';
