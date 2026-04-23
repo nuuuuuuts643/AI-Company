@@ -1413,16 +1413,17 @@ def lambda_handler(event, context):
 
         # 要約: Claude生成済みを保持 / 未処理は3件以上で抽出的生成
         # 【Claude不要ルート・コストゼロ】
-        if existing.get('aiGenerated') and existing.get('generatedSummary'):
-            gen_summary = existing['generatedSummary']  # processor済み → 保持
+        existing_summary = existing.get('generatedSummary', '')
+        # 古い抽出的フォーマット（「関連して...複数の報道」）はリセットして再生成させる
+        _is_old_extractive = existing_summary and '複数の報道' in existing_summary and '関連して' in existing_summary
+        if existing.get('aiGenerated') and existing_summary and not _is_old_extractive:
+            gen_summary = existing_summary  # processor済み・品質OK → 保持
         else:
-            gen_summary = existing.get('generatedSummary') or (
-                extractive_summary(g) if cnt >= 3 else None
-            )
+            gen_summary = extractive_summary(g) if cnt >= 3 else None
 
         # processor Lambda向けフラグ: aiGenerated=Trueでないトピックをマーク
         # processor が処理後に aiGenerated=True, pendingAI=False に更新する
-        pending_ai = not bool(existing.get('aiGenerated'))
+        pending_ai = not bool(existing.get('aiGenerated') and not _is_old_extractive)
 
         # パターンログ（ai-company-memoryに記録）
         _all_entities = extract_entities(' '.join(a['title'] for a in g))

@@ -342,8 +342,8 @@ function renderTopics(topics) {
       ? `<div class="card-thumb"><img class="card-thumb-img" src="${esc(t.imageUrl)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<div class=\\'card-thumb-placeholder ${esc(t.status)}\\'>${genreEmoji(primaryGenre)}</div>'"></div>`
       : `<div class="card-thumb"><div class="card-thumb-placeholder ${esc(t.status)}">${genreEmoji(primaryGenre)}</div></div>`;
     const isFav = userFavorites.has(t.topicId);
-    // --- Task 2: reading time estimate ---
-    const readMins = Math.max(1, Math.round((t.articleCount || 1) * 2));
+    // reading time: ~1min per article, capped at 30min
+    const readMins = Math.min(30, Math.max(1, Math.round((t.articleCount || 1) * 0.8)));
     return `
     <div class="topic-card-wrapper" style="position:relative;">
       <a class="topic-card ${esc(t.status)}" href="topic.html?id=${esc(t.topicId)}">
