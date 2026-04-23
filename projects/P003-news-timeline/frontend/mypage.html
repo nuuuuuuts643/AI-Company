@@ -293,6 +293,51 @@
     .mp-panel { display: none; }
     .mp-panel.active { display: block; }
 
+    /* ===== ニックネーム編集 ===== */
+    .mp-nickname-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .mp-nickname-label {
+      color: #64748b;
+      font-size: .82rem;
+      flex-shrink: 0;
+      width: 80px;
+    }
+    .mp-nickname-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: .9rem;
+      font-weight: 600;
+      color: #0f172a;
+      font-family: inherit;
+      background: transparent;
+      border-bottom: 1.5px solid transparent;
+      padding: 2px 4px;
+      transition: border-color .15s;
+    }
+    .mp-nickname-input:focus {
+      border-bottom-color: #3b82f6;
+    }
+    .mp-nickname-save {
+      padding: 5px 12px;
+      background: #3b82f6;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: .78rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      display: none;
+      transition: opacity .15s;
+    }
+    .mp-nickname-save:hover { opacity: .87; }
+
     /* ===== アカウントセクション ===== */
     .mp-account-card {
       background: #fff;
@@ -572,7 +617,9 @@
     const avatarHtml = (user && user.picture)
       ? `<img class="mp-avatar" src="${safeEsc(user.picture)}" alt="アバター">`
       : `<div class="mp-avatar-placeholder">👤</div>`;
-    const displayName = user ? safeEsc(user.name || 'ユーザー') : 'ユーザー';
+    // ニックネーム優先、なければGoogleの名前の最初の部分
+    const rawName    = user ? (user.name || '') : '';
+    const displayName = safeEsc(user ? (user.nickname || rawName.split(' ')[0] || rawName || 'ユーザー') : 'ユーザー');
 
     const favsHtml = favTopics.length
       ? favTopics.map(t => `
@@ -637,13 +684,18 @@
       <!-- アカウントパネル -->
       <div class="mp-panel" id="panel-account">
         <div class="mp-account-card">
+          <div class="mp-nickname-field">
+            <span class="mp-nickname-label">表示名</span>
+            <input class="mp-nickname-input" id="mp-nickname-input" type="text" value="${safeEsc(user ? (user.nickname || (user.name || '').split(' ')[0] || '') : '')}" maxlength="20" placeholder="名前を入力">
+            <button class="mp-nickname-save" id="mp-nickname-save">保存</button>
+          </div>
           <div class="mp-account-row">
-            <span class="mp-account-label">名前</span>
-            <span class="mp-account-value">${displayName}</span>
+            <span class="mp-account-label">Googleアカウント</span>
+            <span class="mp-account-value" style="font-size:.82rem;color:#94a3b8;">${safeEsc(user ? (user.name || '') : '')}</span>
           </div>
           <div class="mp-account-row">
             <span class="mp-account-label">ログイン方法</span>
-            <span class="mp-account-value">Googleアカウント</span>
+            <span class="mp-account-value">Google</span>
           </div>
         </div>
         <button class="mp-signout-btn" id="mp-signout-btn">ログアウト</button>
@@ -654,6 +706,32 @@
     document.querySelectorAll('.mp-tab').forEach(btn => {
       btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
+
+    // ニックネーム編集
+    const nickInput = document.getElementById('mp-nickname-input');
+    const nickSave  = document.getElementById('mp-nickname-save');
+    if (nickInput && nickSave) {
+      nickInput.addEventListener('input', () => {
+        nickSave.style.display = nickInput.value.trim() ? 'inline-block' : 'none';
+      });
+      nickSave.addEventListener('click', () => {
+        const v = nickInput.value.trim();
+        if (!v) return;
+        if (typeof saveNickname === 'function') saveNickname(v);
+        else {
+          try {
+            const u = JSON.parse(localStorage.getItem('flotopic_user') || 'null');
+            if (u) { u.nickname = v; localStorage.setItem('flotopic_user', JSON.stringify(u)); }
+          } catch {}
+        }
+        nickSave.style.display = 'none';
+        nickSave.textContent = '保存';
+        // プロフィールヘッダーの名前も更新
+        const dn = document.querySelector('.mp-display-name');
+        if (dn) dn.textContent = v;
+        showToast && showToast('表示名を変更しました');
+      });
+    }
 
     // ログアウトボタン
     const signoutBtn = document.getElementById('mp-signout-btn');

@@ -63,6 +63,20 @@ function saveUser(user) {
   } catch {}
 }
 
+// ニックネーム: 設定済みなら優先、なければGoogleの名前の名前部分のみ
+function getDisplayName(user) {
+  if (!user) return '';
+  if (user.nickname) return user.nickname;
+  const full = user.name || '';
+  return full.split(/\s+/)[0] || full || 'ユーザー';
+}
+function saveNickname(nickname) {
+  try {
+    const u = loadUser();
+    if (u) { u.nickname = nickname; saveUser(u); if (currentUser) currentUser.nickname = nickname; }
+  } catch {}
+}
+
 function updateAuthUI() {
   const signInBtn  = document.getElementById('auth-signin-btn');
   const signOutBtn = document.getElementById('auth-signout-btn');
@@ -81,7 +95,7 @@ function updateAuthUI() {
       userAvatar.src     = currentUser.picture || '';
       userAvatar.style.display = currentUser.picture ? 'inline-block' : 'none';
     }
-    if (userName) userName.textContent = currentUser.name || '';
+    if (userName) userName.textContent = getDisplayName(currentUser);
   } else {
     if (signInBtn)     signInBtn.style.display     = 'none';
     if (googleBtnWrap) googleBtnWrap.style.display = 'inline-block';
@@ -109,7 +123,7 @@ async function handleGoogleCredentialResponse(response) {
       };
       saveUser(currentUser);
       updateAuthUI();
-      showToast(`${currentUser.name || 'ログイン'} でログインしました`);
+      showToast(`${getDisplayName(currentUser) || 'ログイン'} でログインしました`);
     } catch {}
     return;
   }
@@ -120,7 +134,7 @@ async function handleGoogleCredentialResponse(response) {
       currentUser = { userId: payload.sub, name: payload.name || '', picture: payload.picture || '', token };
       saveUser(currentUser);
       updateAuthUI();
-      showToast(`${currentUser.name || 'ログイン'} でログインしました`);
+      showToast(`${getDisplayName(currentUser) || 'ログイン'} でログインしました`);
       const topicId = new URLSearchParams(location.search).get('id');
       if (topicId) setupCommentForm(topicId);
     } catch {}
@@ -137,7 +151,7 @@ async function handleGoogleCredentialResponse(response) {
       currentUser = { ...data, token: idToken };
       saveUser(currentUser);
       updateAuthUI();
-      showToast(`${currentUser.name || 'ログイン'} でログインしました`);
+      showToast(`${getDisplayName(currentUser) || 'ログイン'} でログインしました`);
       const topicId = new URLSearchParams(location.search).get('id');
       if (topicId) setupCommentForm(topicId);
     } else {
@@ -1153,12 +1167,17 @@ function setupCommentForm(topicId) {
   if (loginPrompt) loginPrompt.style.display = 'none';
   if (formArea)    formArea.style.display    = 'block';
 
-  // ニックネームを Google 名で自動設定（読み取り専用）
+  // ニックネーム: 編集可能、変更するとlocalStorageに保存
   if (nickEl) {
-    nickEl.value    = currentUser.name || '';
-    nickEl.readOnly = true;
-    nickEl.style.backgroundColor = '#f1f5f9';
-    nickEl.style.cursor          = 'default';
+    nickEl.value    = getDisplayName(currentUser);
+    nickEl.readOnly = false;
+    nickEl.placeholder = '名前（任意）';
+    nickEl.style.backgroundColor = '';
+    nickEl.style.cursor          = '';
+    nickEl.addEventListener('change', () => {
+      const v = nickEl.value.trim();
+      if (v) saveNickname(v);
+    });
   }
 
   if (!bodyEl || !submitEl) return;
@@ -1179,7 +1198,8 @@ function setupCommentForm(topicId) {
   // 送信
   newSubmit.addEventListener('click', async () => {
     const body     = newBody.value.trim();
-    const nickname = currentUser.name || '';
+    const nickInput = document.getElementById('comment-nickname');
+    const nickname  = (nickInput && nickInput.value.trim()) || getDisplayName(currentUser);
 
     if (errorEl) errorEl.textContent = '';
 
