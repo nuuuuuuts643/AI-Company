@@ -178,7 +178,9 @@ def parse_revenue_log() -> dict:
 
     revenue = yen(r"収益[:：]\s*[¥￥]?([\d,]+)", latest)
     aws = yen(r"AWS.*?コスト[:：]\s*[¥￥]?([\d,]+)", latest)
-    anthropic = yen(r"Anthropic.*?コスト[:：]\s*[¥￥]?([\d,]+)", latest)
+    anthropic = yen(r"Anthropic.*?コスト推計.*?[:：]\s*[¥￥]?([\d,]+)", latest)
+    if anthropic == 0:
+        anthropic = yen(r"Anthropic.*?コスト[:：]\s*[¥￥]?([\d,]+)", latest)
 
     analysis_m = re.search(r"#### Claude分析\n(.*?)(?=\n---|$)", latest, re.DOTALL)
     analysis = analysis_m.group(1).strip() if analysis_m else ""
@@ -238,13 +240,15 @@ def build_page_blocks(data: dict, aws_costs: dict) -> list:
     profit = revenue - total_cost
 
     # テキストバーチャート
-    max_val = max(revenue, total_cost, 1)
+    max_val = max(revenue, total_cost, aws_cost, anthropic_cost, 1)
     chart_lines = [
-        f"収益      {_bar(revenue, max_val)}  ¥{revenue:,}",
-        f"AWSコスト {_bar(aws_cost, max_val)}  ¥{aws_cost:,}",
-        f"API費用   {_bar(anthropic_cost, max_val)}  ¥{anthropic_cost:,}",
-        f"{'─'*40}",
-        f"損益      {'▲ -' if profit < 0 else '▶ +'}¥{abs(profit):,}",
+        f"収益         {_bar(revenue, max_val)}  ¥{revenue:,}",
+        f"─── コスト内訳 ───────────────────────",
+        f"  AWS        {_bar(aws_cost, max_val)}  ¥{aws_cost:,}",
+        f"  Claude API {_bar(anthropic_cost, max_val)}  ¥{anthropic_cost:,}",
+        f"  合計       {_bar(total_cost, max_val)}  ¥{total_cost:,}",
+        f"{'─'*44}",
+        f"損益         {'▲ -' if profit < 0 else '▶ +'}¥{abs(profit):,}",
     ]
 
     callout_color = "red_background" if profit < 0 else "green_background"
