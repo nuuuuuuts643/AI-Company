@@ -61,12 +61,17 @@ def is_truly_inactive(item: dict, now: int) -> bool:
 
 def delete_snaps(topic_id: str) -> int:
     """指定トピックのSNAPアイテムをすべて削除する"""
-    items = table.query(
-        KeyConditionExpression=DKey('topicId').eq(topic_id) & DKey('SK').begins_with('SNAP#'),
-    ).get('Items', [])
-    for item in items:
-        table.delete_item(Key={'topicId': item['topicId'], 'SK': item['SK']})
-    return len(items)
+    deleted = 0
+    kwargs = {'KeyConditionExpression': DKey('topicId').eq(topic_id) & DKey('SK').begins_with('SNAP#')}
+    while True:
+        resp = table.query(**kwargs)
+        for item in resp.get('Items', []):
+            table.delete_item(Key={'topicId': item['topicId'], 'SK': item['SK']})
+            deleted += 1
+        if not resp.get('LastEvaluatedKey'):
+            break
+        kwargs['ExclusiveStartKey'] = resp['LastEvaluatedKey']
+    return deleted
 
 
 def lambda_handler(event, context):
