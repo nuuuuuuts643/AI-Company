@@ -1,8 +1,9 @@
 name: AI-Company マーケティングAI日次実行
 
 on:
-  schedule:
-    - cron: '0 1 * * *'  # 毎日 10:00 JST (UTC 01:00)
+  # [PAUSED]
+  #   schedule:
+  #     - cron: '0 1 * * *'  # 毎日 10:00 JST (UTC 01:00)
   workflow_dispatch:
 
 concurrency:

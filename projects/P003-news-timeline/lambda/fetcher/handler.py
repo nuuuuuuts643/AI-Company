@@ -1079,6 +1079,15 @@ def get_all_topics():
         elif ratio > 8:
             decayed = max(1, int(decayed * 0.35))   # 過剰クラスター
         item['score'] = decayed
+        # lifecycleStatus 未設定の旧トピックに自動補完（フロントエンドのフィルタが機能するように）
+        if not item.get('lifecycleStatus'):
+            hours = (time.time() - last_ts) / 3600 if last_ts else 999
+            if hours < 48:
+                item['lifecycleStatus'] = 'active'
+            elif hours < 168:
+                item['lifecycleStatus'] = 'cooling'
+            else:
+                item['lifecycleStatus'] = 'archived'
     items.sort(key=lambda x: int(x.get('score', 0) or 0), reverse=True)
     return items
 
@@ -1508,20 +1517,40 @@ def lambda_handler(event, context):
             if tid in parent_to_children:
                 t['childTopics'] = parent_to_children[tid]
         # ─────────────────────────────────────────────────────────────────
-        # 重複タイトルを排除（全角/半角正規化後に同一タイトルのものはスコア高い方を残す）
+        # 重複タイトルを排除（2段階）
+        # 1. 長キー (normalized title[:50]) — 完全一致
+        # 2. 短キー (記号除去後の先頭18文字) — "ChatGPT Images 2.0発表" と "ChatGPT Images 2.0リリース" を同一視
         def _norm_title(t):
             s = (t.get('generatedTitle') or t.get('title', '')).strip()
             s = s.replace('｢','「').replace('｣','」').replace('　',' ')
             s = re.sub(r'\s+', ' ', s)
             s = re.sub(r'\s*[-－–|｜]\s*[^\s].{1,25}$', '', s)
             return s.lower()[:50]
-        dedup_map = {}
+        def _core_key(t):
+            s = (t.get('generatedTitle') or t.get('title', '')).lower()
+            s = re.sub(r'[「」【】・、。,!?！？\[\]()（）『』""\'\'#＃]', '', s)
+            s = re.sub(r'\s+', '', s)
+            return s[:18]
+        dedup_long = {}  # long key → topic
+        dedup_core = {}  # core key → topic
         for t in topics:
-            key = _norm_title(t)
-            sc  = int(t.get('score', 0) or 0)
-            if key not in dedup_map or sc > int(dedup_map[key].get('score', 0) or 0):
-                dedup_map[key] = t
-        topics_deduped = sorted(dedup_map.values(), key=lambda x: int(x.get('score', 0) or 0), reverse=True)
+            kl = _norm_title(t)
+            kc = _core_key(t)
+            sc = int(t.get('score', 0) or 0)
+            if kl in dedup_long:
+                if sc > int(dedup_long[kl].get('score', 0) or 0):
+                    dedup_long[kl] = t
+                    dedup_core[kc] = t
+            elif kc in dedup_core:
+                if sc > int(dedup_core[kc].get('score', 0) or 0):
+                    old_kl = _norm_title(dedup_core[kc])
+                    dedup_long.pop(old_kl, None)
+                    dedup_long[kl] = t
+                    dedup_core[kc] = t
+            else:
+                dedup_long[kl] = t
+                dedup_core[kc] = t
+        topics_deduped = sorted(dedup_long.values(), key=lambda x: int(x.get('score', 0) or 0), reverse=True)
         write_s3('api/topics.json', {'topics': topics_deduped, 'trendingKeywords': extract_trending_keywords(topics_deduped), 'updatedAt': ts_iso})
         generate_rss(topics, ts_iso)
         generate_sitemap(topics)
