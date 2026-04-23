@@ -67,7 +67,7 @@
 | 秘書 | scripts/secretary_run.py | 毎朝9:00 JST | ✅ 稼働中（Notion同期強化済み） |
 | 開発監視AI | scripts/devops_agent.py | 毎時 | ✅ 有効（git push済み） |
 | マーケティングAI | scripts/marketing_agent.py | 毎朝10:00 JST | ✅ 有効（git push済み） |
-| 収益管理AI | scripts/revenue_agent.py | 毎週月曜9:30 JST | ✅ 有効（git push済み） |
+| 収益管理AI | scripts/revenue_agent.py + notion_revenue_sync.py | 毎週月曜9:30 JST | ✅ 有効（Notion同期追加済み） |
 | 編集AI | scripts/editorial_agent.py | 毎週水曜9:00 JST | ✅ 有効（git push済み） |
 | SEO AI | scripts/seo_agent.py | 毎週月曜10:00 JST | ✅ 有効（git push済み）|
 | X投稿AI | scripts/x_agent.py | 日次8:00/週次月9:00/月次1日9:00 JST | ✅ 有効（git push済み・X API key未設定）|
