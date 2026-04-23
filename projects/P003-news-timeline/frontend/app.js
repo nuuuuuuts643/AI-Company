@@ -877,8 +877,24 @@ function renderDetail(data) {
     // Related articles section — top 5 articles
     const relatedEl = document.getElementById('related-articles');
     if (relatedEl && allArticles.length) {
-      const top5 = allArticles.slice(0, 5);
-      relatedEl.innerHTML = top5.map(a => `
+      // Pick up to 3 articles: oldest (origin), newest (latest), and one from a different source
+      const picked = [];
+      const usedSources = new Set();
+      const sorted = [...allArticles].sort((a, b) => new Date(a._snapTs) - new Date(b._snapTs));
+      // Origin article
+      if (sorted.length) { picked.push(sorted[0]); usedSources.add(sorted[0].source); }
+      // Latest article (different source preferred)
+      const latest = allArticles[0];
+      if (latest && latest.url !== (picked[0] && picked[0].url)) { picked.push(latest); usedSources.add(latest.source); }
+      // Middle article from a new source
+      for (const a of allArticles) {
+        if (picked.length >= 3) break;
+        if (!usedSources.has(a.source) && a.url !== picked[0].url && a.url !== (picked[1] && picked[1].url)) {
+          picked.push(a); usedSources.add(a.source);
+        }
+      }
+      if (picked.length === 0) picked.push(allArticles[0]);
+      relatedEl.innerHTML = picked.map(a => `
         <div class="article-item">
           <a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
           <div class="article-meta">
