@@ -1311,10 +1311,29 @@ document.addEventListener('DOMContentLoaded', () => {
       const titleEl = document.getElementById('topic-title');
       if (titleEl) titleEl.textContent = '読み込みに失敗しました';
     };
-    const refresh = () => fetch(apiUrl(`topic/${topicId}`))
-      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-      .then(data => { try { renderDetail(data); } catch(e) { console.error('renderDetail error:', e); } })
-      .catch(err => { console.error('fetch error:', err); showError(); });
+    const refresh = async () => {
+      try {
+        const r = await fetch(apiUrl(`topic/${topicId}`));
+        if (!r.ok) throw new Error(r.status);
+        const ct = r.headers.get('content-type') || '';
+        if (!ct.includes('json')) throw new Error('not_json');
+        const data = await r.json();
+        try { renderDetail(data); } catch(e) { console.error('renderDetail error:', e); }
+      } catch (err) {
+        // 個別ファイルが存在しない場合 topics.json からフォールバック
+        try {
+          const r2 = await fetch(apiUrl('topics'));
+          const d2 = await r2.json();
+          const t = (d2.topics || []).find(t => t.topicId === topicId);
+          if (t) {
+            try { renderDetail({ meta: t, timeline: [], views: [] }); } catch(e2) {}
+            return;
+          }
+        } catch {}
+        console.error('fetch error:', err);
+        showError();
+      }
+    };
     refresh();
     setInterval(refresh, REFRESH_MS);
 
