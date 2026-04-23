@@ -205,8 +205,8 @@
   <div class="inner header-inner">
     <div>
       <a href="index.html" style="text-decoration:none;color:inherit;">
-        <h1>📰 Flotopic</h1>
-        <p>話題の盛り上がりをAIで追う</p>
+        <h1>Flotopic</h1>
+        <p>話題の流れをAIで追う</p>
       </a>
     </div>
     <div style="display:flex;align-items:center;gap:16px;">
@@ -337,7 +337,7 @@
     }
 
     // Build avatar HTML
-    const user = typeof currentUser !== 'undefined' ? currentUser : null;
+    const user = getUser();
     const avatarHtml = (user && user.picture)
       ? '<img class="mypage-avatar" src="' + safeEsc(user.picture) + '" alt="アバター">'
       : '<div class="mypage-avatar-placeholder">👤</div>';
@@ -410,8 +410,14 @@
     ].join('\n');
   }
 
+  function getUser() {
+    // app.jsのcurrentUserが設定済みならそれを使う、なければlocalStorageから直読み
+    if (typeof currentUser !== 'undefined' && currentUser) return currentUser;
+    try { return JSON.parse(localStorage.getItem('flotopic_user') || 'null'); } catch { return null; }
+  }
+
   async function renderMyPage() {
-    const user = (typeof currentUser !== 'undefined') ? currentUser : null;
+    const user = getUser();
     if (!user) {
       renderLoginPrompt();
     } else {
