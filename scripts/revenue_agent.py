@@ -30,7 +30,7 @@ def read_file(path: Path) -> str:
 def call_claude(prompt: str, max_tokens: int = 1500) -> str:
     """Anthropic Messages API を urllib で呼び出す"""
     payload = json.dumps({
-        "model": "claude-opus-4-6",
+        "model": "claude-haiku-4-5-20251001",
         "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": prompt}],
     }).encode()
@@ -116,6 +116,45 @@ def get_aws_costs() -> dict:
     except Exception as e:
         print(f"[aws] Cost Explorer 取得失敗（スキップ）: {e}")
         return {}
+
+
+# ---------------------------------------------------------------------------
+# Claude APIコスト推計
+# ---------------------------------------------------------------------------
+
+# モデル別料金（$/1Mトークン）
+_PRICES = {
+    "claude-haiku-4-5-20251001": {"in": 0.80,  "out": 4.00},
+    "claude-sonnet-4-6":         {"in": 3.00,  "out": 15.00},
+    "claude-opus-4-6":           {"in": 15.00, "out": 75.00},
+}
+JPY_RATE = 150
+
+# 稼働エージェント定義（モデル・月間実行回数・推定トークン数）
+_AGENTS = [
+    {"name": "secretary",  "model": "claude-haiku-4-5-20251001", "runs_per_month": 30, "in_tok": 3000, "out_tok": 2000},
+    {"name": "editorial",  "model": "claude-sonnet-4-6",         "runs_per_month": 4,  "in_tok": 3000, "out_tok": 2000},
+    {"name": "seo",        "model": "claude-sonnet-4-6",         "runs_per_month": 4,  "in_tok": 2000, "out_tok": 1500},
+    {"name": "digest",     "model": "claude-sonnet-4-6",         "runs_per_month": 4,  "in_tok": 3000, "out_tok": 2000},
+    {"name": "revenue",    "model": "claude-haiku-4-5-20251001", "runs_per_month": 4,  "in_tok": 2000, "out_tok": 1000},
+    {"name": "ceo",        "model": "claude-sonnet-4-6",         "runs_per_month": 30, "in_tok": 4000, "out_tok": 2000},
+    {"name": "marketing",  "model": "claude-sonnet-4-6",         "runs_per_month": 30, "in_tok": 2000, "out_tok": 1000},
+]
+
+
+def estimate_claude_costs() -> dict:
+    """稼働エージェントのClaude API費用を推計する"""
+    total_jpy = 0
+    breakdown = []
+    for a in _AGENTS:
+        p = _PRICES.get(a["model"], _PRICES["claude-sonnet-4-6"])
+        cost_usd = (a["in_tok"] * a["runs_per_month"] / 1_000_000 * p["in"]
+                    + a["out_tok"] * a["runs_per_month"] / 1_000_000 * p["out"])
+        cost_jpy = int(cost_usd * JPY_RATE)
+        total_jpy += cost_jpy
+        breakdown.append({"name": a["name"], "model": a["model"], "jpy": cost_jpy})
+    breakdown.sort(key=lambda x: x["jpy"], reverse=True)
+    return {"total_jpy": total_jpy, "breakdown": breakdown}
 
 
 # ---------------------------------------------------------------------------
@@ -223,13 +262,20 @@ def append_to_log(analysis: str, aws_costs: dict, parsed: dict) -> None:
     else:
         aws_summary = "- AWS実コスト: 取得失敗\n"
 
+    claude_costs = estimate_claude_costs()
+    claude_lines = "\n".join(
+        f"  - {b['name']} ({b['model'].split('-')[1]}): ¥{b['jpy']:,}"
+        for b in claude_costs["breakdown"]
+    )
+
     entry = f"""
 ---
 
 ### 自動レポート {timestamp}
 
 {aws_summary}- 収益（ログ読み取り）: ¥{parsed['revenue_jpy']:,}
-- Anthropic APIコスト（ログ読み取り）: ¥{parsed['anthropic_jpy']:,}
+- Anthropic APIコスト推計（月額）: ¥{claude_costs['total_jpy']:,}
+{claude_lines}
 
 #### Claude分析
 {analysis}
