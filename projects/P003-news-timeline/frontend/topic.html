@@ -112,7 +112,7 @@
       <div id="storymap-link-container"></div>
     </div>
     <div class="auth-area">
-      <a id="mypage-link" href="mypage.html" style="display:none;color:#737373;font-size:.85rem;text-decoration:none;white-space:nowrap;">👤 マイページ</a>
+      <a id="mypage-link" href="mypage.html" style="color:#737373;font-size:.85rem;text-decoration:none;white-space:nowrap;">👤 マイページ</a>
       <img id="auth-user-avatar" class="auth-user-avatar" src="" alt="アバター">
       <span id="auth-user-name" class="auth-user-name"></span>
       <button id="auth-signin-btn" class="auth-btn">
@@ -130,28 +130,29 @@
 </header>
 <main class="container">
 
-  <div class="ad-slot"><!-- admax -->
-<script src="https://adm.shinobi.jp/s/570fe6c87677ba7c5417119c60ca979d"></script>
-<!-- admax --></div>
+  <div class="ad-slot">
+    <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-6754575901141756" data-ad-slot="auto" data-ad-format="auto" data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  </div>
 
   <div class="card summary-card">
-    <h2>🤖 AI要約</h2>
-    <p class="summary-placeholder">このトピックのAI要約は準備中です。</p>
+    <h2>概要</h2>
+    <p class="summary-placeholder">このトピックの要約は準備中です。</p>
   </div>
 
   <div class="card">
-    <h2>📖 ストーリーの経緯</h2>
+    <h2>記事の流れ</h2>
     <div id="story-timeline"></div>
   </div>
 
   <div class="card">
-    <h2>🔗 関連記事</h2>
+    <h2>関連記事</h2>
     <div id="related-articles"></div>
   </div>
 
   <!-- 関連する分岐トピック -->
   <div class="card" id="related-topics-card" style="display:none;">
-    <h2>🌿 関連する分岐トピック</h2>
+    <h2>関連トピック</h2>
     <p style="font-size:.82rem;color:#64748b;margin-bottom:12px;">この話題から派生したトピック・関連する視点</p>
     <div id="related-topics-list"></div>
   </div>
@@ -189,7 +190,7 @@
 
   <!-- ===== コメント掲示板 ===== -->
   <div class="card comments-card" id="comments-section">
-    <h2>💬 みんなのコメント</h2>
+    <h2>コメント</h2>
 
     <!-- 未ログイン時のログイン促進 -->
     <div class="comment-login-prompt" id="comment-login-prompt">
