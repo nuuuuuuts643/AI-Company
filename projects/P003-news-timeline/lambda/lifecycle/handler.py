@@ -59,6 +59,16 @@ def is_truly_inactive(item: dict, now: int) -> bool:
     return days_since >= ARCHIVE_DAYS and velocity <= 0
 
 
+def delete_snaps(topic_id: str) -> int:
+    """指定トピックのSNAPアイテムをすべて削除する"""
+    items = table.query(
+        KeyConditionExpression=DKey('topicId').eq(topic_id) & DKey('SK').begins_with('SNAP#'),
+    ).get('Items', [])
+    for item in items:
+        table.delete_item(Key={'topicId': item['topicId'], 'SK': item['SK']})
+    return len(items)
+
+
 def lambda_handler(event, context):
     now = int(time.time())
 
@@ -116,14 +126,15 @@ def lambda_handler(event, context):
             print(f"[deleted]  topicId={topic_id} score={score} items={len(topic_items)}")
 
         else:
-            # 中間スコア → archived に設定（レガシーページに表示）
+            # 中間スコア → archived に設定 + SNAPを即削除（容量節約）
             table.update_item(
                 Key={'topicId': topic_id, 'SK': 'META'},
                 UpdateExpression='SET lifecycleStatus = :s',
                 ExpressionAttributeValues={':s': 'archived'}
             )
+            snaps_deleted = delete_snaps(topic_id)
             archived_count += 1
-            print(f"[archived] topicId={topic_id} score={score}")
+            print(f"[archived] topicId={topic_id} score={score} snaps_deleted={snaps_deleted}")
 
     summary = (
         f"Lifecycle sweep: {legacy_count} legacy, "
