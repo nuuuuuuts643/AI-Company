@@ -17,7 +17,7 @@ function showToast(msg, duration = 3000) {
     el.style.transform = 'translateX(-50%) translateY(60px)';
   }, duration);
 }
-const STATUS_LABEL = { rising:'🔺 上昇中', peak:'🔷 ピーク', declining:'🔻 減衰中' };
+const STATUS_LABEL = { rising:'🔥 急上昇', peak:'⚡ 注目中', declining:'📉 落ち着き' };
 const GENRES = ['すべて','総合','政治','ビジネス','株・金融','テクノロジー','スポーツ','エンタメ','科学','健康','国際'];
 const GENRE_EMOJI = {'政治':'🏛️','ビジネス':'💼','株・金融':'📈','テクノロジー':'💻','スポーツ':'⚽','エンタメ':'🎬','科学':'🔬','健康':'💊','国際':'🌏','総合':'📰'};
 
@@ -71,6 +71,7 @@ function updateAuthUI() {
 
   const mypageLink = document.getElementById('mypage-link');
 
+  if (mypageLink) mypageLink.style.display = 'inline-flex';
   if (currentUser) {
     if (signInBtn)  signInBtn.style.display  = 'none';
     if (signOutBtn) signOutBtn.style.display = 'inline-flex';
@@ -79,13 +80,11 @@ function updateAuthUI() {
       userAvatar.style.display = currentUser.picture ? 'inline-block' : 'none';
     }
     if (userName) userName.textContent = currentUser.name || '';
-    if (mypageLink) mypageLink.style.display = 'inline-flex';
   } else {
     if (signInBtn)  signInBtn.style.display  = 'inline-flex';
     if (signOutBtn) signOutBtn.style.display = 'none';
     if (userAvatar) userAvatar.style.display = 'none';
     if (userName)   userName.textContent     = '';
-    if (mypageLink) mypageLink.style.display = 'none';
   }
 }
 
@@ -112,6 +111,18 @@ async function handleGoogleCredentialResponse(response) {
     return;
   }
 
+  function localLoginFromToken(token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      currentUser = { userId: payload.sub, name: payload.name || '', picture: payload.picture || '', token };
+      saveUser(currentUser);
+      updateAuthUI();
+      showToast(`${currentUser.name || 'ログイン'} でログインしました`);
+      const topicId = new URLSearchParams(location.search).get('id');
+      if (topicId) setupCommentForm(topicId);
+    } catch {}
+  }
+
   try {
     const r = await fetch(AUTH_URL, {
       method:  'POST',
@@ -126,9 +137,12 @@ async function handleGoogleCredentialResponse(response) {
       showToast(`${currentUser.name || 'ログイン'} でログインしました`);
       const topicId = new URLSearchParams(location.search).get('id');
       if (topicId) setupCommentForm(topicId);
+    } else {
+      localLoginFromToken(idToken);
     }
   } catch (e) {
     console.error('Auth error:', e);
+    localLoginFromToken(idToken);
   }
 }
 
@@ -152,25 +166,36 @@ function initGoogleAuth() {
   const clientId = (typeof GOOGLE_CLIENT_ID !== 'undefined') ? GOOGLE_CLIENT_ID : '';
   if (!clientId) return;
 
-  if (window.google && google.accounts && google.accounts.id) {
+  const signOutBtn = document.getElementById('auth-signout-btn');
+  if (signOutBtn) signOutBtn.addEventListener('click', signOut);
+
+  function setupGIS() {
+    if (!window.google || !google.accounts || !google.accounts.id) return;
     google.accounts.id.initialize({
       client_id: clientId,
       callback:  handleGoogleCredentialResponse,
       auto_select: false,
+      ux_mode: 'popup',
     });
+    const signInBtn = document.getElementById('auth-signin-btn');
+    if (signInBtn) {
+      // renderButtonでGoogle標準ボタンを差し込む（One Tapより確実）
+      const btnWrap = document.createElement('div');
+      btnWrap.style.display = 'inline-block';
+      signInBtn.parentNode.insertBefore(btnWrap, signInBtn);
+      signInBtn.style.display = 'none';
+      google.accounts.id.renderButton(btnWrap, {
+        type: 'standard', theme: 'outline', size: 'medium',
+        text: 'signin_with', locale: 'ja',
+      });
+    }
   }
 
-  // サインインボタンにイベント設定
-  const signInBtn = document.getElementById('auth-signin-btn');
-  if (signInBtn && window.google && google.accounts) {
-    signInBtn.addEventListener('click', () => {
-      google.accounts.id.prompt();
-    });
-  }
-
-  const signOutBtn = document.getElementById('auth-signout-btn');
-  if (signOutBtn) {
-    signOutBtn.addEventListener('click', signOut);
+  if (window.google && google.accounts && google.accounts.id) {
+    setupGIS();
+  } else {
+    // GISスクリプトのonload後に初期化（async deferのため）
+    window.__gsiReady = setupGIS;
   }
 }
 
@@ -391,7 +416,7 @@ function renderTopics(topics) {
 function buildFilters() {
   const sbar = document.getElementById('status-filter');
   if (sbar) {
-    const btns = [{k:'all',l:'すべて'},{k:'rising',l:'🔺 上昇中'},{k:'peak',l:'🔷 ピーク'},{k:'declining',l:'🔻 減衰中'}];
+    const btns = [{k:'all',l:'すべて'},{k:'rising',l:'🔥 急上昇'},{k:'peak',l:'⚡ 注目中'},{k:'declining',l:'📉 落ち着き'}];
     sbar.innerHTML = btns.map(b=>`<button class="filter-btn ${currentStatus===b.k?'active':''}" data-status="${b.k}">${b.l}</button>`).join('');
     sbar.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', () => {
       sbar.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
@@ -435,25 +460,8 @@ async function loadWeather() {
     const desc = WMO[d.current.weather_code] || '―';
     el.innerHTML = `<span class="weather-city">${cityName}</span><span class="weather-desc">${desc}</span><span class="weather-temp">${temp}°C</span>`;
   };
-  const getCity = async (lat, lon) => {
-    try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10`, {headers:{'Accept-Language':'ja'}});
-      const d = await r.json();
-      return d.address?.city || d.address?.town || d.address?.county || '現在地';
-    } catch { return '現在地'; }
-  };
   try {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async p => {
-          const city = await getCity(p.coords.latitude, p.coords.longitude);
-          fetchWeather(p.coords.latitude, p.coords.longitude, city);
-        },
-        () => fetchWeather(35.68, 139.69, '東京'),
-      );
-    } else {
-      fetchWeather(35.68, 139.69, '東京');
-    }
+    fetchWeather(35.68, 139.69, '東京');
   } catch(e) { el.textContent = ''; }
 }
 
@@ -1056,29 +1064,7 @@ function renderDiscovery(meta) {
         : '<p class="disc-empty">トレンドを取得中...</p>';
     }
 
-    // --- Optional: Location layer (async, no-op if denied) ---
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(pos => {
-        const region = coordsToRegion(pos.coords.latitude, pos.coords.longitude);
-        if (!region) return;
-
-        const usedIds = new Set([curId, ...expandItems.map(t => t.topicId)]);
-        const localTopics = allTopics
-          .filter(t => !usedIds.has(t.topicId) && (t.generatedTitle || t.title || '').includes(region.kw))
-          .sort((a, b) => (b.score || 0) - (a.score || 0))
-          .slice(0, 2);
-
-        if (localTopics.length === 0) return;
-
-        const sub = document.getElementById('disc-expand-sub');
-        if (sub) sub.textContent = `📍 ${region.name}でも話題`;
-
-        if (expandBody) {
-          const localHtml = localTopics.map(t => discCard(t, { label: '📍 地域', cls: 'local' })).join('');
-          expandBody.innerHTML = localHtml + expandBody.innerHTML;
-        }
-      }, () => {/* denied — silent */}, { timeout: 4000, maximumAge: 600000 });
-    }
+    // Location layer removed — position prompt was confusing to users
   });
 }
 

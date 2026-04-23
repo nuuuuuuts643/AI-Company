@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://accounts.google.com/gsi/client" async defer onload="if(window.__gsiReady)window.__gsiReady()"></script>
   <style>
     /* ===== 認証UI ===== */
     .auth-area {
@@ -223,13 +223,13 @@
 <header>
   <div class="inner header-inner">
     <div>
-      <h1>📰 Flotopic</h1>
-      <p>話題の盛り上がりをAIで追う</p>
+      <h1>Flotopic</h1>
+      <p>話題の流れをAIで追う</p>
     </div>
     <div style="display:flex;align-items:center;gap:16px;">
       <div id="weather-widget" class="weather-widget"></div>
       <div class="auth-area">
-        <a id="mypage-link" href="mypage.html" style="display:none;color:#737373;font-size:.85rem;text-decoration:none;white-space:nowrap;">👤 マイページ</a>
+        <a id="mypage-link" href="mypage.html" style="color:#737373;font-size:.85rem;text-decoration:none;white-space:nowrap;">👤 マイページ</a>
         <img id="auth-user-avatar" class="auth-user-avatar" src="" alt="アバター">
         <span id="auth-user-name" class="auth-user-name"></span>
         <button id="auth-signin-btn" class="auth-btn">
@@ -247,27 +247,28 @@
   </div>
 </header>
 <main class="container">
-  <div class="ad-slot"><!-- admax -->
-<script src="https://adm.shinobi.jp/s/570fe6c87677ba7c5417119c60ca979d"></script>
-<!-- admax --></div>
+  <div class="ad-slot">
+    <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-6754575901141756" data-ad-slot="auto" data-ad-format="auto" data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  </div>
   <div style="display:flex;align-items:center;gap:8px;padding:6px 0 2px;">
     <a href="catchup.html" style="
       display:inline-flex;align-items:center;gap:6px;
-      padding:7px 16px;border-radius:20px;
-      background:rgba(59,130,246,0.12);border:1.5px solid rgba(59,130,246,0.35);
-      color:#93c5fd;font-size:0.82rem;text-decoration:none;
+      padding:6px 14px;border-radius:20px;
+      background:#f8fafc;border:1px solid #e2e8f0;
+      color:#64748b;font-size:0.82rem;text-decoration:none;
       transition:background 0.15s;white-space:nowrap;
-    " onmouseover="this.style.background='rgba(59,130,246,0.22)'"
-       onmouseout="this.style.background='rgba(59,130,246,0.12)'">
-      🕰️ しばらくぶり？ここから
+    " onmouseover="this.style.background='#f1f5f9'"
+       onmouseout="this.style.background='#f8fafc'">
+      しばらく見ていない方はこちら
     </a>
   </div>
   <div class="search-bar" style="display:flex;align-items:center;gap:8px;">
-    <input type="text" id="search-input" placeholder="🔍 キーワードで検索..." autocomplete="off" style="flex:1;">
-    <button id="fav-toggle-btn" class="fav-toggle-btn">⭐ お気に入りのみ</button>
+    <input type="text" id="search-input" placeholder="キーワードで検索..." autocomplete="off" style="flex:1;">
+    <button id="fav-toggle-btn" class="fav-toggle-btn">お気に入りのみ</button>
   </div>
   <div id="keyword-strip" class="keyword-strip" style="display:none;">
-    <span class="keyword-strip-label">🏷️</span>
+    <span class="keyword-strip-label">注目</span>
     <div class="keyword-chips" id="keyword-chips"></div>
   </div>
   <div id="status-filter" class="filter-bar"></div>
