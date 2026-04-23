@@ -1,8 +1,9 @@
 """
 P003 お気に入り Lambda
-- GET    /favorites/{userId}  → ユーザーのお気に入りトピックID一覧
-- POST   /favorites           → お気に入り追加 {userId, idToken, topicId}
-- DELETE /favorites           → お気に入り削除 {userId, idToken, topicId}
+- GET    /favorites/{userId}   → ユーザーのお気に入りトピックID一覧
+- POST   /favorites            → お気に入り追加 {userId, idToken, topicId}
+- DELETE /favorites            → お気に入り削除 {userId, idToken, topicId}
+- DELETE /user                 → アカウント全データ削除 {userId, idToken}
 
 書き込み操作は Google idToken を検証してから実行する。
 
@@ -98,6 +99,15 @@ def remove_favorite(user_id: str, topic_id: str):
     table.delete_item(Key={'userId': user_id, 'topicId': topic_id})
 
 
+# ── ユーザー全データ削除 ──────────────────────────────────────────
+
+def delete_all_user_data(user_id: str):
+    items = get_favorites(user_id)
+    with table.batch_writer() as batch:
+        for item in items:
+            batch.delete_item(Key={'userId': user_id, 'topicId': item['topicId']})
+
+
 # ── エントリポイント ──────────────────────────────────────────────
 
 def lambda_handler(event, context):
@@ -122,6 +132,23 @@ def lambda_handler(event, context):
             return resp(200, {'userId': user_id, 'favorites': items})
         except Exception as e:
             return resp(500, {'error': 'お気に入りの取得に失敗しました', 'detail': str(e)})
+
+    # ── DELETE /user : アカウント全データ削除 ────────────────────
+    parts = [p for p in path.split('/') if p]
+    if method == 'DELETE' and len(parts) >= 1 and parts[0] == 'user':
+        data = parse_body(event)
+        user_id  = (data.get('userId')  or '').strip()
+        id_token = (data.get('idToken') or '').strip()
+        if not user_id or not id_token:
+            return resp(400, {'error': 'userId, idToken は必須です'})
+        payload = verify_google_token(id_token)
+        if not payload or payload.get('sub') != user_id:
+            return resp(401, {'error': 'トークンの検証に失敗しました'})
+        try:
+            delete_all_user_data(user_id)
+            return resp(200, {'status': 'deleted', 'userId': user_id})
+        except Exception as e:
+            return resp(500, {'error': 'データ削除に失敗しました', 'detail': str(e)})
 
     # ── POST / DELETE: 認証付き書き込み ──────────────────────────
     if method in ('POST', 'DELETE'):

@@ -7,196 +7,404 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>マイページ | Flotopic</title>
   <meta name="description" content="お気に入りトピックや閲覧履歴を確認できるマイページです。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
-    /* ===== 認証UI (index.htmlと同じ) ===== */
+    * { box-sizing: border-box; }
+    body { background: #f0f2f5; font-family: 'Inter', 'Noto Sans JP', sans-serif; }
+
+    /* ===== ヘッダー認証UI ===== */
     .auth-area { display: flex; align-items: center; gap: 8px; }
     .auth-user-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; display: none; vertical-align: middle; }
-    .auth-user-name { font-size: .85rem; color: #e2e8f0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .auth-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; border: none; cursor: pointer; font-size: .82rem; font-weight: 600; transition: opacity .2s; }
-    .auth-btn:hover { opacity: .85; }
-    #auth-signin-btn { background: #fff; color: #374151; }
-    #auth-signout-btn { display: none; background: rgba(255,255,255,.15); color: #fff; }
+    .auth-user-name { font-size: .82rem; color: #737373; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .auth-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px; border: 1.5px solid rgba(0,0,0,0.09); cursor: pointer; font-size: .8rem; font-weight: 600; font-family: inherit; transition: all .15s; }
+    .auth-btn:hover { border-color: #a8a8a8; background: #f5f5f5; }
+    #auth-signin-btn { background: #fff; color: #1a1a1a; }
+    #auth-signout-btn { display: none; background: rgba(0,0,0,0.05); color: #737373; border-color: transparent; }
 
-    /* ===== マイページ固有 ===== */
-    .back-link-light {
-      color: #64748b;
-      text-decoration: none;
-      font-size: .85rem;
+    /* ===== レイアウト ===== */
+    .mp-wrap {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 20px 16px 60px;
+    }
+
+    .back-link {
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      margin-bottom: 24px;
+      color: #64748b;
+      font-size: .85rem;
+      text-decoration: none;
+      margin-bottom: 16px;
       transition: color .15s;
     }
-    .back-link-light:hover { color: #0f172a; }
+    .back-link:hover { color: #1a1a1a; }
 
-    .mypage-login-prompt {
+    /* ===== ログイン前 ===== */
+    .mp-login-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 60px 32px;
       text-align: center;
-      padding: 80px 20px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.07);
     }
-    .mypage-login-icon {
-      font-size: 4rem;
-      display: block;
-      margin-bottom: 20px;
+    .mp-login-logo {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: #1a1a1a;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
     }
-    .mypage-login-title {
-      font-size: 1.3rem;
-      font-weight: 700;
-      color: #0f172a;
-      margin-bottom: 10px;
-    }
-    .mypage-login-desc {
+    .mp-login-tagline {
       color: #64748b;
       font-size: .95rem;
+      margin-bottom: 32px;
+    }
+    .mp-login-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 8px;
+    }
+    .mp-login-desc {
+      color: #64748b;
+      font-size: .92rem;
+      line-height: 1.65;
       margin-bottom: 28px;
-      line-height: 1.6;
+    }
+    .mp-benefits {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 280px;
+      margin: 0 auto 32px;
+      text-align: left;
+    }
+    .mp-benefit-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: .88rem;
+      color: #374151;
+    }
+    .mp-benefit-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #eff6ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
     }
     .google-signin-btn {
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      padding: 12px 28px;
+      padding: 13px 32px;
       background: #fff;
       color: #374151;
       border: 1.5px solid #d1d5db;
-      border-radius: 8px;
+      border-radius: 999px;
       font-size: .95rem;
       font-weight: 600;
       cursor: pointer;
-      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      box-shadow: 0 1px 6px rgba(0,0,0,.08);
       transition: box-shadow .2s, border-color .2s;
     }
     .google-signin-btn:hover {
-      box-shadow: 0 3px 10px rgba(0,0,0,.14);
+      box-shadow: 0 4px 14px rgba(0,0,0,.12);
       border-color: #9ca3af;
     }
 
-    .mypage-profile-card {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      margin-bottom: 24px;
-      padding: 24px;
+    /* ===== プロフィールヘッダー（X風） ===== */
+    .mp-profile-banner {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      border-radius: 16px 16px 0 0;
+      height: 100px;
+      position: relative;
+    }
+    .mp-profile-card {
       background: #fff;
-      border-radius: 14px;
+      border-radius: 0 0 16px 16px;
+      padding: 0 24px 20px;
+      margin-bottom: 16px;
       box-shadow: 0 1px 6px rgba(0,0,0,.07);
     }
-    .mypage-avatar {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 3px solid #e5e7eb;
-      flex-shrink: 0;
+    .mp-avatar-wrap {
+      position: relative;
+      margin-top: -40px;
+      margin-bottom: 12px;
     }
-    .mypage-avatar-placeholder {
-      width: 64px;
-      height: 64px;
+    .mp-avatar {
+      width: 80px;
+      height: 80px;
       border-radius: 50%;
+      border: 4px solid #fff;
+      object-fit: cover;
+      display: block;
       background: #e5e7eb;
+    }
+    .mp-avatar-placeholder {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 4px solid #fff;
+      background: #334155;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 2rem;
-      flex-shrink: 0;
+      color: #fff;
     }
-    .mypage-display-name {
-      font-size: 1.25rem;
+    .mp-display-name {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 2px;
+    }
+    .mp-handle {
+      font-size: .82rem;
+      color: #94a3b8;
+      margin-bottom: 14px;
+    }
+    .mp-stats-row {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .mp-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .mp-stat-num {
+      font-size: 1rem;
       font-weight: 700;
       color: #0f172a;
     }
-    .mypage-member-label {
-      font-size: .82rem;
-      color: #64748b;
-      margin-top: 4px;
+    .mp-stat-label {
+      font-size: .75rem;
+      color: #94a3b8;
     }
 
-    .mypage-section {
+    /* ===== タブ ===== */
+    .mp-tabs {
+      display: flex;
+      background: #fff;
+      border-radius: 12px;
+      padding: 4px;
+      gap: 2px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .mp-tab {
+      flex: 1;
+      padding: 9px 8px;
+      border: none;
+      background: transparent;
+      border-radius: 9px;
+      font-size: .83rem;
+      font-weight: 600;
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+    }
+    .mp-tab.active {
+      background: #0f172a;
+      color: #fff;
+    }
+    .mp-tab:hover:not(.active) {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    /* ===== コンテンツカード ===== */
+    .mp-card {
       background: #fff;
       border-radius: 14px;
-      padding: 20px 24px;
+      overflow: hidden;
       box-shadow: 0 1px 6px rgba(0,0,0,.07);
-      margin-bottom: 20px;
-    }
-    .mypage-section-title {
-      font-size: 1rem;
-      font-weight: 700;
-      color: #374151;
       margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid #f3f4f6;
+    }
+    .mp-card-inner {
+      padding: 4px 0;
     }
 
-    .mypage-topic-row {
+    .mp-topic-row {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 11px 0;
-      border-bottom: 1px solid #f3f4f6;
+      padding: 13px 20px;
       text-decoration: none;
       color: inherit;
+      border-bottom: 1px solid #f3f4f6;
       transition: background .1s;
     }
-    .mypage-topic-row:last-child { border-bottom: none; }
-    .mypage-topic-row:hover .mypage-topic-title { color: #2563eb; text-decoration: underline; }
-
-    .mypage-topic-icon {
-      flex: 0 0 40px;
-      height: 40px;
-      border-radius: 8px;
+    .mp-topic-row:last-child { border-bottom: none; }
+    .mp-topic-row:hover { background: #f8fafc; }
+    .mp-topic-icon {
+      flex: 0 0 42px;
+      height: 42px;
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.1rem;
+      font-size: 1.15rem;
+      flex-shrink: 0;
     }
-    .mypage-topic-icon.fav   { background: linear-gradient(135deg, #fef9c3, #fde68a); }
-    .mypage-topic-icon.hist  { background: linear-gradient(135deg, #f0fdf4, #bbf7d0); }
-
-    .mypage-topic-info { flex: 1; min-width: 0; }
-    .mypage-topic-title {
+    .mp-topic-icon.fav  { background: #fef9c3; }
+    .mp-topic-icon.hist { background: #f0fdf4; }
+    .mp-topic-info { flex: 1; min-width: 0; }
+    .mp-topic-title {
       font-size: .9rem;
       font-weight: 600;
       color: #0f172a;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      transition: color .15s;
     }
-    .mypage-topic-sub {
+    .mp-topic-sub {
       font-size: .75rem;
       color: #9ca3af;
       margin-top: 2px;
     }
-
-    .mypage-empty {
-      color: #9ca3af;
-      text-align: center;
-      padding: 28px 0;
+    .mp-topic-arrow {
+      color: #cbd5e1;
       font-size: .9rem;
+      flex-shrink: 0;
     }
-
-    .mypage-danger-section {
-      border-left: 3px solid #fca5a5;
-    }
-    .mypage-danger-text {
-      color: #64748b;
-      font-size: .88rem;
+    .mp-empty {
+      padding: 40px 20px;
+      text-align: center;
+      color: #9ca3af;
+      font-size: .9rem;
       line-height: 1.6;
     }
-    .mypage-danger-text a {
-      color: #2563eb;
-      font-weight: 600;
-    }
-    .mypage-danger-text a:hover { text-decoration: underline; }
+    .mp-empty a { color: #2563eb; }
 
-    .mypage-placeholder-text {
-      color: #9ca3af;
-      font-size: .88rem;
-      padding: 16px 0;
-      font-style: italic;
+    /* ===== タブパネル ===== */
+    .mp-panel { display: none; }
+    .mp-panel.active { display: block; }
+
+    /* ===== アカウントセクション ===== */
+    .mp-account-card {
+      background: #fff;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 1px 6px rgba(0,0,0,.07);
+      margin-bottom: 16px;
     }
+    .mp-account-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: .9rem;
+    }
+    .mp-account-row:last-child { border-bottom: none; }
+    .mp-account-label { color: #64748b; font-size: .82rem; }
+    .mp-account-value { color: #0f172a; font-weight: 600; }
+    .mp-signout-btn {
+      width: 100%;
+      padding: 13px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      color: #475569;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .15s;
+      margin-bottom: 10px;
+    }
+    .mp-signout-btn:hover { background: #f1f5f9; }
+    .mp-delete-btn {
+      width: 100%;
+      padding: 13px;
+      background: #fff;
+      border: 1.5px solid #fca5a5;
+      border-radius: 10px;
+      color: #dc2626;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .15s, border-color .15s;
+    }
+    .mp-delete-btn:hover { background: #fff5f5; border-color: #f87171; }
+
+    /* ===== 削除確認モーダル ===== */
+    .mp-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .mp-modal-overlay.open { display: flex; }
+    .mp-modal {
+      background: #fff;
+      border-radius: 16px;
+      padding: 32px 28px;
+      max-width: 380px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    }
+    .mp-modal-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 10px;
+    }
+    .mp-modal-body {
+      color: #64748b;
+      font-size: .88rem;
+      line-height: 1.65;
+      margin-bottom: 24px;
+    }
+    .mp-modal-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .mp-modal-cancel {
+      flex: 1;
+      padding: 11px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      color: #475569;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .mp-modal-confirm {
+      flex: 1;
+      padding: 11px;
+      background: #dc2626;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity .15s;
+    }
+    .mp-modal-confirm:hover { opacity: .87; }
+    .mp-modal-confirm:disabled { opacity: .5; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -210,13 +418,12 @@
       </a>
     </div>
     <div style="display:flex;align-items:center;gap:16px;">
-      <div id="weather-widget" class="weather-widget"></div>
       <div class="auth-area">
-        <a id="mypage-link" href="mypage.html" style="display:none;color:#e2e8f0;font-size:.85rem;text-decoration:none;white-space:nowrap;">👤 マイページ</a>
+        <a id="mypage-link" href="mypage.html" style="color:#737373;font-size:.85rem;text-decoration:none;white-space:nowrap;">マイページ</a>
         <img id="auth-user-avatar" class="auth-user-avatar" src="" alt="アバター">
         <span id="auth-user-name" class="auth-user-name"></span>
         <button id="auth-signin-btn" class="auth-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
@@ -230,15 +437,28 @@
   </div>
 </header>
 
-<main class="container" style="padding-top:24px;padding-bottom:48px;">
-
-  <a href="index.html" class="back-link-light">← トップに戻る</a>
-
-  <div id="mypage-content">
-    <div class="loading"><div class="spinner"></div>読み込み中...</div>
+<main>
+  <div class="mp-wrap">
+    <a href="index.html" class="back-link">← トップに戻る</a>
+    <div id="mypage-content">
+      <div class="loading"><div class="spinner"></div>読み込み中...</div>
+    </div>
   </div>
-
 </main>
+
+<!-- 削除確認モーダル -->
+<div class="mp-modal-overlay" id="delete-modal">
+  <div class="mp-modal">
+    <div class="mp-modal-title">アカウントを削除しますか？</div>
+    <div class="mp-modal-body">
+      お気に入りや閲覧履歴など、Flotopicに保存されたすべてのデータが削除されます。この操作は元に戻せません。
+    </div>
+    <div class="mp-modal-actions">
+      <button class="mp-modal-cancel" id="delete-modal-cancel">キャンセル</button>
+      <button class="mp-modal-confirm" id="delete-modal-confirm">削除する</button>
+    </div>
+  </div>
+</div>
 
 <footer style="text-align:center;padding:20px;color:#94a3b8;font-size:.8rem;margin-top:40px;">
   <a href="index.html" style="color:#94a3b8;text-decoration:underline;">トップ</a>
@@ -251,7 +471,6 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
-// ===== マイページ固有のロジック =====
 (function () {
   'use strict';
 
@@ -259,7 +478,7 @@
   const FAV_LS_KEY  = 'flotopic_favs';
 
   function safeEsc(s) {
-    return typeof esc === 'function' ? esc(s) : String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return typeof esc === 'function' ? esc(s) : String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   function fmtViewedAt(ts) {
@@ -271,168 +490,238 @@
       if (mins < 60) return mins + '分前';
       const hours = Math.floor(mins / 60);
       if (hours < 24) return hours + '時間前';
-      const days = Math.floor(hours / 24);
-      return days + '日前';
-    } catch (e) { return ''; }
+      return Math.floor(hours / 24) + '日前';
+    } catch { return ''; }
+  }
+
+  function getUser() {
+    if (typeof currentUser !== 'undefined' && currentUser) return currentUser;
+    try { return JSON.parse(localStorage.getItem('flotopic_user') || 'null'); } catch { return null; }
   }
 
   function readLocalFavIds() {
-    try { return JSON.parse(localStorage.getItem(FAV_LS_KEY) || '[]'); } catch (e) { return []; }
+    try { return JSON.parse(localStorage.getItem(FAV_LS_KEY) || '[]'); } catch { return []; }
   }
 
   function readHistory() {
-    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch (e) { return []; }
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
   }
 
+  // ===== ログイン前表示 =====
   function renderLoginPrompt() {
     const container = document.getElementById('mypage-content');
     if (!container) return;
-    container.innerHTML = [
-      '<div class="mypage-login-prompt">',
-      '  <span class="mypage-login-icon">👤</span>',
-      '  <div class="mypage-login-title">マイページ</div>',
-      '  <div class="mypage-login-desc">Googleアカウントでログインすると、<br>お気に入りや閲覧履歴を確認できます。</div>',
-      '  <button class="google-signin-btn" id="mypage-signin-btn">',
-      '    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">',
-      '      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>',
-      '      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>',
-      '      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>',
-      '      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>',
-      '    </svg>',
-      '    Googleでログイン',
-      '  </button>',
-      '</div>'
-    ].join('\n');
-
+    container.innerHTML = `
+      <div class="mp-login-card">
+        <div class="mp-login-logo">Flotopic</div>
+        <div class="mp-login-tagline">話題の流れをAIで追う</div>
+        <div class="mp-login-title">アカウントを作成</div>
+        <div class="mp-login-desc">Googleアカウントでログインして、<br>お気に入りや閲覧履歴を管理しましょう。</div>
+        <div class="mp-benefits">
+          <div class="mp-benefit-row"><div class="mp-benefit-icon">⭐</div><span>気になるトピックをお気に入り登録</span></div>
+          <div class="mp-benefit-row"><div class="mp-benefit-icon">📖</div><span>閲覧履歴をどこからでも確認</span></div>
+          <div class="mp-benefit-row"><div class="mp-benefit-icon">💬</div><span>トピックにコメントを投稿</span></div>
+        </div>
+        <button class="google-signin-btn" id="mypage-signin-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Googleでログイン
+        </button>
+      </div>`;
     const btn = document.getElementById('mypage-signin-btn');
-    if (btn) {
-      btn.addEventListener('click', function () {
-        if (window.google && google.accounts && google.accounts.id) {
-          google.accounts.id.prompt();
-        }
-      });
-    }
+    if (btn) btn.addEventListener('click', function () {
+      if (window.google && google.accounts && google.accounts.id) google.accounts.id.prompt();
+    });
+  }
+
+  // ===== ログイン後表示 =====
+  let currentTab = 'favs';
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.mp-tab').forEach(el => {
+      el.classList.toggle('active', el.dataset.tab === tab);
+    });
+    document.querySelectorAll('.mp-panel').forEach(el => {
+      el.classList.toggle('active', el.id === 'panel-' + tab);
+    });
   }
 
   async function renderUserContent() {
     const container = document.getElementById('mypage-content');
     if (!container) return;
-
-    // Show loading state
     container.innerHTML = '<div class="loading"><div class="spinner"></div>読み込み中...</div>';
 
     const favIds  = readLocalFavIds();
-    const history = readHistory().slice(0, 10);
+    const history = readHistory().slice(0, 15);
+    const user    = getUser();
 
-    // Fetch topics to resolve favorite titles
     let favTopics = [];
     try {
       const apiBase = (typeof API_BASE !== 'undefined') ? API_BASE : '';
       const r = await fetch(apiBase + 'topics.json');
       const data = await r.json();
       const all = data.topics || [];
-      favTopics = all.filter(function (t) { return favIds.includes(t.topicId); });
-    } catch (e) {
-      // favTopics stays empty; we'll show IDs as fallback
-    }
+      favTopics = all.filter(t => favIds.includes(t.topicId));
+    } catch {}
 
-    // Build avatar HTML
-    const user = getUser();
     const avatarHtml = (user && user.picture)
-      ? '<img class="mypage-avatar" src="' + safeEsc(user.picture) + '" alt="アバター">'
-      : '<div class="mypage-avatar-placeholder">👤</div>';
+      ? `<img class="mp-avatar" src="${safeEsc(user.picture)}" alt="アバター">`
+      : `<div class="mp-avatar-placeholder">👤</div>`;
     const displayName = user ? safeEsc(user.name || 'ユーザー') : 'ユーザー';
 
-    // Build favorites section
     const favsHtml = favTopics.length
-      ? favTopics.map(function (t) {
-          const primaryGenre = (t.genres || [t.genre || '総合'])[0];
-          return [
-            '<a class="mypage-topic-row" href="topic.html?id=' + safeEsc(t.topicId) + '">',
-            '  <div class="mypage-topic-icon fav">⭐</div>',
-            '  <div class="mypage-topic-info">',
-            '    <div class="mypage-topic-title">' + safeEsc(t.generatedTitle || t.title) + '</div>',
-            '    <div class="mypage-topic-sub">' + safeEsc(primaryGenre) + '</div>',
-            '  </div>',
-            '</a>'
-          ].join('\n');
-        }).join('\n')
-      : '<div class="mypage-empty">お気に入りのトピックはまだありません<br><a href="index.html" style="color:#2563eb;font-size:.85rem;">トピック一覧へ →</a></div>';
+      ? favTopics.map(t => `
+          <a class="mp-topic-row" href="topic.html?id=${safeEsc(t.topicId)}">
+            <div class="mp-topic-icon fav">⭐</div>
+            <div class="mp-topic-info">
+              <div class="mp-topic-title">${safeEsc(t.generatedTitle || t.title)}</div>
+              <div class="mp-topic-sub">${safeEsc((t.genres || [t.genre || '総合'])[0])} · ${t.articleCount || 0}件</div>
+            </div>
+            <span class="mp-topic-arrow">›</span>
+          </a>`).join('')
+      : `<div class="mp-empty">お気に入りのトピックはまだありません<br><a href="index.html">トピック一覧へ →</a></div>`;
 
-    // Build history section
     const historyHtml = history.length
-      ? history.map(function (h) {
-          return [
-            '<a class="mypage-topic-row" href="topic.html?id=' + safeEsc(h.topicId) + '">',
-            '  <div class="mypage-topic-icon hist">📖</div>',
-            '  <div class="mypage-topic-info">',
-            '    <div class="mypage-topic-title">' + safeEsc(h.title || h.topicId) + '</div>',
-            '    <div class="mypage-topic-sub">' + fmtViewedAt(h.viewedAt) + '</div>',
-            '  </div>',
-            '</a>'
-          ].join('\n');
-        }).join('\n')
-      : '<div class="mypage-empty">まだ閲覧履歴がありません<br><a href="index.html" style="color:#2563eb;font-size:.85rem;">トピックを見てみる →</a></div>';
+      ? history.map(h => `
+          <a class="mp-topic-row" href="topic.html?id=${safeEsc(h.topicId)}">
+            <div class="mp-topic-icon hist">📖</div>
+            <div class="mp-topic-info">
+              <div class="mp-topic-title">${safeEsc(h.title || h.topicId)}</div>
+              <div class="mp-topic-sub">${fmtViewedAt(h.viewedAt)}</div>
+            </div>
+            <span class="mp-topic-arrow">›</span>
+          </a>`).join('')
+      : `<div class="mp-empty">まだ閲覧履歴がありません<br><a href="index.html">トピックを見てみる →</a></div>`;
 
-    container.innerHTML = [
-      // Profile card
-      '<div class="mypage-profile-card">',
-      '  ' + avatarHtml,
-      '  <div>',
-      '    <div class="mypage-display-name">' + displayName + '</div>',
-      '    <div class="mypage-member-label">Flotopicメンバー</div>',
-      '  </div>',
-      '</div>',
+    container.innerHTML = `
+      <!-- プロフィールヘッダー -->
+      <div class="mp-profile-banner"></div>
+      <div class="mp-profile-card">
+        <div class="mp-avatar-wrap">${avatarHtml}</div>
+        <div class="mp-display-name">${displayName}</div>
+        <div class="mp-handle">Flotopicメンバー</div>
+        <div class="mp-stats-row">
+          <div class="mp-stat">
+            <span class="mp-stat-num">${favTopics.length}</span>
+            <span class="mp-stat-label">お気に入り</span>
+          </div>
+          <div class="mp-stat">
+            <span class="mp-stat-num">${history.length}</span>
+            <span class="mp-stat-label">閲覧履歴</span>
+          </div>
+        </div>
+      </div>
 
-      // Favorites section
-      '<div class="mypage-section">',
-      '  <div class="mypage-section-title">⭐ お気に入りトピック</div>',
-      '  ' + favsHtml,
-      '</div>',
+      <!-- タブ -->
+      <div class="mp-tabs">
+        <button class="mp-tab active" data-tab="favs">⭐ お気に入り</button>
+        <button class="mp-tab" data-tab="history">📖 履歴</button>
+        <button class="mp-tab" data-tab="account">アカウント</button>
+      </div>
 
-      // History section
-      '<div class="mypage-section">',
-      '  <div class="mypage-section-title">📖 最近見たトピック</div>',
-      '  ' + historyHtml,
-      '</div>',
+      <!-- お気に入りパネル -->
+      <div class="mp-panel active" id="panel-favs">
+        <div class="mp-card"><div class="mp-card-inner">${favsHtml}</div></div>
+      </div>
 
-      // Comment history (placeholder)
-      '<div class="mypage-section">',
-      '  <div class="mypage-section-title">💬 コメント履歴</div>',
-      '  <div class="mypage-placeholder-text">準備中</div>',
-      '</div>',
+      <!-- 履歴パネル -->
+      <div class="mp-panel" id="panel-history">
+        <div class="mp-card"><div class="mp-card-inner">${historyHtml}</div></div>
+      </div>
 
-      // Account deletion
-      '<div class="mypage-section mypage-danger-section">',
-      '  <div class="mypage-section-title">🗑️ アカウント削除</div>',
-      '  <p class="mypage-danger-text">データ削除は <a href="mailto:owner643@gmail.com">owner643@gmail.com</a> までご連絡ください。</p>',
-      '</div>'
-    ].join('\n');
+      <!-- アカウントパネル -->
+      <div class="mp-panel" id="panel-account">
+        <div class="mp-account-card">
+          <div class="mp-account-row">
+            <span class="mp-account-label">名前</span>
+            <span class="mp-account-value">${displayName}</span>
+          </div>
+          <div class="mp-account-row">
+            <span class="mp-account-label">ログイン方法</span>
+            <span class="mp-account-value">Googleアカウント</span>
+          </div>
+        </div>
+        <button class="mp-signout-btn" id="mp-signout-btn">ログアウト</button>
+        <button class="mp-delete-btn" id="mp-delete-btn">アカウントを削除する</button>
+      </div>`;
+
+    // タブ切り替え
+    document.querySelectorAll('.mp-tab').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    // ログアウトボタン
+    const signoutBtn = document.getElementById('mp-signout-btn');
+    if (signoutBtn) signoutBtn.addEventListener('click', () => {
+      if (typeof signOut === 'function') signOut();
+      else { localStorage.removeItem('flotopic_user'); location.href = 'index.html'; }
+    });
+
+    // 削除ボタン
+    const deleteBtn = document.getElementById('mp-delete-btn');
+    if (deleteBtn) deleteBtn.addEventListener('click', () => {
+      document.getElementById('delete-modal').classList.add('open');
+    });
   }
 
-  function getUser() {
-    // app.jsのcurrentUserが設定済みならそれを使う、なければlocalStorageから直読み
-    if (typeof currentUser !== 'undefined' && currentUser) return currentUser;
-    try { return JSON.parse(localStorage.getItem('flotopic_user') || 'null'); } catch { return null; }
+  // ===== アカウント削除 =====
+  async function doDeleteAccount() {
+    const user = getUser();
+    if (!user) return;
+    const confirmBtn = document.getElementById('delete-modal-confirm');
+    if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = '削除中...'; }
+
+    try {
+      const favsUrl = (typeof FAVORITES_URL !== 'undefined') ? FAVORITES_URL : '';
+      if (favsUrl && user.userId && user.token) {
+        await fetch(favsUrl.replace(/\/$/, '') + '/user', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.userId, idToken: user.token }),
+        });
+      }
+    } catch {}
+
+    // ローカルデータ全削除
+    ['flotopic_user', 'flotopic_favs', 'flotopic_history', 'flotopic_prefs'].forEach(k => {
+      try { localStorage.removeItem(k); } catch {}
+    });
+
+    // Googleセッションも切る
+    if (window.google && google.accounts && google.accounts.id) {
+      google.accounts.id.disableAutoSelect();
+    }
+
+    location.href = 'index.html?deleted=1';
   }
 
+  // ===== モーダル制御 =====
+  function setupModal() {
+    const overlay = document.getElementById('delete-modal');
+    const cancelBtn = document.getElementById('delete-modal-cancel');
+    const confirmBtn = document.getElementById('delete-modal-confirm');
+    if (cancelBtn) cancelBtn.addEventListener('click', () => overlay.classList.remove('open'));
+    if (confirmBtn) confirmBtn.addEventListener('click', doDeleteAccount);
+    if (overlay) overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+  }
+
+  // ===== メイン =====
   async function renderMyPage() {
     const user = getUser();
-    if (!user) {
-      renderLoginPrompt();
-    } else {
-      await renderUserContent();
-    }
+    if (!user) renderLoginPrompt();
+    else await renderUserContent();
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    // Hook into updateAuthUI so mypage re-renders after sign-in/sign-out
+    setupModal();
     if (typeof updateAuthUI === 'function') {
-      var _orig = updateAuthUI;
-      updateAuthUI = function () {
-        _orig();
-        renderMyPage();
-      };
+      const _orig = updateAuthUI;
+      updateAuthUI = function () { _orig(); renderMyPage(); };
     }
     renderMyPage();
   });
