@@ -90,6 +90,7 @@
 ## 残タスク（ナオヤ手動作業必要）
 
 ### 優先度: 高
+- **p003-processor ANTHROPIC_API_KEY設定** — AI要約生成に必須。`aws lambda update-function-configuration --function-name p003-processor --region ap-northeast-1 --environment 'Variables={S3_BUCKET=p003-news-946554699567,TABLE_NAME=p003-topics,REGION=ap-northeast-1,SITE_URL=https://flotopic.com,ANTHROPIC_API_KEY=sk-ant-...}'`
 - **Google AdSense申請** — https://www.google.com/adsense/ からflotopic.comで申請。HTTPS化済みなので申請可能。審査に数日〜数週間かかる。
 - **P004 Slash Command設定** — https://api.slack.com/apps で `/ai` コマンドのRequest URLに `https://pqtubmsn7kfk2nojf2kqkwqiuu0obnwc.lambda-url.ap-northeast-1.on.aws/` を設定
 - **Claude Desktop再起動** — AWS MCP有効化のため（設定変更済み・再起動だけで完了）
@@ -259,14 +260,15 @@
 
 ## 未解決の問題 / 素材不足
 
+- **P003 ANTHROPIC_API_KEY未設定（processor Lambda）** — AI要約が生成されない。残タスクの「優先度: 高」参照。
 - **P003 アイコン素材不足** — icon-192.png / icon-512.png / apple-touch-icon.png が未作成（ICONS-NEEDED.md参照）。PWAインストール時に必要。
-- **P003 GOOGLE_CLIENT_ID未設定** — Google Cloud ConsoleでOAuth 2.0 Client IDを作成しconfig.jsに設定する必要あり（deploy.sh実行後に自動保持されるが初回は手動）
+- **P003 GOOGLE_CLIENT_ID設定済み** — ✅ config.jsに 632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com 設定済み
 - **P003 AdSense審査待ち** — HTTPS化完了済み。申請後、審査通過まで数週間かかる場合あり。それまでは忍者AdMaxで代替。
-- **AWS MCPサーバー設定** — home PCで `aws configure` 後にClaude desktop設定ファイルを編集
+- **P003 HTTPS** — ✅ 2026-04-23 CloudFront E2Q21LM58UY0K8 + ACM証明書 ISSUED。flotopic.com でHTTPS動作確認済み。
 - **グラフデータ** — 現在データ蓄積中のため推移グラフは30分毎に更新。長期グラフ（1ヶ月〜1年）はデータ蓄積後に意味を持つ
 - **news.google.comがソースとして表示される問題** — RSSフィードがGoogle Newsアグリゲーターを経由している場合、ソース名がnews.google.comになる。元のソース名パースが必要（feedparserのauthor/sourceフィールド活用）
 - CEOの日次Slack通知 — ✅ 2026-04-22 動作確認済み。継続モニタリング中
-- **P002 Unityフォルダ削除待ち** — `rm -rf ~/ai-company/projects/P002-unity-game/`（帰宅後に実行）
+- **P002 Unityフォルダ削除済み** — ✅ 完了
 - **P002 Flutterスプライト素材未作成** — AI生成で後日追加
 - **P002 BGM本番版未作成** — Suno AIで後日生成・差し替え
 
