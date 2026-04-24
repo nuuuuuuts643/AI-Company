@@ -124,9 +124,11 @@ function renderKeywordStrip(keywords) {
   if (!strip) return;
   if (!keywords || !keywords.length) { strip.style.display = 'none'; return; }
   strip.style.display = 'flex';
-  strip.innerHTML = keywords.slice(0, 12).map(kw =>
-    `<button class="kw-chip" data-kw="${esc(kw)}">#${esc(kw)}</button>`
-  ).join('');
+  strip.innerHTML = '<span class="keyword-strip-label">注目</span>' +
+    keywords.slice(0, 12).map(kw => {
+      const word = typeof kw === 'string' ? kw : (kw.keyword || '');
+      return word ? `<button class="kw-chip" data-kw="${esc(word)}">#${esc(word)}</button>` : '';
+    }).join('');
   strip.querySelectorAll('.kw-chip').forEach(btn => {
     btn.addEventListener('click', () => {
       const input = document.getElementById('search-input');

@@ -54,6 +54,10 @@ class OctoBattleGame extends FlameGame
   late final TextComponent _waveLabel;
   late final TextComponent _wallHpText;
 
+  // フィールドオーバーレイ（ウェーブ予告制御用）
+  late final FieldOverlayComponent _fieldOverlay;
+  bool _wavePreviewShown = false;
+
   // フィールド上のアクティブコンポーネント
   final List<EnemyComponent> _enemies = [];
   final List<UnitComponent> _units = [];
@@ -72,6 +76,10 @@ class OctoBattleGame extends FlameGame
   bool _waveClearHandled = false;
   bool _resultHandled = false;
   bool _waveStarted = false; // battle が利用可能になったら最初のウェーブを開始
+
+  // ウェーブ内の城壁到達数（0=PERFECT）
+  int _waveBreachCount = 0;
+  int get lastWaveBreachCount => _waveBreachCount;
 
   // コールバック（Flutterレイヤーへ通知）
   final void Function(GamePhase) onPhaseChangeRequest;
@@ -168,6 +176,17 @@ class OctoBattleGame extends FlameGame
 
     // マナ更新
     gameState.tickMana(dt);
+
+    // ウェーブ予告表示（インターバル中のみ）
+    if (waveSystem.isInInterval && !_wavePreviewShown) {
+      _wavePreviewShown = true;
+      _fieldOverlay.showWavePreview(waveSystem.nextWaveEnemyCountPerLane);
+    } else if (!waveSystem.isInInterval) {
+      if (_wavePreviewShown) {
+        _wavePreviewShown = false;
+        _fieldOverlay.hideWavePreview();
+      }
+    }
 
     // ウェーブシステム更新
     waveSystem.update(dt);
@@ -450,6 +469,7 @@ class OctoBattleGame extends FlameGame
     gameState.damageWall(dmg);
     _enemies.remove(enemy);
     enemy.removeFromParent();
+    _waveBreachCount++;
 
     // 城壁ダメージ演出（強め）
     _shakeController.shake(
@@ -646,7 +666,8 @@ class OctoBattleGame extends FlameGame
   }
 
   void _addLaneGuides() {
-    world.add(FieldOverlayComponent());
+    _fieldOverlay = FieldOverlayComponent();
+    world.add(_fieldOverlay);
   }
 
   void _updateHUD() {
@@ -662,6 +683,7 @@ class OctoBattleGame extends FlameGame
   /// ショップ・抽出画面完了後に呼ぶ（次ウェーブを準備してクリアフラグをリセット）
   void prepareNextWave(int waveNumber) {
     _waveClearHandled = false;
+    _waveBreachCount = 0;
     clearTerrains();
     waveSystem.prepareWave(waveNumber);
   }

@@ -19,7 +19,7 @@ class GameConstants {
   static const double enemyGoalY = 770.0;    // 城壁ダメージライン
 
   // ---- 城壁（画面下部水平ライン） ----
-  static const int initialWallHp = 100;
+  static const int initialWallHp = 150;
   static const double wallY = 750.0;         // 城壁Y位置（下方向へ拡張）
   static const double wallX = 0.0;
   static const double wallWidth = 390.0;
@@ -38,7 +38,7 @@ class GameConstants {
   static const int maxHandSize = 6;
   static const int initialHandSize = 4;
   static const int maxManaCost = 5;
-  static const double manaRegenPerSecond = 0.65;
+  static const double manaRegenPerSecond = 0.9;
   static const double maxMana = 10.0;
   static const double cardPlacementCooldown = 0.3;
 
