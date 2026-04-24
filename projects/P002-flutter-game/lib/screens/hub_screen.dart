@@ -735,16 +735,10 @@ class _DeckCardRow extends StatelessWidget {
   }
 }
 
-// ---- ランクタブ ----
+// ---- 鍛冶場タブ（メタ進行・ルーン強化） ----
 
-class _RankTab extends StatelessWidget {
-  static const _tiers = [
-    (1, '見習い冒険者', '🌱'),
-    (5, '冒険者', '⚔️'),
-    (10, '勇者', '🗡️'),
-    (20, '英雄', '👑'),
-    (35, '伝説の英雄', '🌟'),
-  ];
+class _ForgeTab extends StatelessWidget {
+  const _ForgeTab();
 
   @override
   Widget build(BuildContext context) {
@@ -755,111 +749,57 @@ class _RankTab extends StatelessWidget {
           backgroundColor: const Color(0xFF0D0D1A),
           body: SafeArea(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text(
-                    'ランク',
-                    style: TextStyle(
-                        color: Color(0xFFFFE082),
-                        fontFamily: 'DotGothic16',
-                        fontSize: 20),
-                  ),
-                ),
-                // 現在のランク強調表示
+                // ヘッダー
                 Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 24),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF12121E),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFFE082).withOpacity(0.5)),
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0A0A18),
+                    border: Border(bottom: BorderSide(color: Color(0xFF2A2A4A))),
                   ),
                   child: Row(
                     children: [
-                      const Text('👑', style: TextStyle(fontSize: 40)),
-                      const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Rank ${p.rank}',
-                              style: const TextStyle(
-                                  color: Color(0xFFFFE082),
-                                  fontFamily: 'DotGothic16',
-                                  fontSize: 24)),
-                          Text(p.rankTitle,
-                              style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontFamily: 'DotGothic16',
-                                  fontSize: 14)),
-                        ],
-                      ),
+                      const Text('⚒️ 封印の鍛冶場',
+                          style: TextStyle(
+                              color: Color(0xFFFFE082),
+                              fontFamily: 'DotGothic16',
+                              fontSize: 18)),
+                      const Spacer(),
+                      const Text('💰', style: TextStyle(fontSize: 14)),
+                      const SizedBox(width: 4),
+                      Text('${p.gold}',
+                          style: const TextStyle(
+                              color: Color(0xFFFFE082),
+                              fontFamily: 'DotGothic16',
+                              fontSize: 14)),
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
-                // 段位一覧
+
+                // 説明
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                  child: Text(
+                    '印を強化すると次のランから永続的に効果が得られる',
+                    style: TextStyle(
+                        color: Colors.white.withAlpha(100),
+                        fontFamily: 'DotGothic16',
+                        fontSize: 11),
+                  ),
+                ),
+
+                // ルーン一覧
                 Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    children: _tiers.map((t) {
-                      final isReached = p.rank >= t.$1;
-                      final isCurrent = p.rankTitle == t.$2;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: isCurrent
-                              ? const Color(0xFF1A2A1A)
-                              : const Color(0xFF12121E),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isCurrent
-                                ? const Color(0xFF69F0AE)
-                                : isReached
-                                    ? const Color(0xFF2A4A2A)
-                                    : const Color(0xFF2A2A4A),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Text(t.$3,
-                                style: const TextStyle(fontSize: 20)),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(t.$2,
-                                      style: TextStyle(
-                                          color: isReached
-                                              ? Colors.white
-                                              : Colors.white38,
-                                          fontFamily: 'DotGothic16',
-                                          fontSize: 14)),
-                                  Text('Rank ${t.$1}から',
-                                      style: const TextStyle(
-                                          color: Colors.white38,
-                                          fontFamily: 'DotGothic16',
-                                          fontSize: 10)),
-                                ],
-                              ),
-                            ),
-                            if (isCurrent)
-                              const Text('◀ NOW',
-                                  style: TextStyle(
-                                      color: Color(0xFF69F0AE),
-                                      fontFamily: 'DotGothic16',
-                                      fontSize: 11)),
-                            if (isReached && !isCurrent)
-                              const Text('✓',
-                                  style: TextStyle(
-                                      color: Color(0xFF69F0AE), fontSize: 16)),
-                          ],
-                        ),
-                      );
-                    }).toList(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    itemCount: RuneMaster.all.length,
+                    itemBuilder: (ctx, i) => _RuneCard(
+                      rune: RuneMaster.all[i],
+                      currentLevel: p.purchasedRunes[RuneMaster.all[i].id] ?? 0,
+                      canBuy: gs.canPurchaseRune(RuneMaster.all[i]),
+                      onPurchase: () => gs.purchaseRune(RuneMaster.all[i]),
+                    ),
                   ),
                 ),
               ],
@@ -867,6 +807,187 @@ class _RankTab extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _RuneCard extends StatefulWidget {
+  final RuneData rune;
+  final int currentLevel;
+  final bool canBuy;
+  final VoidCallback onPurchase;
+
+  const _RuneCard({
+    required this.rune,
+    required this.currentLevel,
+    required this.canBuy,
+    required this.onPurchase,
+  });
+
+  @override
+  State<_RuneCard> createState() => _RuneCardState();
+}
+
+class _RuneCardState extends State<_RuneCard> with SingleTickerProviderStateMixin {
+  late AnimationController _buyCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _buyCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+  }
+
+  @override
+  void dispose() {
+    _buyCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTap() async {
+    if (!widget.canBuy) return;
+    widget.onPurchase();
+    _buyCtrl.forward(from: 0.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxed = widget.currentLevel >= widget.rune.maxLevel;
+    final nextCost = maxed ? 0 : widget.rune.goldCost[widget.currentLevel];
+    final accentColor = maxed
+        ? const Color(0xFFFFD700)
+        : widget.canBuy
+            ? const Color(0xFF69F0AE)
+            : const Color(0xFF455A64);
+
+    return AnimatedBuilder(
+      animation: _buyCtrl,
+      builder: (_, child) {
+        final flash = _buyCtrl.status == AnimationStatus.forward
+            ? (1.0 - _buyCtrl.value) * 0.3
+            : 0.0;
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: Color.lerp(const Color(0xFF12121E), const Color(0xFF69F0AE), flash),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: accentColor.withAlpha(maxed ? 180 : 80), width: 1.5),
+          ),
+          child: child,
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            // アイコン + レベルドット
+            Column(
+              children: [
+                Text(widget.rune.emoji, style: const TextStyle(fontSize: 28)),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(widget.rune.maxLevel, (i) => Container(
+                    width: 8, height: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 1),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: i < widget.currentLevel
+                          ? const Color(0xFFFFD700)
+                          : Colors.white12,
+                    ),
+                  )),
+                ),
+              ],
+            ),
+            const SizedBox(width: 14),
+
+            // 説明
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(widget.rune.name,
+                          style: TextStyle(
+                              color: maxed ? const Color(0xFFFFD700) : Colors.white,
+                              fontFamily: 'DotGothic16',
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold)),
+                      if (maxed) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFD700).withAlpha(30),
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(color: const Color(0xFFFFD700).withAlpha(80)),
+                          ),
+                          child: const Text('MAX',
+                              style: TextStyle(
+                                  color: Color(0xFFFFD700),
+                                  fontFamily: 'DotGothic16',
+                                  fontSize: 8)),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Lv ${widget.currentLevel}/${widget.rune.maxLevel}  ${widget.rune.description}',
+                    style: const TextStyle(
+                        color: Colors.white54,
+                        fontFamily: 'DotGothic16',
+                        fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+
+            // 購入ボタン
+            if (!maxed) ...[
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: _onTap,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    gradient: widget.canBuy
+                        ? const LinearGradient(colors: [Color(0xFF43A047), Color(0xFF1B5E20)])
+                        : null,
+                    color: widget.canBuy ? null : const Color(0xFF1A1A2E),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: widget.canBuy ? const Color(0xFF69F0AE) : Colors.white12,
+                    ),
+                    boxShadow: widget.canBuy
+                        ? [const BoxShadow(color: Color(0x4469F0AE), blurRadius: 8)]
+                        : null,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('💰', style: TextStyle(fontSize: 12)),
+                      Text(
+                        '$nextCost',
+                        style: TextStyle(
+                            color: widget.canBuy ? const Color(0xFFFFE082) : Colors.white30,
+                            fontFamily: 'DotGothic16',
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(width: 10),
+              const Text('✨', style: TextStyle(fontSize: 22)),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

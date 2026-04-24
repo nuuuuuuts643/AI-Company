@@ -1817,8 +1817,60 @@ details[open] .day-more-btn::before { content: '▼ '; }
 [data-theme="dark"] .genre-tag { background: #252840; border-color: rgba(99,102,241,0.18); }
 [data-theme="dark"] .cx-comment { background: #1e2035; border-color: rgba(99,102,241,0.14); }
 [data-theme="dark"] .cx-comment-textarea { background: #252840; color: #eef0f8; border-color: rgba(99,102,241,0.2); }
+/* ===== COMMENT HISTORY CARDS (mypage) ===== */
+.hist-card {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background .1s;
+}
+.hist-card:last-child { border-bottom: none; }
+.hist-card:hover { background: #fafbff; }
+.hist-topic {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .78rem;
+  font-weight: 600;
+  color: #6366f1;
+  text-decoration: none;
+  margin-bottom: 7px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hist-topic:hover { text-decoration: underline; }
+.hist-body {
+  font-size: .9rem;
+  color: #1e293b;
+  line-height: 1.55;
+  margin-bottom: 8px;
+  word-break: break-word;
+}
+.hist-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: .74rem;
+  color: #94a3b8;
+}
+.hist-meta span { display: flex; align-items: center; gap: 3px; }
+.hist-quoted {
+  background: #f8fafc;
+  border-left: 2px solid #e2e8f0;
+  padding: 7px 12px;
+  margin-bottom: 8px;
+  border-radius: 0 8px 8px 0;
+  font-size: .83rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+.hist-quoted-handle { color: #6366f1; font-weight: 600; margin-right: 4px; }
 [data-theme="dark"] .hist-card { background: #1e2035; border-color: rgba(99,102,241,0.14); }
-[data-theme="dark"] .hist-quoted { background: #252840; border-left-color: rgba(99,102,241,0.25); }
+[data-theme="dark"] .hist-card:hover { background: #22243a; }
+[data-theme="dark"] .hist-body { color: #eef0f8; }
+[data-theme="dark"] .hist-topic { color: #818cf8; }
+[data-theme="dark"] .hist-quoted { background: #252840; border-left-color: rgba(99,102,241,0.25); color: #9ba3c4; }
 
 /* [data-theme="light"] — システムがダークでも強制ライト */
 [data-theme="light"] {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../game/game_state.dart';
 import '../models/card_data.dart';
+import '../models/stage_data.dart';
 import '../constants/element_chart.dart';
 import '../constants/strings.dart';
 import '../services/ad_service.dart';
@@ -147,12 +148,19 @@ class _ResultScreenState extends State<ResultScreen>
                       ),
                     ),
 
-                    // トロフィー / ドクロ
+                    // トロフィー / ドクロ + 星評価
                     const SizedBox(height: 16),
                     Text(
                       isVictory ? '🏆' : '💀',
                       style: const TextStyle(fontSize: 64),
                     ),
+                    if (isVictory && battle != null) ...[
+                      const SizedBox(height: 10),
+                      _StarRatingDisplay(
+                        score: battle.score,
+                        stageId: gs.selectedStageId ?? '',
+                      ),
+                    ],
                     const SizedBox(height: 24),
 
                     // スコア
@@ -167,6 +175,10 @@ class _ResultScreenState extends State<ResultScreen>
                           _ResultRow(
                             label: Strings.resultWave,
                             value: '${battle.currentWave}',
+                          ),
+                          _ResultRow(
+                            label: '💰 所持ゴールド',
+                            value: '${gs.player.gold} G',
                           ),
                         ],
                       ),
@@ -564,6 +576,67 @@ class _ActionButton extends StatelessWidget {
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         ),
+      ),
+    );
+  }
+}
+
+// ---- 星評価ウィジェット ----
+class _StarRatingDisplay extends StatefulWidget {
+  final int score;
+  final String stageId;
+  const _StarRatingDisplay({required this.score, required this.stageId});
+
+  @override
+  State<_StarRatingDisplay> createState() => _StarRatingDisplayState();
+}
+
+class _StarRatingDisplayState extends State<_StarRatingDisplay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final stage = StageMaster.getById(widget.stageId);
+    final threshold = stage?.clearScoreThreshold ?? 1000;
+    final ratio = widget.score / threshold;
+    final stars = ratio >= 1.0 ? 3 : ratio >= 0.6 ? 2 : 1;
+
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) => Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(3, (i) {
+          final delay = i * 0.25;
+          final t = (((_ctrl.value - delay) / 0.5)).clamp(0.0, 1.0);
+          final active = i < stars;
+          return Transform.scale(
+            scale: active ? (0.5 + t * 0.5) : 1.0,
+            child: Icon(
+              active ? Icons.star_rounded : Icons.star_outline_rounded,
+              size: 44,
+              color: active
+                  ? Color.lerp(Colors.grey, const Color(0xFFFFD700), t)
+                  : Colors.white12,
+              shadows: active && t > 0.5
+                  ? [const Shadow(color: Color(0xFFFF8F00), blurRadius: 12)]
+                  : null,
+            ),
+          );
+        }),
       ),
     );
   }
