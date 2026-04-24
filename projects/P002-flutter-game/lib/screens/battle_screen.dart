@@ -6,6 +6,7 @@ import '../game/octo_battle_game.dart';
 import '../constants/strings.dart';
 import '../models/stage_data.dart';
 import '../services/audio_service.dart';
+import '../systems/boon_system.dart';
 import '../systems/event_system.dart';
 import '../systems/extraction_system.dart';
 import '../utils/app_transitions.dart';
@@ -29,6 +30,11 @@ class _BattleScreenState extends State<BattleScreen>
   final EventSystem _eventSystem = EventSystem();
   late ExtractionSystem _extractionSystem;
 
+  // ローグライト ボーンシステム
+  final BoonSystem _boonSystem = BoonSystem();
+  bool _showBoonSelect = false;
+  List<BoonData> _boonChoices = [];
+
   // ウェーブ間イベント表示用
   WaveEvent? _pendingEvent;
   bool _showEventModal = false;
@@ -39,19 +45,29 @@ class _BattleScreenState extends State<BattleScreen>
   int _shopWaveNumber = 1;
 
   // チュートリアルヒント（初回のみ）
-  bool _showTutorial = false; // initStateで判定
+  bool _showTutorial = false;
 
-  // ---- 新機能: ボスHPバー ----
+  // コマンダースキル
+  static const _cmdSkillMaxCd = 35.0;
+  double _cmdSkillCd = 0.0; // 0=使用可能, >0=クールダウン中
+  late AnimationController _cmdSkillCtrl;
+
+  // チェーンコンボメーター
+  int _comboCount = 0;
+  double _comboDecayTimer = 0.0;
+  late AnimationController _comboFlashCtrl;
+
+  // ボスHPバー
   String _bossName = '';
   int _bossMaxHp = 0;
   int _bossCurrentHp = 0;
   bool get _bossActive => _bossName.isNotEmpty && _bossMaxHp > 0;
 
-  // ---- 新機能: 城壁ダメージフラッシュ ----
+  // 城壁ダメージフラッシュ
   late AnimationController _wallFlashCtrl;
   late Animation<double> _wallFlashOpacity;
 
-  // ---- 新機能: ウェーブクリア演出 ----
+  // ウェーブクリア演出
   bool _showWaveClear = false;
   bool _waveClearPerfect = false;
   int _clearedWaveNum = 0;
@@ -60,17 +76,17 @@ class _BattleScreenState extends State<BattleScreen>
   @override
   void initState() {
     super.initState();
-    // 初回のみチュートリアル表示
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final seen = context.read<GameStateNotifier>().tutorialSeen;
         if (!seen) setState(() => _showTutorial = true);
       }
     });
+
     _wallFlashCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
-      value: 1.0, // 初期値=1 → opacity=0（透明）から始める
+      value: 1.0,
     );
     _wallFlashOpacity = Tween<double>(begin: 0.38, end: 0.0).animate(
       CurvedAnimation(parent: _wallFlashCtrl, curve: Curves.easeOut),
@@ -85,12 +101,26 @@ class _BattleScreenState extends State<BattleScreen>
         setState(() => _showWaveClear = false);
       }
     });
+
+    // コマンダースキル アニメーション
+    _cmdSkillCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    // コンボフラッシュ
+    _comboFlashCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
   }
 
   @override
   void dispose() {
     _wallFlashCtrl.dispose();
     _waveClearCtrl.dispose();
+    _cmdSkillCtrl.dispose();
+    _comboFlashCtrl.dispose();
     super.dispose();
   }
 
@@ -112,6 +142,16 @@ class _BattleScreenState extends State<BattleScreen>
           onBossHpUpdate: _handleBossHpUpdate,
           onWallDamaged: _handleWallDamaged,
         );
+        // ボーンでの全ユニットパワーアップをgameに委譲
+        gameState.onPowerUpAllUnits = () => _game?.powerUpAllDeployedUnits();
+
+        // CDタイマー（60fps相当でtick）
+        Future.doWhile(() async {
+          if (!mounted) return false;
+          await Future.delayed(const Duration(milliseconds: 100));
+          if (mounted) _tickCooldowns(0.1);
+          return mounted;
+        });
         // ビルドフェーズ中に notifyListeners を呼ばないよう次フレームに延期
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) gameState.startBattle(stageId);
@@ -251,6 +291,34 @@ class _BattleScreenState extends State<BattleScreen>
                   isPerfect: _waveClearPerfect,
                   animation: _waveClearCtrl,
                 ),
+              ),
+            ),
+
+          // ---- コマンダースキルボタン（左下、カードハンドの上） ----
+          if (!_showShop && !_showExtraction && !_showBoonSelect)
+            Positioned(
+              left: 12,
+              bottom: 148,
+              child: _CommanderSkillButton(
+                cooldownRatio: _cmdSkillCd / (_cmdSkillMaxCd - _boonSystem.commanderCdReduction.clamp(0, _cmdSkillMaxCd - 5)),
+                onTap: _onCommanderSkillTap,
+              ),
+            ),
+
+          // ---- チェーンコンボメーター ----
+          if (_comboCount >= 2 && !_showShop && !_showExtraction)
+            Positioned(
+              right: 12,
+              bottom: 148,
+              child: _ComboMeter(count: _comboCount, flashCtrl: _comboFlashCtrl),
+            ),
+
+          // ---- ボーン選択画面 ----
+          if (_showBoonSelect)
+            Positioned.fill(
+              child: _BoonSelectScreen(
+                boons: _boonChoices,
+                onSelected: _onBoonSelected,
               ),
             ),
         ],
@@ -414,10 +482,11 @@ class _BattleScreenState extends State<BattleScreen>
 
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (mounted) {
+        // ボーン選択を先に出す → 選択後にショップへ
+        final choices = _boonSystem.rollBoons(waveNumber: wave);
         setState(() {
-          _shopWaveNumber = wave;
-          _showShop = true;
-          _showExtraction = false;
+          _boonChoices = choices;
+          _showBoonSelect = true;
         });
       }
     });
@@ -465,12 +534,54 @@ class _BattleScreenState extends State<BattleScreen>
     });
   }
 
-  void _handleCardPlaced(String cardId, int laneIndex) {
-    // 将来: 配置統計・実績処理
-  }
+  void _handleCardPlaced(String cardId, int laneIndex) {}
 
   void _handleChainTriggered(int chainCount, double damage) {
-    setState(() {});
+    setState(() {
+      _comboCount += chainCount;
+      _comboDecayTimer = 4.0; // 4秒操作なしでリセット
+    });
+    _comboFlashCtrl.forward(from: 0.0);
+
+    // コンボ5以上でコマンダースキルCD短縮
+    if (_comboCount >= 5) {
+      setState(() => _cmdSkillCd = (_cmdSkillCd - 3.0).clamp(0.0, 999));
+    }
+  }
+
+  void _tickCooldowns(double dt) {
+    if (!mounted) return;
+    bool changed = false;
+    if (_cmdSkillCd > 0) {
+      _cmdSkillCd = (_cmdSkillCd - dt).clamp(0.0, 999);
+      changed = true;
+    }
+    if (_comboDecayTimer > 0) {
+      _comboDecayTimer -= dt;
+      if (_comboDecayTimer <= 0 && _comboCount > 0) {
+        _comboCount = 0;
+        changed = true;
+      }
+    }
+    if (changed && mounted) setState(() {});
+  }
+
+  void _onCommanderSkillTap() {
+    final effectiveCd = (_cmdSkillMaxCd - _boonSystem.commanderCdReduction).clamp(5.0, _cmdSkillMaxCd);
+    if (_cmdSkillCd > 0) return;
+    _game?.castCommanderSkill();
+    setState(() => _cmdSkillCd = effectiveCd);
+    _cmdSkillCtrl.forward(from: 0.0);
+  }
+
+  void _onBoonSelected(BoonData boon) {
+    final gs = context.read<GameStateNotifier>();
+    _boonSystem.applyBoon(boon, gs);
+    setState(() {
+      _showBoonSelect = false;
+      _shopWaveNumber = gs.battle?.currentWave ?? 1;
+      _showShop = true;
+    });
   }
 
   void _handleBossHpUpdate(String name, int maxHp, int currentHp) {
@@ -522,6 +633,331 @@ class _BattleScreenState extends State<BattleScreen>
       _showEventModal = false;
       _pendingEvent = null;
     });
+  }
+}
+
+// =============================================================
+// コマンダースキルボタン
+// =============================================================
+class _CommanderSkillButton extends StatelessWidget {
+  final double cooldownRatio; // 0=使用可能, 1=CD満タン
+  final VoidCallback onTap;
+  const _CommanderSkillButton({required this.cooldownRatio, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = cooldownRatio <= 0;
+    return GestureDetector(
+      onTap: ready ? onTap : null,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // 外周CDリング
+          SizedBox(
+            width: 68,
+            height: 68,
+            child: CircularProgressIndicator(
+              value: ready ? 1.0 : (1.0 - cooldownRatio),
+              strokeWidth: 4,
+              backgroundColor: Colors.white12,
+              valueColor: AlwaysStoppedAnimation(
+                ready ? const Color(0xFFFFD700) : const Color(0xFF455A64),
+              ),
+            ),
+          ),
+          // ボタン本体
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: ready
+                    ? [const Color(0xFFFFE082), const Color(0xFFE65100)]
+                    : [const Color(0xFF37474F), const Color(0xFF263238)],
+              ),
+              boxShadow: ready
+                  ? [const BoxShadow(color: Color(0xAAFFD700), blurRadius: 16, spreadRadius: 2)]
+                  : [],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(ready ? '⚡' : '⚡', style: TextStyle(fontSize: 22, color: ready ? null : Colors.white24)),
+                Text(
+                  ready ? 'READY' : 'CD',
+                  style: TextStyle(
+                    color: ready ? const Color(0xFFFFE082) : Colors.white24,
+                    fontFamily: 'DotGothic16',
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================
+// チェーンコンボメーター
+// =============================================================
+class _ComboMeter extends StatelessWidget {
+  final int count;
+  final AnimationController flashCtrl;
+  const _ComboMeter({required this.count, required this.flashCtrl});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = count >= 10
+        ? const Color(0xFFFF1744)
+        : count >= 5
+            ? const Color(0xFFFFD700)
+            : const Color(0xFF69F0AE);
+
+    return AnimatedBuilder(
+      animation: flashCtrl,
+      builder: (_, __) {
+        final flash = flashCtrl.status == AnimationStatus.forward
+            ? (1.0 - flashCtrl.value) * 0.5
+            : 0.0;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: Color.lerp(const Color(0xCC0D0D1A), color, flash),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color, width: 2),
+            boxShadow: [BoxShadow(color: color.withAlpha(120), blurRadius: 12)],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'COMBO',
+                style: TextStyle(
+                  color: color,
+                  fontFamily: 'DotGothic16',
+                  fontSize: 9,
+                  letterSpacing: 2,
+                ),
+              ),
+              Text(
+                '×$count',
+                style: TextStyle(
+                  color: color,
+                  fontFamily: 'DotGothic16',
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// =============================================================
+// ボーン選択画面（ウェーブ後に3択）
+// =============================================================
+class _BoonSelectScreen extends StatefulWidget {
+  final List<BoonData> boons;
+  final void Function(BoonData) onSelected;
+  const _BoonSelectScreen({required this.boons, required this.onSelected});
+
+  @override
+  State<_BoonSelectScreen> createState() => _BoonSelectScreenState();
+}
+
+class _BoonSelectScreenState extends State<_BoonSelectScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _enterCtrl;
+  late Animation<double> _scale;
+  late Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _enterCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _scale = Tween<double>(begin: 0.85, end: 1.0)
+        .animate(CurvedAnimation(parent: _enterCtrl, curve: Curves.easeOutBack));
+    _opacity = Tween<double>(begin: 0.0, end: 1.0)
+        .animate(CurvedAnimation(parent: _enterCtrl, curve: Curves.easeIn));
+    _enterCtrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _enterCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _enterCtrl,
+      builder: (_, child) => Opacity(
+        opacity: _opacity.value,
+        child: ScaleTransition(scale: _scale, child: child),
+      ),
+      child: Container(
+        color: Colors.black87,
+        child: SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 32),
+              // ヘッダー
+              const Text(
+                '✨ 強化を選択',
+                style: TextStyle(
+                  color: Color(0xFFFFE082),
+                  fontFamily: 'DotGothic16',
+                  fontSize: 22,
+                  letterSpacing: 3,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'ウェーブクリアボーナス — 1つ選べ',
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontFamily: 'DotGothic16',
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // ボーンカード3枚
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: widget.boons.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  itemBuilder: (_, i) => _BoonCard(
+                    boon: widget.boons[i],
+                    onTap: () => widget.onSelected(widget.boons[i]),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BoonCard extends StatelessWidget {
+  final BoonData boon;
+  final VoidCallback onTap;
+  const _BoonCard({required this.boon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final rarityColor = switch (boon.rarity) {
+      BoonRarity.common => const Color(0xFF78909C),
+      BoonRarity.rare   => const Color(0xFF7E57C2),
+      BoonRarity.epic   => const Color(0xFFFFD700),
+    };
+    final rarityLabel = switch (boon.rarity) {
+      BoonRarity.common => 'COMMON',
+      BoonRarity.rare   => 'RARE',
+      BoonRarity.epic   => 'EPIC',
+    };
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              rarityColor.withAlpha(30),
+              Colors.black54,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: rarityColor, width: 2),
+          boxShadow: [
+            BoxShadow(color: rarityColor.withAlpha(60), blurRadius: 12, spreadRadius: 1),
+          ],
+        ),
+        child: Row(
+          children: [
+            // 絵文字アイコン
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: rarityColor.withAlpha(30),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: rarityColor.withAlpha(100)),
+              ),
+              child: Center(
+                child: Text(boon.emoji, style: const TextStyle(fontSize: 28)),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: rarityColor.withAlpha(40),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: rarityColor.withAlpha(120)),
+                        ),
+                        child: Text(
+                          rarityLabel,
+                          style: TextStyle(
+                            color: rarityColor,
+                            fontFamily: 'DotGothic16',
+                            fontSize: 9,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    boon.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'DotGothic16',
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    boon.description,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontFamily: 'DotGothic16',
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right, color: rarityColor, size: 24),
+          ],
+        ),
+      ),
+    );
   }
 }
 
