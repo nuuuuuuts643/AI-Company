@@ -1,4 +1,4 @@
-// API_BASE: CloudFront HTTPS経由（Mixed Content回避）
+// API経由（API Gateway HTTPS）
 const API_BASE      = 'https://flotopic.com/api/';
 const _APIGW        = 'https://x73mzc0v06.execute-api.ap-northeast-1.amazonaws.com';
 const COMMENTS_URL  = _APIGW;
