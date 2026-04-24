@@ -72,13 +72,13 @@ bash /Users/OWNER/ai-company/projects/P003-news-timeline/deploy.sh
 - **CEO**: Claude（自律的に会社を動かす）
 - **方針**: 指示を待たず毎日前進する。空報告禁止。実行した証拠がないものは完了扱いしない。
 
-## 現在のプロジェクト状態（最終更新: 2026-04-24 状態整理）
+## 現在のプロジェクト状態（最終更新: 2026-04-25）
 
 | プロジェクト | 状態 | 備考 |
 |---|---|---|
-| P001 AI-Company自走システム | **保留** ⏸ | エージェント群のスケジュール停止中（2026-04-24 API費用削減のため）。インフラは存在。ユーザー・収益が生まれたら再開。 |
-| P002 Flutterゲーム | **開発中** 🔧 | Flutter+Flameで実装済み（50+ファイル）。動作確認待ち。コンセプト: オートバトル×HD-2Dドット絵×ローグライト抽出。 |
-| P003 Flotopic | **本番稼働中** ✅ | flotopic.com。HTTPS化済み。AdSense申請済み（審査待ち）。AI要約は未動作（ANTHROPIC_API_KEY未設定が原因）。 |
+| P001 AI-Company自走システム | **保留** ⏸ | エージェント群のスケジュール停止中（API費用削減のため）。インフラは存在。ユーザー・収益が生まれたら再開。 |
+| P002 Flutterゲーム | **開発中** 🔧 | Flutter+Flameで実装済み（50+ファイル）。動作確認未実施。コンセプト: オートバトル×HD-2Dドット絵×ローグライト抽出。 |
+| P003 Flotopic | **本番稼働中** ✅ | flotopic.com。HTTPS・AI要約・Bluesky自動投稿・コメントUI・信頼性シグナル・PWAアイコン全て稼働中。AdSense審査待ち。 |
 | P004 Slackボット | **保留** ⏸ | Lambdaデプロイ済みだがSlash Command未設定のため誰も使えない。優先度低。 |
 | P005 メモリDB | **保留** ⏸ | DynamoDB稼働中だがエージェント停止中で実質未使用。インフラは残存。 |
 
@@ -111,58 +111,22 @@ bash /Users/OWNER/ai-company/projects/P003-news-timeline/deploy.sh
 | DynamoDB: ai-company-agent-status | 各エージェントのactive/paused/stopped状態管理 |
 | DynamoDB: ai-company-audit | 全監査ログの永続保存 |
 
-## 残タスク（PO手動作業必要）
+## 残タスク（PO手動作業が必要なもの）
 
 ```bash
-# 1. 変更をpush（全Cowork作業を反映）
-git add -A && git commit -m "legal: リーガル対応・利用規約・RSS精査・Notionキー修正" && git push
-
-# 2. Notion更新
-NOTION_API_KEY=ntn_xxxxx python3 scripts/notion_sync.py
-# ※ APIキーは環境変数で渡すこと（コードに書かない）
-
-# 3. auto-push設定（外出先からCoworkで自動デプロイ可能に）
-brew install fswatch
-chmod +x scripts/auto-push.sh
-cp scripts/com.aicompany.autopush.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.aicompany.autopush.plist
-
-# 4. P003 フロントエンドS3デプロイ（リーガル対応ファイル）
-bash projects/P003-news-timeline/deploy.sh
-# デプロイ対象: terms.html, contact.html, privacy.html, index.html,
-#   topic.html, legacy.html, app.js, style.css, robots.txt,
-#   mypage.html, js/comments.js  ← X風コメントUI（2026-04-24 追加）
-#   mypage.html, js/comments.js  ← アバター画像アップロード機能（2026-04-24 追加）
-
-# 5. P003 fetcher + lifecycle + comments Lambda デプロイ
-cd projects/P003-news-timeline && bash deploy.sh
-# 変更ファイル:
-#   lambda/fetcher/config.py  — 読売・日経除外、首相官邸RSS追加
-#   lambda/fetcher/handler.py — 二次情報フィルター追加、S3フィードバック記録
-#   lambda/lifecycle/handler.py — 重み調整TODOブロック追加
-#   lambda/comments/handler.py — PUT /comments/like エンドポイント追加、handle/avatarUrl フィールド対応（2026-04-24）
-#   lambda/comments/handler.py — GET /avatar/upload-url S3 presigned URL生成、ALLOWED_AVATAR_PREFIXESにflotopic.com追加（2026-04-24）
-#   deploy.sh — COMMENTS_ENV_VARS に S3_BUCKET/CLOUDFRONT_DOMAIN 追加、S3 CORS設定追加（PUT許可）（2026-04-24）
-
-# 6. AI要約有効化（APIキーを自分で入力）
-aws lambda update-function-configuration \
-  --function-name p003-processor \
-  --region ap-northeast-1 \
-  --environment 'Variables={S3_BUCKET=p003-news-946554699567,TABLE_NAME=p003-topics,REGION=ap-northeast-1,SITE_URL=https://flotopic.com,ANTHROPIC_API_KEY=sk-ant-...}'
-
-# 7. P002動作確認
+# P002動作確認（まだ未実施）
 cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
-
-# 8. AWSコストアラート設定 ✅ 完了（2026-04-25）
-# python3 scripts/setup_aws_budget.py 実行済み。月$30超でowner643@gmail.comに通知
-
-# 9. Google Search Console登録 ✅ 完了
-# 認証ファイルS3デプロイ済み・登録完了済み
-
-# 10. flotopic.comドメイン自動更新 → 意図的にOFF（更新タイミングを手動管理）
 ```
 
-**待ち（何もしなくていい）**: AdSense審査中
+**待ち（何もしなくていい）**: AdSense審査中（忍者AdMaxで代替中）
+
+### 完了済み手動タスク（記録）
+- ✅ push / S3デプロイ / Lambda デプロイ → セッション開始時に自動実行
+- ✅ AI要約有効化（ANTHROPIC_API_KEY設定済み・動作確認済み）
+- ✅ AWSコストアラート設定（月$30超でowner643@gmail.comに通知）
+- ✅ Google Search Console登録完了
+- ✅ flotopic.comドメイン自動更新 → 意図的にOFF（手動管理）
+- ✅ Notion自動同期 → GitHub Actions（notion-sync.yml / notion-revenue-daily.yml）が毎日09:00 JSTに自動実行
 
 ## 次フェーズのタスク（優先度順）
 
@@ -175,6 +139,27 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 - 閲覧履歴のDynamoDB保存確認（mypage.htmlで表示してるが記録されてるか未確認）
 
 ## 承認済み・実行待ちタスク
+
+### 完了済み（2026-04-25 インフラ整理・セキュリティ強化・UI刷新）
+
+#### ゴミ掃除
+- ✅ **EventBridge `p003-schedule`（rate 5分）削除** — fetcherが5分+30分の二重実行になっていた。コスト約1/6に削減。deploy.shも修正して再発防止済み。
+- ✅ **DynamoDB空テーブル2つ削除** — `flotopic-notifications`・`ai-company-threads-posts`（0件・未使用）
+- ✅ **孤立Lambda `p003-tracker` 削除** — フロントエンドからもEventBridgeからも参照ゼロ
+- ✅ **用済みワークフロー4ファイル削除** — apply-fixes / fix-lambda-timeout / notion-cleanup / setup-lambda-apikey
+
+#### セキュリティ・コスト
+- ✅ **Lambda IAM最小権限化** — DynamoDB/S3フルアクセスを削除し、使用テーブル・バケットのみに限定したインラインポリシーに変更。deploy.shも修正して毎デプロイ時に再適用・FullAccess自動剥奪。
+- ✅ **AWSコストアラート設定** — `flotopic-monthly-budget` 作成。月$21(70%)超で早期警告・$30(100%)超でアラートメールをowner643@gmail.comに送信。
+
+#### PWAアイコン・UIブランディング
+- ✅ **PWAアイコン設定** — ユーザー提供のダークネイビー×水滴デザインを192/512/apple-touch-icon各サイズにリサイズ・S3デプロイ済み
+- ✅ **OGP/Twitter Card刷新** — アイコン配色（ダークネイビー背景）のOGP画像に更新
+- ✅ **UIダークテーマをアイコン色に統一** — `@media prefers-color-scheme: dark` と `[data-theme="dark"]` 両方を更新。primary: 赤→青紫(#6366f1)、accent: シアン(#38bdf8)・ティール(#14b8a6)、背景: 黒系→ダークネイビー(#13141f/#1e2035)
+
+#### その他
+- ✅ **Google Search Console認証ファイルS3デプロイ** — 登録完了済み
+- ✅ **Notionプロジェクト個別ページ化** — 案件ごとに個別行として同期するよう`notion_sync.py`を修正
 
 ### 完了済み（2026-04-24 フィード鮮度・ローテーション改善）
 
@@ -363,7 +348,7 @@ bash projects/P003-news-timeline/deploy.sh
 #### P003 Claude API 大幅削減
 - ✅ **fetcher/handler.py** — Claude呼び出し完全撤廃。extractive_title/extractive_summary で即時表示。`pendingAI`フラグ追加
 - ✅ **lambda/processor/handler.py** — 新規作成。1日3回（JST 7:00/12:00/18:00）バッチAI処理。条件付きClaude Haiku（MAX 30呼び出し/回）
-- ✅ **deploy.sh** — processor Lambda追加。fetcher schedule: rate(5 min)、processor: cron(0 22,3,9 * * ? *)
+- ✅ **deploy.sh** — processor Lambda追加。fetcher schedule: rate(30 min)（※当初rate(5 min)で設定していたが2026-04-25に30分に修正済み）、processor: cron(0 22,3,9 * * ? *)
 - ✅ **コスト削減見込み**: 旧 最大80回/30分 → 新 最大30回/8時間（約97%削減）
 
 #### GitHub Actions UTC/JST修正
@@ -481,17 +466,12 @@ bash projects/P003-news-timeline/deploy.sh
 
 ## 未解決の問題 / 素材不足
 
-- **P003 ANTHROPIC_API_KEY設定済み（processor Lambda）** — ✅ 2026-04-24確認済み。AI要約・タイトル生成とも正常動作中。
-- **P003 アイコン素材不足** — icon-192.png / icon-512.png / apple-touch-icon.png が未作成（ICONS-NEEDED.md参照）。PWAインストール時に必要。
-- **P003 GOOGLE_CLIENT_ID設定済み** — ✅ config.jsに 632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com 設定済み
-- **P003 AdSense審査待ち** — HTTPS化完了済み。申請後、審査通過まで数週間かかる場合あり。それまでは忍者AdMaxで代替。
-- **P003 HTTPS** — ✅ 2026-04-23 CloudFront E2Q21LM58UY0K8 + ACM証明書 ISSUED。flotopic.com でHTTPS動作確認済み。
-- **グラフデータ** — 現在データ蓄積中のため推移グラフは30分毎に更新。長期グラフ（1ヶ月〜1年）はデータ蓄積後に意味を持つ
-- **news.google.comがソースとして表示される問題** — RSSフィードがGoogle Newsアグリゲーターを経由している場合、ソース名がnews.google.comになる。元のソース名パースが必要（feedparserのauthor/sourceフィールド活用）
-- CEOの日次Slack通知 — ✅ 2026-04-22 動作確認済み。継続モニタリング中
-- **P002 Unityフォルダ削除済み** — ✅ 完了
-- **P002 Flutterスプライト素材未作成** — AI生成で後日追加
-- **P002 BGM本番版未作成** — Suno AIで後日生成・差し替え
+- **P003 AdSense審査待ち** — 申請済み。通過まで数週間かかる場合あり。それまでは忍者AdMaxで代替。
+- **P003 news.google.comがソースとして表示される問題** — Google Newsアグリゲーター経由の記事でソース名がnews.google.comになる。feedparserのauthor/sourceフィールドで元ソース名を取得する改善が必要。
+- **P003 グラフデータ蓄積中** — 長期グラフ（1ヶ月〜1年）はデータ蓄積後に意味を持つ。
+- **P002 Flutterスプライト素材未作成** — AI生成で後日追加。
+- **P002 BGM本番版未作成** — Suno AIで後日生成・差し替え。
+- **P002 動作確認未実施** — `flutter pub get && flutter run` をローカルで実行すること。
 
 ## 将来アイデア候補（実装タイミングは後）
 
