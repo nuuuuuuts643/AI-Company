@@ -288,10 +288,19 @@ function renderTopics(topics) {
   // script はinnerHTMLから実行されないのでDOM操作で注入
   grid.querySelectorAll('[data-ad-inject]').forEach(el => {
     el.removeAttribute('data-ad-inject');
+    const wrapper = el.closest('.ad-card-wrapper');
     const s = document.createElement('script');
     s.type = 'text/javascript';
     s.src  = 'https://adm.shinobi.jp/s/229723';
+    // 広告読み込み失敗時 or 3秒後に中身がなければカード非表示
+    s.onerror = () => { if (wrapper) wrapper.style.display = 'none'; };
     el.appendChild(s);
+    setTimeout(() => {
+      // PR ラベル1要素しかない = 広告が注入されていない
+      if (wrapper && el.children.length <= 2 && !el.querySelector('iframe, img, ins, div:not(.ad-label)')) {
+        wrapper.style.display = 'none';
+      }
+    }, 3000);
   });
 
   if (lmContainer) {
