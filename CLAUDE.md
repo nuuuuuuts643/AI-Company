@@ -1,3 +1,25 @@
+# ⚡ セッション開始時に必ず最初に実行すること
+
+Claude Codeセッションを開始したら、何も聞かずに以下を順番に実行する。
+
+```bash
+# 1. git lockファイルがあれば削除
+rm -f /Users/OWNER/ai-company/.git/index.lock
+
+# 2. 未コミットの変更を全てコミット＆push
+cd /Users/OWNER/ai-company
+git add -A
+git commit -m "chore: sync Cowork session changes $(date '+%Y-%m-%d')" || echo "nothing to commit"
+git push || echo "push failed, continuing"
+
+# 3. P003フロントエンド＋Lambda本番デプロイ
+bash /Users/OWNER/ai-company/projects/P003-news-timeline/deploy.sh
+```
+
+エラーが出ても止まらず最後まで実行する。完了後に「✅ 起動チェック完了」と報告してからユーザーの指示を待つ。
+
+---
+
 # Team Operating Rules
 
 このプロジェクトでは、Claude Code は以下の順で作業する。
@@ -28,6 +50,7 @@
 - 未完了箇所が明示されている
 - 素材不足が列挙されている
 - 完成度を「試作 / ベータ / 完成候補」で評価する
+- `cd projects/P003-news-timeline && npm test` が全テストパスすること（42件、node:test使用）
 
 ## 完了報告ルール（必須）
 - 「できた」「完了」と言う前に、必ずエラーチェックを実施する
@@ -49,34 +72,35 @@
 - **CEO**: Claude（自律的に会社を動かす）
 - **方針**: 指示を待たず毎日前進する。空報告禁止。実行した証拠がないものは完了扱いしない。
 
-## 現在のプロジェクト状態（最終更新: 2026-04-24 P003保守性改善・はてなAPI並列化）
+## 現在のプロジェクト状態（最終更新: 2026-04-24 状態整理）
 
 | プロジェクト | 状態 | 備考 |
 |---|---|---|
-| P003 Flotopic | **本番稼働中** ✅ | flotopic.com。catchup.html・processor Lambda・X投稿AI全てデプロイ済み。HTTPS化完了済み。AdSense申請が次のアクション。 |
-| P002 Flutterゲーム | Flutter+Flameで再構築中 | Unity版フォルダ削除済み。`projects/P002-flutter-game/` にFlutter+Flame実装済み（50+ファイル） |
-| P004 Slackボット | **デプロイ完了** ✅ | Bot URL: https://pqtubmsn7kfk2nojf2kqkwqiuu0obnwc.lambda-url.ap-northeast-1.on.aws/ Slack AppでSlash Command `/ai` 設定が必要 |
-| P005 メモリDB | 稼働中 | DynamoDB ai-company-memory (ap-northeast-1) 稼働中 |
+| P001 AI-Company自走システム | **保留** ⏸ | エージェント群のスケジュール停止中（2026-04-24 API費用削減のため）。インフラは存在。ユーザー・収益が生まれたら再開。 |
+| P002 Flutterゲーム | **開発中** 🔧 | Flutter+Flameで実装済み（50+ファイル）。動作確認待ち。コンセプト: オートバトル×HD-2Dドット絵×ローグライト抽出。 |
+| P003 Flotopic | **本番稼働中** ✅ | flotopic.com。HTTPS化済み。AdSense申請済み（審査待ち）。AI要約は未動作（ANTHROPIC_API_KEY未設定が原因）。 |
+| P004 Slackボット | **保留** ⏸ | Lambdaデプロイ済みだがSlash Command未設定のため誰も使えない。優先度低。 |
+| P005 メモリDB | **保留** ⏸ | DynamoDB稼働中だがエージェント停止中で実質未使用。インフラは残存。 |
 
 ## 専門AI稼働状況
 
-### 運営エージェント
-| エージェント | スクリプト | スケジュール | 状態 |
-|---|---|---|---|
-| CEO | scripts/ceo_run.py | 毎朝8:30 JST | ✅ 稼働中 |
-| 秘書 | scripts/secretary_run.py | 毎朝9:00 JST | ✅ 稼働中（Notion同期強化済み） |
-| 開発監視AI | scripts/devops_agent.py | 毎時 | ✅ 有効（git push済み） |
-| マーケティングAI | scripts/marketing_agent.py | 毎朝10:00 JST | ✅ 有効（git push済み） |
-| 収益管理AI | scripts/revenue_agent.py + notion_revenue_sync.py | 毎週月曜9:30 JST | ✅ 有効（Notion同期追加済み） |
-| 編集AI | scripts/editorial_agent.py | 毎週水曜9:00 JST | ✅ 有効（git push済み） |
-| SEO AI | scripts/seo_agent.py | 毎週月曜10:00 JST | ✅ 有効（git push済み）|
-| X投稿AI | scripts/x_agent.py | 日次8:00/週次月9:00/月次1日9:00 JST | ✅ 有効（git push済み・X API key未設定）|
+### 運営エージェント（全スケジュール停止中 2026-04-24〜）
+| エージェント | スクリプト | 停止理由 |
+|---|---|---|
+| CEO | scripts/ceo_run.py | API費用削減・ユーザーゼロ段階では不要 |
+| 秘書 | scripts/secretary_run.py | 同上 |
+| 開発監視AI | scripts/devops_agent.py | 同上 |
+| マーケティングAI | scripts/marketing_agent.py | 同上 |
+| 収益管理AI | scripts/revenue_agent.py | 同上 |
+| 編集AI | scripts/editorial_agent.py | 同上 |
+| SEO AI | scripts/seo_agent.py | 同上 |
+| X投稿AI | scripts/x_agent.py | X API Basic Plan ($100/月) が必要なため保留 |
 
-### ガバナンスエージェント（CEO含む全エージェントを独立監視）
+### ガバナンスエージェント
 | エージェント | スクリプト | スケジュール | 状態 | 報告先 |
 |---|---|---|---|---|
 | SecurityAI | scripts/security_agent.py | push時(L1/L2) + 毎週月曜8:00 JST(L3) | ✅ 有効 | Slack（CRITICAL時はPOさん直報） |
-| LegalAI | scripts/legal_agent.py | push時(L2) + 毎月1日(L3) | ✅ 有効 | Slack（要対応時はPOさん直報） |
+| LegalAI | scripts/legal_agent.py | push時(L2) + 毎月1日(L3) | ⏸ 停止中 | — |
 | AuditAI | scripts/audit_agent.py | push時 + 週次 | ✅ 有効 | **POさん直接報告（CEOを経由しない）** |
 
 #### ガバナンス補助
@@ -89,18 +113,198 @@
 
 ## 残タスク（PO手動作業必要）
 
-### 優先度: 高
-- **p003-processor ANTHROPIC_API_KEY設定** — AI要約生成に必須。`aws lambda update-function-configuration --function-name p003-processor --region ap-northeast-1 --environment 'Variables={S3_BUCKET=p003-news-946554699567,TABLE_NAME=p003-topics,REGION=ap-northeast-1,SITE_URL=https://flotopic.com,ANTHROPIC_API_KEY=sk-ant-...}'`
-- **Google AdSense申請** — https://www.google.com/adsense/ からflotopic.comで申請。HTTPS化済みなので申請可能。審査に数日〜数週間かかる。
-- **P004 Slash Command設定** — https://api.slack.com/apps で `/ai` コマンドのRequest URLに `https://pqtubmsn7kfk2nojf2kqkwqiuu0obnwc.lambda-url.ap-northeast-1.on.aws/` を設定
-- **Claude Desktop再起動** — AWS MCP有効化のため（設定変更済み・再起動だけで完了）
+```bash
+# 1. 変更をpush（全Cowork作業を反映）
+git add -A && git commit -m "legal: リーガル対応・利用規約・RSS精査・Notionキー修正" && git push
 
-### 優先度: 中
-- **X API Key** — ✅ GitHub Secrets 登録済み（X_API_KEY / X_API_SECRET / X_ACCESS_TOKEN / X_ACCESS_TOKEN_SECRET）
-- **Google OAuth設定** — Google Cloud Console で GOOGLE_CLIENT_ID 取得（手順: docs/google-oauth-setup.md）
-- **P002 Flutter動作確認** — `cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run`
+# 2. Notion更新
+NOTION_API_KEY=ntn_xxxxx python3 scripts/notion_sync.py
+# ※ APIキーは環境変数で渡すこと（コードに書かない）
+
+# 3. auto-push設定（外出先からCoworkで自動デプロイ可能に）
+brew install fswatch
+chmod +x scripts/auto-push.sh
+cp scripts/com.aicompany.autopush.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.aicompany.autopush.plist
+
+# 4. P003 フロントエンドS3デプロイ（リーガル対応ファイル）
+bash projects/P003-news-timeline/deploy.sh
+# デプロイ対象: terms.html, contact.html, privacy.html, index.html,
+#   topic.html, legacy.html, app.js, style.css, robots.txt,
+#   mypage.html, js/comments.js  ← X風コメントUI（2026-04-24 追加）
+#   mypage.html, js/comments.js  ← アバター画像アップロード機能（2026-04-24 追加）
+
+# 5. P003 fetcher + lifecycle + comments Lambda デプロイ
+cd projects/P003-news-timeline && bash deploy.sh
+# 変更ファイル:
+#   lambda/fetcher/config.py  — 読売・日経除外、首相官邸RSS追加
+#   lambda/fetcher/handler.py — 二次情報フィルター追加、S3フィードバック記録
+#   lambda/lifecycle/handler.py — 重み調整TODOブロック追加
+#   lambda/comments/handler.py — PUT /comments/like エンドポイント追加、handle/avatarUrl フィールド対応（2026-04-24）
+#   lambda/comments/handler.py — GET /avatar/upload-url S3 presigned URL生成、ALLOWED_AVATAR_PREFIXESにflotopic.com追加（2026-04-24）
+#   deploy.sh — COMMENTS_ENV_VARS に S3_BUCKET/CLOUDFRONT_DOMAIN 追加、S3 CORS設定追加（PUT許可）（2026-04-24）
+
+# 6. AI要約有効化（APIキーを自分で入力）
+aws lambda update-function-configuration \
+  --function-name p003-processor \
+  --region ap-northeast-1 \
+  --environment 'Variables={S3_BUCKET=p003-news-946554699567,TABLE_NAME=p003-topics,REGION=ap-northeast-1,SITE_URL=https://flotopic.com,ANTHROPIC_API_KEY=sk-ant-...}'
+
+# 7. P002動作確認
+cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
+
+# 8. AWSコストアラート設定
+python3 scripts/setup_aws_budget.py
+
+# 9. Google Search Console登録（手動）
+# https://search.google.com/search-console にアクセス
+# flotopic.com を「URLプレフィックス」で追加
+# HTMLファイル認証を選択 → 生成されたHTMLファイルをfrontend/に配置 → deploy.sh で反映
+
+# 10. flotopic.comドメイン自動更新確認（手動）
+# ドメイン登録サービスのダッシュボードで自動更新がONになっているか確認
+```
+
+**待ち（何もしなくていい）**: AdSense審査中
+
+## 次フェーズのタスク（優先度順）
+
+### P003 ユーザー行動分析 + 管理ダッシュボード
+- トピックごとのPV記録（DynamoDB）
+- ログイン済みユーザーの行動追跡（ジャンル傾向・滞在時間）
+- お気に入り率・離脱率の計測
+- 管理者用ダッシュボードページ（今週のトップトピック・ジャンル別PV・ユーザー数推移）
+- Googleログインと組み合わせて「どんなユーザーが何を読んでるか」を可視化
+- 閲覧履歴のDynamoDB保存確認（mypage.htmlで表示してるが記録されてるか未確認）
 
 ## 承認済み・実行待ちタスク
+
+### 完了済み（2026-04-24 フィード鮮度・ローテーション改善）
+
+#### P003 フロントエンドのみ（Lambda変更なし）
+- ✅ **`frontend/app.js`** — 「今急上昇中」セクション（`renderHotStrip()`）を追加。`lastUpdated`が2時間以内のトピックを最大5件、velocityScore降順で横スクロールストリップ表示。空の場合はDOMごと削除（`strip.remove()`）。
+- ✅ **`frontend/app.js`** — `#last-updated` を「🔄 N分前に更新」形式の相対時間表示に変更（`updateFreshnessDisplay()`）。1分未満/分/時間/日の4段階粒度。60秒ごと `setInterval` でリアルタイム更新。
+- ✅ **`frontend/app.js`** — トピックカードに `card-new-badge`（NEW）バッジ追加。`lastUpdated` が1時間以内かつ非nullのトピックのみ表示。
+- ✅ **`frontend/app.js`** — `lastUpdated` が `null`/`undefined`/`0` のトピックを `isNewCard` と `renderHotStrip` フィルタ両方で安全にスキップするnull guard追加。
+- ✅ **`frontend/app.js`** — hot-stripチップに「（N件）」の記事件数を添える（`articleCount` フィールド使用）。
+- ✅ **`frontend/style.css`** — `.card-new-badge` に `@keyframes new-pulse`（2s infinite）アニメーション追加。
+- ✅ **`frontend/style.css`** — `.hot-chip:hover` に `transform: translateY(-1px)` + `box-shadow` のホバーエフェクト追加。
+- ✅ **`frontend/style.css`** — `.hot-strip-chips` に `-ms-overflow-style: none` 追加（IE/Edge スクロールバー非表示対応）。
+
+**デプロイ対象**: `bash projects/P003-news-timeline/deploy.sh`（フロントのみ。S3に `app.js`/`style.css` をアップロードするだけ）
+
+### 完了済み（2026-04-24 防御強化: 法的・技術的）
+
+#### 法的防御・セキュリティ強化
+- ✅ **`frontend/contact.html`** — 著作権侵害申告セクションをDMCA Safe Harbor相当に強化。①権利者情報 ②侵害URLの特定 ③著作物の特定 ④誠実な申告の宣言、7営業日対応フロー、GitHub Issuesへの誘導
+- ✅ **`frontend/terms.html`** — バージョン管理（v1.2 / 2026-04-24）追加。AI要約の著作権帰属を明確化（独自生成コンテンツとして明記）。第6条「コンテンツポリシーと違反の通報」追加（禁止コンテンツ・スパム・なりすましの定義と通報手順）
+- ✅ **`lambda/security/middleware.py`** — レートリミット強化: `check_comment_throttle()`（30秒以内の連投ブロック）・`check_api_rate_limit()`（1分60req上限）・`rate_limit_response()`（HTTP 429 + Retry-After ヘッダー）・`get_client_ip()`（X-Forwarded-For対応）を追加。CORSヘッダーにPUTを追加。py_compile通過済み。
+- ✅ **`frontend/index.html` / `topic.html` / `mypage.html`** — セキュリティヘッダー3点（Content-Security-Policy・X-Content-Type-Options: nosniff・Referrer-Policy: strict-origin-when-cross-origin）を `<head>` に追加
+- ✅ **`frontend/robots.txt`** — Crawl-delay: 10 を User-agent: * セクションに追加。スクレイピング系bot（Baiduspider・SemrushBot・AhrefsBot・MJ12bot・DotBot）をDisallow追加
+- ✅ **`frontend/privacy.html`** — 新規セクション追加: 3-A（アバター画像のS3保存・削除タイミング）・3-B（ハンドル名/年齢層/性別の任意収集目的）・3-C（ローカルストレージに保存するデータ種類と用途）・第9条（データポータビリティ・忘れられる権利・7営業日削除対応）
+
+**デプロイ対象**: フロント全5ファイル（contact/terms/privacy/index/mypage/topic.html, robots.txt）+ Lambda（lambda/security/middleware.py）
+
+### 完了済み（2026-04-24 P003 ソース品質評価・信頼性シグナル）
+
+#### fetcher ソース品質評価と記事信頼性シグナル実装
+- ✅ **`lambda/fetcher/config.py`** — RSS_FEEDSの全エントリに`tier`フィールド追加
+  - Tier 1: NHK・首相官邸（一次情報・権威性高）
+  - Tier 2: 朝日・毎日・ITmedia・Gigazine・ASCII・東洋経済・ダイヤモンドほか（主要メディア）
+  - Tier 3: Google News・ライブドアニュース（アグリゲーター）
+  - `SOURCE_TIER_MAP`: ドメイン名 → tier のフォールバックマッピング
+  - `TIER_WEIGHTS`: {1: 1.3, 2: 1.0, 3: 0.8}
+  - `UNCERTAINTY_PATTERNS`: 不確実表現正規表現リスト14パターン
+- ✅ **`lambda/fetcher/handler.py`** — 信頼性シグナル機能を実装
+  - `fetch_rss`: tier情報を記事に付与（SOURCE_TIER_MAPでフォールバック解決）
+  - `detect_uncertainty(text)`: 不確実表現検出 → `'unverified'|'uncertain'|'stated'`
+  - `calc_topic_reliability(articles)`: トピック全体の信頼性集計
+  - `detect_numeric_conflict(articles)`: 数値の食い違い検出（2倍以上乖離 → `hasConflict: true`）
+  - `apply_tier_and_diversity_scoring(articles, velocity)`:
+    - Tier重み平均をvelocityScoreに乗算
+    - 1社60%超 → velocityScore×0.8（ソース集中ペナルティ）
+    - ユニークソース4社以上 → velocityScore×1.1（多様性ボーナス）
+  - DynamoDB METAに `reliability`, `hasConflict`, `uniqueSourceCount` を保存
+- ✅ **`frontend/app.js`** — トピックカードに信頼性シグナルを控えめ表示
+  - 「📰 N社が報道」（1社のみは薄いグレー）
+  - 「⚠️ 情報確認中」（unreliable かつスコア<80 のみ・小バッジ）
+  - 「情報精査中」（hasConflict: true のみ・グレー小テキスト）
+- ✅ **`frontend/style.css`** — 信頼性バッジCSS追加（`.reliability-badge`, `.conflict-badge`, `.src-count-label`）
+- ✅ **Python構文チェック通過** — config.py, handler.py ともに `py_compile` エラーなし
+- ✅ **JS構文チェック通過** — app.js `node --check` エラーなし
+
+**設計方針**: 「嘘を判定する」のではなく「情報の確実度の材料を可視化」のみ。断定せずユーザーに判断材料を提供する法的リスク回避設計。
+
+**デプロイ対象**: フロント（app.js, style.css）+ Lambda（lambda/fetcher/ config.py, handler.py）
+```bash
+bash projects/P003-news-timeline/deploy.sh
+```
+
+---
+
+### 完了済み（2026-04-24 processor 言葉選びルール強化）
+
+#### processor Lambda — 生成ストーリーの言葉選び厳格化（`lambda/processor/proc_ai.py`）
+- ✅ **`generate_story` systemプロンプトに「言葉選びの厳格なルール」セクションを追加**
+  - 禁止表現（評価・断定・感情語・主語曖昧表現）と代替表現を明示
+  - 推奨する言葉（事実ベースの動詞・不確実情報の表現形式・時系列接続詞）を指定
+  - デリケートな領域（特定個人・事件事故・企業不祥事）の追加ルールを追加
+- ✅ **Python構文チェック通過** — `py_compile` エラーなし確認済み
+- **目的**: 名誉毀損リスク・事実断定リスクを構造的に低減。一人運営での法的問題を予防。
+
+**デプロイ対象**: `lambda/processor/proc_ai.py`（次の `bash deploy.sh` 時に反映）
+
+---
+
+### 完了済み（2026-04-24 P003 processor ストーリー型AI生成）
+
+#### processor Lambda — AIプロンプトをストーリー型に変更（`lambda/processor/`）
+- ✅ **`generate_summary` → `generate_story` に置き換え** — `proc_ai.py`。1回の呼び出しで①イベント分解②フェーズ分け③タイムラインをJSON形式で返す
+- ✅ **新フィールド `timeline`・`phase` を DynamoDB に保存** — `proc_storage.py`。`update_topic_with_ai` が `storyTimeline`（配列）・`storyPhase`（文字列）を書き込む
+- ✅ **`handler.py` 対応** — `generate_story` 呼び出し・`ai_updates` / S3 topics.json に `storyTimeline`・`storyPhase` を反映
+- ✅ **API呼び出し回数は変わらず** — タイトル生成(1回) + ストーリー生成(1回) = 従来どおり最大2回/トピック
+- ✅ **Python構文チェック通過** — `py_compile` で3ファイル全てエラーなし確認済み
+
+**DynamoDB 新フィールド仕様**
+- `generatedSummary`: ストーリー本文（`aiSummary`、自然文、1段落）
+- `storyTimeline`: `[{"date": "M/D", "event": "体言止めの出来事"}]`（3〜6件）
+- `storyPhase`: `"発端"` / `"拡散"` / `"ピーク"` / `"現在地"` のいずれか
+
+**デプロイ**: `bash projects/P003-news-timeline/deploy.sh` で反映（次のPO手動作業時に）
+
+---
+
+### 完了済み（2026-04-24 P003 X風コメントUI強化）
+
+#### コメント機能 X風 UI リニューアル
+- ✅ **`lambda/comments/handler.py`** — `PUT /comments/like` エンドポイント追加
+  - `likedBy` DynamoDB String Set + ConditionalCheck で冪等性保証（二重いいね防止）
+  - `handle`・`avatarUrl` フィールドをコメント投稿時に保存対応（オプション）
+  - CORS Allow-Methods に PUT 追加
+  - Python構文チェック通過（py_compile）
+- ✅ **`frontend/js/comments.js`** — 全面X風UIに書き換え
+  - アバター表示（Googleプロフィール画像 or 頭文字イニシャル）
+  - `♡ いいね数` / `🔖 保存` / `↩️ 返信` アクションボタン
+  - いいね: 楽観的UI更新 + DynamoDB PUT /comments/like
+  - 保存: localStorage のみ（コストゼロ）
+  - 返信: テキストエリアに `@handle ` を挿入
+  - `@mention` サジェスト: 既存コメントからハンドル収集 → ドロップダウン表示
+  - 投稿時 handle / avatarUrl を Lambda に送信
+- ✅ **`frontend/style.css`** — X風コメントカードCSS追加（モバイルファースト）
+  - `.cx-comment`, `.cx-avatar`, `.cx-action-btn`, `.cx-mention`
+  - `@keyframes cx-pop`（いいねアニメーション）
+  - `.profile-setup-overlay` / `.profile-setup-modal`（プロフィール設定モーダル）
+- ✅ **`frontend/topic.html`** — コメント投稿フォームをX風レイアウトに変更
+  - アバター表示エリア追加、ハンドル表示行追加、`mention-suggest` div 追加
+- ✅ **`frontend/mypage.html`** — プロフィール設定フォーム追加
+  - 初回ログイン時に自動表示するモーダル（ハンドル名・年齢層・性別）
+  - `flotopic_profile_set` キーで設定済み管理
+  - アカウントタブにハンドル名・年齢層・性別の編集フィールド追加
+  - プロフィールヘッダーに `@handle` 表示
+
+**デプロイ対象**: フロント（topic.html, mypage.html, style.css, js/comments.js）+ Lambda（lambda/comments/handler.py）
+
+---
 
 ### 完了済み（2026-04-24 P003保守性改善・コスト削減）
 
@@ -292,7 +496,20 @@
 - **P002 Flutterスプライト素材未作成** — AI生成で後日追加
 - **P002 BGM本番版未作成** — Suno AIで後日生成・差し替え
 
-## 将来アイデア候補
+## 将来アイデア候補（実装タイミングは後）
+
+> 運用設計ドキュメント作成済み → **docs/operations-design.md** 参照（デプロイ安全基準・ロールバック・監視・変更管理ルール）
+
+> インフラ移行戦略ドキュメント作成済み → **docs/infra-migration-strategy.md** 参照  
+> （Phase定義・ゼロダウンタイム移行パターン・topics.json肥大化対策・GSI拡張計画・移行判断トリガー指標を記載）
+
+### P003拡張候補: トピック起点SNS機能
+Xやインスタは「自分起点でハッシュタグを後付け」する広場型。Flotopicは「トピック起点で人が発言する」映画館型。
+- Googleログイン前提（匿名排除）
+- トピックページに「このトピックについてどう思う？」入力欄
+- トピックがarchived/削除されたらコメントも自動消去 → 燃え広がらない設計
+- モデレーションが構造に組み込まれている（人力不要）
+- **実装タイミング**: ユーザーが集まってから。今は「発言ゼロの入力欄」になるリスクがある。コメント機能は既にlambda/comments/handler.pyで実装済み。
 
 ### P006候補: Flotopic × 株式投資シグナル
 Flotopicが「世界の文脈を読む」精度を上げた先に、投資シグナル生成エンジンへの拡張可能性がある。

@@ -1,7 +1,8 @@
 import 'dart:math';
+import 'dart:ui' show Paint, PaintingStyle;
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
-import 'package:flutter/material.dart' show Color, Colors;
+import 'package:flutter/material.dart' show Color, Colors, Curves;
 import '../constants/game_constants.dart';
 import '../components/floating_text.dart';
 import '../components/particle_system.dart';
@@ -88,7 +89,7 @@ class GameAnimationController extends Component {
 
   // ---- ボス演出 ----
 
-  /// ボス登場演出（画面外右から登場 + ScreenShake + FloatingText「BOSS\!」）
+  /// ボス登場演出（画面外右から登場 + ScreenShake + FloatingText「BOSS!」）
   void playBossEntrance(PositionComponent boss, Vector2 targetPosition) {
     // ボスを画面右外からスタート
     boss.position = Vector2(GameConstants.gameWidth + 80, targetPosition.y);
@@ -115,9 +116,9 @@ class GameAnimationController extends Component {
               ),
             ),
           );
-          // FloatingText「BOSS\!」
+          // FloatingText「BOSS!」
           parent?.add(FloatingTextComponent(
-            text: '💀 BOSS\!',
+            text: '💀 BOSS!',
             position: Vector2(
               targetPosition.x - 30,
               targetPosition.y - 50,
@@ -159,7 +160,7 @@ class GameAnimationController extends Component {
               ..style = PaintingStyle.stroke
               ..strokeWidth = 2.0,
           );
-          parent\!.add(ripple);
+          parent!.add(ripple);
 
           ripple.add(ScaleEffect.to(
             Vector2.all(4.0 + ring * 1.5),
@@ -217,9 +218,9 @@ class GameAnimationController extends Component {
       onComplete: () => pillar.removeFromParent(),
     ));
 
-    // テキスト「LEVEL UP\!」+ 上昇 + 回転（RotateEffect）
+    // テキスト「LEVEL UP!」+ 上昇 + 回転（RotateEffect）
     final lvText = FloatingTextComponent(
-      text: '⬆ LEVEL $newLevel\!',
+      text: '⬆ LEVEL $newLevel!',
       position: position + Vector2(-40, -60),
       color: const Color(0xFFFFE082),
       fontSize: 20,
@@ -267,7 +268,7 @@ class GameAnimationController extends Component {
           anchor: Anchor.center,
           paint: Paint()..color = const Color(0xFFFFD54F),
         );
-        parent\!.add(coin);
+        parent!.add(coin);
 
         // 弧を描くために2段階Moveを使う
         // 1段階: 上に弧の頂点まで移動

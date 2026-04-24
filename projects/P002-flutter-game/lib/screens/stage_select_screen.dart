@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../game/game_state.dart';
 import '../models/stage_data.dart';
+import '../models/enemy_data.dart';
+import '../constants/element_chart.dart';
 import '../constants/strings.dart';
 import 'battle_screen.dart';
 
@@ -184,6 +186,10 @@ class _StageCard extends StatelessWidget {
                   fontSize: 12,
                 ),
               ),
+              const SizedBox(height: 10),
+              // 敵プレビュー（最初のウェーブ登場敵）
+              _EnemyPreview(stage: stage),
+
               if (isUnlocked && bestScore > 0) ...[
                 const SizedBox(height: 8),
                 Row(
@@ -215,6 +221,96 @@ class _StageCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _EnemyPreview extends StatelessWidget {
+  final StageData stage;
+  const _EnemyPreview({required this.stage});
+
+  @override
+  Widget build(BuildContext context) {
+    // 全ウェーブから敵の種類を重複なしで収集（最大5種）
+    final types = <EnemyType>{};
+    for (final wave in stage.waves) {
+      for (final e in wave.enemies) {
+        types.add(e.type);
+        if (types.length >= 5) break;
+      }
+      if (types.length >= 5) break;
+    }
+
+    return Row(
+      children: [
+        Text(
+          '出現：',
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.4),
+            fontFamily: 'DotGothic16',
+            fontSize: 10,
+          ),
+        ),
+        const SizedBox(width: 4),
+        ...types.map((t) {
+          final data = EnemyMaster.get(t);
+          final assetPath = _assetPath(t);
+          return Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Tooltip(
+              message: data.name,
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.black38,
+                  border: Border.all(
+                    color: Color(data.element.colorValue).withOpacity(0.5),
+                    width: 1,
+                  ),
+                ),
+                child: assetPath != null
+                    ? Image.asset(assetPath, fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) =>
+                            Center(child: Text(t.name[0].toUpperCase(),
+                                style: const TextStyle(color: Colors.white, fontSize: 10))))
+                    : Center(child: Text(data.element.emoji,
+                        style: const TextStyle(fontSize: 14))),
+              ),
+            ),
+          );
+        }),
+        if (stage.waves.any((w) => w.isBossWave)) ...[
+          const SizedBox(width: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.red.shade900.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: const Text('BOSS', style: TextStyle(
+              color: Colors.red, fontFamily: 'DotGothic16', fontSize: 8)),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String? _assetPath(EnemyType t) {
+    switch (t) {
+      case EnemyType.goblin:        return 'assets/images/enemy_goblin.png';
+      case EnemyType.goblinShaman:  return 'assets/images/enemy_goblin_shaman.png';
+      case EnemyType.orc:           return 'assets/images/enemy_orc.png';
+      case EnemyType.orcBerserker:  return 'assets/images/enemy_orc_berserker.png';
+      case EnemyType.fireDrake:     return 'assets/images/enemy_fire_drake.png';
+      case EnemyType.seaSerpent:    return 'assets/images/enemy_sea_serpent.png';
+      case EnemyType.windWraith:    return 'assets/images/enemy_wind_wraith.png';
+      case EnemyType.stoneGolem:    return 'assets/images/enemy_stone_golem.png';
+      case EnemyType.darkKnight:    return 'assets/images/enemy_dark_knight.png';
+      case EnemyType.shadowBat:     return 'assets/images/enemy_shadow_bat.png';
+      case EnemyType.lichKing:      return 'assets/images/enemy_lich_king.png';
+      case EnemyType.shadowLord:    return 'assets/images/enemy_shadow_lord.png';
+    }
   }
 }
 

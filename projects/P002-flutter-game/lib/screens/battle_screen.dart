@@ -5,9 +5,13 @@ import '../game/game_state.dart';
 import '../game/octo_battle_game.dart';
 import '../constants/strings.dart';
 import '../models/stage_data.dart';
+import '../services/audio_service.dart';
 import '../systems/event_system.dart';
+import '../systems/extraction_system.dart';
 import 'card_hand_widget.dart';
+import 'extraction_screen.dart';
 import 'result_screen.dart';
+import 'wave_shop_screen.dart';
 
 /// メインバトル画面
 /// FlameGame（描画）+ Flutterウィジェット（HUD・UI）の合成レイアウト
@@ -18,28 +22,90 @@ class BattleScreen extends StatefulWidget {
   State<BattleScreen> createState() => _BattleScreenState();
 }
 
-class _BattleScreenState extends State<BattleScreen> {
+class _BattleScreenState extends State<BattleScreen>
+    with TickerProviderStateMixin {
   OctoBattleGame? _game;
   final EventSystem _eventSystem = EventSystem();
+  late ExtractionSystem _extractionSystem;
 
   // ウェーブ間イベント表示用
   WaveEvent? _pendingEvent;
   bool _showEventModal = false;
+
+  // ウェーブクリア後のショップ・抽出UI
+  bool _showShop = false;
+  bool _showExtraction = false;
+  int _shopWaveNumber = 1;
+
+  // チュートリアルヒント（初回のみ）
+  bool _showTutorial = true;
+
+  // ---- 新機能: ボスHPバー ----
+  String _bossName = '';
+  int _bossMaxHp = 0;
+  int _bossCurrentHp = 0;
+  bool get _bossActive => _bossName.isNotEmpty && _bossMaxHp > 0;
+
+  // ---- 新機能: 城壁ダメージフラッシュ ----
+  late AnimationController _wallFlashCtrl;
+  late Animation<double> _wallFlashOpacity;
+
+  // ---- 新機能: ウェーブクリア演出 ----
+  bool _showWaveClear = false;
+  int _clearedWaveNum = 0;
+  late AnimationController _waveClearCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _wallFlashCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _wallFlashOpacity = Tween<double>(begin: 0.55, end: 0.0).animate(
+      CurvedAnimation(parent: _wallFlashCtrl, curve: Curves.easeOut),
+    );
+
+    _waveClearCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    );
+    _waveClearCtrl.addStatusListener((s) {
+      if (s == AnimationStatus.completed && mounted) {
+        setState(() => _showWaveClear = false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _wallFlashCtrl.dispose();
+    _waveClearCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_game == null) {
       final gameState = context.read<GameStateNotifier>();
+      final audio = context.read<AudioService>();
       final stageId = gameState.selectedStageId;
       if (stageId != null) {
-        gameState.startBattle(stageId);
+        _extractionSystem = ExtractionSystem(gameState: gameState);
         _game = OctoBattleGame(
           gameState: gameState,
+          audio: audio,
           onPhaseChangeRequest: _handlePhaseChange,
           onCardPlaced: _handleCardPlaced,
           onChainTriggered: _handleChainTriggered,
+          onBossHpUpdate: _handleBossHpUpdate,
+          onWallDamaged: _handleWallDamaged,
         );
+        // ビルドフェーズ中に notifyListeners を呼ばないよう次フレームに延期
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) gameState.startBattle(stageId);
+        });
       }
     }
   }
@@ -56,26 +122,45 @@ class _BattleScreenState extends State<BattleScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // ---- Flame ゲームキャンバス ----
-          Positioned.fill(
-            bottom: 140, // カード手札UIの高さ分だけ上
-            child: GameWidget(game: _game!),
+          // ---- ゲームが画面全体を埋める ----
+          DragTarget<String>(
+            onAcceptWithDetails: (details) {
+              _game?.handleCardDrop(details.data, details.offset);
+            },
+            builder: (ctx, candidateItems, _) {
+              return Stack(
+                children: [
+                  Positioned.fill(child: GameWidget(game: _game!)),
+                  if (candidateItems.isNotEmpty)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
 
-          // ---- カード手札UI（下部） ----
+          // ---- カードハンド（下部オーバーレイ） ----
           Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
+            left: 0, right: 0, bottom: 0,
             child: CardHandWidget(
-              onCardDropped: (cardId, offset) {
-                _game?.handleCardDrop(cardId, offset);
-              },
+              onCardDropped: (cardId, offset) {},
             ),
           ),
 
           // ---- HUD オーバーレイ（Flutter） ----
           SafeArea(child: _buildHUD()),
+
+          // ---- チュートリアルヒント（初回のみ）----
+          if (_showTutorial)
+            _TutorialHint(onDismiss: () => setState(() => _showTutorial = false)),
 
           // ---- ウェーブ間イベントモーダル ----
           if (_showEventModal && _pendingEvent != null)
@@ -85,6 +170,74 @@ class _BattleScreenState extends State<BattleScreen> {
               onDecline: _pendingEvent!.hasChoice
                   ? () => _resolveEvent(accepted: false)
                   : null,
+            ),
+
+          // ---- ウェーブクリアショップ ----
+          if (_showShop)
+            Positioned.fill(
+              child: WaveShopScreen(
+                waveNumber: _shopWaveNumber,
+                onProceed: _onShopProceed,
+              ),
+            ),
+
+          // ---- 抽出選択画面 ----
+          if (_showExtraction)
+            Positioned.fill(
+              child: Builder(
+                builder: (ctx) {
+                  final gs = ctx.read<GameStateNotifier>();
+                  final stage = StageMaster.getById(
+                    gs.selectedStageId ?? '',
+                  );
+                  return ExtractionScreen(
+                    extractionSystem: _extractionSystem,
+                    totalWaves: stage?.waves.length ?? 5,
+                    currentWave: _shopWaveNumber,
+                    onExtract: _onExtractionExtract,
+                    onContinue: _onExtractionContinue,
+                  );
+                },
+              ),
+            ),
+
+          // ---- ボスHPバー（ボス戦中のみ） ----
+          if (_bossActive && !_showShop && !_showExtraction)
+            Positioned(
+              top: 64,
+              left: 12,
+              right: 12,
+              child: _BossHPBar(
+                name: _bossName,
+                maxHp: _bossMaxHp,
+                currentHp: _bossCurrentHp,
+              ),
+            ),
+
+          // ---- 城壁ダメージフラッシュ ----
+          AnimatedBuilder(
+            animation: _wallFlashOpacity,
+            builder: (_, __) => _wallFlashOpacity.value > 0
+                ? Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(
+                        color: const Color(0xFFFF0000)
+                            .withOpacity(_wallFlashOpacity.value),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+
+          // ---- ウェーブクリア演出 ----
+          if (_showWaveClear)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: _WaveClearOverlay(
+                  waveNumber: _clearedWaveNum,
+                  animation: _waveClearCtrl,
+                ),
+              ),
             ),
         ],
       ),
@@ -97,78 +250,98 @@ class _BattleScreenState extends State<BattleScreen> {
         final battle = gs.battle;
         if (battle == null) return const SizedBox.shrink();
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        final hpRatio = battle.wallHpRatio;
+        final hpColor = hpRatio > 0.5
+            ? const Color(0xFF66BB6A)
+            : hpRatio > 0.25
+                ? const Color(0xFFFFA726)
+                : const Color(0xFFEF5350);
+
+        return Container(
+          margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.65),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
+          ),
           child: Row(
             children: [
-              // 城壁HPバー
+              // 🏰 城壁HP
+              const Text('🏰', style: TextStyle(fontSize: 16)),
+              const SizedBox(width: 6),
               Expanded(
+                flex: 3,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      '${Strings.hpLabel}: ${battle.wallHp}',
-                      style: const TextStyle(
-                        color: Color(0xFF80CBC4),
-                        fontFamily: 'DotGothic16',
-                        fontSize: 11,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          '${battle.wallHp}',
+                          style: TextStyle(
+                            color: hpColor,
+                            fontFamily: 'DotGothic16',
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 2),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(3),
                       child: LinearProgressIndicator(
-                        value: battle.wallHpRatio,
-                        backgroundColor: const Color(0xFF1A1A2E),
-                        valueColor: AlwaysStoppedAnimation(
-                          battle.wallHpRatio > 0.5
-                              ? const Color(0xFF66BB6A)
-                              : battle.wallHpRatio > 0.25
-                                  ? const Color(0xFFFFA726)
-                                  : const Color(0xFFEF5350),
-                        ),
-                        minHeight: 6,
+                        value: hpRatio,
+                        backgroundColor: Colors.white12,
+                        valueColor: AlwaysStoppedAnimation(hpColor),
+                        minHeight: 5,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
 
-              // ウェーブ表示
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A2E),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFFFFE082).withOpacity(0.5)),
-                ),
-                child: Text(
-                  '${Strings.waveLabel} ${battle.currentWave}',
-                  style: const TextStyle(
-                    color: Color(0xFFFFE082),
-                    fontFamily: 'DotGothic16',
-                    fontSize: 12,
-                  ),
-                ),
+              // WAVE インジケーター
+              _WaveIndicator(
+                current: battle.currentWave,
+                total: _stageWaves,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
 
               // スコア
-              Text(
-                '${battle.score}',
-                style: const TextStyle(
-                  color: Color(0xFF69F0AE),
-                  fontFamily: 'DotGothic16',
-                  fontSize: 13,
-                ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text('SCORE', style: TextStyle(
+                    color: Colors.white38,
+                    fontFamily: 'DotGothic16',
+                    fontSize: 7,
+                  )),
+                  Text(
+                    '${battle.score}',
+                    style: const TextStyle(
+                      color: Color(0xFF69F0AE),
+                      fontFamily: 'DotGothic16',
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         );
       },
     );
+  }
+
+  int get _stageWaves {
+    final gs = context.read<GameStateNotifier>();
+    final id = gs.selectedStageId ?? '';
+    return StageMaster.getById(id)?.waves.length ?? 5;
   }
 
   void _handlePhaseChange(GamePhase phase) {
@@ -186,7 +359,12 @@ class _BattleScreenState extends State<BattleScreen> {
       });
     }
 
-    // ウェーブクリア → イベント抽選
+    // ウェーブクリア → ショップ表示
+    if (phase == GamePhase.waveShop) {
+      _onWaveCleared();
+    }
+
+    // 新ウェーブ開始 → イベント抽選
     if (phase == GamePhase.battle) {
       final battle = gs.battle;
       if (battle != null) {
@@ -195,14 +373,102 @@ class _BattleScreenState extends State<BattleScreen> {
     }
   }
 
+  void _onWaveCleared() {
+    if (!mounted) return;
+    final gs = context.read<GameStateNotifier>();
+    final wave = gs.battle?.currentWave ?? 1;
+
+    // ドロップ素材を抽出システムに登録
+    final drops = gs.battle?.droppedMaterials ?? {};
+    drops.forEach((id, count) {
+      _extractionSystem.addItem(ExtractionItem(
+        itemId: id,
+        displayName: id,
+        goldValue: count * 10,
+        state: ItemSecureState.atRisk,
+      ));
+    });
+
+    // ウェーブクリア演出を先に見せてからショップへ
+    setState(() {
+      _clearedWaveNum = wave;
+      _showWaveClear = true;
+    });
+    _waveClearCtrl.forward(from: 0.0);
+
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) {
+        setState(() {
+          _shopWaveNumber = wave;
+          _showShop = true;
+          _showExtraction = false;
+        });
+      }
+    });
+  }
+
+  void _onShopProceed() {
+    setState(() {
+      _showShop = false;
+      _showExtraction = true;
+    });
+  }
+
+  void _onExtractionContinue() {
+    if (!mounted) return;
+    final gs = context.read<GameStateNotifier>();
+    gs.advanceWave();
+    final nextWave = gs.battle?.currentWave ?? 1;
+    _game?.prepareNextWave(nextWave);
+
+    setState(() {
+      _showExtraction = false;
+    });
+
+    // 全ウェーブ完了（waveSystem.prepareWaveが内部でendBattleを呼んだ場合）
+    if (gs.phase == GamePhase.result) {
+      gs.endBattle(isVictory: true).then((_) {
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const ResultScreen()),
+          );
+        }
+      });
+    }
+  }
+
+  void _onExtractionExtract() {
+    if (!mounted) return;
+    final gs = context.read<GameStateNotifier>();
+    gs.endBattle(isVictory: true).then((_) {
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const ResultScreen()),
+        );
+      }
+    });
+  }
+
   void _handleCardPlaced(String cardId, int laneIndex) {
     // 将来: 配置統計・実績処理
   }
 
   void _handleChainTriggered(int chainCount, double damage) {
-    // チェーンカウント表示はchain_effect.dartが担当
-    // ここでは追加のUI処理（例: コンボカウンター表示）を行える
-    setState(() {}); // 必要に応じてリビルド
+    setState(() {});
+  }
+
+  void _handleBossHpUpdate(String name, int maxHp, int currentHp) {
+    if (!mounted) return;
+    setState(() {
+      _bossName = name;
+      _bossMaxHp = maxHp;
+      _bossCurrentHp = currentHp;
+    });
+  }
+
+  void _handleWallDamaged(int damage) {
+    if (!mounted) return;
+    _wallFlashCtrl.forward(from: 0.0);
   }
 
   void _tryRollWaveEvent(int waveNumber) {
@@ -240,6 +506,60 @@ class _BattleScreenState extends State<BattleScreen> {
       _showEventModal = false;
       _pendingEvent = null;
     });
+  }
+}
+
+/// ウェーブ進行インジケーター（ドット＋現在波数）
+class _WaveIndicator extends StatelessWidget {
+  final int current;
+  final int total;
+
+  const _WaveIndicator({required this.current, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          'WAVE $current/$total',
+          style: const TextStyle(
+            color: Color(0xFFFFE082),
+            fontFamily: 'DotGothic16',
+            fontSize: 10,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(total, (i) {
+            final done = i < current;
+            final active = i == current - 1;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 1.5),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: active ? 8 : 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: done
+                      ? const Color(0xFFFFE082)
+                      : Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                  boxShadow: active
+                      ? [const BoxShadow(
+                          color: Color(0xFFFFE082),
+                          blurRadius: 4,
+                        )]
+                      : null,
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
   }
 }
 
@@ -357,3 +677,237 @@ class _EventModal extends StatelessWidget {
   }
 }
 
+/// 初回バトル時に表示する操作説明オーバーレイ
+class _TutorialHint extends StatelessWidget {
+  final VoidCallback onDismiss;
+
+  const _TutorialHint({required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onDismiss,
+      child: Container(
+        color: Colors.black.withOpacity(0.75),
+        child: SafeArea(
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF12121E),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFFE082).withOpacity(0.6)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '⚔️ 遊び方',
+                    style: TextStyle(
+                      color: Color(0xFFFFE082),
+                      fontSize: 20,
+                      fontFamily: 'DotGothic16',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _hint('👾', '敵が上から下へ自動侵攻してくる'),
+                  _hint('🃏', '下のカードをドラッグして配置（左・中・右の列を選ぶ）'),
+                  _hint('⚡', 'ユニットが自動で戦闘。属性有利で強くなる'),
+                  _hint('🏰', '城壁HP（左上）をゼロにされたら敗北'),
+                  _hint('💧', 'マナ（青バー）が溜まるとカードを置ける'),
+                  _hint('🌊', '全敵を倒してウェーブクリア→ショップへ'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: onDismiss,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE65100),
+                    ),
+                    child: const Text(
+                      'バトル開始！',
+                      style: TextStyle(fontFamily: 'DotGothic16'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _hint(String emoji, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontFamily: 'DotGothic16',
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// ボスHPバー
+// ============================================================
+class _BossHPBar extends StatelessWidget {
+  final String name;
+  final int maxHp;
+  final int currentHp;
+
+  const _BossHPBar({
+    required this.name,
+    required this.maxHp,
+    required this.currentHp,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = maxHp > 0 ? (currentHp / maxHp).clamp(0.0, 1.0) : 0.0;
+    final hpColor = ratio > 0.5
+        ? const Color(0xFFFF5252)
+        : ratio > 0.25
+            ? const Color(0xFFFF8A00)
+            : const Color(0xFFFFCC00);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFFF5252).withOpacity(0.7), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF0000).withOpacity(0.4),
+            blurRadius: 16,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Text('💀', style: TextStyle(fontSize: 14)),
+              const SizedBox(width: 6),
+              Text(
+                name,
+                style: const TextStyle(
+                  color: Color(0xFFFF5252),
+                  fontFamily: 'DotGothic16',
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$currentHp / $maxHp',
+                style: TextStyle(
+                  color: hpColor,
+                  fontFamily: 'DotGothic16',
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 8,
+              backgroundColor: Colors.white12,
+              valueColor: AlwaysStoppedAnimation(hpColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// ウェーブクリア演出オーバーレイ
+// ============================================================
+class _WaveClearOverlay extends StatelessWidget {
+  final int waveNumber;
+  final Animation<double> animation;
+
+  const _WaveClearOverlay({
+    required this.waveNumber,
+    required this.animation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (_, __) {
+        final t = animation.value;
+        // 前半フェードイン、後半フェードアウト
+        final opacity = t < 0.3
+            ? t / 0.3
+            : t > 0.75
+                ? (1.0 - t) / 0.25
+                : 1.0;
+        final scale = 0.6 + t * 0.4;
+
+        return Opacity(
+          opacity: opacity.clamp(0.0, 1.0),
+          child: Center(
+            child: Transform.scale(
+              scale: scale,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'WAVE $waveNumber',
+                    style: const TextStyle(
+                      color: Color(0xFFFFD700),
+                      fontFamily: 'DotGothic16',
+                      fontSize: 18,
+                      letterSpacing: 4,
+                    ),
+                  ),
+                  const Text(
+                    'C L E A R !',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'DotGothic16',
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 6,
+                      shadows: [
+                        Shadow(
+                          color: Color(0xFFFFD700),
+                          blurRadius: 24,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

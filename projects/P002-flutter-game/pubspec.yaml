@@ -15,6 +15,7 @@ dependencies:
   provider: ^6.1.1
   uuid: ^4.3.3
   collection: ^1.18.0
+  google_fonts: ^8.0.2
 
 dev_dependencies:
   flutter_test:
@@ -29,7 +30,4 @@ flutter:
     - assets/audio/
     - assets/data/
 
-  fonts:
-    - family: DotGothic16
-      fonts:
-        - asset: assets/fonts/DotGothic16-Regular.ttf
+  # fonts: google_fontsパッケージ経由でDotGothic16を動的ロード（main.dartで設定）

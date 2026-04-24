@@ -126,17 +126,10 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                   child: Column(
                     children: [
                       _MenuButton(
-                        label: Strings.btnNewGame,
+                        label: '出撃する',
                         color: const Color(0xFFE65100),
-                        icon: Icons.play_arrow_rounded,
-                        onTap: () => _onNewGame(context),
-                      ),
-                      const SizedBox(height: 12),
-                      _MenuButton(
-                        label: Strings.btnContinue,
-                        color: const Color(0xFF1565C0),
-                        icon: Icons.save_rounded,
-                        onTap: () => _onContinue(context),
+                        icon: Icons.rocket_launch_rounded,
+                        onTap: () => _onDeploy(context),
                       ),
                       const SizedBox(height: 12),
                       _MenuButton(
@@ -171,14 +164,7 @@ class _MainMenuScreenState extends State<MainMenuScreen>
     );
   }
 
-  void _onNewGame(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const StageSelectScreen()),
-    );
-  }
-
-  void _onContinue(BuildContext context) {
-    // セーブデータがあればステージ選択へ
+  void _onDeploy(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const StageSelectScreen()),
     );
@@ -325,7 +311,7 @@ class _MenuBgPainter extends CustomPainter {
           radius: const Radius.circular(16))
       ..lineTo(gateX + 32, baseY)
       ..close();
-    canvas.drawPath(gatePath, const Paint()..color = Color(0xFF05050F));
+    canvas.drawPath(gatePath, Paint()..color = const Color(0xFF05050F));
 
     // 窓の光
     final windowGlow = Paint()

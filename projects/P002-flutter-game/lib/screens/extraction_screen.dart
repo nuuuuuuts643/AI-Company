@@ -49,8 +49,7 @@ class _ExtractionScreenState extends State<ExtractionScreen>
 
     _extractCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(
-          milliseconds: (ExtractionSystem.extractionDurationSeconds * 1000).toInt()),
+      duration: const Duration(milliseconds: 3000), // ExtractionSystem.extractionDurationSeconds * 1000
     );
     _progressAnim = _extractCtrl;
 
@@ -104,7 +103,7 @@ class _ExtractionScreenState extends State<ExtractionScreen>
                 ],
                 const SizedBox(height: 16),
                 // ボタン行
-                if (\!_isExtracting)
+                if (!_isExtracting)
                   _buildActionButtons(
                     atRisk: atRisk,
                     isLastWave: isLastWave,
@@ -277,7 +276,7 @@ class _ExtractionScreenState extends State<ExtractionScreen>
             ),
           ),
         ),
-        if (\!isLastWave) ...[
+        if (!isLastWave) ...[
           const SizedBox(height: 10),
           // 「続行する」
           SizedBox(

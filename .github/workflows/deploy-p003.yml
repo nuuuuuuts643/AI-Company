@@ -1,4 +1,7 @@
-name: P003 デプロイ（Lambda + フロントエンド）
+name: P003 フロントエンドデプロイ（S3同期）
+
+# Lambda のデプロイは deploy-lambdas.yml が担当（feedparser等のpip installを含む）。
+# このワークフローはフロントエンド同期 + EventBridge確認のみ。
 
 on:
   workflow_dispatch:
@@ -6,7 +9,6 @@ on:
     branches: [main]
     paths:
       - 'projects/P003-news-timeline/frontend/**'
-      - 'projects/P003-news-timeline/lambda/**'
 
 jobs:
   deploy:
@@ -24,27 +26,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-1
 
-      - name: Fetcher Lambda更新
-        run: |
-          cd projects/P003-news-timeline/lambda/fetcher
-          zip -q function.zip handler.py
-          aws lambda update-function-code \
-            --function-name p003-fetcher \
-            --zip-file fileb://function.zip \
-            --region ap-northeast-1
-          aws lambda wait function-updated \
-            --function-name p003-fetcher \
-            --region ap-northeast-1
-          echo "✅ Fetcher Lambda更新完了"
-
       - name: フロントエンドをS3に同期
         run: |
           aws s3 sync projects/P003-news-timeline/frontend/ \
             s3://p003-news-946554699567/ \
             --region ap-northeast-1
           echo "✅ フロントエンド同期完了"
+          echo "確認URL: https://flotopic.com"
 
-      - name: EventBridge自動スケジュール設定（30分ごと）
+      - name: EventBridge自動スケジュール確認・設定（べき等）
         run: |
           LAMBDA_ARN=$(aws lambda get-function \
             --function-name p003-fetcher \
@@ -73,14 +63,4 @@ jobs:
             --source-arn "arn:aws:events:ap-northeast-1:946554699567:rule/p003-fetcher-schedule" \
             --region ap-northeast-1 2>/dev/null || true
 
-          echo "✅ 30分ごとの自動更新スケジュール設定完了"
-
-      - name: Lambda即時実行（非同期）
-        run: |
-          aws lambda invoke \
-            --function-name p003-fetcher \
-            --invocation-type Event \
-            --region ap-northeast-1 \
-            /tmp/r.json
-          echo "✅ Lambda実行開始"
-          echo "5分後にサイトを確認: http://p003-news-946554699567.s3-website-ap-northeast-1.amazonaws.com"
+          echo "✅ 30分ごとの自動更新スケジュール確認完了"

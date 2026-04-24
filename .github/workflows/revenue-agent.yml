@@ -1,9 +1,9 @@
 name: AI-Company 収益管理エージェント
 
 on:
-  schedule:
-    # 毎週月曜 09:30 JST = UTC 月曜 00:30（JST 09:30 >= 09:00 なのでUTCは同日）
-    - cron: '30 0 * * 1'
+  #   schedule:
+  #    # 毎週月曜 09:30 JST = UTC 月曜 00:30（JST 09:30 >= 09:00 なのでUTCは同日）
+  #     - cron: '30 0 * * 1'
   workflow_dispatch:
 
 concurrency:

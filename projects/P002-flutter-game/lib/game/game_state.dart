@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/card_data.dart';
 import '../models/equipment_data.dart';
-import '../models/session_data.dart';
+import '../models/session_data.dart' hide ItemState;
 import '../models/stage_data.dart';
 import '../systems/save_system.dart';
 import '../systems/shop_system.dart';
@@ -100,8 +100,17 @@ class PlayerData {
   Map<EquipmentSlot, OwnedEquipment?> equippedItems;
   List<OwnedEquipment> ownedEquipments;
 
+  int rank;
+  int stamina;
+  int maxStamina;
+  int totalClearedCount; // 累計クリアステージ数（ランク計算用）
+
   PlayerData({
     this.gold = 0,
+    this.rank = 1,
+    this.stamina = 5,
+    this.maxStamina = 5,
+    this.totalClearedCount = 0,
     Map<String, int>? materials,
     List<String>? unlockedStageIds,
     Map<String, int>? stageBestScores,
@@ -120,6 +129,9 @@ class PlayerData {
             },
         ownedEquipments = ownedEquipments ?? [];
 
+  /// 難易度スケーリング用（PlayerCharacter.totalPowerと設計統一のため暫定0固定）
+  int get totalPower => 0;
+
   void addMaterial(String id, int count) {
     materials[id] = (materials[id] ?? 0) + count;
   }
@@ -130,8 +142,20 @@ class PlayerData {
     return true;
   }
 
+  String get rankTitle {
+    if (rank < 5) return '見習い冒険者';
+    if (rank < 10) return '冒険者';
+    if (rank < 20) return '勇者';
+    if (rank < 35) return '英雄';
+    return '伝説の英雄';
+  }
+
   Map<String, dynamic> toJson() => {
         'gold': gold,
+        'rank': rank,
+        'stamina': stamina,
+        'maxStamina': maxStamina,
+        'totalClearedCount': totalClearedCount,
         'materials': materials,
         'unlockedStageIds': unlockedStageIds,
         'stageBestScores': stageBestScores,
@@ -148,6 +172,10 @@ class PlayerData {
 
     return PlayerData(
       gold: json['gold'] as int? ?? 0,
+      rank: json['rank'] as int? ?? 1,
+      stamina: json['stamina'] as int? ?? 5,
+      maxStamina: json['maxStamina'] as int? ?? 5,
+      totalClearedCount: json['totalClearedCount'] as int? ?? 0,
       materials: Map<String, int>.from(json['materials'] as Map? ?? {}),
       unlockedStageIds: List<String>.from(json['unlockedStageIds'] as List? ?? ['stage_01']),
       stageBestScores: Map<String, int>.from(json['stageBestScores'] as Map? ?? {}),
@@ -426,7 +454,7 @@ class GameStateNotifier extends ChangeNotifier {
   /// 城壁HPを即時回復（ショップ効果等）
   void restoreWallHp(int amount) {
     if (_battle == null) return;
-    _battle\!.wallHp = (_battle\!.wallHp + amount).clamp(0, _battle\!.maxWallHp);
+    _battle!.wallHp = (_battle!.wallHp + amount).clamp(0, _battle!.maxWallHp);
     notifyListeners();
   }
 
