@@ -39,7 +39,7 @@ jobs:
               USERS_TABLE=flotopic-users,
               COMMENTS_TABLE=ai-company-comments,
               FAVORITES_TABLE=flotopic-favorites,
-              CF_SITE_TAG=35149d754c3a4903b9461c157568d392,
+              CF_SITE_TAG=577678a8a0064a499f6f0ba0a117fd4d,
               CF_API_TOKEN=${CF_API_TOKEN},
               CF_ACCOUNT_ID=${CF_ACCOUNT_ID}
             }" > /dev/null

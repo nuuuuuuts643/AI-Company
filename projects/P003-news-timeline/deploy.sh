@@ -525,7 +525,7 @@ echo "  -> Analytics URL: $ANALYTICS_URL"
 
 # ---- 6e. CF Analytics Lambda（S3キャッシュ書き込み用、URL不要） ----
 CF_ANALYTICS_FN="flotopic-cf-analytics"
-CF_ANALYTICS_ENV="Variables={REGION=${REGION},S3_BUCKET=${BUCKET},USERS_TABLE=flotopic-users,COMMENTS_TABLE=ai-company-comments,FAVORITES_TABLE=flotopic-favorites,CF_SITE_TAG=35149d754c3a4903b9461c157568d392}"
+CF_ANALYTICS_ENV="Variables={REGION=${REGION},S3_BUCKET=${BUCKET},USERS_TABLE=flotopic-users,COMMENTS_TABLE=ai-company-comments,FAVORITES_TABLE=flotopic-favorites,CF_SITE_TAG=577678a8a0064a499f6f0ba0a117fd4d}"
 echo "[6e] CF Analytics Lambda デプロイ..."
 cd lambda/cf-analytics
 zip -q function.zip handler.py
@@ -574,18 +574,19 @@ echo "  -> config.js に全Lambda URL を書き込み..."
 HARDCODED_CLIENT_ID="632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com"
 GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-${HARDCODED_CLIENT_ID}}"
 
-cat > frontend/config.js << EOF
+cat > frontend/config.js << 'EOF'
 // API_BASE: CloudFront HTTPS経由（Mixed Content回避）
-const API_BASE       = 'https://flotopic.com/api/';
-const COMMENTS_URL   = '${COMMENTS_URL}';
-const AUTH_URL       = '${AUTH_URL}';
-const FAVORITES_URL  = '${FAVORITES_URL}';
-const ANALYTICS_URL  = '${ANALYTICS_URL}';
+const API_BASE      = 'https://flotopic.com/api/';
+const _APIGW        = 'https://x73mzc0v06.execute-api.ap-northeast-1.amazonaws.com';
+const COMMENTS_URL  = _APIGW;
+const AUTH_URL      = _APIGW + '/auth';
+const FAVORITES_URL = _APIGW;
+const ANALYTICS_URL = _APIGW + '/';
 
 // Google OAuth Client ID
-const GOOGLE_CLIENT_ID = '${GOOGLE_CLIENT_ID}';
+const GOOGLE_CLIENT_ID = '632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com';
 EOF
-echo "  -> config.js 更新完了（GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}）"
+echo "  -> config.js 更新完了（API Gateway: x73mzc0v06）"
 
 # ---- deploy-security.sh でDynamoDBテーブル作成 ----
 echo "[後処理] セキュリティ用DynamoDBテーブル作成..."

@@ -23,7 +23,7 @@ import boto3
 # ── 設定 ──────────────────────────────────────────────────────────────────
 CF_API_TOKEN     = os.environ.get('CF_API_TOKEN', '')
 CF_ACCOUNT_ID    = os.environ.get('CF_ACCOUNT_ID', '')
-CF_SITE_TAG      = os.environ.get('CF_SITE_TAG', '35149d754c3a4903b9461c157568d392')
+CF_SITE_TAG      = os.environ.get('CF_SITE_TAG', '577678a8a0064a499f6f0ba0a117fd4d')
 S3_BUCKET        = os.environ.get('S3_BUCKET',        'p003-news-946554699567')
 USERS_TABLE      = os.environ.get('USERS_TABLE',      'flotopic-users')
 COMMENTS_TABLE   = os.environ.get('COMMENTS_TABLE',   'ai-company-comments')
@@ -43,28 +43,57 @@ query Analytics($accountId: String!, $siteTag: String!, $start: Date!, $end: Dat
   viewer {
     accounts(filter: {accountTag: $accountId}) {
       daily: rumPageloadEventsAdaptiveGroups(
-        filter: {AND: [{siteTag: $siteTag}, {date_geq: $start}, {date_leq: $end}]}
+        filter: {siteTag: $siteTag, date_geq: $start, date_leq: $end}
         limit: 30 orderBy: [date_ASC]
       ) { count dimensions { date } }
 
       topPages: rumPageloadEventsAdaptiveGroups(
-        filter: {AND: [{siteTag: $siteTag}, {date_geq: $start}, {date_leq: $end}]}
+        filter: {siteTag: $siteTag, date_geq: $start, date_leq: $end}
         limit: 10 orderBy: [count_DESC]
       ) { count dimensions { requestPath } }
 
       byCountry: rumPageloadEventsAdaptiveGroups(
-        filter: {AND: [{siteTag: $siteTag}, {date_geq: $start}, {date_leq: $end}]}
+        filter: {siteTag: $siteTag, date_geq: $start, date_leq: $end}
         limit: 10 orderBy: [count_DESC]
-      ) { count dimensions { country } }
+      ) { count dimensions { countryName } }
 
       byDevice: rumPageloadEventsAdaptiveGroups(
-        filter: {AND: [{siteTag: $siteTag}, {date_geq: $start}, {date_leq: $end}]}
+        filter: {siteTag: $siteTag, date_geq: $start, date_leq: $end}
         limit: 5 orderBy: [count_DESC]
       ) { count dimensions { deviceType } }
     }
   }
 }
 """
+
+# アカウント内の全サイトタグを確認するデバッグ用クエリ（siteTagフィルターなし）
+CF_DEBUG_QUERY = """
+query Debug($accountId: String!, $start: Date!, $end: Date!) {
+  viewer {
+    accounts(filter: {accountTag: $accountId}) {
+      allSites: rumPageloadEventsAdaptiveGroups(
+        filter: {date_geq: $start, date_leq: $end}
+        limit: 10 orderBy: [count_DESC]
+      ) { count dimensions { siteTag } }
+    }
+  }
+}
+"""
+
+
+def _cf_request(query: str, variables: dict) -> dict:
+    req = urllib.request.Request(
+        CF_GRAPHQL,
+        data=json.dumps({'query': query, 'variables': variables}).encode(),
+        headers={'Authorization': f'Bearer {CF_API_TOKEN}', 'Content-Type': 'application/json'},
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read())
+    except Exception as e:
+        print(f'[cf-analytics] CF API エラー: {e}')
+        return {}
 
 
 def fetch_cf_analytics(days: int = 7) -> dict:
@@ -76,27 +105,25 @@ def fetch_cf_analytics(days: int = 7) -> dict:
     start = (today - timedelta(days=days)).isoformat()
     end   = today.isoformat()
 
-    req = urllib.request.Request(
-        CF_GRAPHQL,
-        data=json.dumps({'query': CF_QUERY, 'variables': {
-            'accountId': CF_ACCOUNT_ID, 'siteTag': CF_SITE_TAG,
-            'start': start, 'end': end,
-        }}).encode(),
-        headers={'Authorization': f'Bearer {CF_API_TOKEN}', 'Content-Type': 'application/json'},
-        method='POST',
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            result = json.loads(r.read())
-    except Exception as e:
-        print(f'[cf-analytics] CF API エラー: {e}')
-        return {}
+    # デバッグ: アカウント内の全siteTagを確認
+    dbg = _cf_request(CF_DEBUG_QUERY, {'accountId': CF_ACCOUNT_ID, 'start': start, 'end': end})
+    dbg_accounts = dbg.get('data', {}).get('viewer', {}).get('accounts') or []
+    all_sites = (dbg_accounts[0] if dbg_accounts else {}).get('allSites', [])
+    print(f'[cf-analytics] DEBUG 全siteTag一覧({len(all_sites)}件): {[s["dimensions"].get("siteTag") for s in all_sites[:5]]}')
+    print(f'[cf-analytics] DEBUG 設定中のCF_SITE_TAG={CF_SITE_TAG}')
 
-    if 'errors' in result:
+    result = _cf_request(CF_QUERY, {
+        'accountId': CF_ACCOUNT_ID, 'siteTag': CF_SITE_TAG,
+        'start': start, 'end': end,
+    })
+
+    if result.get('errors'):
         print(f'[cf-analytics] GraphQL エラー: {result["errors"]}')
         return {}
 
-    data = (result.get('data', {}).get('viewer', {}).get('accounts') or [{}])[0]
+    accounts = result.get('data', {}).get('viewer', {}).get('accounts') or []
+    print(f'[cf-analytics] DEBUG accounts件数={len(accounts)} daily件数={len((accounts[0] if accounts else {}).get("daily", []))}')
+    data = accounts[0] if accounts else {}
     daily = data.get('daily', [])
 
     return {
@@ -104,7 +131,7 @@ def fetch_cf_analytics(days: int = 7) -> dict:
         'daily':    [{'date': d['dimensions']['date'], 'count': d['count']} for d in daily],
         'topPages': [{'path': p['dimensions']['requestPath'], 'count': p['count']}
                      for p in data.get('topPages', [])],
-        'byCountry':[{'code': c['dimensions'].get('country','—'), 'count': c['count']}
+        'byCountry':[{'code': c['dimensions'].get('countryName','—'), 'count': c['count']}
                      for c in data.get('byCountry', [])],
         'byDevice': [{'type': dv['dimensions'].get('deviceType','—'), 'count': dv['count']}
                      for dv in data.get('byDevice', [])],
