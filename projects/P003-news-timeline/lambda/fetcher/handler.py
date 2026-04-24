@@ -5,6 +5,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from config import (
     SLACK_WEBHOOK, S3_BUCKET,
@@ -325,8 +326,8 @@ def lambda_handler(event, context):
             'mediaCount':      media,
             'hatenaCount':     hb,
             'score':           score,
-            'velocity':        velocity,
-            'velocityScore':   velocity_score,
+            'velocity':        Decimal(str(velocity)),
+            'velocityScore':   Decimal(str(velocity_score)),
             'lastUpdated':     ts_iso,
             'lastArticleAt':   last_article_ts,
             'lifecycleStatus': lifecycle_status,
