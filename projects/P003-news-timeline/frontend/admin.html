@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flotopic 管理ダッシュボード</title>
+<meta name="robots" content="noindex,nofollow">
+<style>
+/* ─── RESET ─────────────────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+
+/* ─── AUTH ──────────────────────────────────────────────────────────── */
+#auth-screen{position:fixed;inset:0;background:#0d1117;display:flex;align-items:center;justify-content:center;z-index:999}
+.auth-box{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:40px;width:320px;text-align:center}
+.auth-box h2{margin-bottom:24px;font-size:1.2rem}
+.auth-box input{width:100%;padding:10px 14px;background:#0d1117;border:1px solid #30363d;border-radius:8px;color:#e6edf3;font-size:1rem;margin-bottom:12px;outline:none}
+.auth-box input:focus{border-color:#58a6ff}
+.auth-box button{width:100%;padding:10px;background:#238636;border:none;border-radius:8px;color:#fff;font-size:1rem;font-weight:600;cursor:pointer}
+.auth-box button:hover{background:#2ea043}
+.auth-error{color:#f85149;font-size:.85rem;margin-top:8px;min-height:20px}
+
+/* ─── LAYOUT ────────────────────────────────────────────────────────── */
+header{background:#161b22;border-bottom:1px solid #30363d;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:1.1rem;font-weight:700}
+header h1 span{color:#58a6ff}
+#last-fetch{font-size:.78rem;color:#8b949e}
+main{max-width:1300px;margin:0 auto;padding:24px 20px}
+
+/* ─── SUMMARY CARDS ─────────────────────────────────────────────────── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.card.blue::before{background:linear-gradient(90deg,#58a6ff,#1f6feb)}
+.card.green::before{background:linear-gradient(90deg,#3fb950,#238636)}
+.card.orange::before{background:linear-gradient(90deg,#f78166,#da3633)}
+.card.purple::before{background:linear-gradient(90deg,#bc8cff,#8957e5)}
+.card.yellow::before{background:linear-gradient(90deg,#e3b341,#9e6a03)}
+.card.teal::before{background:linear-gradient(90deg,#39d3aa,#0d9488)}
+.card-label{font-size:.75rem;color:#8b949e;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em}
+.card-value{font-size:2rem;font-weight:700;line-height:1}
+.card-sub{font-size:.78rem;color:#8b949e;margin-top:6px}
+
+/* ─── SECTIONS ──────────────────────────────────────────────────────── */
+section{margin-bottom:28px}
+section h2{font-size:.9rem;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #30363d}
+.panel{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px}
+
+/* ─── GRID ──────────────────────────────────────────────────────────── */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+@media(max-width:900px){.grid3{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.grid2,.grid3{grid-template-columns:1fr}}
+
+/* ─── BAR CHART (reusable) ──────────────────────────────────────────── */
+.bar-list{display:flex;flex-direction:column;gap:10px}
+.bar-row{display:flex;align-items:center;gap:10px}
+.bar-label{width:100px;font-size:.82rem;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;background:#21262d;border-radius:4px;height:18px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .5s ease}
+.bar-val{width:46px;text-align:right;font-size:.8rem;color:#8b949e;flex-shrink:0}
+
+/* ─── STATUS COLORS ─────────────────────────────────────────────────── */
+.fill-blue{background:linear-gradient(90deg,#58a6ff,#1f6feb)}
+.fill-green{background:linear-gradient(90deg,#3fb950,#238636)}
+.fill-orange{background:linear-gradient(90deg,#f78166,#da3633)}
+.fill-purple{background:linear-gradient(90deg,#bc8cff,#8957e5)}
+.fill-teal{background:linear-gradient(90deg,#39d3aa,#0d9488)}
+.fill-gray{background:#30363d}
+
+/* ─── PROGRESS BAR ──────────────────────────────────────────────────── */
+.progress-header{display:flex;justify-content:space-between;font-size:.82rem;color:#8b949e;margin-bottom:6px}
+.progress-track{background:#21262d;border-radius:8px;height:24px;overflow:hidden;margin-bottom:6px}
+.progress-fill{height:100%;border-radius:8px;transition:width .5s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:.75rem;font-weight:700;color:#fff}
+.progress-footer{display:flex;justify-content:space-between;font-size:.78rem;color:#8b949e}
+
+/* ─── TABLE (reusable) ──────────────────────────────────────────────── */
+.data-table{width:100%;border-collapse:collapse;font-size:.83rem}
+.data-table th{text-align:left;padding:8px 10px;color:#8b949e;font-weight:500;border-bottom:1px solid #30363d;white-space:nowrap}
+.data-table td{padding:8px 10px;border-bottom:1px solid #21262d;vertical-align:middle}
+.data-table tr:hover td{background:#0d1117}
+.td-link{color:#58a6ff;text-decoration:none;display:block;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.td-link:hover{text-decoration:underline}
+.td-num{text-align:right}
+.td-center{text-align:center}
+
+/* ─── BADGES ────────────────────────────────────────────────────────── */
+.badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:.72rem;font-weight:600}
+.badge-active{background:#1a3626;color:#3fb950}
+.badge-cooling{background:#2d2a1e;color:#e3b341}
+.badge-archived{background:#21262d;color:#8b949e}
+.badge-legacy{background:#1e1e2e;color:#bc8cff}
+.tag{display:inline-block;padding:2px 6px;border-radius:6px;font-size:.7rem;background:#21262d;color:#8b949e}
+
+/* ─── MISC ──────────────────────────────────────────────────────────── */
+.ok{color:#3fb950}.muted{color:#8b949e}
+#loading{text-align:center;padding:60px;color:#8b949e}
+#dashboard{display:none}
+.btn{background:#21262d;border:1px solid #30363d;color:#e6edf3;padding:6px 14px;border-radius:6px;font-size:.8rem;cursor:pointer}
+.btn:hover{background:#30363d}
+</style>
+</head>
+<body>
+
+<!-- パスワード画面 -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <h2>🔐 Flotopic Admin</h2>
+    <input type="password" id="pw-input" placeholder="パスワード" autofocus>
+    <button onclick="Auth.check()">ログイン</button>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- ヘッダー -->
+<header>
+  <h1><span>Flotopic</span> 管理ダッシュボード</h1>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span id="last-fetch">読み込み中...</span>
+    <button class="btn" onclick="Dashboard.load()">↺ 更新</button>
+  </div>
+</header>
+
+<main>
+  <div id="loading">データを読み込み中...</div>
+  <div id="dashboard">
+
+    <!-- ── サマリーカード（JS で動的生成） ── -->
+    <div class="cards" id="summary-cards"></div>
+
+    <!-- ── チャート行 ── -->
+    <div class="grid3" style="margin-bottom:28px">
+      <section>
+        <h2>ライフサイクル</h2>
+        <div class="panel"><div class="bar-list" id="chart-lifecycle"></div></div>
+      </section>
+      <section>
+        <h2>AI要約進捗</h2>
+        <div class="panel" id="chart-ai"></div>
+      </section>
+      <section>
+        <h2>信頼性スコア分布</h2>
+        <div class="panel"><div class="bar-list" id="chart-reliability"></div></div>
+      </section>
+    </div>
+
+    <!-- ── ジャンル分布 ── -->
+    <section>
+      <h2>ジャンル別トピック数</h2>
+      <div class="panel"><div class="bar-list" id="chart-genre"></div></div>
+    </section>
+
+    <!-- ── 上位トピック ── -->
+    <section>
+      <h2>上位トピック — スコア順 TOP<span id="top-n"></span></h2>
+      <div class="panel" style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr>
+            <th>#</th><th>タイトル</th><th>ジャンル</th><th>状態</th>
+            <th class="td-num">記事数</th><th class="td-num">スコア</th>
+            <th class="td-num">Velocity</th><th class="td-center">AI</th>
+            <th class="td-num">はてブ</th><th class="td-num">ソース数</th>
+          </tr></thead>
+          <tbody id="table-top-topics"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── 最近更新 ── -->
+    <section>
+      <h2>最近更新されたトピック TOP<span id="recent-n"></span></h2>
+      <div class="panel" style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr>
+            <th>#</th><th>タイトル</th><th>ジャンル</th><th>状態</th>
+            <th class="td-num">記事数</th><th>最終更新</th><th>フェーズ</th>
+          </tr></thead>
+          <tbody id="table-recent-topics"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </div><!-- /#dashboard -->
+</main>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// CONFIG — ここだけ編集すれば設定変更完了
+// ═══════════════════════════════════════════════════════════════════════
+const CONFIG = {
+  password:      'flotopic2026',
+  apiBase:       'https://flotopic.com/api/',
+  topTopicsN:    20,
+  recentTopicsN: 10,
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// UTILS — 汎用ヘルパー
+// ═══════════════════════════════════════════════════════════════════════
+const U = {
+  esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  },
+  setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  },
+  relTime(iso) {
+    if (!iso) return '—';
+    const s = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (s < 60)    return '今';
+    if (s < 3600)  return `${Math.floor(s/60)}分前`;
+    if (s < 86400) return `${Math.floor(s/3600)}時間前`;
+    return `${Math.floor(s/86400)}日前`;
+  },
+  int(v) { return parseInt(v) || 0; },
+  pct(a, b) { return b > 0 ? (a / b * 100).toFixed(1) : '0.0'; },
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// UI — 再利用可能な描画ヘルパー
+// ═══════════════════════════════════════════════════════════════════════
+const UI = {
+  /** 横棒グラフ1行 */
+  barRow(label, val, maxVal, fillClass, displayVal) {
+    const w = maxVal > 0 ? U.pct(val, maxVal) : 0;
+    return `
+      <div class="bar-row">
+        <div class="bar-label" title="${U.esc(label)}">${U.esc(label)}</div>
+        <div class="bar-track">
+          <div class="bar-fill ${fillClass}" style="width:${w}%"></div>
+        </div>
+        <div class="bar-val">${displayVal ?? val.toLocaleString()}</div>
+      </div>`;
+  },
+  /** 進捗バー全体 */
+  progressBar(done, total, fillClass) {
+    const p = U.pct(done, total);
+    return `
+      <div class="progress-header"><span>生成済み</span><span>${p}%</span></div>
+      <div class="progress-track">
+        <div class="progress-fill ${fillClass}" style="width:${p}%">
+          ${parseFloat(p) > 8 ? p + '%' : ''}
+        </div>
+      </div>
+      <div class="progress-footer">
+        <span>済: ${done.toLocaleString()}件</span>
+        <span>未: ${(total - done).toLocaleString()}件</span>
+      </div>`;
+  },
+  /** ステータスバッジ */
+  lifecycle(s) {
+    const map = {
+      active:   ['badge-active',   'active'],
+      cooling:  ['badge-cooling',  'cooling'],
+      archived: ['badge-archived', 'archived'],
+      legacy:   ['badge-legacy',   'legacy'],
+    };
+    const [cls, label] = map[s] ?? ['badge-archived', s || '—'];
+    return `<span class="badge ${cls}">${label}</span>`;
+  },
+  /** サマリーカード1枚 */
+  summaryCard(colorCls, label, value, sub = '') {
+    return `
+      <div class="card ${colorCls}">
+        <div class="card-label">${label}</div>
+        <div class="card-value">${value}</div>
+        ${sub ? `<div class="card-sub">${sub}</div>` : ''}
+      </div>`;
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// METRICS — 生データ → 集計値（描画から分離）
+// ═══════════════════════════════════════════════════════════════════════
+function computeMetrics(topics) {
+  const total        = topics.length;
+  const totalArticles = topics.reduce((s,t) => s + U.int(t.articleCount), 0);
+  const aiDone       = topics.filter(t => t.generatedSummary || t.generatedTitle).length;
+  const totalHatena  = topics.reduce((s,t) => s + U.int(t.hatenaCount), 0);
+  const maxHatena    = Math.max(...topics.map(t => U.int(t.hatenaCount)), 0);
+
+  // ライフサイクル集計
+  const lifecycle = {};
+  topics.forEach(t => {
+    const s = t.lifecycleStatus || 'active';
+    lifecycle[s] = (lifecycle[s] || 0) + 1;
+  });
+
+  // ジャンル集計
+  const genre = {};
+  topics.forEach(t => {
+    const g = t.genre || '総合';
+    genre[g] = (genre[g] || 0) + 1;
+  });
+
+  // 信頼性スコア分布（100点満点を4段階に分類）
+  const reliability = { '高 (80+)': 0, '中 (60-79)': 0, '低 (〜59)': 0, 'なし': 0 };
+  topics.forEach(t => {
+    const r = U.int(t.reliability);
+    if (!t.reliability)      reliability['なし']++;
+    else if (r >= 80)        reliability['高 (80+)']++;
+    else if (r >= 60)        reliability['中 (60-79)']++;
+    else                     reliability['低 (〜59)']++;
+  });
+
+  // velocity 上位（急上昇）
+  const rising = [...topics]
+    .filter(t => t.lifecycleStatus === 'active')
+    .sort((a,b) => U.int(b.velocityScore) - U.int(a.velocityScore))
+    .slice(0, 5);
+
+  return {
+    total, totalArticles, aiDone, totalHatena, maxHatena,
+    lifecycle, genre, reliability, rising,
+    avgArticles: total > 0 ? (totalArticles / total).toFixed(1) : '0',
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SECTIONS — セクション描画関数
+// ※ 新セクション追加: 関数を書いて SECTIONS 配列に追記するだけ
+// ═══════════════════════════════════════════════════════════════════════
+
+function renderSummaryCards(m, topics) {
+  const cards = [
+    UI.summaryCard('blue',   '総トピック数',   m.total.toLocaleString(),
+      `articles: ${m.totalArticles.toLocaleString()}`),
+    UI.summaryCard('green',  '平均記事数/トピック', m.avgArticles + '件',
+      `total: ${m.totalArticles.toLocaleString()}件`),
+    UI.summaryCard('purple', 'AI要約済み',     m.aiDone.toLocaleString(),
+      `${U.pct(m.aiDone, m.total)}% 完了`),
+    UI.summaryCard('orange', 'Activeトピック', (m.lifecycle.active || 0).toLocaleString(),
+      `cooling: ${m.lifecycle.cooling || 0}`),
+    UI.summaryCard('yellow', 'はてブ総数',     m.totalHatena.toLocaleString(),
+      `最高 ${m.maxHatena} ブクマ`),
+    UI.summaryCard('teal',   'ソース多様性',
+      topics.filter(t => U.int(t.uniqueSourceCount) >= 3).length.toLocaleString(),
+      '3社以上のトピック'),
+  ];
+  document.getElementById('summary-cards').innerHTML = cards.join('');
+}
+
+function renderLifecycleChart(m) {
+  const order   = ['active','cooling','archived','legacy'];
+  const colors  = ['fill-green','fill-teal','fill-gray','fill-purple'];
+  const maxVal  = Math.max(...Object.values(m.lifecycle), 1);
+  const rows = order.map((s,i) =>
+    UI.barRow(s, m.lifecycle[s]||0, maxVal, colors[i])
+  );
+  document.getElementById('chart-lifecycle').innerHTML = rows.join('');
+}
+
+function renderAiChart(m) {
+  document.getElementById('chart-ai').innerHTML =
+    UI.progressBar(m.aiDone, m.total, 'fill-green');
+}
+
+function renderReliabilityChart(m) {
+  const order  = ['高 (80+)','中 (60-79)','低 (〜59)','なし'];
+  const colors = ['fill-green','fill-teal','fill-orange','fill-gray'];
+  const maxVal = Math.max(...Object.values(m.reliability), 1);
+  const rows   = order.map((k,i) =>
+    UI.barRow(k, m.reliability[k]||0, maxVal, colors[i])
+  );
+  document.getElementById('chart-reliability').innerHTML = rows.join('');
+}
+
+function renderGenreChart(m) {
+  const list   = Object.entries(m.genre).sort((a,b) => b[1]-a[1]);
+  const maxVal = Math.max(...list.map(g => g[1]), 1);
+  const rows   = list.map(([name,cnt]) =>
+    UI.barRow(name, cnt, maxVal, 'fill-purple')
+  );
+  document.getElementById('chart-genre').innerHTML = rows.join('');
+}
+
+function renderTopTopics(topics) {
+  U.setText('top-n', CONFIG.topTopicsN);
+  const rows = [...topics]
+    .sort((a,b) => U.int(b.score) - U.int(a.score))
+    .slice(0, CONFIG.topTopicsN)
+    .map((t, i) => `
+      <tr>
+        <td class="muted">${i+1}</td>
+        <td><a class="td-link" href="/topic.html?id=${U.esc(t.topicId)}" target="_blank">
+          ${U.esc(t.generatedTitle || t.title || '—')}
+        </a></td>
+        <td><span class="tag">${U.esc(t.genre||'総合')}</span></td>
+        <td>${UI.lifecycle(t.lifecycleStatus)}</td>
+        <td class="td-num">${U.int(t.articleCount)}</td>
+        <td class="td-num" style="font-weight:600;color:#e3b341">${U.int(t.score)}</td>
+        <td class="td-num" style="color:#58a6ff">${U.int(t.velocityScore)}</td>
+        <td class="td-center">${t.generatedSummary ? '<span class="ok">✓</span>' : '<span class="muted">·</span>'}</td>
+        <td class="td-num muted">${U.int(t.hatenaCount)||'—'}</td>
+        <td class="td-num muted">${U.int(t.uniqueSourceCount)||'—'}</td>
+      </tr>`);
+  document.getElementById('table-top-topics').innerHTML = rows.join('');
+}
+
+function renderRecentTopics(topics) {
+  U.setText('recent-n', CONFIG.recentTopicsN);
+  const rows = [...topics]
+    .filter(t => t.lastUpdated)
+    .sort((a,b) => new Date(b.lastUpdated) - new Date(a.lastUpdated))
+    .slice(0, CONFIG.recentTopicsN)
+    .map((t, i) => `
+      <tr>
+        <td class="muted">${i+1}</td>
+        <td><a class="td-link" href="/topic.html?id=${U.esc(t.topicId)}" target="_blank">
+          ${U.esc(t.generatedTitle || t.title || '—')}
+        </a></td>
+        <td><span class="tag">${U.esc(t.genre||'総合')}</span></td>
+        <td>${UI.lifecycle(t.lifecycleStatus)}</td>
+        <td class="td-num">${U.int(t.articleCount)}</td>
+        <td class="muted" style="white-space:nowrap">${U.relTime(t.lastUpdated)}</td>
+        <td class="muted">${U.esc(t.storyPhase||'—')}</td>
+      </tr>`);
+  document.getElementById('table-recent-topics').innerHTML = rows.join('');
+}
+
+// ─── セクション登録（新しいセクションはここに追加） ─────────────────────
+const SECTIONS = [
+  (m, topics) => renderSummaryCards(m, topics),
+  (m)         => renderLifecycleChart(m),
+  (m)         => renderAiChart(m),
+  (m)         => renderReliabilityChart(m),
+  (m)         => renderGenreChart(m),
+  (m, topics) => renderTopTopics(topics),
+  (m, topics) => renderRecentTopics(topics),
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+// DASHBOARD — データ取得 + 全セクション描画
+// ═══════════════════════════════════════════════════════════════════════
+const Dashboard = {
+  async load() {
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('dashboard').style.display = 'none';
+    try {
+      const res    = await fetch(CONFIG.apiBase + 'topics.json?_=' + Date.now());
+      const raw    = await res.json();
+      const topics = Array.isArray(raw) ? raw : (raw.topics || []);
+      const m      = computeMetrics(topics);
+      SECTIONS.forEach(fn => fn(m, topics));
+      U.setText('last-fetch', '最終更新: ' + new Date().toLocaleTimeString('ja-JP'));
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+    } catch(e) {
+      document.getElementById('loading').textContent = 'データ取得失敗: ' + e.message;
+    }
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════════════════
+const Auth = {
+  check() {
+    const val = document.getElementById('pw-input').value;
+    if (val === CONFIG.password) {
+      sessionStorage.setItem('admin_auth', '1');
+      document.getElementById('auth-screen').style.display = 'none';
+      Dashboard.load();
+    } else {
+      document.getElementById('auth-error').textContent = 'パスワードが違います';
+      document.getElementById('pw-input').value = '';
+    }
+  },
+  init() {
+    document.getElementById('pw-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') Auth.check();
+    });
+    if (sessionStorage.getItem('admin_auth') === '1') {
+      document.getElementById('auth-screen').style.display = 'none';
+      Dashboard.load();
+    }
+  },
+};
+
+Auth.init();
+</script>
+</body>
+</html>
