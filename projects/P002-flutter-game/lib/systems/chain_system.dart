@@ -53,7 +53,7 @@ class ChainSystem {
                 .length +
             1;
 
-        final chainMult = _chainMultiplier(count);
+        final chainMult = _chainMultiplier(count) * gameState.boonChainMultiplier;
         final totalDamage = damage * chainMult;
 
         result = ChainResult(

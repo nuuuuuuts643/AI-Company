@@ -107,6 +107,7 @@ class PlayerData {
   int maxStamina;
   int totalClearedCount; // 累計クリアステージ数（ランク計算用）
   bool tutorialSeen;     // チュートリアル表示済みフラグ
+  Map<String, int> purchasedRunes; // runeId → 購入済みレベル（メタ強化）
 
   PlayerData({
     this.gold = 0,
@@ -115,13 +116,15 @@ class PlayerData {
     this.maxStamina = 5,
     this.totalClearedCount = 0,
     this.tutorialSeen = false,
+    Map<String, int>? purchasedRunes,
     Map<String, int>? materials,
     List<String>? unlockedStageIds,
     Map<String, int>? stageBestScores,
     List<String>? deckCardIds,
     Map<EquipmentSlot, OwnedEquipment?>? equippedItems,
     List<OwnedEquipment>? ownedEquipments,
-  })  : materials = materials ?? {},
+  })  : purchasedRunes = purchasedRunes ?? {},
+        materials = materials ?? {},
         unlockedStageIds = unlockedStageIds ?? ['stage_01'],
         stageBestScores = stageBestScores ?? {},
         deckCardIds = deckCardIds ?? List.from(CardMaster.starterDeckIds),
@@ -179,6 +182,7 @@ class PlayerData {
         'totalClearedCount': totalClearedCount,
         'tutorialSeen': tutorialSeen,
         'materials': materials,
+        'purchasedRunes': purchasedRunes,
         'unlockedStageIds': unlockedStageIds,
         'stageBestScores': stageBestScores,
         'deckCardIds': deckCardIds,
@@ -200,6 +204,7 @@ class PlayerData {
       totalClearedCount: json['totalClearedCount'] as int? ?? 0,
       tutorialSeen: json['tutorialSeen'] as bool? ?? false,
       materials: Map<String, int>.from(json['materials'] as Map? ?? {}),
+      purchasedRunes: Map<String, int>.from(json['purchasedRunes'] as Map? ?? {}),
       unlockedStageIds: List<String>.from(json['unlockedStageIds'] as List? ?? ['stage_01']),
       stageBestScores: Map<String, int>.from(json['stageBestScores'] as Map? ?? {}),
       deckCardIds: List<String>.from(json['deckCardIds'] as List? ?? CardMaster.starterDeckIds),
@@ -215,6 +220,47 @@ class PlayerData {
   }
 }
 
+// ---- ルーンデータ（メタ進行：ハブで恒久強化） ----
+
+enum RuneEffectType { atk, spd, wallHp, chain, startMana, handSize }
+
+class RuneData {
+  final String id;
+  final String name;
+  final String emoji;
+  final String description;
+  final RuneEffectType effectType;
+  final double valuePerLevel;
+  final int maxLevel;
+  final List<int> goldCost; // levelごとのゴールドコスト
+
+  const RuneData({
+    required this.id,
+    required this.name,
+    required this.emoji,
+    required this.description,
+    required this.effectType,
+    required this.valuePerLevel,
+    required this.maxLevel,
+    required this.goldCost,
+  });
+}
+
+class RuneMaster {
+  static const all = [
+    RuneData(id: 'rune_atk',    name: '鬼神の印',   emoji: '⚔️', description: '全ユニットの攻撃力 +8%',   effectType: RuneEffectType.atk,      valuePerLevel: 0.08, maxLevel: 5, goldCost: [30, 60, 120, 200, 300]),
+    RuneData(id: 'rune_spd',    name: '疾風の印',   emoji: '💨', description: '全ユニットの攻撃速度 +8%',  effectType: RuneEffectType.spd,      valuePerLevel: 0.08, maxLevel: 5, goldCost: [30, 60, 120, 200, 300]),
+    RuneData(id: 'rune_wall',   name: '城塞の印',   emoji: '🧱', description: '城壁最大HP +40',           effectType: RuneEffectType.wallHp,   valuePerLevel: 40,   maxLevel: 5, goldCost: [20, 40,  80, 150, 250]),
+    RuneData(id: 'rune_chain',  name: '連鎖の印',   emoji: '🔗', description: 'チェーン倍率 +12%',         effectType: RuneEffectType.chain,    valuePerLevel: 0.12, maxLevel: 3, goldCost: [50, 100, 200, 0, 0]),
+    RuneData(id: 'rune_mana',   name: '魔力の印',   emoji: '💧', description: 'バトル開始時マナ +1',        effectType: RuneEffectType.startMana,valuePerLevel: 1,    maxLevel: 3, goldCost: [40, 80,  150, 0, 0]),
+    RuneData(id: 'rune_hand',   name: '戦略の印',   emoji: '🃏', description: '初期手札枚数 +1',           effectType: RuneEffectType.handSize, valuePerLevel: 1,    maxLevel: 2, goldCost: [80, 180, 0, 0, 0]),
+  ];
+
+  static RuneData? getById(String id) {
+    try { return all.firstWhere((r) => r.id == id); } catch (_) { return null; }
+  }
+}
+
 /// アプリ全体で共有するゲーム状態（ProviderでDI）
 class GameStateNotifier extends ChangeNotifier {
   GamePhase _phase = GamePhase.mainMenu;
@@ -222,6 +268,12 @@ class GameStateNotifier extends ChangeNotifier {
   BattleState? _battle;
   bool _isLoading = false;
   String? _selectedStageId;
+
+  // ---- ランごとのボーン累積バフ（BattleSystem / ChainSystem から参照） ----
+  double boonAtkMultiplier = 1.0;
+  double boonSpdMultiplier = 1.0;
+  double boonChainMultiplier = 1.0;
+  double boonCritBonus = 0.0;
 
   /// セッション進行状態（バトル開始〜終了まで）
   ActiveSession? _activeSession;
@@ -299,20 +351,66 @@ class GameStateNotifier extends ChangeNotifier {
         ? stageData.initialWallHp
         : GameConstants.initialWallHp;
 
-    // デッキをシャッフルして手札を配る
+    // デッキをシャッフルして手札を配る（ルーン:手札+N枚適用）
     final shuffled = List<String>.from(_player.deckCardIds)..shuffle();
-    final hand = shuffled.take(GameConstants.initialHandSize).toList();
-    final deck = shuffled.skip(GameConstants.initialHandSize).toList();
+    final extraHand = runeHandSizeBonus;
+    final handSize = (GameConstants.initialHandSize + extraHand).clamp(1, 8);
+    final hand = shuffled.take(handSize).toList();
+    final deck = shuffled.skip(handSize).toList();
+
+    // ルーン:城壁HP加算
+    final wallBonusHp = runeStartingWallBonus;
+    final effectiveWallHp = wallHp + wallBonusHp;
 
     _battle = BattleState(
       stageId: stageId,
-      wallHp: wallHp,
-      maxWallHp: wallHp,
+      wallHp: effectiveWallHp,
+      maxWallHp: effectiveWallHp,
       handCardIds: hand,
       deckCardIds: deck,
     );
+    // ランごとのボーンバフをルーン込みのベースラインにリセット
+    boonAtkMultiplier   = 1.0 + _runeBonus(RuneEffectType.atk);
+    boonSpdMultiplier   = 1.0 + _runeBonus(RuneEffectType.spd);
+    boonChainMultiplier = 1.0 + _runeBonus(RuneEffectType.chain);
+    boonCritBonus = 0.0;
+    // 開始マナをルーンで加算
+    final startManaBonus = _runeBonus(RuneEffectType.startMana);
+    if (startManaBonus > 0) {
+      _battle!.mana = (_battle!.mana + startManaBonus).clamp(0, _battle!.maxMana);
+    }
     _phase = GamePhase.battle;
     notifyListeners();
+  }
+
+  double _runeBonus(RuneEffectType type) {
+    double total = 0;
+    for (final rune in RuneMaster.all) {
+      if (rune.effectType != type) continue;
+      final level = _player.purchasedRunes[rune.id] ?? 0;
+      total += rune.valuePerLevel * level;
+    }
+    return total;
+  }
+
+  int get runeStartingWallBonus {
+    int total = 0;
+    for (final rune in RuneMaster.all) {
+      if (rune.effectType != RuneEffectType.wallHp) continue;
+      final level = _player.purchasedRunes[rune.id] ?? 0;
+      total += (rune.valuePerLevel * level).round();
+    }
+    return total;
+  }
+
+  int get runeHandSizeBonus {
+    int total = 0;
+    for (final rune in RuneMaster.all) {
+      if (rune.effectType != RuneEffectType.handSize) continue;
+      final level = _player.purchasedRunes[rune.id] ?? 0;
+      total += level;
+    }
+    return total;
   }
 
   // ---- バトル中の状態更新 ----
@@ -535,6 +633,32 @@ class GameStateNotifier extends ChangeNotifier {
   }
 
   // ---- ボーンシステム連携 ----
+
+  void applyBoonAtk(double additive) { boonAtkMultiplier += additive; }
+  void applyBoonSpd(double additive) { boonSpdMultiplier += additive; }
+  void applyBoonChain(double additive) { boonChainMultiplier += additive; }
+  void applyBoonCrit(double additive) { boonCritBonus += additive; }
+
+  // ---- ルーン鍛冶（メタ進行） ----
+
+  bool canPurchaseRune(RuneData rune) {
+    final current = _player.purchasedRunes[rune.id] ?? 0;
+    if (current >= rune.maxLevel) return false;
+    final cost = rune.goldCost[current];
+    return _player.gold >= cost;
+  }
+
+  Future<bool> purchaseRune(RuneData rune) async {
+    final current = _player.purchasedRunes[rune.id] ?? 0;
+    if (current >= rune.maxLevel) return false;
+    final cost = rune.goldCost[current];
+    if (_player.gold < cost) return false;
+    _player.gold -= cost;
+    _player.purchasedRunes[rune.id] = current + 1;
+    await _savePlayer();
+    notifyListeners();
+    return true;
+  }
 
   /// マナ回復速度にバフを乗せる
   void applyManaRegenBuff(double rate) {

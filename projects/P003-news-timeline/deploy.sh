@@ -127,13 +127,34 @@ aws iam create-role \
   && echo "  -> 作成完了" \
   || echo "  -> 既に存在（スキップ）"
 
-for POLICY in \
-  arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess \
-  arn:aws:iam::aws:policy/AmazonS3FullAccess \
-  arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-do
-  aws iam attach-role-policy --role-name "$ROLE" --policy-arn "$POLICY" 2>/dev/null || true
-done
+# 基本実行ロールのみアタッチ（DynamoDB/S3はインラインポリシーで最小権限管理）
+aws iam attach-role-policy --role-name "$ROLE" \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole 2>/dev/null || true
+
+# 最小権限インラインポリシーを常に上書き適用（FullAccessを使わない）
+aws iam put-role-policy \
+  --role-name "$ROLE" \
+  --policy-name flotopic-least-privilege \
+  --policy-document '{
+    "Version":"2012-10-17",
+    "Statement":[
+      {"Sid":"DynamoDBSpecificTables","Effect":"Allow",
+       "Action":["dynamodb:GetItem","dynamodb:PutItem","dynamodb:UpdateItem","dynamodb:DeleteItem","dynamodb:Query","dynamodb:Scan","dynamodb:BatchGetItem","dynamodb:BatchWriteItem","dynamodb:DescribeTable","dynamodb:ConditionCheckItem"],
+       "Resource":["arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/p003-topics","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/p003-topics/index/*","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-comments","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-comments/index/*","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-memory","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-x-posts","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-bluesky-posts","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-agent-status","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-audit","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/flotopic-analytics","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/flotopic-favorites","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/flotopic-rate-limits","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/flotopic-users"]},
+      {"Sid":"S3SpecificBucket","Effect":"Allow",
+       "Action":["s3:GetObject","s3:PutObject","s3:DeleteObject","s3:ListBucket","s3:GetBucketLocation"],
+       "Resource":["arn:aws:s3:::p003-news-946554699567","arn:aws:s3:::p003-news-946554699567/*","arn:aws:s3:::p003-news-staging-946554699567","arn:aws:s3:::p003-news-staging-946554699567/*"]},
+      {"Sid":"CloudWatchMetrics","Effect":"Allow",
+       "Action":["cloudwatch:GetMetricStatistics","cloudwatch:PutMetricData"],
+       "Resource":"*"}
+    ]
+  }' 2>/dev/null && echo "  -> 最小権限ポリシー適用済み" || true
+
+# FullAccessが残っていたら剥がす（移行期対応）
+aws iam detach-role-policy --role-name "$ROLE" \
+  --policy-arn arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess 2>/dev/null || true
+aws iam detach-role-policy --role-name "$ROLE" \
+  --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess 2>/dev/null || true
 
 echo "  -> IAMロール反映待ち（15秒）..."
 sleep 15
@@ -298,10 +319,10 @@ cd ../..
 # ---- 7. EventBridge ----
 echo "[7/8] EventBridge スケジュール設定..."
 
-# Fetcher: 5分ごと（rate(5 minutes)）← 旧30分から短縮・Claude不要なので安価
+# Fetcher: 30分ごと（2026-04-25 5分→30分に修正、p003-scheduleは削除済み）
 FETCHER_RULE_ARN=$(aws events put-rule \
-  --name "p003-schedule" \
-  --schedule-expression "rate(5 minutes)" \
+  --name "p003-fetcher-schedule" \
+  --schedule-expression "rate(30 minutes)" \
   --state ENABLED \
   --region "$REGION" \
   --query RuleArn --output text)
@@ -309,17 +330,17 @@ FETCHER_RULE_ARN=$(aws events put-rule \
 FETCHER_ARN="arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${FETCHER}"
 aws lambda add-permission \
   --function-name "$FETCHER" \
-  --statement-id AllowEventBridge \
+  --statement-id AllowEventBridgeFetcher \
   --action lambda:InvokeFunction \
   --principal events.amazonaws.com \
   --source-arn "$FETCHER_RULE_ARN" \
   --region "$REGION" 2>/dev/null || true
 
 aws events put-targets \
-  --rule "p003-schedule" \
+  --rule "p003-fetcher-schedule" \
   --targets "Id=1,Arn=${FETCHER_ARN}" \
   --region "$REGION" > /dev/null
-echo "  -> Fetcher: 5分ごとの自動実行を設定完了"
+echo "  -> Fetcher: 30分ごとの自動実行を設定完了"
 
 # Processor: 1日3回 JST 7:00 / 12:00 / 18:00
 # UTC換算: 22:00 / 03:00 / 09:00（JST = UTC+9）
