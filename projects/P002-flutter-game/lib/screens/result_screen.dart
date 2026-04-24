@@ -2,11 +2,14 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../game/game_state.dart';
+import '../models/card_data.dart';
+import '../constants/element_chart.dart';
 import '../constants/strings.dart';
 import '../services/ad_service.dart';
+import '../utils/app_transitions.dart';
 import 'battle_screen.dart';
 import 'stage_select_screen.dart';
-import 'main_menu_screen.dart';
+import 'hub_screen.dart';
 
 /// クリア・ゲームオーバー画面
 class ResultScreen extends StatefulWidget {
@@ -186,6 +189,12 @@ class _ResultScreenState extends State<ResultScreen>
 
                     const SizedBox(height: 16),
 
+                    // 新カード解放セクション（初回クリア時）
+                    if (isVictory) ...[
+                      _UnlockedCardsSection(gs.lastUnlockedCards),
+                      const SizedBox(height: 12),
+                    ],
+
                     // アクションボタン
                     _ActionButton(
                       label: Strings.btnRetry,
@@ -228,20 +237,20 @@ class _ResultScreenState extends State<ResultScreen>
       return;
     }
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const BattleScreen()),
+      AppTransitions.slideUp(const BattleScreen()),
     );
   }
 
   void _onNextStage(BuildContext context) {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const StageSelectScreen()),
+      AppTransitions.slideRight(const StageSelectScreen()),
     );
   }
 
   void _onReturnMenu(BuildContext context) {
     context.read<GameStateNotifier>().goToMainMenu();
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const MainMenuScreen()),
+      AppTransitions.fade(const HubScreen()),
       (route) => false,
     );
   }
@@ -401,6 +410,131 @@ class _Particle {
     Color(0xFFE91E63),
     Color(0xFF9C27B0),
   ];
+}
+
+/// 新カード解放セクション
+class _UnlockedCardsSection extends StatefulWidget {
+  final List<String> cardIds;
+  const _UnlockedCardsSection(this.cardIds);
+
+  @override
+  State<_UnlockedCardsSection> createState() => _UnlockedCardsSectionState();
+}
+
+class _UnlockedCardsSectionState extends State<_UnlockedCardsSection>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _shimmer;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 2))
+      ..repeat(reverse: true);
+    _shimmer = Tween<double>(begin: 0.6, end: 1.0).animate(_ctrl);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.cardIds.isEmpty) return const SizedBox.shrink();
+
+    final cards = widget.cardIds
+        .map((id) => CardMaster.getById(id))
+        .whereType<CardData>()
+        .toList();
+
+    return AnimatedBuilder(
+      animation: _shimmer,
+      builder: (_, __) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFF1A2A1A),
+              Color.lerp(const Color(0xFF1A2A1A), const Color(0xFF243824), _shimmer.value)!,
+            ],
+          ),
+          border: Border.all(
+            color: Color.lerp(const Color(0xFF2E7D32), const Color(0xFF66BB6A), _shimmer.value)!,
+            width: 1.5,
+          ),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('🎁', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 8),
+                Text(
+                  '新カード解放！',
+                  style: TextStyle(
+                    color: Color.lerp(const Color(0xFF66BB6A), const Color(0xFFA5D6A7), _shimmer.value),
+                    fontFamily: 'DotGothic16',
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: cards.map((card) => _UnlockedCardChip(card)).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UnlockedCardChip extends StatelessWidget {
+  final CardData card;
+  const _UnlockedCardChip(this.card);
+
+  @override
+  Widget build(BuildContext context) {
+    final elemColor = Color(card.element.colorValue);
+    final typeIcon = switch (card.cardType) {
+      CardType.unit => '⚔️',
+      CardType.spell => '✨',
+      CardType.trap => '⚙️',
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: elemColor.withAlpha(30),
+        border: Border.all(color: elemColor.withAlpha(120)),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(typeIcon, style: const TextStyle(fontSize: 12)),
+          const SizedBox(width: 4),
+          Text(
+            card.name,
+            style: TextStyle(
+              color: elemColor.withAlpha(230),
+              fontFamily: 'DotGothic16',
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ActionButton extends StatelessWidget {

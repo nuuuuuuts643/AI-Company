@@ -1,6 +1,0 @@
-# DEPRECATED: 一時的なパッチ用ワークフロー（2026-04-24 削除済み扱い）
-# secretary_run.py / app.js / style.css を特定バージョンに強制上書きするone-shot修正だった。
-# 現在は不要。トリガーを除去して無効化。
-#
-# name: コードを最新版に更新
-# on: workflow_dispatch

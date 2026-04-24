@@ -36,6 +36,7 @@ class CardData {
   final int aoeRadius;       // 範囲攻撃半径（0=単体）
   final String iconPath;     // プレースホルダー: 'placeholder'
   final TerrainType? terrainType; // null=通常カード、非null=地形配置カード
+  final bool isSupport;     // true=攻撃しない支援ユニット
 
   const CardData({
     required this.id,
@@ -51,6 +52,7 @@ class CardData {
     this.aoeRadius = 0,
     this.iconPath = 'placeholder',
     this.terrainType,
+    this.isSupport = false,
   });
 }
 
@@ -110,14 +112,15 @@ class CardMaster {
     CardData(
       id: 'unit_priest_light',
       name: '光の聖職者',
-      description: '光の連撃。素早い攻撃速度で敵を追い詰める。',
+      description: '【支援】攻撃せず、3.5秒ごとに最も瀕死の味方をHP回復。隣レーンも対象。',
       cardType: CardType.unit,
       element: ElementType.light,
       manaCost: 3,
-      baseAttack: 38,
-      baseHp: 160,
-      attackSpeed: 1.4,
-      attackRange: 90.0,
+      baseAttack: 55,
+      baseHp: 180,
+      attackSpeed: 0.0,
+      attackRange: 200.0,
+      isSupport: true,
     ),
     CardData(
       id: 'unit_necromancer_dark',
@@ -134,7 +137,7 @@ class CardMaster {
     CardData(
       id: 'unit_druid_wind',
       name: '霊樹使い',
-      description: '風の連射。幅広い射程で敵を全方位に牽制。',
+      description: '【支援+攻撃】5秒ごとに隣接3レーンの味方全員に攻撃速度+60%バフ付与。自身も遠距離攻撃。',
       cardType: CardType.unit,
       element: ElementType.wind,
       manaCost: 4,
@@ -297,18 +300,22 @@ class CardMaster {
     }
   }
 
-  /// 初期デッキ（チュートリアル用）
+  /// 初期デッキ（チュートリアル用: ステージ1クリアで徐々に解放）
   static List<String> get starterDeckIds => [
         'unit_swordsman_fire',
         'unit_archer_wind',
         'unit_knight_earth',
         'spell_fireball',
         'trap_fire_mine',
-        'unit_mage_water',
-        'spell_earthspike',
-        'trap_earth_spike',
-        'terrain_mountain',
-        'terrain_river',
-        'terrain_swamp',
       ];
+
+  /// ステージクリア報酬カードマップ
+  static const Map<String, List<String>> stageUnlockCards = {
+    'stage_01': ['unit_mage_water', 'spell_waterfall'],
+    'stage_02': ['unit_priest_light', 'spell_tornado', 'trap_ice_pit'],
+    'stage_03': ['unit_necromancer_dark', 'spell_dark_void', 'terrain_river'],
+    'stage_04': ['unit_druid_wind', 'unit_bomber_fire', 'spell_earthspike',
+                 'spell_holy_light', 'trap_wind_blade', 'trap_earth_spike',
+                 'terrain_mountain', 'terrain_swamp'],
+  };
 }

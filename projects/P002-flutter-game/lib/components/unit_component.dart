@@ -20,6 +20,9 @@ class UnitComponent extends PositionComponent with CollisionCallbacks {
     required bool isChain,
   }) onAttack;
 
+  // レーンに敵がいるか（前進システム用）
+  final bool Function(int laneIndex)? laneHasEnemies;
+
   // アニメーション
   double _elapsed = 0;
   bool _isAttacking = false;
@@ -32,13 +35,24 @@ class UnitComponent extends PositionComponent with CollisionCallbacks {
 
   // 配置位置（idle bobのベースとして保持）
   late Vector2 _basePosition;
+  // 配置時の原点Y（前進上限の計算に使用）
+  late double _originY;
+
+  // 前進システム
+  double _advanceY = 0; // 前進量（増えると上方向＝Yが減る）
+  static const _maxAdvance = 72.0;
+  static const _advanceSpeed = 18.0; // px/s
+  static const _advanceRetreatSpeed = 30.0; // 敵出現時の後退速度
+  bool _isAdvancing = false;
 
   UnitComponent({
     required this.unitInstance,
     required Vector2 position,
     required this.onAttack,
+    this.laneHasEnemies,
   }) : super(position: position, size: Vector2(34, 42)) {
     _basePosition = position.clone();
+    _originY = position.y;
   }
 
   @override
@@ -81,13 +95,37 @@ class UnitComponent extends PositionComponent with CollisionCallbacks {
       }
     }
 
+    // ---- 前進システム ----
+    if (laneHasEnemies != null) {
+      final hasEnemy = laneHasEnemies!(unitInstance.laneIndex);
+      if (!hasEnemy) {
+        // レーンクリア → ゆっくり前進
+        _advanceY = (_advanceY + _advanceSpeed * dt).clamp(0, _maxAdvance);
+        _isAdvancing = true;
+      } else {
+        // 敵出現 → 元の位置に後退
+        if (_advanceY > 0) {
+          _advanceY = (_advanceY - _advanceRetreatSpeed * dt).clamp(0, _maxAdvance);
+        }
+        _isAdvancing = false;
+      }
+      _basePosition.y = _originY - _advanceY;
+    }
+
     // idle bob: レーン位置ごとに位相をずらして自然に見せる
     final phaseOffset = _basePosition.x * 0.05;
     final bob = sin(_elapsed * 2.2 + phaseOffset) * 5.0;
-    // 呼吸スケール
+    // 呼吸スケール（前進中は若干前傾）
     final breathScale = 1.0 + sin(_elapsed * 1.6 + phaseOffset + 0.8) * 0.045;
     scale = Vector2.all(breathScale);
-    position.setValues(_basePosition.x, _basePosition.y + bob);
+
+    // 攻撃ランジ: attackAnimTimer残り率をsin波でY上方向に突進
+    double lungeY = 0;
+    if (_isAttacking) {
+      final progress = 1.0 - (_attackAnimTimer / 0.2).clamp(0.0, 1.0);
+      lungeY = sin(progress * pi) * -14.0; // 上方向へ14px突進
+    }
+    position.setValues(_basePosition.x, _basePosition.y + bob + lungeY);
   }
 
   @override
@@ -108,6 +146,63 @@ class UnitComponent extends PositionComponent with CollisionCallbacks {
         ..color = const Color(0x50000000)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
     );
+
+    // ---- バフ中の光輪エフェクト ----
+    if (unitInstance.isBuffed) {
+      final buffPulse = 0.5 + sin(_elapsed * 5) * 0.4;
+      // 攻撃速度バフ → 緑の輪
+      if (unitInstance.atkSpeedBuffTimer > 0) {
+        canvas.drawCircle(
+          Offset(size.x / 2, size.y / 2),
+          26 + buffPulse * 5,
+          Paint()
+            ..color = const Color(0xFF66BB6A).withAlpha((buffPulse * 100).round())
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+        );
+        // 速度の粒子（短い弧が回転）
+        for (int i = 0; i < 3; i++) {
+          final angle = _elapsed * 4 + i * pi * 2 / 3;
+          canvas.drawArc(
+            Rect.fromCenter(center: Offset(size.x / 2, size.y / 2), width: 46, height: 46),
+            angle,
+            0.8,
+            false,
+            Paint()
+              ..color = const Color(0xFFA5D6A7).withAlpha(180)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.5
+              ..strokeCap = StrokeCap.round,
+          );
+        }
+      }
+    }
+
+    // ---- 支援ユニット：常時ヒーリングオーラ ----
+    if (unitInstance.attackType == AttackType.support) {
+      final healPulse = 0.4 + sin(_elapsed * 2.5) * 0.35;
+      canvas.drawCircle(
+        Offset(size.x / 2, size.y / 2),
+        30 + healPulse * 8,
+        Paint()
+          ..color = const Color(0xFFFFD700).withAlpha((healPulse * 60).round())
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+      );
+      // 十字の光
+      for (int i = 0; i < 4; i++) {
+        final a = _elapsed * 1.2 + i * pi / 2;
+        final r = 22 + healPulse * 6;
+        canvas.drawLine(
+          Offset(size.x / 2 + cos(a) * 8, size.y / 2 + sin(a) * 8),
+          Offset(size.x / 2 + cos(a) * r, size.y / 2 + sin(a) * r),
+          Paint()
+            ..color = const Color(0xFFFFE082).withAlpha((healPulse * 160).round())
+            ..strokeWidth = 2
+            ..strokeCap = StrokeCap.round,
+        );
+      }
+    }
 
     final baseColor = Color(unitInstance.element.colorValue);
     final phaseOff = _basePosition.x * 0.05;
@@ -167,9 +262,41 @@ class UnitComponent extends PositionComponent with CollisionCallbacks {
       }
     }
 
+    // 攻撃バーストリング
+    if (_isAttacking) {
+      final progress = 1.0 - (_attackAnimTimer / 0.2).clamp(0.0, 1.0);
+      final ringR = 18.0 + progress * 22.0;
+      final ringA = ((1.0 - progress) * 180).round().clamp(0, 180);
+      canvas.drawCircle(
+        Offset(size.x / 2, size.y / 2),
+        ringR,
+        Paint()
+          ..color = baseColor.withAlpha(ringA)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
+    }
+
     // フュージョンレベルスター
     if (unitInstance.fusionLevel > 1) {
       _renderFusionStars(canvas);
+    }
+
+    // 前進インジケーター（前進中：上向き三角が点滅）
+    if (_isAdvancing && _advanceY > 4) {
+      final advPulse = 0.5 + sin(_elapsed * 6) * 0.4;
+      final path = Path()
+        ..moveTo(size.x / 2, -18)
+        ..lineTo(size.x / 2 - 7, -10)
+        ..lineTo(size.x / 2 + 7, -10)
+        ..close();
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = const Color(0xFF69F0AE).withAlpha((advPulse * 200).round())
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+      );
     }
 
     // HPバー
@@ -248,9 +375,11 @@ class UnitComponent extends PositionComponent with CollisionCallbacks {
     _attackAnimTimer = 0.2;
   }
 
-  /// ダメージを受けた時の揺れ
+  /// ダメージを受けた時の揺れ＋前進リセット
   void takeDamageVisual() {
-    // 将来的にダメージフラッシュを追加
+    // 被弾時に少し後退
+    _advanceY = (_advanceY - 20.0).clamp(0, _maxAdvance);
+    _basePosition.y = _originY - _advanceY;
   }
 
 }

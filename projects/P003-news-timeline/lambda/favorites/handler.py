@@ -22,12 +22,38 @@ import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
-TABLE_NAME = os.environ.get('FAVORITES_TABLE', 'flotopic-favorites')
-REGION     = os.environ.get('REGION', 'ap-northeast-1')
+TABLE_NAME   = os.environ.get('FAVORITES_TABLE', 'flotopic-favorites')
+TOPICS_TABLE = os.environ.get('TABLE_NAME', 'p003-topics')
+REGION       = os.environ.get('REGION', 'ap-northeast-1')
 GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token='
 
-dynamodb = boto3.resource('dynamodb', region_name=REGION)
-table    = dynamodb.Table(TABLE_NAME)
+dynamodb     = boto3.resource('dynamodb', region_name=REGION)
+table        = dynamodb.Table(TABLE_NAME)
+topics_table = dynamodb.Table(TOPICS_TABLE)
+
+
+def update_topic_fav_count(topic_id: str, delta: int):
+    """トピックの favoriteCount を±1（流行スコア用）"""
+    try:
+        if delta > 0:
+            topics_table.update_item(
+                Key={'topicId': topic_id, 'SK': 'META'},
+                UpdateExpression='ADD favoriteCount :d',
+                ExpressionAttributeValues={':d': delta},
+            )
+        else:
+            # 0未満にならないよう条件付きデクリメント
+            topics_table.update_item(
+                Key={'topicId': topic_id, 'SK': 'META'},
+                UpdateExpression='ADD favoriteCount :d',
+                ConditionExpression='attribute_exists(favoriteCount) AND favoriteCount > :zero',
+                ExpressionAttributeValues={':d': delta, ':zero': 0},
+            )
+    except ClientError as e:
+        if e.response['Error']['Code'] != 'ConditionalCheckFailedException':
+            print(f'update_topic_fav_count error: {e}')
+    except Exception as e:
+        print(f'update_topic_fav_count error: {e}')
 
 
 # ── ヘルパー ─────────────────────────────────────────────────────
@@ -91,12 +117,14 @@ def add_favorite(user_id: str, topic_id: str):
         'topicId':   topic_id,
         'createdAt': now_iso,
     })
+    update_topic_fav_count(topic_id, 1)
 
 
 # ── お気に入り削除 ────────────────────────────────────────────────
 
 def remove_favorite(user_id: str, topic_id: str):
     table.delete_item(Key={'userId': user_id, 'topicId': topic_id})
+    update_topic_fav_count(topic_id, -1)
 
 
 # ── ユーザー全データ削除 ──────────────────────────────────────────

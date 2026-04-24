@@ -45,6 +45,8 @@ def fetch_rss(feed):
             pubdate = (item.findtext('pubDate')  or '').strip()
             img     = extract_rss_image(item)
             if title and link:
+                if any(p.search(title) for p in _DIGEST_SKIP_PATS):
+                    continue
                 source_name = extract_source_name(item, link, url)
                 # ソース名からtierを解決（Google News経由記事など）
                 resolved_tier = SOURCE_TIER_MAP.get(source_name, feed_tier)
@@ -136,6 +138,25 @@ def _fetch_ogp_group(tid, urls):
             return tid, img
     return tid, None
 
+
+# ── 完全スキップ: 日次まとめ・ヘッドライン集記事 ─────────────────────────────
+# 「N月N日のヘッドライン」「今日のニュースまとめ」等、それ自体が独立したトピックではなく
+# 他記事の見出しを羅列しただけのメタ記事。フロントでは1記事トピックとして表示されてしまう。
+_DIGEST_SKIP_PATS = [
+    re.compile(r'\d{4}年\d{1,2}月\d{1,2}日の.{0,10}ヘッドライン'),
+    re.compile(r'\d{1,2}月\d{1,2}日.{0,10}ヘッドライン'),
+    re.compile(r'今日のニュースまとめ'),
+    re.compile(r'今週のニュースまとめ'),
+    re.compile(r'^【\d{1,2}月\d{1,2}日】.{0,30}まとめ'),
+    re.compile(r'ニュースまとめ[：:\s（(]'),
+    re.compile(r'^週刊.{0,20}まとめ$'),
+    re.compile(r'本日のヘッドライン'),
+    re.compile(r'ヘッドラインニュース$'),
+    # Yahoo!ファイナンス 株価ページ（ニュースではなくデータページ）
+    re.compile(r'株価・株式情報\s*[-–]\s*Yahoo!ファイナンス'),
+    re.compile(r'【\d{3,5}】[：:].{0,20}株価'),
+    re.compile(r'掲示板\s*[-–]\s*Yahoo!ファイナンス'),
+]
 
 # ── 二次情報フィルター ────────────────────────────────────────────────────────
 #
@@ -564,6 +585,14 @@ def lambda_handler(event, context):
             velocity_score,
         )
 
+        # ソーシャルシグナル加点: コメント数・お気に入り数（ユーザー注目度を反映）
+        comment_count  = int(existing.get('commentCount')  or 0)
+        fav_count      = int(existing.get('favoriteCount') or 0)
+        if comment_count > 0 or fav_count > 0:
+            # コメント1件=+2%、お気に入り1件=+1%（最大+100%）
+            social_bonus = 1.0 + min(comment_count * 0.02 + fav_count * 0.01, 1.0)
+            velocity_score = round(velocity_score * social_bonus, 4)
+
         pending_ai = not bool(
             existing.get('aiGenerated') and existing.get('generatedSummary') and not _is_old_extractive
         )
@@ -605,6 +634,9 @@ def lambda_handler(event, context):
             'reliability':     reliability,
             'hasConflict':     has_conflict,
             'uniqueSourceCount': unique_src_count,
+            # ソーシャルシグナル（フロントエンド表示用）
+            'commentCount':    comment_count,
+            'favoriteCount':   fav_count,
         }
         if gen_summary:                 item['generatedSummary'] = gen_summary
         if image_url:                   item['imageUrl']         = image_url
@@ -712,7 +744,12 @@ def lambda_handler(event, context):
                 dedup_core[kc] = t
 
         topics_deduped_all = sorted(dedup_long.values(), key=lambda x: int(x.get('score', 0) or 0), reverse=True)
-        topics_deduped     = [t for t in topics_deduped_all if t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES][:2000]
+        # 記事1件かつvelocity=0の死亡トピックをtopics.jsonから除外（ストーリーにならないため）
+        topics_deduped = [
+            t for t in topics_deduped_all
+            if t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES
+            and (int(t.get('articleCount', 0) or 0) >= 2 or float(t.get('velocityScore', 0) or 0) > 0)
+        ][:2000]
 
         write_s3('api/topics.json', {
             'topics':          topics_deduped,

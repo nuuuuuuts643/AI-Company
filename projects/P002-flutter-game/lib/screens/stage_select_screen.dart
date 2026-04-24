@@ -5,6 +5,7 @@ import '../models/stage_data.dart';
 import '../models/enemy_data.dart';
 import '../constants/element_chart.dart';
 import '../constants/strings.dart';
+import '../utils/app_transitions.dart';
 import 'battle_screen.dart';
 
 /// ステージ選択画面
@@ -98,7 +99,7 @@ class StageSelectScreen extends StatelessWidget {
     final notifier = context.read<GameStateNotifier>();
     notifier.selectStage(stageId);
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const BattleScreen()),
+      AppTransitions.slideUp(const BattleScreen()),
     );
   }
 }

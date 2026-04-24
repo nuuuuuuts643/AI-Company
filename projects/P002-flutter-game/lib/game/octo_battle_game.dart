@@ -12,6 +12,8 @@ import '../components/particle_system.dart';
 import '../components/floating_text.dart';
 import '../components/screen_shake.dart';
 import '../components/chain_effect.dart';
+import '../components/attack_effect.dart';
+import '../components/projectile_component.dart';
 import '../components/terrain_component.dart';
 import '../components/field_overlay.dart';
 import '../constants/game_constants.dart';
@@ -22,7 +24,7 @@ import '../models/unit_data.dart';
 import '../models/stage_data.dart';
 import '../models/terrain_data.dart';
 import '../services/audio_service.dart';
-import '../systems/battle_system.dart';
+import '../systems/battle_system.dart' show BattleSystem, AuraType;
 import '../systems/wave_system.dart';
 import '../systems/card_system.dart';
 import '../systems/chain_system.dart';
@@ -91,6 +93,9 @@ class OctoBattleGame extends FlameGame
   // ボス追跡
   EnemyComponent? _activeBoss;
 
+  // ---- コマンダースキル ----
+  final void Function(double progress)? onCommanderSkillReady;
+
   OctoBattleGame({
     required this.gameState,
     required this.onPhaseChangeRequest,
@@ -98,6 +103,7 @@ class OctoBattleGame extends FlameGame
     required this.onChainTriggered,
     this.onBossHpUpdate,
     this.onWallDamaged,
+    this.onCommanderSkillReady,
     required AudioService audio,
   }) : _audio = audio;
 
@@ -114,7 +120,10 @@ class OctoBattleGame extends FlameGame
     camera.viewfinder.anchor = Anchor.topLeft;
 
     // システム初期化
-    battleSystem = BattleSystem(gameState: gameState);
+    battleSystem = BattleSystem(
+      gameState: gameState,
+      onAuraApplied: _onAuraApplied,
+    );
     waveSystem = WaveSystem(game: this, gameState: gameState);
     cardSystem = CardSystem(gameState: gameState);
     chainSystem = ChainSystem(gameState: gameState);
@@ -293,6 +302,8 @@ class OctoBattleGame extends FlameGame
       unitInstance: instance,
       position: Vector2(laneX - 17, placeY - 21),
       onAttack: _onUnitAttack,
+      laneHasEnemies: (laneIdx) =>
+          _enemies.any((e) => e.isAlive && e.laneIndex == laneIdx),
     );
     _grid[(col, row)] = unitComp;
     _units.add(unitComp);
@@ -493,6 +504,61 @@ class OctoBattleGame extends FlameGame
     required bool isWeakness,
     required bool isChain,
   }) {
+    // ---- 攻撃エフェクト ----
+    // UnitComponentの位置を取得
+    final unitComp = _units.cast<UnitComponent?>().firstWhere(
+      (u) => u?.unitInstance == attacker,
+      orElse: () => null,
+    );
+    if (unitComp != null) {
+      final unitCenter = unitComp.position + Vector2(17, 21);
+      final targetCenter = target.position + Vector2(18, 22);
+      final elemColor = Color(attacker.element.colorValue);
+      final isMelee = attacker.attackRange <= 90;
+
+      if (isMelee) {
+        // 近接：斬撃エフェクト（ユニット前方）
+        final dir = (targetCenter - unitCenter);
+        final angle = dir.angleTo(Vector2(1, 0)) * -1;
+        world.add(SlashEffectComponent(
+          position: unitCenter + Vector2(-25, -25),
+          color: elemColor,
+          angle: angle,
+        ));
+        // 詠唱陣（土・光は魔法寄り）
+        if (attacker.element == ElementType.earth ||
+            attacker.element == ElementType.light) {
+          world.add(MagicCircleEffect(
+            position: unitCenter + Vector2(-25, 10),
+            color: elemColor,
+          ));
+        }
+      } else {
+        // 遠距離・魔法：詠唱陣 + 飛翔プロジェクタイル
+        world.add(MagicCircleEffect(
+          position: unitCenter + Vector2(-25, 5),
+          color: elemColor,
+        ));
+        // 速度ベクトル（ユニット→ターゲット）
+        final vel = (targetCenter - unitCenter).normalized() * 350;
+        world.add(ProjectileComponent(
+          position: unitCenter.clone(),
+          velocity: vel,
+          element: attacker.element,
+          damage: 0, // ダメージはすでに適用済み（視覚専用）
+          target: target,
+          maxLifespan: 0.5,
+        ));
+      }
+
+      // ヒット時インパクト（ターゲット位置）
+      world.add(ImpactEffect(
+        position: targetCenter + Vector2(-24, -24),
+        color: elemColor,
+        style: impactStyleFor(attacker.element),
+      ));
+    }
+
     // チェーン判定
     final chainResult = chainSystem.checkChain(
       attackerElement: attacker.element,
@@ -554,6 +620,54 @@ class OctoBattleGame extends FlameGame
         fontSize: 14,
       );
       HapticFeedback.mediumImpact();
+    }
+  }
+
+  // ---- オーラ（バフ）エフェクト ----
+
+  void _onAuraApplied(
+      UnitComponent healer, UnitComponent target, AuraType aura) {
+    final healerCenter = healer.position + Vector2(17, 21);
+    final targetCenter = target.position + Vector2(17, 21);
+
+    switch (aura) {
+      case AuraType.heal:
+        // 黄金のビームが癒す
+        world.add(_BuffBeam(
+          from: healerCenter,
+          to: targetCenter,
+          color: const Color(0xFFFFD700),
+        ));
+        // ターゲットに回復数値フロート
+        final healAmt = (healer.unitInstance.attack * 1.5).round();
+        _spawnFloatingText(
+          targetCenter + Vector2(-10, -30),
+          '💛 +$healAmt',
+          const Color(0xFFFFD700),
+          fontSize: 15,
+        );
+        break;
+      case AuraType.atkSpeed:
+        // 緑のビームで加速
+        world.add(_BuffBeam(
+          from: healerCenter,
+          to: targetCenter,
+          color: const Color(0xFF66BB6A),
+        ));
+        _spawnFloatingText(
+          targetCenter + Vector2(-10, -28),
+          '⚡ SPD+',
+          const Color(0xFF66BB6A),
+          fontSize: 13,
+        );
+        break;
+      case AuraType.atkPower:
+        world.add(_BuffBeam(
+          from: healerCenter,
+          to: targetCenter,
+          color: const Color(0xFFFF8F00),
+        ));
+        break;
     }
   }
 
@@ -829,5 +943,61 @@ class OctoBattleGame extends FlameGame
       return (element: ElementType.dark, name: '呪岩使', emoji: '🪨');
     // light + dark
     return (element: ElementType.fire, name: '混沌士', emoji: '🌈');
+  }
+}
+
+// ============================================================
+// バフビームエフェクト（支援ユニット → 対象ユニット）
+// ============================================================
+class _BuffBeam extends Component {
+  final Vector2 from;
+  final Vector2 to;
+  final Color color;
+  double _t = 0;
+  static const _dur = 0.5;
+
+  _BuffBeam({required this.from, required this.to, required this.color});
+
+  @override
+  void update(double dt) {
+    _t += dt;
+    if (_t >= _dur) removeFromParent();
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final progress = (_t / _dur).clamp(0.0, 1.0);
+    final alpha = progress < 0.3
+        ? (progress / 0.3)
+        : (1.0 - (progress - 0.3) / 0.7);
+
+    // メインライン
+    canvas.drawLine(
+      Offset(from.x, from.y),
+      Offset(to.x, to.y),
+      Paint()
+        ..color = color.withAlpha((alpha * 180).round())
+        ..strokeWidth = 3.5
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+    );
+    // 白いコアライン
+    canvas.drawLine(
+      Offset(from.x, from.y),
+      Offset(to.x, to.y),
+      Paint()
+        ..color = Colors.white.withAlpha((alpha * 120).round())
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round,
+    );
+    // ターゲット側のバーストリング
+    canvas.drawCircle(
+      Offset(to.x, to.y),
+      8 + progress * 20,
+      Paint()
+        ..color = color.withAlpha((alpha * 100).round())
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5,
+    );
   }
 }
