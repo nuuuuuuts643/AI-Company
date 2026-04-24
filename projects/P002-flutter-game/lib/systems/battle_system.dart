@@ -70,10 +70,8 @@ class BattleSystem {
     for (final enemy in enemies) {
       if (!enemy.isAlive) continue;
 
-      // 同列 or 隣列をカバー
-      final sameLane =
-          (enemy.laneIndex - unit.unitInstance.laneIndex).abs() <= 1;
-      if (!sameLane) continue;
+      // 同レーンのみ攻撃（レーン防衛の戦略性を担保）
+      if (enemy.laneIndex != unit.unitInstance.laneIndex) continue;
 
       // ユニットより上（Y値が小さい）にいる敵を対象
       final dy = unit.position.y - enemy.position.y;

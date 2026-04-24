@@ -52,6 +52,7 @@ class _BattleScreenState extends State<BattleScreen>
 
   // ---- 新機能: ウェーブクリア演出 ----
   bool _showWaveClear = false;
+  bool _waveClearPerfect = false;
   int _clearedWaveNum = 0;
   late AnimationController _waveClearCtrl;
 
@@ -60,9 +61,10 @@ class _BattleScreenState extends State<BattleScreen>
     super.initState();
     _wallFlashCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 400),
+      value: 1.0, // 初期値=1 → opacity=0（透明）から始める
     );
-    _wallFlashOpacity = Tween<double>(begin: 0.55, end: 0.0).animate(
+    _wallFlashOpacity = Tween<double>(begin: 0.38, end: 0.0).animate(
       CurvedAnimation(parent: _wallFlashCtrl, curve: Curves.easeOut),
     );
 
@@ -235,6 +237,7 @@ class _BattleScreenState extends State<BattleScreen>
               child: IgnorePointer(
                 child: _WaveClearOverlay(
                   waveNumber: _clearedWaveNum,
+                  isPerfect: _waveClearPerfect,
                   animation: _waveClearCtrl,
                 ),
               ),
@@ -377,6 +380,7 @@ class _BattleScreenState extends State<BattleScreen>
     if (!mounted) return;
     final gs = context.read<GameStateNotifier>();
     final wave = gs.battle?.currentWave ?? 1;
+    final breachCount = _game?.lastWaveBreachCount ?? 0;
 
     // ドロップ素材を抽出システムに登録
     final drops = gs.battle?.droppedMaterials ?? {};
@@ -392,6 +396,7 @@ class _BattleScreenState extends State<BattleScreen>
     // ウェーブクリア演出を先に見せてからショップへ
     setState(() {
       _clearedWaveNum = wave;
+      _waveClearPerfect = breachCount == 0;
       _showWaveClear = true;
     });
     _waveClearCtrl.forward(from: 0.0);
@@ -848,10 +853,12 @@ class _BossHPBar extends StatelessWidget {
 // ============================================================
 class _WaveClearOverlay extends StatelessWidget {
   final int waveNumber;
+  final bool isPerfect;
   final Animation<double> animation;
 
   const _WaveClearOverlay({
     required this.waveNumber,
+    required this.isPerfect,
     required this.animation,
   });
 
@@ -861,13 +868,16 @@ class _WaveClearOverlay extends StatelessWidget {
       animation: animation,
       builder: (_, __) {
         final t = animation.value;
-        // 前半フェードイン、後半フェードアウト
         final opacity = t < 0.3
             ? t / 0.3
             : t > 0.75
                 ? (1.0 - t) / 0.25
                 : 1.0;
-        final scale = 0.6 + t * 0.4;
+        final scale = 0.7 + t * 0.3;
+
+        final mainColor = isPerfect ? const Color(0xFF69F0AE) : const Color(0xFFFFD700);
+        final clearText = isPerfect ? 'P E R F E C T !!' : 'C L E A R !';
+        final subText = isPerfect ? '全敵撃破！城壁無傷' : 'WAVE $waveNumber';
 
         return Opacity(
           opacity: opacity.clamp(0.0, 1.0),
@@ -877,31 +887,40 @@ class _WaveClearOverlay extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'WAVE $waveNumber',
-                    style: const TextStyle(
-                      color: Color(0xFFFFD700),
-                      fontFamily: 'DotGothic16',
-                      fontSize: 18,
-                      letterSpacing: 4,
+                  if (!isPerfect)
+                    Text(
+                      subText,
+                      style: const TextStyle(
+                        color: Color(0xFFFFD700),
+                        fontFamily: 'DotGothic16',
+                        fontSize: 18,
+                        letterSpacing: 4,
+                      ),
                     ),
-                  ),
-                  const Text(
-                    'C L E A R !',
+                  Text(
+                    clearText,
                     style: TextStyle(
                       color: Colors.white,
                       fontFamily: 'DotGothic16',
-                      fontSize: 36,
+                      fontSize: isPerfect ? 32 : 36,
                       fontWeight: FontWeight.bold,
-                      letterSpacing: 6,
+                      letterSpacing: 5,
                       shadows: [
-                        Shadow(
-                          color: Color(0xFFFFD700),
-                          blurRadius: 24,
-                        ),
+                        Shadow(color: mainColor, blurRadius: 28),
+                        Shadow(color: mainColor, blurRadius: 12),
                       ],
                     ),
                   ),
+                  if (isPerfect)
+                    Text(
+                      subText,
+                      style: TextStyle(
+                        color: mainColor,
+                        fontFamily: 'DotGothic16',
+                        fontSize: 15,
+                        letterSpacing: 2,
+                      ),
+                    ),
                 ],
               ),
             ),
