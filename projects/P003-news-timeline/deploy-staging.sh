@@ -65,8 +65,8 @@ cp /tmp/staging-config.js "${FRONTEND_DIR}/config.js.staging.tmp"
 
 aws s3 sync "${FRONTEND_DIR}/" "s3://${STAGING_BUCKET}/" \
   --region "${REGION}" \
-  --delete \
   --exclude "config.js" \
+  --exclude "api/*" \
   --cache-control "no-cache, no-store"
 
 # config.jsだけステージング版をアップロード

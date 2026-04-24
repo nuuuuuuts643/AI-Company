@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flame/game.dart';
+import '../constants/element_chart.dart';
 import '../constants/game_constants.dart';
 import '../models/enemy_data.dart';
 import '../models/stage_data.dart';
@@ -112,11 +113,31 @@ class WaveSystem {
   bool get isAllSpawned =>
       _spawnIndex >= _spawnQueue.length && _waveInProgress;
 
+  /// ウェーブ開始前インターバル中か
+  bool get isInInterval => !_waveInProgress && _waveIntervalTimer > 0;
+
+  /// インターバルの残り秒数
+  double get intervalCountdown => _waveIntervalTimer.clamp(0, double.infinity);
+
+  /// 次ウェーブで登場する敵の種類（予告用）
+  Set<EnemyType> get nextWaveEnemyTypes =>
+      _spawnQueue.map((e) => e.enemyType).toSet();
+
+  /// 次ウェーブの主要属性（最多属性）
+  ElementType? get nextWaveMainElement {
+    if (_spawnQueue.isEmpty) return null;
+    final counts = <ElementType, int>{};
+    for (final e in _spawnQueue) {
+      final elem = EnemyMaster.get(e.enemyType).element;
+      counts[elem] = (counts[elem] ?? 0) + 1;
+    }
+    return counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+  }
+
   void _spawnEntry(_SpawnEntry entry) {
     final data = EnemyMaster.get(entry.enemyType);
-    // OctoBattleGameのspawnEnemyを呼び出す（キャストで取得）
-    if (game is _SpawnableGame) {
-      (game as _SpawnableGame).spawnEnemy(data, entry.laneIndex);
+    if (game is SpawnableGame) {
+      (game as SpawnableGame).spawnEnemy(data, entry.laneIndex);
     }
   }
 
@@ -139,7 +160,7 @@ class _SpawnEntry {
   });
 }
 
-/// spawnEnemyメソッドを持つゲームクラスの抽象
-abstract class _SpawnableGame {
+/// spawnEnemyメソッドを持つゲームクラスの抽象（OctoBattleGameが実装する）
+abstract class SpawnableGame {
   EnemyComponent spawnEnemy(EnemyData data, int laneIndex);
 }

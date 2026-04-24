@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../game/game_state.dart';
@@ -22,6 +23,7 @@ class _ResultScreenState extends State<ResultScreen>
   late Animation<double> _opacity;
 
   bool _adShown = false;
+  late AnimationController _particleCtrl;
 
   @override
   void initState() {
@@ -36,6 +38,10 @@ class _ResultScreenState extends State<ResultScreen>
     _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _entranceController, curve: Curves.easeIn),
     );
+    _particleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
     _entranceController.forward();
 
     // クリア後広告表示（無料版のみ）
@@ -47,6 +53,7 @@ class _ResultScreenState extends State<ResultScreen>
   @override
   void dispose() {
     _entranceController.dispose();
+    _particleCtrl.dispose();
     super.dispose();
   }
 
@@ -92,6 +99,17 @@ class _ResultScreenState extends State<ResultScreen>
               ),
             ),
           ),
+
+          // 勝利時: パーティクル演出
+          if (isVictory)
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _particleCtrl,
+                builder: (_, __) => CustomPaint(
+                  painter: _ConfettiPainter(_particleCtrl.value),
+                ),
+              ),
+            ),
 
           SafeArea(
             child: AnimatedBuilder(
@@ -324,6 +342,65 @@ class _ResultRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 勝利時の紙吹雪パーティクル
+class _ConfettiPainter extends CustomPainter {
+  final double t;
+  static final _rng = Random(42);
+  static final _particles = List.generate(40, (i) => _Particle(_rng));
+
+  const _ConfettiPainter(this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final p in _particles) {
+      final phase = (t + p.offset) % 1.0;
+      final x = p.xFrac * size.width + sin(phase * pi * 2 + p.wobble) * 20;
+      final y = phase * size.height * 1.2 - size.height * 0.1;
+
+      final paint = Paint()
+        ..color = p.color.withOpacity((1.0 - phase * 0.6).clamp(0, 1));
+
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(phase * pi * p.spin);
+      canvas.drawRect(
+        Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.5),
+        paint,
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ConfettiPainter old) => old.t != t;
+}
+
+class _Particle {
+  final double xFrac;
+  final double offset;
+  final double wobble;
+  final double spin;
+  final double size;
+  final Color color;
+
+  _Particle(Random rng)
+      : xFrac = rng.nextDouble(),
+        offset = rng.nextDouble(),
+        wobble = rng.nextDouble() * pi * 2,
+        spin = rng.nextDouble() * 4 + 1,
+        size = rng.nextDouble() * 8 + 5,
+        color = _colors[rng.nextInt(_colors.length)];
+
+  static const _colors = [
+    Color(0xFFFFD700),
+    Color(0xFFFF8F00),
+    Color(0xFF4CAF50),
+    Color(0xFF2196F3),
+    Color(0xFFE91E63),
+    Color(0xFF9C27B0),
+  ];
 }
 
 class _ActionButton extends StatelessWidget {

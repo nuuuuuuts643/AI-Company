@@ -37,15 +37,18 @@ class _WaveShopScreenState extends State<WaveShopScreen>
     super.initState();
     _shop = ShopSystem();
 
-    // ウェーブクリアゴールドを即計算して付与
-    final gs = context.read<GameStateNotifier>();
-    final earned = _shop.calcWaveGold(
-      waveNumber: widget.waveNumber,
-      score: gs.battle?.score ?? 0,
-      bonusRate: _shop.sessionBuffs.goldBonusRate,
-    );
-    gs.addGold(earned);
     _items = _shop.rollShopItems(waveNumber: widget.waveNumber);
+    // ウェーブクリアゴールドはビルド完了後に付与（initState中の notifyListeners 回避）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final gs = context.read<GameStateNotifier>();
+      final earned = _shop.calcWaveGold(
+        waveNumber: widget.waveNumber,
+        score: gs.battle?.score ?? 0,
+        bonusRate: _shop.sessionBuffs.goldBonusRate,
+      );
+      gs.addGold(earned);
+    });
 
     _slideCtrl = AnimationController(
       vsync: this,
@@ -294,7 +297,7 @@ class _ItemCard extends StatelessWidget {
             color: const Color(0xFF0D0D1E),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isPurchased || \!canAfford ? Colors.white24 : borderColor,
+              color: isPurchased || !canAfford ? Colors.white24 : borderColor,
               width: 1.5,
             ),
           ),
@@ -328,7 +331,7 @@ class _ItemCard extends StatelessWidget {
                 const SizedBox(width: 3),
                 Text('${item.cost} G',
                     style: TextStyle(
-                        color: canAfford && \!isPurchased
+                        color: canAfford && !isPurchased
                             ? const Color(0xFFFFD54F)
                             : Colors.white38,
                         fontWeight: FontWeight.bold,
@@ -337,7 +340,7 @@ class _ItemCard extends StatelessWidget {
                 if (isPurchased)
                   const Text('購入済',
                       style: TextStyle(color: Colors.white38, fontSize: 10))
-                else if (\!canAfford)
+                else if (!canAfford)
                   const Text('G不足',
                       style: TextStyle(color: Color(0xFFEF5350), fontSize: 10)),
               ]),

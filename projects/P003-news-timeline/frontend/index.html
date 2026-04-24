@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6754575901141756"
      crossorigin="anonymous"></script>
   <title>Flotopic | 話題の盛り上がりをAIで追う</title>
@@ -17,9 +20,6 @@
   <meta name="twitter:description" content="同じ話題のニュースをAIがまとめ、時間軸で推移を可視化。30分ごと自動更新。">
   <link rel="alternate" type="application/rss+xml" title="Flotopic RSS" href="/rss.xml">
   <link rel="manifest" href="/manifest.json">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://accounts.google.com/gsi/client" async defer onload="if(window.__gsiReady)window.__gsiReady()"></script>
   <style>
@@ -212,6 +212,8 @@
   </style>
 </head>
 <body>
+<!-- エラーバナー（fetch失敗時に表示） -->
+<div id="error-banner" role="alert" aria-live="assertive" style="display:none;position:fixed;top:64px;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;padding:10px 20px;border-radius:8px;font-size:.88rem;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,0.2);white-space:nowrap;max-width:90vw;text-overflow:ellipsis;overflow:hidden;"></div>
 <!-- PWAインストールバナー -->
 <div id="pwa-install-banner" role="banner" aria-label="アプリインストール案内">
   <span class="pwa-banner-text">📱 ホーム画面に追加してFlotopicをアプリとして使う</span>
@@ -274,13 +276,23 @@
     <div class="loading"><div class="spinner"></div>読み込み中...</div>
   </div>
   <div id="load-more-container" class="load-more-container"></div>
+  <div class="ad-slot" style="text-align:center;margin:16px 0;">
+    <script type="text/javascript" src="https://adm.shinobi.jp/s/229723"></script>
+  </div>
 </main>
-<footer style="text-align:center;padding:20px;color:#94a3b8;font-size:.8rem;margin-top:40px;">
-  <a href="legacy.html" style="color:#94a3b8;text-decoration:underline;">アーカイブ</a>
-  &nbsp;·&nbsp;
-  <a href="privacy.html" style="color:#94a3b8;text-decoration:underline;">プライバシーポリシー</a>
+<footer class="site-footer">
+  <div class="site-footer-links">
+    <a href="legacy.html">アーカイブ</a>
+    <a href="terms.html">利用規約</a>
+    <a href="privacy.html">プライバシーポリシー</a>
+    <a href="contact.html">お問い合わせ・削除依頼</a>
+  </div>
+  <div class="site-footer-copy">記事の著作権は各報道機関に帰属します。AI要約は自動生成です。© 2024-2026 Flotopic</div>
 </footer>
 <script src="config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/favorites.js"></script>
+<script src="js/comments.js"></script>
 <script src="app.js"></script>
 <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "35149d754c3a4903b9461c157568d392"}'></script><!-- End Cloudflare Web Analytics -->
 </body>

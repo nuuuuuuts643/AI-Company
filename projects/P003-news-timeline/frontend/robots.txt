@@ -1,6 +1,57 @@
+# Flotopic robots.txt
+# https://flotopic.com
+
+# 一般クローラー（Googlebot等）
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /js/auth.js
+Crawl-delay: 10
 Sitemap: https://flotopic.com/sitemap.xml
 
-User-agent: *
-Disallow: /api/
+# スクレイピング・SEO分析系bot（過剰クロール防止）
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+# AI学習クローラーを禁止（著作権保護のため）
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: Diffbot
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
