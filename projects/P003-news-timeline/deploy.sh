@@ -523,6 +523,51 @@ aws lambda add-permission \
 
 echo "  -> Analytics URL: $ANALYTICS_URL"
 
+# ---- 6e. CF Analytics Lambda（S3キャッシュ書き込み用、URL不要） ----
+CF_ANALYTICS_FN="flotopic-cf-analytics"
+CF_ANALYTICS_ENV="Variables={REGION=${REGION},S3_BUCKET=${BUCKET},USERS_TABLE=flotopic-users,COMMENTS_TABLE=ai-company-comments,FAVORITES_TABLE=flotopic-favorites,CF_SITE_TAG=35149d754c3a4903b9461c157568d392}"
+echo "[6e] CF Analytics Lambda デプロイ..."
+cd lambda/cf-analytics
+zip -q function.zip handler.py
+aws lambda create-function \
+  --function-name "$CF_ANALYTICS_FN" \
+  --runtime python3.12 \
+  --role "$ROLE_ARN" \
+  --handler handler.lambda_handler \
+  --zip-file fileb://function.zip \
+  --timeout 60 --memory-size 256 \
+  --environment "$CF_ANALYTICS_ENV" \
+  --region "$REGION" 2>/dev/null \
+  && echo "  -> 新規作成完了" \
+  || {
+    aws lambda update-function-code --function-name "$CF_ANALYTICS_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
+    aws lambda wait function-updated --function-name "$CF_ANALYTICS_FN" --region "$REGION"
+    aws lambda update-function-configuration --function-name "$CF_ANALYTICS_FN" --timeout 60 --memory-size 256 --environment "$CF_ANALYTICS_ENV" --region "$REGION" > /dev/null
+    echo "  -> 更新完了"
+  }
+rm function.zip
+cd ../..
+
+# EventBridge で毎日 22:00 UTC (7:00 JST) に実行
+CF_RULE_NAME="flotopic-cf-analytics-daily"
+aws events put-rule \
+  --name "$CF_RULE_NAME" \
+  --schedule-expression "cron(0 22 * * ? *)" \
+  --state ENABLED \
+  --region "$REGION" > /dev/null 2>&1 || true
+CF_ANALYTICS_ARN=$(aws lambda get-function --function-name "$CF_ANALYTICS_FN" --region "$REGION" --query 'Configuration.FunctionArn' --output text)
+aws lambda add-permission \
+  --function-name "$CF_ANALYTICS_FN" \
+  --statement-id EventBridgeCfAnalytics \
+  --action lambda:InvokeFunction \
+  --principal events.amazonaws.com \
+  --region "$REGION" 2>/dev/null || true
+aws events put-targets \
+  --rule "$CF_RULE_NAME" \
+  --targets "Id=1,Arn=${CF_ANALYTICS_ARN}" \
+  --region "$REGION" > /dev/null 2>&1 || true
+echo "  -> EventBridge スケジュール設定完了（毎日 7:00 JST）"
+
 # ---- config.js に全URL書き込み（GOOGLE_CLIENT_IDは固定値） ----
 echo "  -> config.js に全Lambda URL を書き込み..."
 # GOOGLE_CLIENT_ID: 環境変数 > ハードコード固定値
