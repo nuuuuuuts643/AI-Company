@@ -38,11 +38,14 @@ def fetch_rss(feed):
         req = urllib.request.Request(url, headers={'User-Agent': 'Flotopic/1.0'})
         with urllib.request.urlopen(req, timeout=15) as resp:
             content = resp.read()
-        root = ET.fromstring(content)
+        # RSS 1.0(RDF)はネームスペース付き要素になるため、事前に剥がして統一
+        content_str = re.sub(rb' xmlns(?::\w+)?="[^"]+"', b'', content)
+        root = ET.fromstring(content_str)
         for item in root.findall('.//item'):
             title   = (item.findtext('title')   or '').strip()
             link    = (item.findtext('link')     or '').strip()
-            pubdate = (item.findtext('pubDate')  or '').strip()
+            # RSS 1.0(RDF)は<dc:date>、RSS 2.0は<pubDate>
+            pubdate = (item.findtext('pubDate') or item.findtext('date') or '').strip()
             img     = extract_rss_image(item)
             if title and link:
                 if any(p.search(title) for p in _DIGEST_SKIP_PATS):
