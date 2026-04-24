@@ -66,8 +66,8 @@ RSS_FEEDS = [
     # 東洋経済: ⚠️ グレーゾーン→ 残す
     # tier=2: 主要経済メディア
     {'url': 'https://toyokeizai.net/list/feed/rss',  'genre': 'ビジネス', 'tier': 2},
-    # ダイヤモンド: ⚠️ グレーゾーン→ 残す
-    {'url': 'https://diamond.jp/list/feed/rss',       'genre': 'ビジネス', 'tier': 2},
+    # ダイヤモンド: ❌ 削除 — RSSフィードURLが非フィードページにリダイレクト（2026-04-25確認）
+    # {'url': 'https://diamond.jp/list/feed/rss', 'genre': 'ビジネス', 'tier': 2},
     # 日経: ❌ 削除 — 日経は著作権保護に極めて積極的（「ネット上の無断転載に対し法的措置」と明言）。
     #       RSS利用規約で「個人利用目的のみ」と明記。商業利用は明確にNG。
     # {'url': 'https://www.nikkei.com/rss/index.xml', 'genre': '株・金融'},  # ← 除外済み
@@ -76,9 +76,8 @@ RSS_FEEDS = [
     {'url': 'https://news.google.com/rss/search?q=%E6%A0%AA%E4%BE%A1+%E6%97%A5%E6%9C%AC&hl=ja&gl=JP&ceid=JP:ja',    'genre': '株・金融', 'tier': 3},
     {'url': 'https://news.google.com/rss/search?q=%E6%97%A5%E9%8A%80+%E9%87%91%E5%88%A9+%E7%82%BA%E6%9B%BF&hl=ja&gl=JP&ceid=JP:ja', 'genre': '株・金融', 'tier': 3},
     {'url': 'https://news.google.com/rss/search?q=%E6%B1%BA%E7%AE%97+%E4%B8%8A%E5%A0%B4+%E6%A0%AA%E5%BC%8F&hl=ja&gl=JP&ceid=JP:ja', 'genre': '株・金融', 'tier': 3},
-    # ===== 官公庁・政府系（著作権法第13条・政府著作物は商業利用可） =====
-    # tier=1: 一次情報・官公庁
-    {'url': 'https://www.kantei.go.jp/jp/rss/kantei.rdf',  'genre': '政治', 'tier': 1},   # ✅ 首相官邸
+    # ===== 官公庁・政府系 =====
+    # 首相官邸: ❌ 削除 — RSSフィード廃止（404確認 2026-04-25）。政治ニュースはNHK cat3で代替カバー済み。
     # ===== ほっこり・くらし・話題系 =====
     # BuzzFeed Japan: ⚠️ グレーゾーン（明示的商業禁止なし）→ 残す
     # tier=3: バイラル・くらし・面白記事混在
