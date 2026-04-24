@@ -171,16 +171,19 @@ aws lambda create-function \
   --role "$ROLE_ARN" \
   --handler handler.lambda_handler \
   --zip-file fileb://function.zip \
-  --timeout 300 --memory-size 256 \
+  --timeout 900 --memory-size 512 \
   --environment "$ENV_VARS" \
   --region "$REGION" 2>/dev/null \
   && echo "  -> 新規作成完了" \
   || {
     aws lambda update-function-code --function-name "$FETCHER" --zip-file fileb://function.zip --region "$REGION" > /dev/null
     aws lambda wait function-updated --function-name "$FETCHER" --region "$REGION"
-    aws lambda update-function-configuration --function-name "$FETCHER" --timeout 300 --memory-size 256 --environment "$ENV_VARS" --region "$REGION" > /dev/null
+    aws lambda update-function-configuration --function-name "$FETCHER" --timeout 900 --memory-size 512 --environment "$ENV_VARS" --region "$REGION" > /dev/null
     echo "  -> 更新完了"
   }
+# リトライ0設定（タイムアウト時の連鎖リトライ防止）
+aws lambda put-function-event-invoke-config --function-name "$FETCHER" \
+  --maximum-retry-attempts 0 --maximum-event-age-in-seconds 300 --region "$REGION" > /dev/null
 rm function.zip
 cd ../..
 
