@@ -99,6 +99,19 @@ FUTURE_IDEAS = [
 ]
 
 
+def get_title_property_name():
+    """DBのタイトルプロパティ名を動的に取得"""
+    res = requests.get(
+        f"https://api.notion.com/v1/databases/{DATABASE_ID}",
+        headers=HEADERS,
+    )
+    props = res.json().get("properties", {})
+    for name, val in props.items():
+        if val.get("type") == "title":
+            print(f"  タイトルプロパティ名: {name}")
+            return name
+    return "Name"
+
 def get_existing_pages():
     """既存ページ一覧取得"""
     res = requests.post(
@@ -121,12 +134,12 @@ def find_page_by_title(pages, title):
     return None
 
 
-def upsert_page(title, content_blocks, existing_pages):
+def upsert_page(title, content_blocks, existing_pages, title_prop="Name"):
     """ページ作成または更新"""
     page_id = find_page_by_title(existing_pages, title)
 
     properties = {
-        "Name": {
+        title_prop: {
             "title": [{"text": {"content": title}}]
         }
     }
@@ -253,10 +266,11 @@ def main():
         return
 
     print("✅ Notion DB接続成功")
+    title_prop = get_title_property_name()
     existing = get_existing_pages()
 
     # AI-Company状態ページをupsert
-    upsert_page("AI-Company 現在の状態", build_status_page(), existing)
+    upsert_page("AI-Company 現在の状態", build_status_page(), existing, title_prop)
 
     print("✅ 同期完了")
 
