@@ -13,42 +13,157 @@ table    = dynamodb.Table(TABLE_NAME)
 s3       = boto3.client('s3', region_name=REGION)
 
 RSS_FEEDS = [
-    # Google News（日本語・カテゴリ別）
-    {'url': 'https://news.google.com/rss/headlines/section/topic/NATION?hl=ja&gl=JP&ceid=JP:ja',         'genre': '総合'},
-    {'url': 'https://news.google.com/rss/headlines/section/topic/POLITICS?hl=ja&gl=JP&ceid=JP:ja',       'genre': '政治'},
-    {'url': 'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ja&gl=JP&ceid=JP:ja',       'genre': 'ビジネス'},
-    {'url': 'https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=ja&gl=JP&ceid=JP:ja',     'genre': 'テクノロジー'},
-    {'url': 'https://news.google.com/rss/headlines/section/topic/SPORTS?hl=ja&gl=JP&ceid=JP:ja',         'genre': 'スポーツ'},
-    {'url': 'https://news.google.com/rss/headlines/section/topic/ENTERTAINMENT?hl=ja&gl=JP&ceid=JP:ja',  'genre': 'エンタメ'},
-    {'url': 'https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=ja&gl=JP&ceid=JP:ja',        'genre': '科学'},
-    {'url': 'https://news.google.com/rss/headlines/section/topic/HEALTH?hl=ja&gl=JP&ceid=JP:ja',         'genre': '健康'},
-    {'url': 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=ja&gl=JP&ceid=JP:ja',          'genre': '国際'},
-    # ライブドアニュース（補完）
-    {'url': 'https://news.livedoor.com/topics/rss/dom.xml', 'genre': '総合'},
-    {'url': 'https://news.livedoor.com/topics/rss/ent.xml', 'genre': 'エンタメ'},
-    {'url': 'https://news.livedoor.com/topics/rss/spo.xml', 'genre': 'スポーツ'},
-    {'url': 'https://news.livedoor.com/topics/rss/int.xml', 'genre': '国際'},
-    # テクノロジー系
-    {'url': 'https://rss.itmedia.co.jp/rss/2.0/news_bursts.xml', 'genre': 'テクノロジー'},
-    {'url': 'https://rss.itmedia.co.jp/rss/2.0/itmedia_all.xml', 'genre': 'テクノロジー'},
-    {'url': 'https://gigazine.net/news/rss_2.0/',                 'genre': 'テクノロジー'},
-    {'url': 'https://ascii.jp/rss.xml',                           'genre': 'テクノロジー'},
-    {'url': 'https://www.gizmodo.jp/index.xml',                   'genre': 'テクノロジー'},
-    # 総合・一般紙
-    {'url': 'https://www3.nhk.or.jp/rss/news/cat0.xml',           'genre': '総合'},
-    {'url': 'https://www.yomiuri.co.jp/feed/',                     'genre': '総合'},
-    {'url': 'https://mainichi.jp/rss/etc/mainichi-flash.rss',     'genre': '総合'},
-    {'url': 'https://www.asahi.com/rss/asahi/newsheadlines.rdf',  'genre': '総合'},
-    {'url': 'https://www3.nhk.or.jp/rss/news/cat4.xml',           'genre': 'エンタメ'},
-    {'url': 'https://www3.nhk.or.jp/rss/news/cat7.xml',           'genre': 'スポーツ'},
-    # ビジネス・経済
-    {'url': 'https://toyokeizai.net/list/feed/rss',  'genre': 'ビジネス'},
-    {'url': 'https://diamond.jp/list/feed/rss',       'genre': 'ビジネス'},
-    {'url': 'https://www.nikkei.com/rss/index.xml',   'genre': '株・金融'},
-    # 株・金融（Google News検索RSS）
-    {'url': 'https://news.google.com/rss/search?q=%E6%A0%AA%E4%BE%A1+%E6%97%A5%E6%9C%AC&hl=ja&gl=JP&ceid=JP:ja',    'genre': '株・金融'},
-    {'url': 'https://news.google.com/rss/search?q=%E6%97%A5%E9%8A%80+%E9%87%91%E5%88%A9+%E7%82%BA%E6%9B%BF&hl=ja&gl=JP&ceid=JP:ja', 'genre': '株・金融'},
-    {'url': 'https://news.google.com/rss/search?q=%E6%B1%BA%E7%AE%97+%E4%B8%8A%E5%A0%B4+%E6%A0%AA%E5%BC%8F&hl=ja&gl=JP&ceid=JP:ja', 'genre': '株・金融'},
+    # ===== Google News（日本語・カテゴリ別）=====
+    # 判定: ⚠️ グレーゾーン（ToSは個人利用が前提だが明示的商業禁止なし）→ 残す
+    # tier=3: アグリゲーター（実際の記事ソースに依存）
+    {'url': 'https://news.google.com/rss/headlines/section/topic/NATION?hl=ja&gl=JP&ceid=JP:ja',         'genre': '総合',       'tier': 3},
+    {'url': 'https://news.google.com/rss/headlines/section/topic/POLITICS?hl=ja&gl=JP&ceid=JP:ja',       'genre': '政治',       'tier': 3},
+    {'url': 'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ja&gl=JP&ceid=JP:ja',       'genre': 'ビジネス',   'tier': 3},
+    {'url': 'https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=ja&gl=JP&ceid=JP:ja',     'genre': 'テクノロジー', 'tier': 3},
+    {'url': 'https://news.google.com/rss/headlines/section/topic/SPORTS?hl=ja&gl=JP&ceid=JP:ja',         'genre': 'スポーツ',   'tier': 3},
+    {'url': 'https://news.google.com/rss/headlines/section/topic/ENTERTAINMENT?hl=ja&gl=JP&ceid=JP:ja',  'genre': 'エンタメ',   'tier': 3},
+    {'url': 'https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=ja&gl=JP&ceid=JP:ja',        'genre': '科学',       'tier': 3},
+    {'url': 'https://news.google.com/rss/headlines/section/topic/HEALTH?hl=ja&gl=JP&ceid=JP:ja',         'genre': '健康',       'tier': 3},
+    {'url': 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=ja&gl=JP&ceid=JP:ja',          'genre': '国際',       'tier': 3},
+    # ===== ライブドアニュース =====
+    # 判定: ⚠️ グレーゾーン（明示的商業禁止なし）→ 残す
+    # tier=3: アグリゲーター
+    {'url': 'https://news.livedoor.com/topics/rss/dom.xml', 'genre': '総合',   'tier': 3},
+    {'url': 'https://news.livedoor.com/topics/rss/ent.xml', 'genre': 'エンタメ', 'tier': 3},
+    {'url': 'https://news.livedoor.com/topics/rss/spo.xml', 'genre': 'スポーツ', 'tier': 3},
+    {'url': 'https://news.livedoor.com/topics/rss/int.xml', 'genre': '国際',   'tier': 3},
+    # ===== テクノロジー系 =====
+    # ITmedia: ⚠️ グレーゾーン（RSS配信に積極的・明示的商業禁止なし）→ 残す
+    # tier=2: 主要テクノロジーメディア
+    {'url': 'https://rss.itmedia.co.jp/rss/2.0/news_bursts.xml', 'genre': 'テクノロジー', 'tier': 2},
+    {'url': 'https://rss.itmedia.co.jp/rss/2.0/itmedia_all.xml', 'genre': 'テクノロジー', 'tier': 2},
+    # Gigazine: ⚠️ グレーゾーン→ 残す
+    {'url': 'https://gigazine.net/news/rss_2.0/',                 'genre': 'テクノロジー', 'tier': 2},
+    # ASCII.jp: ⚠️ グレーゾーン→ 残す
+    {'url': 'https://ascii.jp/rss.xml',                           'genre': 'テクノロジー', 'tier': 2},
+    # Gizmodo Japan: ⚠️ グレーゾーン→ 残す
+    {'url': 'https://www.gizmodo.jp/index.xml',                   'genre': 'テクノロジー', 'tier': 2},
+    # ===== 総合・一般紙 =====
+    # NHK: ✅ 公共放送・見出し+リンクは広く許容→ 残す
+    # tier=1: 一次情報・権威性高
+    {'url': 'https://www3.nhk.or.jp/rss/news/cat0.xml',           'genre': '総合',       'tier': 1},
+    {'url': 'https://www3.nhk.or.jp/rss/news/cat1.xml',           'genre': '社会',       'tier': 1},  # NHK 社会
+    {'url': 'https://www3.nhk.or.jp/rss/news/cat2.xml',           'genre': 'エンタメ',   'tier': 1},  # NHK 文化・エンタメ
+    {'url': 'https://www3.nhk.or.jp/rss/news/cat3.xml',           'genre': '政治',       'tier': 1},  # NHK 政治
+    {'url': 'https://www3.nhk.or.jp/rss/news/cat4.xml',           'genre': 'くらし',     'tier': 1},  # NHK 暮らし・健康
+    {'url': 'https://www3.nhk.or.jp/rss/news/cat5.xml',           'genre': 'くらし',     'tier': 1},  # NHK 生活・文化
+    {'url': 'https://www3.nhk.or.jp/rss/news/cat6.xml',           'genre': '国際',       'tier': 1},  # NHK 国際
+    {'url': 'https://www3.nhk.or.jp/rss/news/cat7.xml',           'genre': 'スポーツ',   'tier': 1},
+    # 毎日新聞: ⚠️ グレーゾーン（明示的商業禁止なし・積極的な訴訟実績なし）→ 残す
+    # tier=2: 主要一般紙
+    {'url': 'https://mainichi.jp/rss/etc/mainichi-flash.rss',     'genre': '総合', 'tier': 2},
+    # 朝日新聞: ⚠️ グレーゾーン（同上）→ 残す
+    {'url': 'https://www.asahi.com/rss/asahi/newsheadlines.rdf',  'genre': '総合', 'tier': 2},
+    # 読売新聞: ❌ 削除 — 2002年「読売オンライン vs デジタルアライアンス」判決でリンク集・見出し転載を問題視。
+    #           RSS利用規約に「著作権者の許諾なく商業目的での利用を禁ずる」旨の記載あり。リスク高のため除外。
+    # {'url': 'https://www.yomiuri.co.jp/feed/', 'genre': '総合'},  # ← 除外済み
+    # ===== ビジネス・経済 =====
+    # 東洋経済: ⚠️ グレーゾーン→ 残す
+    # tier=2: 主要経済メディア
+    {'url': 'https://toyokeizai.net/list/feed/rss',  'genre': 'ビジネス', 'tier': 2},
+    # ダイヤモンド: ⚠️ グレーゾーン→ 残す
+    {'url': 'https://diamond.jp/list/feed/rss',       'genre': 'ビジネス', 'tier': 2},
+    # 日経: ❌ 削除 — 日経は著作権保護に極めて積極的（「ネット上の無断転載に対し法的措置」と明言）。
+    #       RSS利用規約で「個人利用目的のみ」と明記。商業利用は明確にNG。
+    # {'url': 'https://www.nikkei.com/rss/index.xml', 'genre': '株・金融'},  # ← 除外済み
+    # ===== 株・金融（Google News検索RSS）=====
+    # 判定: ⚠️ Google News同様グレーゾーン→ 残す
+    {'url': 'https://news.google.com/rss/search?q=%E6%A0%AA%E4%BE%A1+%E6%97%A5%E6%9C%AC&hl=ja&gl=JP&ceid=JP:ja',    'genre': '株・金融', 'tier': 3},
+    {'url': 'https://news.google.com/rss/search?q=%E6%97%A5%E9%8A%80+%E9%87%91%E5%88%A9+%E7%82%BA%E6%9B%BF&hl=ja&gl=JP&ceid=JP:ja', 'genre': '株・金融', 'tier': 3},
+    {'url': 'https://news.google.com/rss/search?q=%E6%B1%BA%E7%AE%97+%E4%B8%8A%E5%A0%B4+%E6%A0%AA%E5%BC%8F&hl=ja&gl=JP&ceid=JP:ja', 'genre': '株・金融', 'tier': 3},
+    # ===== 官公庁・政府系（著作権法第13条・政府著作物は商業利用可） =====
+    # tier=1: 一次情報・官公庁
+    {'url': 'https://www.kantei.go.jp/jp/rss/kantei.rdf',  'genre': '政治', 'tier': 1},   # ✅ 首相官邸
+    # ===== ほっこり・くらし・話題系 =====
+    # BuzzFeed Japan: ⚠️ グレーゾーン（明示的商業禁止なし）→ 残す
+    # tier=3: バイラル・くらし・面白記事混在
+    {'url': 'https://www.buzzfeed.com/jp.xml',              'genre': 'くらし', 'tier': 3},  # BuzzFeed Japan
+]
+
+# ソースドメイン → tier マッピング（Google News経由の記事など、フィードtierが使えない場合のフォールバック）
+SOURCE_TIER_MAP = {
+    # Tier 1: 一次情報・権威性高
+    'NHK':        1,
+    '首相官邸':   1,
+    # Tier 2: 主要メディア
+    '毎日新聞':   2,
+    '朝日新聞':   2,
+    'ITmedia':    2,
+    'Gizmodo Japan': 2,
+    'GIGAZINE':   2,
+    'ASCII.jp':   2,
+    '東洋経済':   2,
+    'ダイヤモンド': 2,
+    '産経新聞':   2,
+    'PRESIDENT Online': 2,
+    '文春オンライン': 2,
+    'Business Insider Japan': 2,
+    'Forbes Japan': 2,
+    # Tier 3: アグリゲーター・その他
+    'livedoorニュース': 3,
+    'Yahoo!ニュース':   3,
+}
+
+# Tier別スコア重み
+TIER_WEIGHTS = {1: 1.3, 2: 1.0, 3: 0.8}
+
+# 不確実表現パターン（「信頼性の材料を可視化」するための検出のみ、真偽判定ではない）
+UNCERTAINTY_PATTERNS = [
+    r'とみられる', r'とされる', r'という', r'関係者によると',
+    r'報道によれば', r'〜か', r'疑い', r'匿名', r'情報筋',
+    r'複数のメディア', r'一部報道', r'噂', r'未確認',
+]
+
+# テック記事の「専門的すぎる」キーワード（これに引っかかったらvelocityスコアを下げる）
+TECH_NICHE_KEYWORDS = [
+    # セキュリティ専門用語
+    '脆弱性', 'CVE-', 'ゼロデイ', 'パッチ適用', 'セキュリティアドバイザリ',
+    'CVSS', 'エクスプロイト', 'PoC公開',
+    # 開発者向け
+    'プルリクエスト', 'コミット', 'リポジトリ', 'フレームワーク',
+    'API仕様', 'SDK', 'npm', 'PyPI', 'GitHub Actions',
+    # インフラ・サーバー
+    'Docker', 'Kubernetes', 'Linux kernel', 'カーネル', 'コンテナ',
+    'クラウドネイティブ', 'CI/CD', 'DevOps',
+    # ニッチなOS・ハード
+    'BIOS', 'ファームウェア', 'ドライバ', 'マザーボード',
+]
+
+# テック記事でも一般向けとして優先的に扱うキーワード
+# 「一般日本人が日常生活で直接接するテック」に絞る
+TECH_GENERAL_KEYWORDS = [
+    # デバイス・OS（誰でも知っているもの）
+    'iPhone', 'Android', 'スマートフォン', 'スマホ', 'iPad',
+    # AI・生成AI（社会的関心が高い）
+    'ChatGPT', 'AI', '人工知能', '生成AI', 'Gemini',
+    # 主要プラットフォーム・サービス
+    'Google', 'Apple', 'Meta', 'Amazon', 'Microsoft',
+    'LINE', 'Instagram', 'YouTube', 'X（旧Twitter）', 'TikTok',
+    # ECサービス（トラブル・変更が一般ニュースになる）
+    'メルカリ', '楽天', 'Amazon',
+    # 動画・配信サービス（契約変更・値上げ等）
+    'Netflix', 'Amazon Prime', 'Disney+', 'NHKプラス', 'Hulu',
+    # スマホアプリ（生活密着）
+    'アプリ', 'ゲーム',
+    # キャッシュレス・決済
+    'キャッシュレス', 'PayPay', '電子マネー', 'QRコード決済',
+    # 行政・社会インフラ系デジタル
+    'マイナンバー', 'マイナカード', '給付金', '補助金',
+    # 詐欺・被害（社会問題として一般向け）
+    '詐欺', 'フィッシング', 'なりすまし', 'インターネット詐欺',
+    # 個人情報・セキュリティ被害（企業事故→一般被害）
+    '個人情報', '情報漏えい', '個人情報流出',
+    # ランサムウェア（企業被害が社会問題化している）
+    'ランサムウェア',
+    # 通信障害（日常生活への影響が直接的）
+    '通信障害', 'ドコモ', 'au', 'ソフトバンク',
+    # EV・自動運転（生活に近い話題）
+    'EV', '自動運転',
 ]
 
 JACCARD_THRESHOLD = 0.35
@@ -91,6 +206,8 @@ SYNONYMS = {
 
 GENRE_KEYWORDS = {
     '株・金融': ['株価','日経平均','円安','円高','為替','金利','日銀','決算','上場','株式','NISA','投資','FRB','ダウ','ナスダック','債券','利上げ','利下げ','景気','物価','インフレ','GDP','貿易','輸出','輸入'],
+    '社会':    ['事件','事故','裁判','逮捕','警察','消防','火災','交通事故','人身','台風','地震','災害','被害','支援','救助','遺族','詐欺','不正','汚職','虐待','行方不明','捜索','地域','自治体'],
+    'くらし':  ['生活','暮らし','育児','子育て','学校','教育','保育','介護','福祉','年金','物価','節約','家計','グルメ','料理','レシピ','旅行','観光','ペット','趣味','健康法','ダイエット','美容','ファッション','話題','感動','ほっこり'],
     '政治':    ['国会','首相','総理','大臣','選挙','与党','野党','自民','政府','閣議','議員','内閣','知事','官房','外交','条約','法案','政策'],
     'スポーツ':  ['野球','サッカー','テニス','ゴルフ','バスケ','陸上','水泳','五輪','オリンピック','ワールドカップ','Ｊリーグ','プロ野球','NFL','NBA','相撲','ラグビー','大谷','錦織','W杯','Jリーグ'],
     '健康':    ['病院','医療','がん','薬','治療','ワクチン','感染','医師','手術','診断','症状','厚生労働'],
@@ -155,6 +272,7 @@ SOURCE_NAME_MAP = {
     'gigazine.net': 'GIGAZINE',
     'ascii.jp': 'ASCII.jp',
     'news.livedoor.com': 'livedoorニュース',
+    'www.buzzfeed.com':  'BuzzFeed Japan',
 }
 
 URGENT_WORDS = {'緊急', '速報', '重大', '急騰', '急落', '大幅', '速報', '号外', '警報', '警告', '危機', '緊迫'}
@@ -165,6 +283,6 @@ SEEN_KEY = 'api/seen_articles.json'
 SEEN_MAX = 3000
 
 # SNAPアイテムの保持期間（日）。DynamoDB TTLで自動削除される
-SNAP_TTL_DAYS = 7
+SNAP_TTL_DAYS = 30
 
 INACTIVE_LIFECYCLE_STATUSES = frozenset({'legacy', 'archived'})

@@ -59,24 +59,29 @@ class BattleSystem {
   EnemyComponent? _findTarget(
       UnitComponent unit, List<EnemyComponent> enemies) {
     EnemyComponent? best;
-    double bestX = double.negativeInfinity;
+    double bestY = double.negativeInfinity;
+
+    // 前列ユニット（rowIndex=0）は射程を伸ばして敵フィールドをカバー
+    // 後列ユニットは自分のセル付近に来た敵だけ攻撃
+    final baseRange = unit.unitInstance.attackRange;
+    final rowBonus = (3 - unit.unitInstance.rowIndex) * 30.0; // 前列ほど射程長い
+    final effectiveRange = baseRange + rowBonus;
 
     for (final enemy in enemies) {
       if (!enemy.isAlive) continue;
 
-      // レーン一致チェック
-      final sameOrAdjacentLane =
+      // 同列 or 隣列をカバー
+      final sameLane =
           (enemy.laneIndex - unit.unitInstance.laneIndex).abs() <= 1;
-      if (!sameOrAdjacentLane) continue;
+      if (!sameLane) continue;
 
-      // 射程チェック（ユニットの右側に敵がいるか）
-      final dx = enemy.position.x - unit.position.x;
-      if (dx < 0 || dx > unit.unitInstance.attackRange) continue;
+      // ユニットより上（Y値が小さい）にいる敵を対象
+      final dy = unit.position.y - enemy.position.y;
+      if (dy < 0 || dy > effectiveRange) continue;
 
-      // 最も近い（最左端の）敵を優先
-      if (best == null || enemy.position.x < bestX) {
+      if (best == null || enemy.position.y > bestY) {
         best = enemy;
-        bestX = enemy.position.x;
+        bestY = enemy.position.y;
       }
     }
     return best;

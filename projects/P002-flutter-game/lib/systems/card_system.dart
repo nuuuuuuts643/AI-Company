@@ -14,7 +14,7 @@ class CardSystem {
   CardSystem({required this.gameState});
 
   /// カードデータからユニットインスタンスを生成
-  UnitInstance createUnitInstance(CardData card, int laneIndex) {
+  UnitInstance createUnitInstance(CardData card, int laneIndex, {int rowIndex = 0}) {
     // 装備ボーナスを反映
     final attackBonus = _getAttackBonus(card);
     final hpBonus = _getHpBonus(card);
@@ -44,7 +44,10 @@ class CardSystem {
       attackRange: card.attackRange,
       attackType: attackType,
       laneIndex: laneIndex,
+      rowIndex: rowIndex,
       aoeRadius: card.aoeRadius,
+      displayName: card.name,
+      emoji: _elementEmoji(card.element),
     );
   }
 
@@ -112,6 +115,17 @@ class CardSystem {
       return EquipmentMaster.getById(id);
     } catch (_) {
       return null;
+    }
+  }
+
+  static String _elementEmoji(ElementType e) {
+    switch (e) {
+      case ElementType.fire:  return '🔥';
+      case ElementType.water: return '🌊';
+      case ElementType.wind:  return '🌪️';
+      case ElementType.earth: return '🪨';
+      case ElementType.light: return '⭐';
+      case ElementType.dark:  return '💀';
     }
   }
 }

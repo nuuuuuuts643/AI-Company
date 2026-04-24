@@ -37,20 +37,26 @@ enum UnitSkillId {
 
 /// フィールド上のユニット実行時データ
 class UnitInstance {
-  final String instanceId;     // 実行時ユニークID
-  final String cardId;         // 元のカードID
-  final ElementType element;
-  final int maxHp;
+  final String instanceId;
+  String cardId;
+  ElementType element;
+  int maxHp;
   int currentHp;
-  final int attack;
-  final double attackSpeed;    // 秒あたり攻撃回数
-  final double attackRange;
-  final AttackType attackType;
-  final int aoeRadius;
-  final List<UnitSkillId> skills;
+  int attack;
+  double attackSpeed;
+  double attackRange;
+  AttackType attackType;
+  int aoeRadius;
+  List<UnitSkillId> skills;
+  String displayName;   // 表示名（フュージョン後は変化）
+  String emoji;         // 表示絵文字
 
-  // 配置位置（Flameコンポーネント側で管理するが参照用に保持）
-  final int laneIndex; // 0=上, 1=中, 2=下
+  final int laneIndex; // 列 (0=左, 1=中, 2=右)
+  final int rowIndex;  // 行 (0=前列/敵に近い, 3=後列)
+
+  // フュージョン
+  int fusionLevel;      // 1=通常, 2=強化, 3=超強化
+  bool isFused;         // 異属性合体フラグ
 
   // 状態異常
   bool isFrozen;
@@ -59,7 +65,6 @@ class UnitInstance {
   bool isBlessed;
   double blessedAttackMultiplier;
 
-  // アニメーション状態
   bool isAttacking;
   bool isDying;
 
@@ -73,9 +78,14 @@ class UnitInstance {
     required this.attackRange,
     required this.attackType,
     required this.laneIndex,
+    this.rowIndex = 0,
+    required this.displayName,
+    required this.emoji,
     this.aoeRadius = 0,
     this.skills = const [],
     int? currentHp,
+    this.fusionLevel = 1,
+    this.isFused = false,
     this.isFrozen = false,
     this.isBurning = false,
     this.burnDamagePerSec = 0,
@@ -88,9 +98,37 @@ class UnitInstance {
   bool get isAlive => currentHp > 0;
   double get hpRatio => currentHp / maxHp;
 
-  /// 有効攻撃力（バフ・状態込み）
-  int get effectiveAttack =>
-      (attack * (isBlessed ? blessedAttackMultiplier : 1.0)).round();
+  int get effectiveAttack {
+    final fusionMult = 1.0 + (fusionLevel - 1) * 0.5;
+    return (attack * fusionMult * (isBlessed ? blessedAttackMultiplier : 1.0))
+        .round();
+  }
+
+  /// 同属性フュージョン（パワーアップ）
+  void powerUp() {
+    fusionLevel = (fusionLevel + 1).clamp(1, 3);
+    final hpBonus = (maxHp * 0.5).round();
+    maxHp += hpBonus;
+    currentHp = (currentHp + hpBonus).clamp(0, maxHp);
+  }
+
+  /// 異属性フュージョン（完全変身）
+  void fuseTo({
+    required ElementType newElement,
+    required String newName,
+    required String newEmoji,
+    required int newAttack,
+    required int newMaxHp,
+  }) {
+    element = newElement;
+    displayName = newName;
+    emoji = newEmoji;
+    attack = newAttack;
+    maxHp = newMaxHp;
+    currentHp = newMaxHp;
+    fusionLevel = 2;
+    isFused = true;
+  }
 
   void takeDamage(int dmg) {
     currentHp = (currentHp - dmg).clamp(0, maxHp);

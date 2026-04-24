@@ -1,33 +1,8 @@
-name: Lambda APIキー設定
-
-on:
-  workflow_dispatch:
-
-jobs:
-  setup:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: AWS認証情報を設定
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-1
-
-      - name: p003-fetcher に ANTHROPIC_API_KEY を設定
-        run: |
-          aws lambda update-function-configuration \
-            --function-name p003-fetcher \
-            --environment "Variables={TABLE_NAME=p003-topics,REGION=ap-northeast-1,ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}}" \
-            --region ap-northeast-1
-          echo "✅ p003-fetcher へのAPIキー設定完了"
-
-      - name: Lambdaをテスト実行
-        run: |
-          aws lambda invoke \
-            --function-name p003-fetcher \
-            --region ap-northeast-1 \
-            /tmp/result.json
-          cat /tmp/result.json
-          echo "✅ テスト実行完了"
+# DEPRECATED: 一時的なAPIキー設定ワークフロー（2026-04-24 削除済み扱い）
+# p003-fetcher に ANTHROPIC_API_KEY を設定するone-shot操作だった。
+# 現在はprocessor Lambdaに移行済み。fetcher側への設定は不要。
+# APIキー設定が必要な場合はCLAUDE.mdの「残タスク」を参照（aws lambda update-function-configuration コマンド）。
+# トリガーを除去して無効化。
+#
+# name: Lambda APIキー設定
+# on: workflow_dispatch

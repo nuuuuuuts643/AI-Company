@@ -49,13 +49,14 @@ table    = dynamodb.Table(TABLE)
 def is_truly_inactive(item: dict, now: int) -> bool:
     """
     「本当に活動停止しているか」を判定する。
-    time.time() ベースの経過日数に加え、velocity_score が 0 以下であることを必須とする。
-    → velocity > 0 なら記事が来続けているので継続型トピックと判断して除外する。
+    velocity_score <= 0 かつ lastArticleAt が ARCHIVE_DAYS 以上前の場合のみ True。
+    lastArticleAt=0 は pubDate 未設定による誤値なので除外する（削除しない）。
     """
     last_article = int(item.get('lastArticleAt', 0))
-    velocity     = int(item.get('velocityScore', 0))
-    days_since   = (now - last_article) / 86400
-
+    if last_article == 0:
+        return False  # pubDate未解析トピックは誤判定で削除しない
+    velocity   = int(item.get('velocityScore', 0))
+    days_since = (now - last_article) / 86400
     return days_since >= ARCHIVE_DAYS and velocity <= 0
 
 
@@ -72,6 +73,38 @@ def delete_snaps(topic_id: str) -> int:
             break
         kwargs['ExclusiveStartKey'] = resp['LastEvaluatedKey']
     return deleted
+
+
+# ── TODO: フィルター重み自動調整（フェーズ2実装予定） ────────────────────────
+#
+# 概要:
+#   fetcher Lambda は実行のたびに api/filter-feedback/{YYYYMMDDTHHMMSSZ}.json を
+#   S3 に書き込む。lifecycle Lambda（週次）がこれを集計し、パターンごとの
+#   過剰/適切検出率を評価して api/filter-weights.json を更新する。
+#
+# 実装手順（この関数の末尾に追加する）:
+#
+#   1. S3 から api/filter-feedback/*.json を全件取得（前回 sweep 日時以降のもの）
+#
+#   2. パターンキーごとに出現回数を集計
+#      例: {'secondary:によると': {'fired': 42, 'used_in_summary': 5}}
+#      ※ 'used_in_summary' フラグは processor Lambda が要約採用時に付与する（TODO: processor 側実装）
+#
+#   3. 過剰検出判定: used_in_summary / fired > 0.3 の場合 → weight -= 0.1（最低 0.5）
+#      ※「減点したが実は重要な記事だった」パターンを緩める
+#
+#   4. 適切除外判定: fired > 10 かつ used_in_summary / fired <= 0.05 → weight += 0.1（最大 2.0）
+#      ※「確実にジャンク記事を除外できている」パターンを強める
+#
+#   5. 変更があれば api/filter-weights.json を put_object で上書き保存
+#      フォーマット: {"version": 1, "updatedAt": "ISO", "weights": {"key": float, ...}}
+#
+#   6. 集計済みの filter-feedback/*.json は削除 or 別プレフィックスに移動して重複集計を防ぐ
+#
+# 参照:
+#   - fetcher/handler.py: _OPINION_PATS, _SECONDARY_PATS, _DEFAULT_WEIGHTS, _effective_mult()
+#   - S3 パス: api/filter-weights.json, api/filter-feedback/*.json
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 def lambda_handler(event, context):

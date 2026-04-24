@@ -1,4 +1,27 @@
-const REFRESH_MS = 5 * 60 * 1000;
+// app.js — メイン。auth.js / favorites.js / comments.js を先に読み込むこと。
+// 読み込み順: config.js → js/auth.js → js/favorites.js → js/comments.js → app.js
+
+// ── 設定定数 ──────────────────────────────────────────────────
+const CONFIG = {
+  HOT_STRIP_HOURS: 2,                   // 今急上昇中セクションの対象時間（時間）
+  NEW_BADGE_HOURS: 1,                   // NEWバッジを表示する最大経過時間（時間）
+  AD_CARD_INTERVAL: 10,                 // 広告を挿入する間隔（カード枚数）
+  FRESHNESS_INTERVAL_MS: 60000,         // 鮮度表示テキストの更新間隔（ミリ秒）
+  TOPICS_PER_PAGE: 20,                  // 1ページに表示するトピック数
+  REFRESH_INTERVAL_MS: 5 * 60 * 1000,  // トピック一覧の自動更新間隔（ミリ秒）
+  MAX_GENRE_RATIO: 0.4,                 // 1ジャンルが全体に占める最大割合（多様性制御）
+};
+
+// ── ローカルストレージ キー定数 ──────────────────────────────
+const LS_KEYS = {
+  FAVORITES:     'flotopic_favorites',
+  HISTORY:       'flotopic_history',
+  AVATAR:        'flotopic_avatar',
+  PROFILE_SET:   'flotopic_profile_set',
+  DARK_MODE:     'flotopic_dark',
+  PREFS:         'flotopic_prefs',
+  PWA_DISMISSED: 'pwa_dismissed',
+};
 
 function showToast(msg, duration = 3000) {
   let el = document.getElementById('flotopic-toast');
@@ -17,214 +40,60 @@ function showToast(msg, duration = 3000) {
     el.style.transform = 'translateX(-50%) translateY(60px)';
   }, duration);
 }
+
+/**
+ * エラーバナーを5秒間表示する
+ * @param {string} message - 表示するエラーメッセージ
+ */
+function showErrorBanner(message) {
+  const banner = document.getElementById('error-banner');
+  if (banner) {
+    banner.textContent = message;
+    banner.style.display = 'block';
+    setTimeout(() => { banner.style.display = 'none'; }, 5000);
+  }
+}
+
 const STATUS_LABEL = { rising:'🔥 急上昇', peak:'⚡ 注目中', declining:'📉 落ち着き' };
+
+function cleanSummary(s) {
+  if (!s) return s;
+  return s
+    .replace(/^#{1,3}\s+.+?\n+/gm, '')
+    .replace(/^[-*]\s+/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    .replace(/\n{2,}/g, ' ')
+    .replace(/\n/g, ' ')
+    .trim();
+}
+
 const GENRES = ['すべて','総合','政治','ビジネス','株・金融','テクノロジー','スポーツ','エンタメ','科学','健康','国際'];
 const GENRE_EMOJI = {'政治':'🏛️','ビジネス':'💼','株・金融':'📈','テクノロジー':'💻','スポーツ':'⚽','エンタメ':'🎬','科学':'🔬','健康':'💊','国際':'🌏','総合':'📰'};
 
-// ===== パーソナライズ: ローカルストレージで設定を保存 =====
-const PREF_KEY = 'flotopic_prefs';
+// ===== パーソナライズ =====
 
-// ===== 閲覧履歴 =====
-const HISTORY_KEY = 'flotopic_history';
 function recordTopicView(topic) {
   if (!topic || !topic.topicId) return;
   try {
-    let history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-    // Remove existing entry for this topic so we can prepend fresh
-    history = history.filter(function (h) { return h.topicId !== topic.topicId; });
-    history.unshift({
-      topicId:  topic.topicId,
-      title:    topic.generatedTitle || topic.title || '',
-      viewedAt: Date.now(),
-    });
-    // Keep last 20 entries
+    let history = JSON.parse(localStorage.getItem(LS_KEYS.HISTORY) || '[]');
+    history = history.filter(h => h.topicId !== topic.topicId);
+    history.unshift({ topicId: topic.topicId, title: topic.generatedTitle || topic.title || '', viewedAt: Date.now() });
     if (history.length > 20) history = history.slice(0, 20);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-  } catch (e) {}
+    localStorage.setItem(LS_KEYS.HISTORY, JSON.stringify(history));
+  } catch {}
 }
 function loadPrefs() {
-  try { return JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); } catch { return {}; }
+  try { return JSON.parse(localStorage.getItem(LS_KEYS.PREFS) || '{}'); } catch { return {}; }
 }
 function savePrefs(prefs) {
-  try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch {}
+  try { localStorage.setItem(LS_KEYS.PREFS, JSON.stringify(prefs)); } catch {}
 }
 
-// ===== Google Auth =====
-// GOOGLE_CLIENT_ID は config.js で設定
-let currentUser = null;
-
-function loadUser() {
-  try { return JSON.parse(localStorage.getItem('flotopic_user') || 'null'); } catch { return null; }
-}
-function saveUser(user) {
-  try {
-    if (user) localStorage.setItem('flotopic_user', JSON.stringify(user));
-    else localStorage.removeItem('flotopic_user');
-  } catch {}
-}
-
-// ニックネーム: 設定済みなら優先、なければGoogleの名前の名前部分のみ
-function getDisplayName(user) {
-  if (!user) return '';
-  if (user.nickname) return user.nickname;
-  const full = user.name || '';
-  return full.split(/\s+/)[0] || full || 'ユーザー';
-}
-function saveNickname(nickname) {
-  try {
-    const u = loadUser();
-    if (u) { u.nickname = nickname; saveUser(u); if (currentUser) currentUser.nickname = nickname; }
-  } catch {}
-}
-
-function updateAuthUI() {
-  const signInBtn  = document.getElementById('auth-signin-btn');
-  const signOutBtn = document.getElementById('auth-signout-btn');
-  const userAvatar = document.getElementById('auth-user-avatar');
-  const userName   = document.getElementById('auth-user-name');
-
-  const mypageLink = document.getElementById('mypage-link');
-
-  if (mypageLink) mypageLink.style.display = 'inline-flex';
-  const googleBtnWrap = document.getElementById('google-btn-wrap');
-  if (currentUser) {
-    if (signInBtn)     signInBtn.style.display     = 'none';
-    if (googleBtnWrap) googleBtnWrap.style.display = 'none';
-    if (signOutBtn)    signOutBtn.style.display    = 'inline-flex';
-    if (userAvatar) {
-      userAvatar.src     = currentUser.picture || '';
-      userAvatar.style.display = currentUser.picture ? 'inline-block' : 'none';
-    }
-    if (userName) userName.textContent = getDisplayName(currentUser);
-  } else {
-    if (signInBtn)     signInBtn.style.display     = 'none';
-    if (googleBtnWrap) googleBtnWrap.style.display = 'inline-block';
-    if (signOutBtn)    signOutBtn.style.display    = 'none';
-    if (userAvatar)    userAvatar.style.display    = 'none';
-    if (userName)      userName.textContent        = '';
-  }
-}
-
-async function handleGoogleCredentialResponse(response) {
-  const idToken = response.credential;
-  if (!idToken) return;
-
-  // AUTH_URL は config.js で定義
-  if (typeof AUTH_URL === 'undefined' || !AUTH_URL) {
-    // AUTH_URL 未設定の場合はトークンからローカルでユーザー情報を取得
-    try {
-      const parts  = idToken.split('.');
-      const payload = JSON.parse(atob(parts[1]));
-      currentUser = {
-        userId:  payload.sub,
-        name:    payload.name || '',
-        picture: payload.picture || '',
-        token:   idToken,
-      };
-      saveUser(currentUser);
-      updateAuthUI();
-      showToast(`${getDisplayName(currentUser) || 'ログイン'} でログインしました`);
-    } catch {}
-    return;
-  }
-
-  function localLoginFromToken(token) {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      currentUser = { userId: payload.sub, name: payload.name || '', picture: payload.picture || '', token };
-      saveUser(currentUser);
-      updateAuthUI();
-      showToast(`${getDisplayName(currentUser) || 'ログイン'} でログインしました`);
-      const topicId = new URLSearchParams(location.search).get('id');
-      if (topicId) setupCommentForm(topicId);
-    } catch {}
-  }
-
-  try {
-    const r = await fetch(AUTH_URL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ idToken }),
-    });
-    if (r.ok) {
-      const data = await r.json();
-      currentUser = { ...data, token: idToken };
-      saveUser(currentUser);
-      updateAuthUI();
-      showToast(`${getDisplayName(currentUser) || 'ログイン'} でログインしました`);
-      const topicId = new URLSearchParams(location.search).get('id');
-      if (topicId) setupCommentForm(topicId);
-    } else {
-      localLoginFromToken(idToken);
-    }
-  } catch (e) {
-    console.error('Auth error:', e);
-    localLoginFromToken(idToken);
-  }
-}
-
-function signOut() {
-  currentUser = null;
-  saveUser(null);
-  updateAuthUI();
-  // Google セッションもサインアウト
-  if (window.google && google.accounts && google.accounts.id) {
-    google.accounts.id.disableAutoSelect();
-  }
-  // コメントフォームを再描画
-  const topicId = new URLSearchParams(location.search).get('id');
-  if (topicId) setupCommentForm(topicId);
-}
-
-function initGoogleAuth() {
-  currentUser = loadUser();
-  updateAuthUI();
-
-  const clientId = (typeof GOOGLE_CLIENT_ID !== 'undefined') ? GOOGLE_CLIENT_ID : '';
-  if (!clientId) return;
-
-  const signOutBtn = document.getElementById('auth-signout-btn');
-  if (signOutBtn) signOutBtn.addEventListener('click', signOut);
-
-  function setupGIS() {
-    if (!window.google || !google.accounts || !google.accounts.id) return;
-    google.accounts.id.initialize({
-      client_id: clientId,
-      callback:  handleGoogleCredentialResponse,
-      auto_select: false,
-      ux_mode: 'popup',
-    });
-    const signInBtn = document.getElementById('auth-signin-btn');
-    if (signInBtn) {
-      // renderButtonでGoogle標準ボタンを差し込む（One Tapより確実）
-      const btnWrap = document.createElement('div');
-      btnWrap.id = 'google-btn-wrap';
-      btnWrap.style.display = 'inline-block';
-      signInBtn.parentNode.insertBefore(btnWrap, signInBtn);
-      signInBtn.style.display = 'none';
-      google.accounts.id.renderButton(btnWrap, {
-        type: 'standard', theme: 'outline', size: 'medium',
-        text: 'signin_with', locale: 'ja',
-      });
-      // ログイン済みなら wrapper も即非表示
-      if (currentUser) btnWrap.style.display = 'none';
-    }
-  }
-
-  if (window.google && google.accounts && google.accounts.id) {
-    setupGIS();
-  } else {
-    // GISスクリプトのonload後に初期化（async deferのため）
-    window.__gsiReady = setupGIS;
-  }
-}
-
+// ===== 共通ユーティリティ =====
 const _prefs = loadPrefs();
 let allTopics = [], currentStatus = _prefs.status || 'all', currentGenre = _prefs.genre || 'すべて', currentSearch = '';
-let userFavorites = new Set();
-let showFavsOnly = false;
 let currentPage = 1;
-const PAGE_SIZE = 20;
+let lastFetchTime = null;
 
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -237,119 +106,144 @@ function fmtDate(s) {
 }
 function apiUrl(path) { return API_BASE + path + '.json'; }
 
-// ===== お気に入り =====
-
-const FAV_LS_KEY = 'flotopic_favs';
-function loadLocalFavs() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(FAV_LS_KEY) || '[]');
-    return Array.isArray(raw) ? raw : [];
-  } catch { return []; }
-}
-function saveLocalFavs(set) {
-  try { localStorage.setItem(FAV_LS_KEY, JSON.stringify([...set])); } catch {}
-}
-
-function favApiUrl() {
-  if (typeof FAVORITES_URL === 'undefined' || !FAVORITES_URL) return null;
-  return FAVORITES_URL.replace(/\/$/, '');
-}
-
-async function loadFavorites() {
-  // Always load from localStorage first as a baseline
-  loadLocalFavs().forEach(id => userFavorites.add(id));
-
-  if (!currentUser) return;
-  const base = favApiUrl();
-  if (!base) return;
-  try {
-    const r = await fetch(`${base}/favorites/${currentUser.userId}`);
-    if (r.ok) {
-      const data = await r.json();
-      const apiFavs = (data.favorites || []).map(f => f.topicId);
-      userFavorites = new Set([...userFavorites, ...apiFavs]);
-      saveLocalFavs(userFavorites);
-    }
-  } catch {}
-}
-
-async function toggleFavorite(topicId, heartBtn) {
-  if (!currentUser) {
-    alert('お気に入りするにはGoogleでログインしてください');
-    return;
-  }
-  const base = favApiUrl();
-  if (!base) return;
-
-  const isFav = userFavorites.has(topicId);
-  const method = isFav ? 'DELETE' : 'POST';
-
-  heartBtn.disabled = true;
-  try {
-    const r = await fetch(`${base}/favorites`, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId:  currentUser.userId,
-        idToken: currentUser.token,
-        topicId,
-      }),
-    });
-    if (r.ok) {
-      if (isFav) {
-        userFavorites.delete(topicId);
-        heartBtn.classList.remove('fav-active');
-        heartBtn.title = 'お気に入りに追加';
-      } else {
-        userFavorites.add(topicId);
-        heartBtn.classList.add('fav-active');
-        heartBtn.title = 'お気に入りを解除';
-      }
-      saveLocalFavs(userFavorites);
-    }
-  } catch {}
-  heartBtn.disabled = false;
-}
-
 // ===== 一覧ページ =====
+
+/**
+ * topics.json をフェッチし、キーワードストリップを描画してトピック配列を返す
+ * @returns {Promise<Array>} トピックの配列
+ */
 async function loadTopics() {
   const r = await fetch(apiUrl('topics'));
   const data = await r.json();
-  const trendingKeywords = data.trendingKeywords || [];
-  renderKeywordStrip(trendingKeywords);
+  renderKeywordStrip(data.trendingKeywords || []);
   return data.topics || [];
 }
 
 function renderKeywordStrip(keywords) {
   const strip = document.getElementById('keyword-strip');
-  const chips = document.getElementById('keyword-chips');
-  if (!strip || !chips || keywords.length === 0) return;
-
-  chips.innerHTML = keywords.map(k =>
-    `<button class="keyword-chip" data-keyword="${k.keyword}">#${k.keyword}</button>`
-  ).join('');
-
+  if (!strip) return;
+  if (!keywords || !keywords.length) { strip.style.display = 'none'; return; }
   strip.style.display = 'flex';
-
-  // ランダムな急上昇キーワードをプレースホルダーに表示
-  const searchInput = document.getElementById('search-input');
-  if (searchInput) {
-    const randomKw = keywords[Math.floor(Math.random() * keywords.length)].keyword;
-    searchInput.placeholder = `🔍 例：「${randomKw}」で検索...`;
-  }
-
-  chips.querySelectorAll('.keyword-chip').forEach(btn => {
+  strip.innerHTML = keywords.slice(0, 12).map(kw =>
+    `<button class="kw-chip" data-kw="${esc(kw)}">#${esc(kw)}</button>`
+  ).join('');
+  strip.querySelectorAll('.kw-chip').forEach(btn => {
     btn.addEventListener('click', () => {
-      const kw = btn.dataset.keyword;
-      if (searchInput) {
-        searchInput.value = kw;
-        searchInput.dispatchEvent(new Event('input'));  // trigger search filter
-      }
-      // Highlight active chip
-      chips.querySelectorAll('.keyword-chip').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      const input = document.getElementById('search-input');
+      if (input) { input.value = btn.dataset.kw; currentSearch = btn.dataset.kw; currentPage = 1; renderTopics(allTopics); }
     });
   });
+}
+
+/**
+ * NEWバッジのHTMLを生成する（lastUpdated が NEW_BADGE_HOURS 以内の場合のみ表示）
+ * @param {Object} t - トピックオブジェクト
+ * @returns {string} バッジのHTML文字列
+ */
+function renderBadges(t) {
+  const isNew = t.lastUpdated != null
+    && Number(t.lastUpdated) > 0
+    && Number(t.lastUpdated) >= Date.now() / 1000 - CONFIG.NEW_BADGE_HOURS * 3600;
+  return isNew ? '<span class="card-new-badge">NEW</span>' : '';
+}
+
+/**
+ * カードのメタ情報HTML（記事件数・読書時間・ソース数・ジャンル・更新日時）を生成する
+ * @param {Object} t - トピックオブジェクト
+ * @returns {string} メタ情報のHTML文字列
+ */
+function renderCardMeta(t) {
+  const readMins = Math.min(30, Math.max(1, Math.round((t.articleCount || 1) * 0.8)));
+  const srcCount = t.uniqueSourceCount || (t.sources ? t.sources.length : 0);
+  const srcLabel = srcCount > 1
+    ? `<span class="src-count-label" title="${srcCount}社のソースが報道">📰 ${srcCount}社が報道</span>`
+    : (srcCount === 1 ? `<span class="src-count-label src-single" title="1社のみの報道">📰 1社のみ</span>` : '');
+  const genres = t.genres || [t.genre || '総合'];
+  return `
+    <div class="topic-meta">
+      <span class="article-count">📄 ${t.articleCount}件 · 約${readMins}分</span>
+      ${srcLabel}
+      ${genres.map(g => `<span class="genre-tag">${esc(g)}</span>`).join('')}
+      <span>${fmtDate(t.lastUpdated)}</span>
+    </div>`;
+}
+
+/**
+ * 信頼性シグナルHTML（⚠情報確認中・情報精査中バッジ）を生成する
+ * 断定せず判断材料を提供する設計（法的リスク低減）
+ * @param {Object} t - トピックオブジェクト
+ * @returns {string} シグナルのHTML文字列（シグナルなしの場合は空文字列）
+ */
+function renderReliabilitySignal(t) {
+  const reliabilityBadge = (t.reliability === 'unverified' && (t.score || 0) < 80)
+    ? `<span class="reliability-badge" title="複数の記事で不確実な表現が多く見られます">⚠️ 情報確認中</span>`
+    : '';
+  const conflictBadge = t.hasConflict
+    ? `<span class="conflict-badge" title="記事間で数値に食い違いが見られる場合があります">情報精査中</span>`
+    : '';
+  if (!reliabilityBadge && !conflictBadge) return '';
+  return `<div class="reliability-signals">${reliabilityBadge}${conflictBadge}</div>`;
+}
+
+/**
+ * 1枚のトピックカードHTML文字列を生成する
+ * AD_CARD_INTERVAL 枚ごとに広告カードも末尾に追加する
+ * @param {Object} t - トピックオブジェクト
+ * @param {number} i - ゼロ始まりのインデックス（広告挿入判定に使用）
+ * @returns {string} カードHTML文字列
+ */
+function renderTopicCard(t, i) {
+  const primaryGenre = (t.genres || [t.genre || '総合'])[0];
+  const thumbHtml = t.imageUrl
+    ? `<div class="card-thumb"><img class="card-thumb-img" src="${esc(t.imageUrl)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<div class=\\'card-thumb-placeholder ${esc(t.status)}\\'>${genreEmoji(primaryGenre)}</div>'"></div>`
+    : `<div class="card-thumb"><div class="card-thumb-placeholder ${esc(t.status)}">${genreEmoji(primaryGenre)}</div></div>`;
+  const isFav = userFavorites.has(t.topicId);
+  const adCardHtml = `<div class="ad-card"><span class="ad-label">PR</span><!-- ADSENSE_SLOT_HERE --></div>`;
+  return `
+    <div class="topic-card-wrapper" style="position:relative;">
+      ${renderBadges(t)}
+      <a class="topic-card ${esc(t.status)}" href="topic.html?id=${esc(t.topicId)}">
+        ${thumbHtml}
+        <div class="card-body">
+          <div class="topic-status ${esc(t.status)}">${STATUS_LABEL[t.status] || t.status}</div>
+          <h3>${esc(t.generatedTitle || t.title)}</h3>
+          ${renderCardMeta(t)}
+          ${renderReliabilitySignal(t)}
+          <div class="card-attribution">© 記事の権利は各媒体に帰属</div>
+        </div>
+      </a>
+      <button class="fav-btn ${isFav ? 'fav-active' : ''}" data-topic-id="${esc(t.topicId)}" title="${isFav ? 'お気に入りを解除' : 'お気に入りに追加'}" aria-label="お気に入り">♥</button>
+    </div>${(i + 1) % CONFIG.AD_CARD_INTERVAL === 0 ? adCardHtml : ''}`;
+}
+
+/**
+ * ジャンル多様性を確保したトピックリストを返す
+ * 1ジャンルが全体の CONFIG.MAX_GENRE_RATIO を超えないようにする
+ * 上限を超えたトピックは末尾に回し、表示は維持する
+ * @param {Array} topics - ソート済みトピック配列
+ * @param {boolean} genreFiltered - ジャンルフィルターが選択中かどうか
+ * @returns {Array} 多様性を確保したトピック配列
+ */
+function applyGenreDiversity(topics, genreFiltered) {
+  if (genreFiltered) return topics; // フィルター選択中はそのまま返す
+  if (!topics.length) return topics;
+
+  const maxPerGenre = Math.ceil(topics.length * CONFIG.MAX_GENRE_RATIO);
+  const genreCount = {};
+  const result = [];
+  const overflow = []; // 上限超えのトピックは末尾に回す
+
+  for (const t of topics) {
+    const genre = (t.genres && t.genres[0]) || t.genre || 'その他';
+    genreCount[genre] = (genreCount[genre] || 0) + 1;
+    if (genreCount[genre] <= maxPerGenre) {
+      result.push(t);
+    } else {
+      overflow.push(t);
+    }
+  }
+
+  return [...result, ...overflow];
 }
 
 function renderTopics(topics) {
@@ -362,13 +256,13 @@ function renderTopics(topics) {
   }
   if (currentStatus !== 'all')    list = list.filter(t => t.status === currentStatus);
   if (currentGenre  !== 'すべて') list = list.filter(t => (t.genres||[t.genre]).includes(currentGenre));
-  // archivedは「すべて」でも非表示（legacyページ送り）
   if (currentStatus === 'all')    list = list.filter(t => t.lifecycleStatus !== 'archived');
-  // --- Task 1: favorites-only filter ---
   if (showFavsOnly) list = list.filter(t => userFavorites.has(t.topicId));
 
-  const lmContainer = document.getElementById('load-more-container');
+  // ジャンル多様性を確保（テック偏り防止）
+  list = applyGenreDiversity(list, currentGenre !== 'すべて');
 
+  const lmContainer = document.getElementById('load-more-container');
   if (!list.length) {
     grid.innerHTML = showFavsOnly
       ? '<div class="loading">お気に入りのトピックがありません</div>'
@@ -377,53 +271,22 @@ function renderTopics(topics) {
     return;
   }
 
-  // --- Task 3: pagination ---
-  const totalFiltered = list;
-  const pageList = totalFiltered.slice(0, currentPage * PAGE_SIZE);
+  const pageList = list.slice(0, currentPage * CONFIG.TOPICS_PER_PAGE);
+  grid.innerHTML = pageList.reduce((html, t, i) => html + renderTopicCard(t, i), '');
 
-  grid.innerHTML = pageList.map(t => {
-    const primaryGenre = (t.genres||[t.genre||'総合'])[0];
-    const thumbHtml = t.imageUrl
-      ? `<div class="card-thumb"><img class="card-thumb-img" src="${esc(t.imageUrl)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<div class=\\'card-thumb-placeholder ${esc(t.status)}\\'>${genreEmoji(primaryGenre)}</div>'"></div>`
-      : `<div class="card-thumb"><div class="card-thumb-placeholder ${esc(t.status)}">${genreEmoji(primaryGenre)}</div></div>`;
-    const isFav = userFavorites.has(t.topicId);
-    // reading time: ~1min per article, capped at 30min
-    const readMins = Math.min(30, Math.max(1, Math.round((t.articleCount || 1) * 0.8)));
-    return `
-    <div class="topic-card-wrapper" style="position:relative;">
-      <a class="topic-card ${esc(t.status)}" href="topic.html?id=${esc(t.topicId)}">
-        ${thumbHtml}
-        <div class="card-body">
-          <div class="topic-status ${esc(t.status)}">${STATUS_LABEL[t.status]||t.status}</div>
-          <h3>${esc(t.generatedTitle||t.title)}</h3>
-          <div class="topic-meta">
-            <span class="article-count">📄 ${t.articleCount}件 · 約${readMins}分</span>
-            ${(t.genres||[t.genre||'総合']).map(g=>`<span class="genre-tag">${esc(g)}</span>`).join('')}
-            <span>${fmtDate(t.lastUpdated)}</span>
-          </div>
-        </div>
-      </a>
-      <button class="fav-btn ${isFav ? 'fav-active' : ''}" data-topic-id="${esc(t.topicId)}" title="${isFav ? 'お気に入りを解除' : 'お気に入りに追加'}" aria-label="お気に入り">♥</button>
-    </div>`;
-  }).join('');
-
-  // もっと見るボタンの表示制御
   if (lmContainer) {
-    if (pageList.length < totalFiltered.length) {
-      const remaining = totalFiltered.length - pageList.length;
+    if (pageList.length < list.length) {
+      const remaining = list.length - pageList.length;
       lmContainer.innerHTML = `<button class="load-more-btn">もっと見る（残り${remaining}件）</button>`;
-      lmContainer.querySelector('.load-more-btn').addEventListener('click', () => {
-        currentPage++;
-        renderTopics(allTopics);
-      });
+      lmContainer.querySelector('.load-more-btn').addEventListener('click', () => { currentPage++; renderTopics(allTopics); });
     } else {
       lmContainer.innerHTML = '';
     }
   }
 
-  // お気に入りボタンのイベント
+  // お気に入りボタン
   grid.querySelectorAll('.fav-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
       toggleFavorite(btn.dataset.topicId, btn);
@@ -442,8 +305,7 @@ function buildFilters() {
       sbar.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active'); currentStatus = btn.dataset.status;
       savePrefs({...loadPrefs(), status: currentStatus});
-      currentPage = 1;
-      renderTopics(allTopics);
+      currentPage = 1; renderTopics(allTopics);
     }));
   }
   const gbar = document.getElementById('genre-filter');
@@ -453,8 +315,7 @@ function buildFilters() {
       gbar.querySelectorAll('.genre-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active'); currentGenre = btn.dataset.genre;
       savePrefs({...loadPrefs(), genre: currentGenre});
-      currentPage = 1;
-      renderTopics(allTopics);
+      currentPage = 1; renderTopics(allTopics);
     }));
   }
 }
@@ -468,36 +329,17 @@ const WMO = {
   80:'🌦 にわか雨',81:'🌧 にわか雨',82:'⛈ 激しいにわか雨',
   95:'⛈ 雷雨',96:'⛈ 雷雨',99:'⛈ 激しい雷雨',
 };
-
 async function loadWeather() {
   const el = document.getElementById('weather-widget');
   if (!el) return;
-  const fetchWeather = async (lat, lon, cityName) => {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=Asia%2FTokyo&forecast_days=1`;
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=35.68&longitude=139.69&current=temperature_2m,weather_code&timezone=Asia%2FTokyo&forecast_days=1`;
     const r = await fetch(url);
     const d = await r.json();
     const temp = Math.round(d.current.temperature_2m);
     const desc = WMO[d.current.weather_code] || '―';
-    el.innerHTML = `<span class="weather-city">${cityName}</span><span class="weather-desc">${desc}</span><span class="weather-temp">${temp}°C</span>`;
-  };
-  try {
-    fetchWeather(35.68, 139.69, '東京');
-  } catch(e) { el.textContent = ''; }
-}
-
-function setupFavsToggle() {
-  const btn = document.getElementById('fav-toggle-btn');
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    if (!currentUser && userFavorites.size === 0) {
-      alert('ログインするとお気に入りが保存されます');
-      return;
-    }
-    showFavsOnly = !showFavsOnly;
-    btn.classList.toggle('active', showFavsOnly);
-    currentPage = 1;
-    renderTopics(allTopics);
-  });
+    el.innerHTML = `<span class="weather-city">東京</span><span class="weather-desc">${desc}</span><span class="weather-temp">${temp}°C</span>`;
+  } catch { el.textContent = ''; }
 }
 
 function setupSearch() {
@@ -510,41 +352,85 @@ function setupSearch() {
   });
 }
 
+/**
+ * トピック一覧をフェッチしてUIを更新する（REFRESH_INTERVAL_MS ごとに自動呼び出し）
+ * @returns {Promise<void>}
+ */
 async function refreshTopics() {
   try {
     allTopics = await loadTopics();
+    lastFetchTime = Date.now();
+    updateFreshnessDisplay();
+    renderHotStrip(allTopics);
     renderTopics(allTopics);
-    const el = document.getElementById('last-updated');
-    if (el) el.textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP')}（5分ごとに自動更新）`;
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error(e);
+    showErrorBanner('データの読み込みに失敗しました。しばらくしてから再度お試しください。');
+  }
 }
+
+function updateFreshnessDisplay() {
+  const el = document.getElementById('last-updated');
+  if (!el || !lastFetchTime) return;
+  const diffMin = Math.floor((Date.now() - lastFetchTime) / 60000);
+  const diffH   = Math.floor(diffMin / 60);
+  const diffD   = Math.floor(diffH   / 24);
+  if (diffMin < 1)       el.textContent = '🔄 たった今更新';
+  else if (diffMin < 60) el.textContent = `🔄 ${diffMin}分前に更新`;
+  else if (diffH  < 24)  el.textContent = `🔄 ${diffH}時間前に更新`;
+  else                   el.textContent = `🔄 ${diffD}日前に更新`;
+}
+
+/**
+ * 「今急上昇中」ストリップを描画する
+ * HOT_STRIP_HOURS 以内に更新されたトピックを velocityScore 降順で最大5件表示する
+ * @param {Array} topics - 全トピックの配列
+ */
+function renderHotStrip(topics) {
+  let strip = document.getElementById('hot-strip');
+  if (!strip) {
+    const grid = document.getElementById('topics-grid');
+    if (!grid) return;
+    strip = document.createElement('section');
+    strip.id = 'hot-strip';
+    strip.className = 'hot-strip';
+    grid.parentNode.insertBefore(strip, grid);
+  }
+  const nowSec = Date.now() / 1000;
+  const hot = (topics || [])
+    .filter(t => t.lifecycleStatus !== 'archived' && t.lastUpdated != null && Number(t.lastUpdated) > 0 && Number(t.lastUpdated) >= nowSec - CONFIG.HOT_STRIP_HOURS * 3600)
+    .sort((a, b) => Number(b.velocityScore || b.score || 0) - Number(a.velocityScore || a.score || 0))
+    .slice(0, 5);
+  if (!hot.length) { strip.remove(); return; }
+  strip.style.display = 'block';
+  strip.innerHTML = `
+    <div class="hot-strip-header">🔥 今急上昇中</div>
+    <div class="hot-strip-chips">
+      ${hot.map(t => {
+        const cnt = t.articleCount || 0;
+        return `<a href="topic.html?id=${esc(t.topicId)}" class="hot-chip">${esc(t.generatedTitle || t.title)}${cnt ? `（${cnt}件）` : ''}</a>`;
+      }).join('')}
+    </div>`;
+}
+
 function showTrendingBanner(topics) {
   const grid = document.getElementById('topics-grid');
   if (!grid) return;
-
-  // Remove existing banner
   const existing = document.getElementById('trending-banner');
   if (existing) existing.remove();
-
-  // Filter rising topics with score >= 30, top 3
   const rising = (topics || [])
     .filter(t => t.status === 'rising' && Number(t.score || 0) >= 30)
     .slice(0, 3);
-
   if (!rising.length) return;
-
   const links = rising.map(t =>
     `<a href="topic.html?id=${esc(t.topicId)}" class="trending-link">${esc(t.generatedTitle || t.title)}</a>`
   ).join(' <span class="trending-sep">/</span> ');
-
   const banner = document.createElement('div');
   banner.id = 'trending-banner';
   banner.className = 'trending-banner';
   banner.innerHTML = `<span class="trending-label">🔥 急上昇:</span> ${links}`;
   grid.parentNode.insertBefore(banner, grid);
 }
-
-
 
 // ===== 詳細ページ =====
 let chartInstance = null, viewsChartInstance = null;
@@ -559,14 +445,10 @@ function trackView(topicId) {
 }
 
 function updateOGP(meta) {
-  const topicId = meta.topicId || '';
   const title   = meta.generatedTitle || meta.title || 'Flotopic';
-  const rawDesc = meta.generatedSummary || '';
-  const desc    = rawDesc.length > 0
-    ? rawDesc.slice(0, 100)
-    : 'Flotopicでトピックの推移をAIが分析';
-  const url     = `https://flotopic.com/topic.html?id=${topicId}`;
-
+  const rawDesc = cleanSummary(meta.generatedSummary) || '';
+  const desc    = rawDesc.length > 0 ? rawDesc.slice(0, 100) : 'Flotopicでトピックの推移をAIが分析';
+  const url     = `https://flotopic.com/topic.html?id=${meta.topicId || ''}`;
   const setMeta = (prop, val) => {
     const el = document.querySelector(`meta[property="${prop}"]`);
     if (el) el.setAttribute('content', val);
@@ -574,32 +456,49 @@ function updateOGP(meta) {
   setMeta('og:title',       title);
   setMeta('og:description', desc);
   setMeta('og:url',         url);
+
+  // canonical URL を動的更新
+  const canonical = document.getElementById('canonical-url');
+  if (canonical) canonical.setAttribute('href', url);
+
+  // JSON-LD 構造化データ（NewsArticle）を動的更新
+  const jsonLdEl = document.getElementById('jsonld-newsarticle');
+  if (jsonLdEl && meta.topicId) {
+    const iso = (ts) => {
+      if (!ts) return new Date().toISOString();
+      try { return new Date(ts).toISOString(); } catch { return new Date().toISOString(); }
+    };
+    const datePublished = iso(meta.firstArticleAt || meta.createdAt);
+    const dateModified  = iso(meta.lastArticleAt  || meta.lastUpdated);
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'NewsArticle',
+      'headline': title.slice(0, 110),
+      'description': desc,
+      'url': url,
+      'datePublished': datePublished,
+      'dateModified':  dateModified,
+      'publisher': {
+        '@type': 'Organization',
+        'name': 'Flotopic',
+        'url': 'https://flotopic.com',
+        'logo': { '@type': 'ImageObject', 'url': 'https://flotopic.com/icon-192.png' }
+      },
+      'mainEntityOfPage': { '@type': 'WebPage', '@id': url }
+    };
+    jsonLdEl.textContent = JSON.stringify(jsonLd);
+  }
 }
 
-function renderRelatedTopics(relatedTopics) {
-  const card = document.getElementById('related-topics-card');
-  const list = document.getElementById('related-topics-list');
-  if (!card || !list || !relatedTopics || relatedTopics.length === 0) return;
-
-  list.innerHTML = relatedTopics.map(rt => `
-    <a href="topic.html?id=${esc(rt.topicId)}" class="related-topic-item">
-      <div class="related-topic-title">${esc(rt.title)}</div>
-      <div class="related-topic-tags">${(rt.sharedEntities || []).map(e => `<span class="entity-tag">#${esc(e)}</span>`).join('')}</div>
-    </a>
-  `).join('');
-
-  card.style.display = 'block';
-}
 
 function renderDetail(data) {
   const {meta, timeline, views} = data;
   if (!meta) return;
 
-  // 閲覧履歴に記録
   recordTopicView(meta);
-
   document.title = `${meta.generatedTitle||meta.title} | Flotopic`;
   updateOGP(meta);
+
   const titleEl = document.getElementById('topic-title');
   if (titleEl) titleEl.textContent = meta.generatedTitle || meta.title;
 
@@ -608,9 +507,50 @@ function renderDetail(data) {
     shareBtn.style.display = 'inline-flex';
     shareBtn.onclick = () => navigator.share({
       title: meta.generatedTitle || meta.title,
-      text: meta.generatedSummary || '',
+      text: cleanSummary(meta.generatedSummary) || '',
       url: location.href,
     });
+  }
+
+  // X（旧Twitter）シェアボタン
+  const xBtn = document.getElementById('x-share-btn');
+  if (xBtn) {
+    const pageUrl  = `https://flotopic.com/topic.html?id=${encodeURIComponent(meta.topicId || '')}`;
+    const xTitle   = encodeURIComponent(meta.generatedTitle || meta.title || 'Flotopic');
+    xBtn.href = `https://twitter.com/intent/tweet?text=${xTitle}&url=${encodeURIComponent(pageUrl)}`;
+    xBtn.style.display = 'inline-flex';
+  }
+
+  // はてなブックマーク シェアボタン
+  const hatenaBtn = document.getElementById('hatena-share-btn');
+  if (hatenaBtn) {
+    const pageUrl   = `https://flotopic.com/topic.html?id=${encodeURIComponent(meta.topicId || '')}`;
+    const pageTitle = encodeURIComponent(meta.generatedTitle || meta.title || 'Flotopic');
+    hatenaBtn.href = `https://b.hatena.ne.jp/add?mode=confirm&url=${encodeURIComponent(pageUrl)}&title=${pageTitle}`;
+    hatenaBtn.style.display = 'inline-flex';
+  }
+
+  // Threads シェアボタン
+  const threadsBtn = document.getElementById('threads-share-btn');
+  if (threadsBtn) {
+    const pageUrl    = `https://flotopic.com/topic.html?id=${encodeURIComponent(meta.topicId || '')}`;
+    const shareTitle = meta.generatedTitle || meta.title || 'Flotopic';
+    const shareText  = encodeURIComponent(`${shareTitle}\n${pageUrl}`);
+    threadsBtn.href = `https://www.threads.net/intent/post?text=${shareText}`;
+    threadsBtn.style.display = 'inline-flex';
+  }
+
+  // <time> タグ（最終更新日時）
+  const timeEl = document.getElementById('topic-last-updated');
+  if (timeEl) {
+    const lastUpdated = meta.lastArticleAt || meta.lastUpdated;
+    if (lastUpdated) {
+      try {
+        const d = new Date(lastUpdated);
+        timeEl.setAttribute('datetime', d.toISOString());
+        timeEl.textContent = d.toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      } catch {}
+    }
   }
 
   const badge = document.getElementById('status-badge');
@@ -623,16 +563,17 @@ function renderDetail(data) {
 
   const summaryEl = document.querySelector('.summary-placeholder, .summary-text');
   if (summaryEl) {
-    const hasAISummary = meta.generatedSummary && !meta.pendingAI;
-    const hasExtractive = meta.generatedSummary && meta.pendingAI;
+    const cleanedSummary = cleanSummary(meta.generatedSummary);
+    const hasAISummary  = cleanedSummary && !meta.pendingAI;
+    const hasExtractive = cleanedSummary && meta.pendingAI;
     if (hasAISummary) {
-      summaryEl.textContent = meta.generatedSummary;
+      summaryEl.textContent = cleanedSummary;
       summaryEl.className = 'summary-text';
     } else if (hasExtractive) {
       const cnt = meta.articleCount || 1;
       const sources = (meta.sources || []).slice(0, 3).join('・');
       summaryEl.innerHTML =
-        `<p style="margin:0 0 8px;line-height:1.7;">${esc(meta.generatedSummary)}</p>` +
+        `<p style="margin:0 0 8px;line-height:1.7;">${esc(cleanedSummary)}</p>` +
         `<span style="color:var(--text-muted);font-size:.78rem;">⏳ AI要約生成中（1日3回更新）・${cnt}件の記事を追跡${sources ? `（${sources} ほか）` : ''}</span>`;
       summaryEl.className = 'summary-placeholder';
     } else {
@@ -655,9 +596,7 @@ function renderDetail(data) {
       const buildCharts = (rangeHours) => {
         const now = Date.now();
         const cutoff = rangeHours ? now - rangeHours * 3600 * 1000 : 0;
-        const filtered = rangeHours
-          ? timeline.filter(s => new Date(s.timestamp).getTime() >= cutoff)
-          : timeline;
+        const filtered = rangeHours ? timeline.filter(s => new Date(s.timestamp).getTime() >= cutoff) : timeline;
         const src = filtered.length >= 2 ? filtered : timeline;
 
         const aggregate = rangeHours === null || rangeHours >= 72;
@@ -688,21 +627,18 @@ function renderDetail(data) {
           zoom: { wheel:{enabled:true}, pinch:{enabled:true}, mode:'x' },
           pan:  { enabled:true, mode:'x' },
         };
-
         const makeScaleY0 = (data) => {
           const vals = data.filter(v => v !== null);
           const max = vals.length ? Math.max(...vals) : 10;
-          const pad = Math.max(max * 0.2, 1);
-          return { min:0, max: max+pad, ticks:{ precision:0, maxTicksLimit:5 }, grid:{ color:'rgba(0,0,0,.06)' } };
+          return { min:0, max: max + Math.max(max * 0.2, 1), ticks:{ precision:0, maxTicksLimit:5 }, grid:{ color:'rgba(0,0,0,.06)' } };
         };
         const makeScaleDelta = (data) => {
           const vals = data.filter(v => v !== null);
           const max = vals.length ? Math.max(...vals) : 1;
           const min = vals.length ? Math.min(...vals) : 0;
           const pad = Math.max(Math.abs(max - min) * 0.2, 1);
-          const lo = min < 0 ? min - pad : 0;
           return {
-            min: lo, max: max + pad,
+            min: min < 0 ? min - pad : 0, max: max + pad,
             ticks: { precision:0, maxTicksLimit:5 },
             grid: { color: ctx => ctx.tick.value === 0 ? 'rgba(0,0,0,.3)' : 'rgba(0,0,0,.06)', lineWidth: ctx => ctx.tick.value === 0 ? 2 : 1 },
           };
@@ -711,19 +647,13 @@ function renderDetail(data) {
         if (chartInstance) chartInstance.destroy();
         chartInstance = new Chart(canvas.getContext('2d'), {
           type: 'bar',
-          data: { labels: vLabels, datasets: [{
-            label:'閲覧数増減（昨日比）',
-            data: vDelta,
+          data: { labels: vLabels, datasets: [{ label:'閲覧数増減（昨日比）', data: vDelta,
             backgroundColor: vDelta.map(v => v >= 0 ? 'rgba(16,185,129,.85)' : 'rgba(239,68,68,.75)'),
-            borderRadius: 4, borderSkipped: false,
-          }]},
+            borderRadius: 4, borderSkipped: false }]},
           options: {
             responsive: true, maintainAspectRatio: false,
             interaction: { mode:'index', intersect:false },
-            plugins: {
-              legend: { display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}} },
-              zoom: zoomOpts,
-            },
+            plugins: { legend: { display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}} }, zoom: zoomOpts },
             scales: { y: makeScaleDelta(vDelta) },
           },
         });
@@ -732,27 +662,20 @@ function renderDetail(data) {
           if (viewsChartInstance) viewsChartInstance.destroy();
           viewsChartInstance = new Chart(vCanvas.getContext('2d'), {
             type: 'line',
-            data: { labels: vLabels, datasets: [{
-              label:'閲覧数',
-              data: vAbsolute,
+            data: { labels: vLabels, datasets: [{ label:'閲覧数', data: vAbsolute,
               borderColor:'#10b981',
               backgroundColor: (ctx) => {
                 const {ctx:c, chartArea} = ctx.chart;
                 if (!chartArea) return 'rgba(16,185,129,.2)';
                 const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                g.addColorStop(0, 'rgba(16,185,129,.4)');
-                g.addColorStop(1, 'rgba(16,185,129,.02)');
+                g.addColorStop(0, 'rgba(16,185,129,.4)'); g.addColorStop(1, 'rgba(16,185,129,.02)');
                 return g;
               },
-              borderWidth:2, pointRadius:3, pointHoverRadius:6, tension:0.4, fill:true,
-            }]},
+              borderWidth:2, pointRadius:3, pointHoverRadius:6, tension:0.4, fill:true }]},
             options: {
               responsive: true, maintainAspectRatio: false,
               interaction: { mode:'index', intersect:false },
-              plugins: {
-                legend: { display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}} },
-                zoom: zoomOpts,
-              },
+              plugins: { legend: { display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}} }, zoom: zoomOpts },
               scales: { y: makeScaleY0(vAbsolute) },
             },
           });
@@ -760,7 +683,6 @@ function renderDetail(data) {
       };
 
       buildCharts(24);
-
       document.querySelectorAll('.tr-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           document.querySelectorAll('.tr-btn').forEach(b => b.classList.remove('active'));
@@ -772,70 +694,50 @@ function renderDetail(data) {
     }
   }
 
-  // ストーリーマップリンク: 子トピックがある場合に表示
   if (meta.childTopics && meta.childTopics.length > 0) {
     const storymapContainer = document.getElementById('storymap-link-container');
     if (storymapContainer) {
-      storymapContainer.innerHTML = `
-        <a href="storymap.html?id=${esc(meta.topicId)}" class="storymap-btn">
-          🗺 このストーリーの分岐を見る (${meta.childTopics.length}件)
-        </a>`;
+      storymapContainer.innerHTML = `<a href="storymap.html?id=${esc(meta.topicId)}" class="storymap-btn">🗺 このストーリーの分岐を見る (${meta.childTopics.length}件)</a>`;
     }
   }
 
   const storyEl = document.getElementById('story-timeline');
   if (storyEl && timeline.length) {
-    // Collect all unique articles across all snapshots, tagged with snapshot timestamp
     const seenUrls = new Set();
     const allArticles = [];
     [...timeline].reverse().forEach(snap => {
       (snap.articles || []).forEach(a => {
-        if (!seenUrls.has(a.url)) {
-          seenUrls.add(a.url);
-          allArticles.push({ ...a, _snapTs: snap.timestamp });
-        }
+        if (!seenUrls.has(a.url)) { seenUrls.add(a.url); allArticles.push({ ...a, _snapTs: snap.timestamp }); }
       });
     });
-
-    // Sort newest first
     allArticles.sort((a, b) => new Date(b._snapTs) - new Date(a._snapTs));
 
     const totalCount = allArticles.length;
     let timelineOrder = 'desc';
-
-    // Format timestamp for timeline display
     const fmtTl = (ts) => {
       const d = new Date(ts);
-      const m = d.getMonth() + 1;
-      const day = d.getDate();
-      const h = String(d.getHours()).padStart(2, '0');
-      const min = String(d.getMinutes()).padStart(2, '0');
-      return `${m}月${day}日 ${h}:${min}`;
+      return `${d.getMonth()+1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     };
-
-    const ARTICLES_PER_DAY = 3; // 1日あたり表示する記事数上限
-    const DAYS_INITIAL     = 7; // 初期表示する日数上限
-
+    const ARTICLES_PER_DAY = 3;
+    const DAYS_INITIAL     = 7;
+    const WDAY = ['日','月','火','水','木','金','土'];
     const fmtDay = (ts) => {
       const d = new Date(typeof ts === 'number' && ts < 1e11 ? ts * 1000 : ts);
-      return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+      return `${d.getMonth()+1}月${d.getDate()}日（${WDAY[d.getDay()]}）`;
     };
 
     const renderTimeline = () => {
-      // 記事を日別にグルーピング（publishedAt → _snapTs の順で使用）
       const dayMap = {};
       allArticles.forEach(a => {
-        const ts = a.publishedAt ? a.publishedAt * 1000 : new Date(a._snapTs).getTime();
+        const _pubMs = a.publishedAt ? a.publishedAt * 1000 : (a.pubDate ? new Date(a.pubDate).getTime() : 0);
+        const ts  = _pubMs || new Date(a._snapTs).getTime();
         const key = fmtDay(new Date(ts));
         if (!dayMap[key]) dayMap[key] = { ts, articles: [] };
         dayMap[key].articles.push({ ...a, _ts: ts });
       });
-
-      // 日付降順 or 昇順に並べ替え
       let days = Object.entries(dayMap).sort((a, b) =>
         timelineOrder === 'asc' ? a[1].ts - b[1].ts : b[1].ts - a[1].ts
       );
-
       const totalDays = days.length;
       let showAll = false;
 
@@ -856,16 +758,14 @@ function renderDetail(data) {
               return `<div class="timeline-item">
                 <div class="timeline-dot"></div>
                 <div class="timeline-content">
-                  <div class="timeline-time">${dayKey}</div>
+                  <div class="timeline-time">${dayKey}<span class="day-article-count"> · ${g.articles.length}件</span></div>
                   <div class="day-articles">
                     ${shown.map(a => {
-                      const isNew = a.publishedAt && (Date.now() / 1000 - a.publishedAt) < 6 * 3600;
+                      const _artMs = a.publishedAt ? a.publishedAt * 1000 : (a.pubDate ? new Date(a.pubDate).getTime() : 0);
+                      const isNew = _artMs && (Date.now() - _artMs) < 6 * 3600 * 1000;
                       return `<div class="timeline-article">
                         <a href="${esc(a.url)}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}${isNew ? '<span class="new-badge">NEW</span>' : ''}</a>
-                        <div class="timeline-source">
-                          <img class="source-favicon" src="https://www.google.com/s2/favicons?domain=${esc(a.source)}&sz=16" alt="" width="12" height="12">
-                          ${esc(a.source)}
-                        </div>
+                        <div class="timeline-source"><img class="source-favicon" src="https://www.google.com/s2/favicons?domain=${esc(a.source)}&sz=16" alt="" width="12" height="12">${esc(a.source)}</div>
                       </div>`;
                     }).join('')}
                     ${rest.length ? `<details class="day-more-details"><summary class="day-more-btn">他${rest.length}件を表示</summary>${rest.map(a => `<div class="timeline-article">
@@ -882,39 +782,25 @@ function renderDetail(data) {
       };
 
       storyEl.innerHTML = buildHTML();
-
       storyEl.querySelectorAll('.sort-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          timelineOrder = btn.dataset.order;
-          renderTimeline();
-        });
+        btn.addEventListener('click', () => { timelineOrder = btn.dataset.order; renderTimeline(); });
       });
-
       const showAllBtn = document.getElementById('tl-show-all');
       if (showAllBtn) {
-        showAllBtn.addEventListener('click', () => {
-          showAll = true;
-          storyEl.innerHTML = buildHTML();
-          storyEl.querySelectorAll('.sort-btn').forEach(b => b.addEventListener('click', () => { timelineOrder = b.dataset.order; renderTimeline(); }));
-        });
+        showAllBtn.addEventListener('click', () => { showAll = true; storyEl.innerHTML = buildHTML(); storyEl.querySelectorAll('.sort-btn').forEach(b => b.addEventListener('click', () => { timelineOrder = b.dataset.order; renderTimeline(); })); });
       }
     };
 
     renderTimeline();
 
-    // Related articles section — top 5 articles
     const relatedEl = document.getElementById('related-articles');
     if (relatedEl && allArticles.length) {
-      // Pick up to 3 articles: oldest (origin), newest (latest), and one from a different source
       const picked = [];
       const usedSources = new Set();
       const sorted = [...allArticles].sort((a, b) => new Date(a._snapTs) - new Date(b._snapTs));
-      // Origin article
       if (sorted.length) { picked.push(sorted[0]); usedSources.add(sorted[0].source); }
-      // Latest article (different source preferred)
       const latest = allArticles[0];
       if (latest && latest.url !== (picked[0] && picked[0].url)) { picked.push(latest); usedSources.add(latest.source); }
-      // Middle article from a new source
       for (const a of allArticles) {
         if (picked.length >= 3) break;
         if (!usedSources.has(a.source) && a.url !== picked[0].url && a.url !== (picked[1] && picked[1].url)) {
@@ -933,16 +819,12 @@ function renderDetail(data) {
       `).join('');
     }
 
-    // Related topics — inter-topic navigation
-    renderRelatedTopics(meta.relatedTopics);
-
-    // Discovery: 深掘り & 拡張
-    renderDiscovery(meta);
   }
+
+  renderDiscovery(meta);
 }
 
 // ===== Discovery: 深掘り & 拡張 =====
-
 let _allTopicsCache = null;
 async function fetchAllTopicsOnce() {
   if (_allTopicsCache) return _allTopicsCache;
@@ -996,312 +878,113 @@ function renderDiscovery(meta) {
   const section = document.getElementById('discovery-section');
   if (!section) return;
 
-  section.innerHTML = `
-    <div class="discovery-panel">
-      <div class="discovery-col" id="disc-deep-col">
-        <div class="discovery-col-hd">
-          <span class="disc-icon">🔍</span>
-          <div><div class="disc-col-title">深掘り</div><div class="disc-col-sub">この話題をさらに詳しく</div></div>
-        </div>
-        <div class="disc-col-body" id="disc-deep-body"><div class="disc-loading">...</div></div>
-      </div>
-      <div class="discovery-col" id="disc-expand-col">
-        <div class="discovery-col-hd">
-          <span class="disc-icon">🌏</span>
-          <div><div class="disc-col-title">拡張</div><div class="disc-col-sub" id="disc-expand-sub">今ほかで盛り上がってること</div></div>
-        </div>
-        <div class="disc-col-body" id="disc-expand-body"><div class="disc-loading">...</div></div>
-      </div>
-    </div>`;
-
   fetchAllTopicsOnce().then(allTopics => {
-    const curId     = meta.topicId;
-    const curGenres = meta.genres || (meta.genre ? [meta.genre] : []);
-    const tMap      = {};
+    const curId = meta.topicId;
+    const tMap  = {};
     for (const t of allTopics) tMap[t.topicId] = t;
 
-    // --- 深掘り items ---
-    const deepItems = [];
+    const items = [];
+    const usedIds = new Set([curId]);
 
-    // 1. Parent topic (the bigger story)
-    if (meta.parentTopicId) {
-      const par = tMap[meta.parentTopicId];
-      if (par) deepItems.push({ t: par, badge: { label: '← 大きな流れ', cls: 'parent' } });
+    // 1. 親トピック（上位の流れ）
+    if (meta.parentTopicId && tMap[meta.parentTopicId]) {
+      items.push({ t: tMap[meta.parentTopicId], badge: { label: '← 大きな流れ', cls: 'parent' } });
+      usedIds.add(meta.parentTopicId);
     }
 
-    // 2. Child branches (most active first)
-    if (meta.childTopics && meta.childTopics.length > 0) {
-      const children = meta.childTopics
-        .map(ref => tMap[ref.topicId] || ref)
-        .filter(c => c && c.topicId !== curId)
-        .sort((a, b) => (b.score || 0) - (a.score || 0))
-        .slice(0, 2);
-      for (const c of children) deepItems.push({ t: c, badge: { label: '↳ 分岐', cls: 'child' } });
+    // 2. エンティティ類似トピック（relatedTopics・最も確実な関連性）
+    for (const rt of (meta.relatedTopics || [])) {
+      if (items.length >= 5) break;
+      if (usedIds.has(rt.topicId)) continue;
+      const t = tMap[rt.topicId];
+      if (!t) continue;
+      const tags = (rt.sharedEntities || []).slice(0, 2).map(e => `<span class="entity-tag">#${esc(e)}</span>`).join('');
+      items.push({ t, badge: null, extraHtml: tags });
+      usedIds.add(rt.topicId);
     }
 
-    // 3. Same-genre, not already included
-    if (deepItems.length < 3 && curGenres.length > 0) {
-      const usedIds = new Set(deepItems.map(i => i.t.topicId));
-      usedIds.add(curId);
-      const sameGenre = allTopics
-        .filter(t => {
-          if (usedIds.has(t.topicId)) return false;
-          const tg = t.genres || (t.genre ? [t.genre] : []);
-          return curGenres.some(g => tg.includes(g));
-        })
-        .sort((a, b) => (b.score || 0) - (a.score || 0))
-        .slice(0, 3 - deepItems.length);
-      for (const t of sameGenre) deepItems.push({ t, badge: { label: '同ジャンル', cls: 'same' } });
+    // 3. 子トピック（この話題から派生した流れ）
+    for (const ref of (meta.childTopics || [])) {
+      if (items.length >= 5) break;
+      if (usedIds.has(ref.topicId)) continue;
+      const t = tMap[ref.topicId] || ref;
+      if (!t) continue;
+      items.push({ t, badge: { label: '↳ 分岐', cls: 'child' } });
+      usedIds.add(ref.topicId);
     }
 
-    // Render deep
-    const deepBody = document.getElementById('disc-deep-body');
-    if (deepBody) {
-      const html = deepItems.slice(0, 3).map(({ t, badge }) => discCard(t, badge)).join('');
-      const smLink = (meta.childTopics && meta.childTopics.length > 0)
-        ? `<a href="storymap.html?id=${esc(meta.topicId)}" class="disc-see-all">🗺 ストーリーマップ (${meta.childTopics.length}件の分岐) →</a>`
-        : '';
-      deepBody.innerHTML = (html || '<p class="disc-empty">関連トピックを収集中...</p>') + smLink;
-    }
-
-    // --- 拡張 items: different genre, high velocity ---
-    const expandItems = allTopics
-      .filter(t => {
-        if (t.topicId === curId) return false;
-        if (curGenres.length > 0) {
-          const tg = t.genres || (t.genre ? [t.genre] : []);
-          if (curGenres.some(g => tg.includes(g))) return false;
-        }
-        return (t.score || 0) > 0;
-      })
-      .sort((a, b) => ((b.velocityScore || 0) - (a.velocityScore || 0)) || ((b.score || 0) - (a.score || 0)))
-      .slice(0, 3);
-
-    const expandBody = document.getElementById('disc-expand-body');
-    if (expandBody) {
-      expandBody.innerHTML = expandItems.length > 0
-        ? expandItems.map(t => discCard(t, null)).join('')
-        : '<p class="disc-empty">トレンドを取得中...</p>';
-    }
-
-    // Location layer removed — position prompt was confusing to users
-  });
-}
-
-// ===== コメント掲示板 =====
-
-function commentsApiUrl(topicId) {
-  if (typeof COMMENTS_URL === 'undefined' || !COMMENTS_URL) return null;
-  return `${COMMENTS_URL.replace(/\/$/, '')}/comments/${topicId}`;
-}
-
-function fmtCommentDate(iso) {
-  try {
-    const d = new Date(iso);
-    const now = new Date();
-    const diffMs = now - d;
-    const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1)  return 'たった今';
-    if (diffMin < 60) return `${diffMin}分前`;
-    const diffH = Math.floor(diffMin / 60);
-    if (diffH < 24)   return `${diffH}時間前`;
-    return d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
-  } catch { return ''; }
-}
-
-function renderComments(comments) {
-  const listEl = document.getElementById('comments-list');
-  if (!listEl) return;
-
-  if (!comments || !comments.length) {
-    listEl.innerHTML = '<div class="comments-empty">まだコメントはありません。最初のコメントを投稿しましょう！</div>';
-    return;
-  }
-
-  listEl.innerHTML = comments.map(c => `
-    <div class="comment-item">
-      <div class="comment-header">
-        <span class="comment-nick">${esc(c.nickname || '匿名')}</span>
-        <span class="comment-time">${fmtCommentDate(c.createdAt)}</span>
-      </div>
-      <div class="comment-body">${esc(c.body)}</div>
-    </div>
-  `).join('');
-}
-
-async function loadComments(topicId) {
-  const url = commentsApiUrl(topicId);
-  if (!url) return;
-  try {
-    const r = await fetch(url);
-    const data = await r.json();
-    renderComments(data.comments || []);
-  } catch (e) {
-    const listEl = document.getElementById('comments-list');
-    if (listEl) listEl.innerHTML = '<div class="comments-empty">コメントの読み込みに失敗しました。</div>';
-  }
-}
-
-function setupCommentForm(topicId) {
-  const url      = commentsApiUrl(topicId);
-  const section  = document.getElementById('comments-section');
-  if (!url) { if (section) section.style.display = 'none'; return; }
-
-  const formArea    = document.getElementById('comment-form-area');
-  const loginPrompt = document.getElementById('comment-login-prompt');
-  const bodyEl      = document.getElementById('comment-body');
-  const nickEl      = document.getElementById('comment-nickname');
-  const charsEl     = document.getElementById('comment-chars');
-  const submitEl    = document.getElementById('comment-submit');
-  const errorEl     = document.getElementById('comment-error');
-
-  // ログイン状態に応じてフォームを切り替え
-  if (!currentUser) {
-    // 未ログイン: ログイン促進メッセージを表示
-    if (formArea)    formArea.style.display    = 'none';
-    if (loginPrompt) loginPrompt.style.display = 'block';
-    return;
-  }
-
-  // ログイン済み: フォームを表示
-  if (loginPrompt) loginPrompt.style.display = 'none';
-  if (formArea)    formArea.style.display    = 'block';
-
-  // ニックネーム: 編集可能、変更するとlocalStorageに保存
-  if (nickEl) {
-    nickEl.value    = getDisplayName(currentUser);
-    nickEl.readOnly = false;
-    nickEl.placeholder = '名前（任意）';
-    nickEl.style.backgroundColor = '';
-    nickEl.style.cursor          = '';
-    nickEl.addEventListener('change', () => {
-      const v = nickEl.value.trim();
-      if (v) saveNickname(v);
-    });
-  }
-
-  if (!bodyEl || !submitEl) return;
-
-  // 既存のリスナーを避けるためクローンに差し替え
-  const newSubmit = submitEl.cloneNode(true);
-  submitEl.parentNode.replaceChild(newSubmit, submitEl);
-
-  // 文字数カウンター
-  const newBody = bodyEl.cloneNode(true);
-  bodyEl.parentNode.replaceChild(newBody, bodyEl);
-  newBody.addEventListener('input', () => {
-    const len = newBody.value.length;
-    if (charsEl) charsEl.textContent = len;
-    charsEl && charsEl.parentElement.classList.toggle('comment-char-warn', len > 180);
-  });
-
-  // 送信
-  newSubmit.addEventListener('click', async () => {
-    const body     = newBody.value.trim();
-    const nickInput = document.getElementById('comment-nickname');
-    const nickname  = (nickInput && nickInput.value.trim()) || getDisplayName(currentUser);
-
-    if (errorEl) errorEl.textContent = '';
-
-    if (!body) {
-      if (errorEl) errorEl.textContent = 'コメント本文を入力してください。';
-      return;
-    }
-    if (body.length > 200) {
-      if (errorEl) errorEl.textContent = '200文字以内で入力してください。';
+    if (items.length === 0) {
+      section.innerHTML = '';
       return;
     }
 
-    newSubmit.disabled = true;
-    newSubmit.textContent = '送信中...';
+    const smLink = (meta.childTopics && meta.childTopics.length > 0)
+      ? `<a href="storymap.html?id=${esc(meta.topicId)}" class="disc-see-all">🗺 ストーリーマップ（${meta.childTopics.length}件の分岐）→</a>`
+      : '';
 
-    try {
-      const r = await fetch(url, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          body,
-          nickname,
-          topicId,
-          idToken: currentUser.token,
-        }),
-      });
-      const data = await r.json();
-
-      if (!r.ok) {
-        if (errorEl) errorEl.textContent = data.error || '投稿に失敗しました。';
-      } else {
-        newBody.value = '';
-        if (charsEl) charsEl.textContent = '0';
-        await loadComments(topicId);
-        if (errorEl) {
-          errorEl.className = 'comment-success';
-          errorEl.textContent = '投稿しました！';
-          setTimeout(() => {
-            errorEl.textContent = '';
-            errorEl.className = 'comment-error';
-          }, 3000);
-        }
-      }
-    } catch (e) {
-      if (errorEl) errorEl.textContent = 'ネットワークエラーが発生しました。';
-    } finally {
-      newSubmit.disabled = false;
-      newSubmit.textContent = '投稿する';
-    }
+    section.innerHTML = `
+      <div class="card disc-card-wrapper">
+        <h2>関連する話題</h2>
+        <p class="disc-header-sub">エンティティの重複・親子関係から検出</p>
+        <div class="disc-col-body">
+          ${items.map(({ t, badge, extraHtml }) => {
+            const title = t.generatedTitle || t.title || '';
+            const ago   = fmtElapsed(t.lastArticleAt || t.lastUpdated || 0);
+            const cnt   = t.articleCount || 0;
+            const dot   = t.lifecycleStatus === 'active' ? '🔴' : t.lifecycleStatus === 'cooling' ? '🟡' : '⚪';
+            const badgeHtml = badge ? `<span class="disc-badge disc-badge-${badge.cls}">${esc(badge.label)}</span>` : '';
+            return `
+              <a href="topic.html?id=${esc(t.topicId)}" class="disc-card">
+                ${badgeHtml}
+                <div class="disc-card-title">${esc(title)}</div>
+                <div class="disc-card-footer">
+                  <span class="disc-card-meta">${dot} ${cnt}件${ago ? ` · ${esc(ago)}` : ''}</span>
+                  ${extraHtml || ''}
+                </div>
+              </a>`;
+          }).join('')}
+        </div>
+        ${smLink}
+      </div>`;
   });
 }
 
+// ===== ページ初期化 =====
 document.addEventListener('DOMContentLoaded', () => {
-  // Service Worker 登録（PWAオフライン対応）
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW registration failed:', err));
   }
 
-  // ===== PWAインストールバナー =====
+  // PWAインストールバナー
   (function initPwaBanner() {
-    // 過去に「×」で閉じた場合は表示しない
-    if (localStorage.getItem('pwa_dismissed') === '1') return;
-
+    if (localStorage.getItem(LS_KEYS.PWA_DISMISSED) === '1') return;
     let deferredPrompt = null;
-    const banner      = document.getElementById('pwa-install-banner');
-    const installBtn  = document.getElementById('pwa-install-btn');
-    const dismissBtn  = document.getElementById('pwa-dismiss-btn');
-
+    const banner     = document.getElementById('pwa-install-banner');
+    const installBtn = document.getElementById('pwa-install-btn');
+    const dismissBtn = document.getElementById('pwa-dismiss-btn');
     window.addEventListener('beforeinstallprompt', e => {
-      e.preventDefault();
-      deferredPrompt = e;
+      e.preventDefault(); deferredPrompt = e;
       if (banner) banner.style.display = 'flex';
     });
-
     if (installBtn) {
       installBtn.addEventListener('click', () => {
         if (!deferredPrompt) return;
         deferredPrompt.prompt();
         deferredPrompt.userChoice.then(choice => {
-          if (choice.outcome === 'accepted') {
-            if (banner) banner.style.display = 'none';
-          }
+          if (choice.outcome === 'accepted' && banner) banner.style.display = 'none';
           deferredPrompt = null;
         });
       });
     }
-
     if (dismissBtn) {
       dismissBtn.addEventListener('click', () => {
         if (banner) banner.style.display = 'none';
-        localStorage.setItem('pwa_dismissed', '1');
+        localStorage.setItem(LS_KEYS.PWA_DISMISSED, '1');
       });
     }
-
-    // インストール済みなら非表示
-    window.addEventListener('appinstalled', () => {
-      if (banner) banner.style.display = 'none';
-      deferredPrompt = null;
-    });
+    window.addEventListener('appinstalled', () => { if (banner) banner.style.display = 'none'; deferredPrompt = null; });
   })();
 
-  // Google 認証の初期化
   initGoogleAuth();
 
   const topicId = new URLSearchParams(location.search).get('id');
@@ -1312,31 +995,39 @@ document.addEventListener('DOMContentLoaded', () => {
       if (titleEl) titleEl.textContent = '読み込みに失敗しました';
     };
     const refresh = async () => {
+      // 1. S3静的ファイル（CloudFrontキャッシュ）
       try {
         const r = await fetch(apiUrl(`topic/${topicId}`));
-        if (!r.ok) throw new Error(r.status);
-        const ct = r.headers.get('content-type') || '';
-        if (!ct.includes('json')) throw new Error('not_json');
-        const data = await r.json();
-        try { renderDetail(data); } catch(e) { console.error('renderDetail error:', e); }
-      } catch (err) {
-        // 個別ファイルが存在しない場合 topics.json からフォールバック
-        try {
-          const r2 = await fetch(apiUrl('topics'));
-          const d2 = await r2.json();
-          const t = (d2.topics || []).find(t => t.topicId === topicId);
-          if (t) {
-            try { renderDetail({ meta: t, timeline: [], views: [] }); } catch(e2) {}
-            return;
+        if (r.ok) {
+          const ct = r.headers.get('content-type') || '';
+          if (ct.includes('json')) {
+            const data = await r.json();
+            if (data.meta) { try { renderDetail(data); } catch {} return; }
           }
-        } catch {}
-        console.error('fetch error:', err);
-        showError();
-      }
+        }
+      } catch {}
+      // 2. DynamoDB経由（S3にない古いトピック）
+      try {
+        const gw = typeof _GW !== 'undefined' ? _GW : null;
+        if (gw) {
+          const r2 = await fetch(`${gw}/topic/${topicId}`);
+          if (r2.ok) {
+            const data2 = await r2.json();
+            if (data2.meta) { try { renderDetail(data2); } catch {} return; }
+          }
+        }
+      } catch {}
+      // 3. topics.jsonからメタデータのみ（最終手段）
+      try {
+        const r3 = await fetch(apiUrl('topics'));
+        const d3 = await r3.json();
+        const t = (d3.topics || []).find(t => t.topicId === topicId);
+        if (t) { try { renderDetail({ meta: t, timeline: [], views: [] }); } catch {} return; }
+      } catch {}
+      showError();
     };
     refresh();
-    setInterval(refresh, REFRESH_MS);
-
+    setInterval(refresh, CONFIG.REFRESH_INTERVAL_MS);
     loadComments(topicId);
     setupCommentForm(topicId);
     setInterval(() => loadComments(topicId), 3 * 60 * 1000);
@@ -1345,10 +1036,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSearch();
     setupFavsToggle();
     loadWeather();
-    // お気に入り読み込み後にトピック表示
     loadFavorites().finally(() => {
       refreshTopics();
-      setInterval(refreshTopics, REFRESH_MS);
+      setInterval(refreshTopics, CONFIG.REFRESH_INTERVAL_MS);
+      setInterval(updateFreshnessDisplay, CONFIG.FRESHNESS_INTERVAL_MS);
     });
   }
 });

@@ -3,6 +3,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart' hide Route;
 import 'package:flutter/services.dart';
+import '../components/animation_controller.dart';
 import '../components/hd2d_background.dart';
 import '../components/enemy_component.dart';
 import '../components/unit_component.dart';
@@ -11,12 +12,16 @@ import '../components/particle_system.dart';
 import '../components/floating_text.dart';
 import '../components/screen_shake.dart';
 import '../components/chain_effect.dart';
+import '../components/terrain_component.dart';
+import '../components/field_overlay.dart';
 import '../constants/game_constants.dart';
 import '../constants/element_chart.dart';
 import '../models/card_data.dart';
 import '../models/enemy_data.dart';
 import '../models/unit_data.dart';
 import '../models/stage_data.dart';
+import '../models/terrain_data.dart';
+import '../services/audio_service.dart';
 import '../systems/battle_system.dart';
 import '../systems/wave_system.dart';
 import '../systems/card_system.dart';
@@ -28,8 +33,10 @@ import 'game_state.dart';
 /// 描画・アニメーション・当たり判定を担当。
 /// ロジック状態は GameStateNotifier に委譲する。
 class OctoBattleGame extends FlameGame
-    with TapCallbacks, DragCallbacks, HasCollisionDetection {
+    with TapCallbacks, DragCallbacks, HasCollisionDetection
+    implements SpawnableGame {
   final GameStateNotifier gameState;
+  final AudioService _audio;
 
   // ---- システム ----
   late final BattleSystem battleSystem;
@@ -43,6 +50,7 @@ class OctoBattleGame extends FlameGame
   late final LightingLayer _lighting;
   late final ScreenShakeController _shakeController;
   late final ChainEffectComponent _chainEffect;
+  late final GameAnimationController _animController;
   late final TextComponent _waveLabel;
   late final TextComponent _wallHpText;
 
@@ -50,21 +58,40 @@ class OctoBattleGame extends FlameGame
   final List<EnemyComponent> _enemies = [];
   final List<UnitComponent> _units = [];
 
+  // 陣形グリッド: (col, row) → UnitComponent
+  final Map<(int, int), UnitComponent> _grid = {};
+
+  // 地形リスト（敵フィールドに配置した障害物）
+  final List<TerrainEntry> _terrains = [];
+
   // カード配置インタラクション
-  String? _draggingCardId;     // 現在ドラッグ中のカードID
+  String? _draggingCardId;
   Vector2? _dragPosition;
+
+  // フェーズ制御フラグ
+  bool _waveClearHandled = false;
+  bool _resultHandled = false;
+  bool _waveStarted = false; // battle が利用可能になったら最初のウェーブを開始
 
   // コールバック（Flutterレイヤーへ通知）
   final void Function(GamePhase) onPhaseChangeRequest;
   final void Function(String cardId, int laneIndex) onCardPlaced;
   final void Function(int chainCount, double damage) onChainTriggered;
+  final void Function(String bossName, int maxHp, int currentHp)? onBossHpUpdate;
+  final void Function(int damage)? onWallDamaged;
+
+  // ボス追跡
+  EnemyComponent? _activeBoss;
 
   OctoBattleGame({
     required this.gameState,
     required this.onPhaseChangeRequest,
     required this.onCardPlaced,
     required this.onChainTriggered,
-  });
+    this.onBossHpUpdate,
+    this.onWallDamaged,
+    required AudioService audio,
+  }) : _audio = audio;
 
   @override
   Color backgroundColor() => const Color(0xFF080818);
@@ -102,44 +129,28 @@ class OctoBattleGame extends FlameGame
     _shakeController = ScreenShakeController(camera: camera);
     world.add(_shakeController);
 
+    // アニメーションコントローラ
+    _animController = GameAnimationController(shakeController: _shakeController);
+    world.add(_animController);
+
     // チェーン演出
     _chainEffect = ChainEffectComponent(
-      position: Vector2(GameConstants.gameWidth / 2, 300),
+      position: Vector2(GameConstants.gameWidth / 2, GameConstants.gameHeight / 2),
     );
     world.add(_chainEffect);
+
+    // オーディオ初期化
+    await _audio.preload();
+    await _audio.playBGM(AudioBGM.battle);
 
     // レーン区切り線（視覚ガイド）
     _addLaneGuides();
 
-    // HUD テキスト（Flameレイヤー）
-    _waveLabel = TextComponent(
-      text: 'WAVE 1 / ${_stageData?.waves.length ?? 5}',
-      position: Vector2(10, 8),
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Color(0xFFFFE082),
-          fontSize: 14,
-          fontFamily: 'DotGothic16',
-        ),
-      ),
-    );
-    camera.viewport.add(_waveLabel);
+    // HUDはFlutterレイヤー（battle_screen.dart）に統合済み。Flameレイヤーのテキストは不要。
+    _waveLabel = TextComponent(text: '');
+    _wallHpText = TextComponent(text: '');
 
-    _wallHpText = TextComponent(
-      text: '城壁 HP: ${gameState.battle?.wallHp ?? 0}',
-      position: Vector2(10, 26),
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Color(0xFF80CBC4),
-          fontSize: 12,
-          fontFamily: 'DotGothic16',
-        ),
-      ),
-    );
-    camera.viewport.add(_wallHpText);
-
-    // 最初のウェーブを準備
-    waveSystem.prepareWave(gameState.battle!.currentWave);
+    // 最初のウェーブは battle が初期化されてから update() で開始する
   }
 
   @override
@@ -148,6 +159,12 @@ class OctoBattleGame extends FlameGame
 
     final battle = gameState.battle;
     if (battle == null) return;
+
+    // battle が初めて利用可能になったら最初のウェーブを開始
+    if (!_waveStarted) {
+      _waveStarted = true;
+      waveSystem.prepareWave(battle.currentWave);
+    }
 
     // マナ更新
     gameState.tickMana(dt);
@@ -158,37 +175,59 @@ class OctoBattleGame extends FlameGame
     // バトルシステム: ユニット対敵のオートバトル
     battleSystem.update(dt, _units, _enemies);
 
-    // 城壁到達判定
+    // 地形エフェクト（敵への速度・ダメージ・誘導）
+    _applyTerrainEffects(dt);
+
+    // 城壁到達判定（下端に到達）
     for (final enemy in List.from(_enemies)) {
-      if (enemy.position.x <= GameConstants.wallX + GameConstants.wallWidth) {
+      if (enemy.position.y >= GameConstants.wallY) {
         _onEnemyReachedWall(enemy);
       }
     }
 
-    // デッドユニット除去
+    // デッドユニット除去（グリッドからも削除）
     _units.removeWhere((u) {
       if (!u.unitInstance.isAlive) {
         u.removeFromParent();
+        _grid.removeWhere((_, v) => identical(v, u));
         return true;
       }
       return false;
     });
 
-    // デッド敵除去
-    _enemies.removeWhere((e) {
-      if (!e.isAlive) {
-        _onEnemyDefeated(e);
-        e.removeFromParent();
-        return true;
+    // デッド敵をリストから除去（EnemyComponentの死亡アニメーション完了後にonDefeatedで本体除去）
+    _enemies.removeWhere((e) => !e.isAlive);
+
+    // ウェーブクリア判定（全スポーン完了 & 敵全滅 & まだ処理してない）
+    if (waveSystem.isAllSpawned &&
+        _enemies.isEmpty &&
+        !_waveClearHandled &&
+        !battle.isDefeated) {
+      _waveClearHandled = true;
+      onPhaseChangeRequest(GamePhase.waveShop);
+    }
+
+    // ボスHP更新（Flutterレイヤーに通知）
+    if (_activeBoss != null) {
+      if (!_activeBoss!.isAlive) {
+        _activeBoss = null;
+        onBossHpUpdate?.call('', 0, 0); // ボス消滅
+      } else {
+        onBossHpUpdate?.call(
+          _activeBoss!.enemyData.name,
+          _activeBoss!.enemyData.maxHp,
+          _activeBoss!.currentHp,
+        );
       }
-      return false;
-    });
+    }
 
     // HUD更新
     _updateHUD();
 
-    // 勝敗判定
-    if (battle.isDefeated) {
+    // 敗北判定
+    if (battle.isDefeated && !_resultHandled) {
+      _resultHandled = true;
+      _audio.playSE(AudioSE.defeat);
       onPhaseChangeRequest(GamePhase.result);
     }
   }
@@ -196,66 +235,84 @@ class OctoBattleGame extends FlameGame
   // ---- 敵スポーン（WaveSystemから呼ばれる） ----
 
   EnemyComponent spawnEnemy(EnemyData data, int laneIndex) {
-    final laneY = _laneY(laneIndex);
+    final laneX = _laneX(laneIndex);
     final enemy = EnemyComponent(
       enemyData: data,
-      position: Vector2(GameConstants.enemySpawnX, laneY),
+      position: Vector2(laneX, GameConstants.enemySpawnY),
       onDefeated: (comp) => _onEnemyDefeated(comp),
     );
     _enemies.add(enemy);
     world.add(enemy);
 
-    // ボスはライト追加演出
+    // ボスは登場演出（スライドイン + ScreenShake）
     if (data.type.isBoss) {
-      _lighting.addBossAura(Vector2(GameConstants.enemySpawnX, laneY));
-      _shakeController.shake(intensity: 6.0, duration: 0.4);
+      final spawnPos = Vector2(laneX, GameConstants.enemySpawnY);
+      _lighting.addBossAura(spawnPos);
+      _animController.playBossEntrance(enemy, spawnPos);
+      _activeBoss = enemy;
+      onBossHpUpdate?.call(data.name, data.maxHp, data.maxHp);
     }
     return enemy;
   }
 
   // ---- カード配置（CardSystemから呼ばれる） ----
 
-  void placeUnit(CardData card, int laneIndex) {
-    final laneY = _laneY(laneIndex);
-    final placeX = GameConstants.wallX + GameConstants.wallWidth + 30.0;
+  void placeUnit(CardData card, int col, {int row = -1}) {
+    // 行が指定されていない場合は空いてる前列から埋める
+    if (row < 0) {
+      row = _findFrontEmptyRow(col);
+      if (row < 0) return; // 満杯
+    }
 
-    // ユニット生成
-    final instance = cardSystem.createUnitInstance(card, laneIndex);
+    if (_grid.containsKey((col, row))) return; // 占有済み
+
+    final laneX = _laneX(col);
+    final placeY = _gridCellCenterY(row);
+
+    final instance = cardSystem.createUnitInstance(card, col, rowIndex: row);
     final unitComp = UnitComponent(
       unitInstance: instance,
-      position: Vector2(placeX + _units.where((u) => u.unitInstance.laneIndex == laneIndex).length * 55.0, laneY),
+      position: Vector2(laneX - 17, placeY - 21),
       onAttack: _onUnitAttack,
     );
+    _grid[(col, row)] = unitComp;
     _units.add(unitComp);
     world.add(unitComp);
 
-    // 配置パーティクル
-    _spawnPlacementParticles(Vector2(placeX, laneY), card.element);
-
-    // 触覚フィードバック（成功）
+    _spawnPlacementParticles(Vector2(laneX, placeY), card.element);
     HapticFeedback.mediumImpact();
-
-    // 光源追加（魔法属性はより強い光）
     if (card.element == ElementType.light || card.element == ElementType.fire) {
-      _lighting.addUnitLight(Vector2(placeX, laneY), card.element);
+      _lighting.addUnitLight(Vector2(laneX, placeY), card.element);
     }
   }
 
+  int _findFrontEmptyRow(int col) {
+    for (int r = 0; r < GameConstants.gridRows; r++) {
+      if (!_grid.containsKey((col, r))) return r;
+    }
+    return -1; // 満杯
+  }
+
+  double _gridCellCenterY(int row) {
+    return GameConstants.gridTop +
+        GameConstants.cellHeight * row +
+        GameConstants.cellHeight / 2;
+  }
+
   void castSpell(CardData card, int laneIndex) {
-    final targetY = _laneY(laneIndex);
-    final targetX = 200.0; // 画面中央付近
+    final targetX = _laneX(laneIndex);
+    final targetY = GameConstants.fieldTop +
+        (GameConstants.fieldBottom - GameConstants.fieldTop) / 2;
 
     // ダメージ計算と適用
     for (final enemy in List.from(_enemies)) {
-      if (enemy.unitInstance == null) continue; // 型チェック
       final dx = (enemy.position.x - targetX).abs();
-      final dy = (enemy.position.y - targetY).abs();
       if (card.aoeRadius > 0) {
-        if (dx < card.aoeRadius && dy < 40) {
+        if (dx < card.aoeRadius) {
           _applySpellDamage(card, enemy);
         }
       } else {
-        if (enemy.laneIndex == laneIndex && dx < 60) {
+        if (enemy.laneIndex == laneIndex) {
           _applySpellDamage(card, enemy);
         }
       }
@@ -266,11 +323,90 @@ class OctoBattleGame extends FlameGame
     HapticFeedback.heavyImpact();
   }
 
-  void placeTrap(CardData card, int laneIndex) {
-    // 罠はフィールド中央付近に設置（将来: タップ位置）
-    final laneY = _laneY(laneIndex);
-    final trapX = 220.0;
-    _spawnTrapVisual(Vector2(trapX, laneY), card.element);
+  void placeTrap(CardData card, int laneIndex, {double? dropY}) {
+    if (card.terrainType != null) {
+      _placeTerrain(card, laneIndex, dropY: dropY);
+      return;
+    }
+    final trapX = _laneX(laneIndex);
+    final trapY = dropY ??
+        (GameConstants.fieldTop +
+            (GameConstants.fieldBottom - GameConstants.fieldTop) * 0.4);
+    _spawnTrapVisual(Vector2(trapX, trapY), card.element);
+  }
+
+  void _placeTerrain(CardData card, int laneIndex, {double? dropY}) {
+    final terrainType = card.terrainType!;
+    final terrainY = dropY?.clamp(GameConstants.fieldTop, GameConstants.gridTop - 50) ??
+        (GameConstants.fieldTop + 80.0 + laneIndex * 30.0);
+
+    final entry = TerrainEntry(
+      type: terrainType,
+      laneIndex: laneIndex,
+      y: terrainY,
+    );
+    _terrains.add(entry);
+
+    // 視覚コンポーネントをフィールドに追加
+    final laneLeft = GameConstants.laneWidth * laneIndex;
+    final comp = TerrainComponent(
+      terrain: entry,
+      position: Vector2(laneLeft, terrainY),
+    );
+    world.add(comp);
+
+    // エフェクト
+    _spawnPlacementParticles(Vector2(_laneX(laneIndex), terrainY + 25), card.element);
+    _spawnFloatingText(
+      Vector2(_laneX(laneIndex), terrainY - 20),
+      '${terrainType.emoji} ${terrainType.label}設置！',
+      Color(card.element.colorValue),
+      fontSize: 13,
+    );
+  }
+
+  void _applyTerrainEffects(double dt) {
+    // 期限切れ地形を除去
+    _terrains.removeWhere((t) {
+      t.tick(dt);
+      return t.expired;
+    });
+
+    for (final terrain in _terrains) {
+      for (final enemy in _enemies) {
+        if (!enemy.isAlive) continue;
+        if (!terrain.overlapsEnemy(enemy.position.y)) continue;
+        if (enemy.laneIndex != terrain.laneIndex) continue;
+
+        switch (terrain.type) {
+          case TerrainType.mountain:
+            // 隣列へ誘導（左優先、端なら右）
+            final targetLane = terrain.laneIndex > 0
+                ? terrain.laneIndex - 1
+                : terrain.laneIndex < 2
+                    ? terrain.laneIndex + 1
+                    : terrain.laneIndex;
+            final targetX = _laneX(targetLane);
+            final dx = targetX - enemy.position.x;
+            final slide = dx.sign * (dx.abs().clamp(0, 160.0 * dt));
+            enemy.position.x += slide;
+            break;
+          case TerrainType.river:
+            enemy.applySlow(factor: 0.4, duration: 1.2);
+            break;
+          case TerrainType.swamp:
+            enemy.applyBurn(damagePerSec: 15.0, duration: 1.5);
+            break;
+        }
+      }
+    }
+  }
+
+  /// ウェーブクリア後に地形をリセット
+  void clearTerrains() {
+    _terrains.clear();
+    // TerrainComponentはworld.childrenから自動削除されないので手動対応
+    world.children.whereType<TerrainComponent>().toList().forEach((c) => c.removeFromParent());
   }
 
   // ---- イベントハンドラ ----
@@ -286,7 +422,10 @@ class OctoBattleGame extends FlameGame
       _spawnCoinEffect(enemy.position, drop.count);
     }
 
-    // ボス撃破：大きなScreenShake
+    // 撃破SE
+    _audio.playSE(AudioSE.hit);
+
+    // ボス撃破
     if (data.type.isBoss) {
       _shakeController.shake(
         intensity: GameConstants.screenShakeIntensityBoss,
@@ -307,22 +446,24 @@ class OctoBattleGame extends FlameGame
   }
 
   void _onEnemyReachedWall(EnemyComponent enemy) {
-    gameState.damageWall(enemy.enemyData.attackPower);
+    final dmg = enemy.enemyData.attackPower;
+    gameState.damageWall(dmg);
     _enemies.remove(enemy);
     enemy.removeFromParent();
 
-    // 城壁ダメージ演出
+    // 城壁ダメージ演出（強め）
     _shakeController.shake(
-      intensity: GameConstants.screenShakeIntensityNormal,
-      duration: 0.25,
+      intensity: GameConstants.screenShakeIntensityNormal * 1.6,
+      duration: 0.35,
     );
-    HapticFeedback.selectionClick();
+    HapticFeedback.heavyImpact();
     _spawnFloatingText(
-      Vector2(GameConstants.wallX + 20, 400),
-      '-${enemy.enemyData.attackPower}',
+      Vector2(GameConstants.gameWidth / 2, GameConstants.wallY - 30),
+      '城壁 -$dmg',
       const Color(0xFFEF5350),
-      fontSize: 22,
+      fontSize: 26,
     );
+    onWallDamaged?.call(dmg);
   }
 
   void _onUnitAttack({
@@ -369,6 +510,8 @@ class OctoBattleGame extends FlameGame
     // チェーン演出
     if (chainResult != null && chainResult.chainCount >= 2) {
       _chainEffect.trigger(chainResult.chainCount);
+      _animController.playChainRipple(target.position, chainResult.chainCount);
+      _audio.playSE(AudioSE.chain);
       gameState.recordChain(ChainRecord(
         firstElement: chainResult.firstElement,
         secondElement: attacker.element,
@@ -490,10 +633,10 @@ class OctoBattleGame extends FlameGame
 
   // ---- ユーティリティ ----
 
-  double _laneY(int laneIndex) {
-    return GameConstants.fieldTop +
-        GameConstants.laneHeight * laneIndex +
-        GameConstants.laneHeight / 2;
+  double _laneX(int laneIndex) {
+    return GameConstants.fieldLeft +
+        GameConstants.laneWidth * laneIndex +
+        GameConstants.laneWidth / 2;
   }
 
   StageData? get _stageData {
@@ -503,16 +646,7 @@ class OctoBattleGame extends FlameGame
   }
 
   void _addLaneGuides() {
-    for (int i = 1; i < GameConstants.laneCount.toInt(); i++) {
-      final y = GameConstants.fieldTop + GameConstants.laneHeight * i;
-      world.add(
-        RectangleComponent(
-          position: Vector2(0, y),
-          size: Vector2(GameConstants.gameWidth, 1),
-          paint: Paint()..color = const Color(0x22FFFFFF),
-        ),
-      );
-    }
+    world.add(FieldOverlayComponent());
   }
 
   void _updateHUD() {
@@ -525,35 +659,153 @@ class OctoBattleGame extends FlameGame
 
   // ---- 外部から呼び出す（カードUI→ゲーム） ----
 
+  /// ショップ・抽出画面完了後に呼ぶ（次ウェーブを準備してクリアフラグをリセット）
+  void prepareNextWave(int waveNumber) {
+    _waveClearHandled = false;
+    clearTerrains();
+    waveSystem.prepareWave(waveNumber);
+  }
+
   /// カードをドロップした位置からレーンを判定して配置
   void handleCardDrop(String cardId, Offset screenOffset) {
     final card = CardMaster.getById(cardId);
     if (card == null) return;
 
-    // y座標からレーン判定
-    final gameY = screenOffset.dy;
-    int laneIndex = 1;
-    if (gameY < GameConstants.fieldTop + GameConstants.laneHeight) {
+    // x座標からレーン（列）判定
+    final gameX = screenOffset.dx;
+    int laneIndex;
+    if (gameX < GameConstants.laneWidth) {
       laneIndex = 0;
-    } else if (gameY > GameConstants.fieldTop + GameConstants.laneHeight * 2) {
+    } else if (gameX < GameConstants.laneWidth * 2) {
+      laneIndex = 1;
+    } else {
       laneIndex = 2;
     }
 
     // マナ消費
     if (!gameState.spendManaAndRemoveCard(cardId, card.manaCost)) return;
 
-    switch (card.cardType) {
-      case CardType.unit:
+    final gameY = screenOffset.dy;
+    final inGrid = gameY >= GameConstants.gridTop && gameY <= GameConstants.gridBottom;
+    final row = inGrid
+        ? ((gameY - GameConstants.gridTop) / GameConstants.cellHeight)
+            .floor()
+            .clamp(0, GameConstants.gridRows - 1)
+        : -1;
+
+    if (card.cardType == CardType.unit) {
+      if (inGrid) {
+        // グリッド内: 指定セルに配置 or フュージョン
+        final existing = _grid[(laneIndex, row)];
+        if (existing != null) {
+          _fuseUnit(existing, card, laneIndex);
+        } else {
+          placeUnit(card, laneIndex, row: row);
+        }
+      } else {
         placeUnit(card, laneIndex);
-        break;
-      case CardType.spell:
-        castSpell(card, laneIndex);
-        break;
-      case CardType.trap:
-        placeTrap(card, laneIndex);
-        break;
+      }
+    } else if (card.cardType == CardType.spell) {
+      castSpell(card, laneIndex);
+    } else {
+      // 罠・地形: ドロップY座標を渡す（地形はグリッド外＝敵フィールドに設置）
+      placeTrap(card, laneIndex, dropY: gameY);
     }
 
     onCardPlaced(cardId, laneIndex);
+  }
+
+  UnitComponent? _findUnitInLane(int laneIndex) {
+    UnitComponent? best;
+    double bestY = double.negativeInfinity;
+    for (final u in _units) {
+      if (!u.unitInstance.isAlive) continue;
+      if (u.unitInstance.laneIndex != laneIndex) continue;
+      if (u.position.y > bestY) {
+        bestY = u.position.y;
+        best = u;
+      }
+    }
+    return best;
+  }
+
+  void _fuseUnit(UnitComponent existing, CardData newCard, int laneIndex) {
+    final inst = existing.unitInstance;
+    if (inst.element == newCard.element) {
+      // 同属性: パワーアップ
+      inst.powerUp();
+      _spawnFusionEffect(existing.position, inst.element, powerUp: true);
+      _spawnFloatingText(
+        existing.position + Vector2(0, -40),
+        '⭐ パワーアップ！',
+        const Color(0xFFFFE082),
+        fontSize: 16,
+      );
+      HapticFeedback.mediumImpact();
+    } else {
+      // 異属性: 合体変身
+      final result = _fusionTable(inst.element, newCard.element);
+      inst.fuseTo(
+        newElement: result.element,
+        newName: result.name,
+        newEmoji: result.emoji,
+        newAttack: ((inst.attack + newCard.baseAttack) * 0.8).round(),
+        newMaxHp: ((inst.maxHp + newCard.baseHp) * 0.8).round(),
+      );
+      _spawnFusionEffect(existing.position, result.element, powerUp: false);
+      _spawnFloatingText(
+        existing.position + Vector2(0, -40),
+        '🌀 ${result.name}に変身！',
+        const Color(0xFFCE93D8),
+        fontSize: 14,
+      );
+      HapticFeedback.heavyImpact();
+    }
+  }
+
+  void _spawnFusionEffect(Vector2 pos, ElementType element, {required bool powerUp}) {
+    world.add(BurstParticleComponent(
+      position: pos,
+      color: Color(element.colorValue),
+      count: powerUp ? 16 : 28,
+      speed: powerUp ? 100.0 : 180.0,
+      lifespan: 0.8,
+    ));
+    _shakeController.shake(intensity: 3.0, duration: 0.2);
+  }
+
+  ({ElementType element, String name, String emoji}) _fusionTable(
+      ElementType a, ElementType b) {
+    final pair = {a, b};
+    if (pair.containsAll([ElementType.fire, ElementType.water]))
+      return (element: ElementType.wind, name: '蒸気騎士', emoji: '💨');
+    if (pair.containsAll([ElementType.fire, ElementType.wind]))
+      return (element: ElementType.fire, name: '爆炎士', emoji: '🌋');
+    if (pair.containsAll([ElementType.fire, ElementType.earth]))
+      return (element: ElementType.earth, name: '溶岩守', emoji: '🌄');
+    if (pair.containsAll([ElementType.fire, ElementType.light]))
+      return (element: ElementType.light, name: '聖炎師', emoji: '☀️');
+    if (pair.containsAll([ElementType.fire, ElementType.dark]))
+      return (element: ElementType.dark, name: '邪炎使', emoji: '🔴');
+    if (pair.containsAll([ElementType.water, ElementType.wind]))
+      return (element: ElementType.water, name: '嵐射手', emoji: '⛈️');
+    if (pair.containsAll([ElementType.water, ElementType.earth]))
+      return (element: ElementType.earth, name: '大地守', emoji: '🌊');
+    if (pair.containsAll([ElementType.water, ElementType.light]))
+      return (element: ElementType.light, name: '聖水師', emoji: '💫');
+    if (pair.containsAll([ElementType.water, ElementType.dark]))
+      return (element: ElementType.dark, name: '深淵使', emoji: '🌀');
+    if (pair.containsAll([ElementType.wind, ElementType.earth]))
+      return (element: ElementType.wind, name: '砂嵐士', emoji: '🌪️');
+    if (pair.containsAll([ElementType.wind, ElementType.light]))
+      return (element: ElementType.light, name: '雷光師', emoji: '⚡');
+    if (pair.containsAll([ElementType.wind, ElementType.dark]))
+      return (element: ElementType.dark, name: '影風使', emoji: '🌫️');
+    if (pair.containsAll([ElementType.earth, ElementType.light]))
+      return (element: ElementType.light, name: '聖岩守', emoji: '💎');
+    if (pair.containsAll([ElementType.earth, ElementType.dark]))
+      return (element: ElementType.dark, name: '呪岩使', emoji: '🪨');
+    // light + dark
+    return (element: ElementType.fire, name: '混沌士', emoji: '🌈');
   }
 }
