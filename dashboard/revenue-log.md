@@ -8,9 +8,9 @@
 
 ## 2026年4月
 - 収益: ¥0（忍者AdMax設置済み・計測開始）[手動]
-- AWS推定コスト: ¥500 [手動]
-- Anthropic API推定コスト: ¥1,000 [手動]
-- 損益: -¥1,500
+- AWS実コスト: ¥1,013（DynamoDB¥627 + Route53¥150 + S3¥143 + Tax¥93）[AWS Cost Explorer実測]
+- Anthropic API推定コスト: ¥118（processor Lambda 56回×3呼出×$0.0007×150円）[CloudWatch推定]
+- 損益: -¥1,131
 
 ---
 
