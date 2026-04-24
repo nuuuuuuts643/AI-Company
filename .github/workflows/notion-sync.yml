@@ -1,7 +1,11 @@
 name: Notion同期（AI-Company状態更新）
 
 on:
-  # 手動実行のみ（2026-04-23 自動実行停止）
+  schedule:
+    # 毎日 09:00 JST = UTC 00:00
+    - cron: '0 0 * * *'
+  push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
