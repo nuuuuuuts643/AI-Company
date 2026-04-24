@@ -554,7 +554,10 @@ function renderCfAnalytics(cfData) {
 
   // PV推移ラインチャート
   const daily = [...(cf.daily||[])].sort((a,b)=>a.date.localeCompare(b.date));
-  const lineData = daily.map(d => ({ label: d.date.slice(5), v: d.count }));
+  const lineData = daily.map(d => ({
+    label: d.date.split('-').slice(1).map(Number).join('/'),  // "04-23" → "4/23" (JST表示)
+    v: d.count,
+  }));
   const lineChart = SVG.lineChart(lineData, { color:'#58a6ff', gradId:'lg-pv' });
 
   // トップページ
