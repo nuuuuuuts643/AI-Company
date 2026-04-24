@@ -2,6 +2,10 @@
 # P003 News Timeline - 一発デプロイスクリプト
 set -e
 
+# スクリプトの場所を基準にCWDを固定（どこから呼ばれても正しいパスで動く）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 REGION="ap-northeast-1"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 TABLE="p003-topics"
