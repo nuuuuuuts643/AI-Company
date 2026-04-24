@@ -26,3 +26,13 @@ push-fixes.command
 scripts/__pycache__/
 fetch_notion.py
 runner/
+
+# Lambda ビルド成果物（deploy.sh が毎回生成するので git 管理不要）
+**/function.zip
+**/function_backup.zip
+lambda/fetcher/handler.py.bak
+
+# Python キャッシュ
+**/__pycache__/
+**/*.pyc
+**/*.pyo

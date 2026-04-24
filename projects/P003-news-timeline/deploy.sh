@@ -138,7 +138,8 @@ ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE}"
 # ---- 4. Fetcher Lambda ----
 echo "[4/8] Fetcher Lambda デプロイ..."
 cd lambda/fetcher
-zip -q function.zip *.py
+# feedparser等の依存パッケージも含める（*.pyだけでは動かない）
+zip -q -r function.zip *.py feedparser requests certifi charset_normalizer idna urllib3 sgmllib.py sgmllib3k-1.0.0.dist-info 2>/dev/null || zip -q function.zip *.py
 aws lambda create-function \
   --function-name "$FETCHER" \
   --runtime python3.12 \
@@ -586,7 +587,7 @@ echo "  -> 同時実行数制限設定完了"
 
 # ---- 6e. Lifecycle Lambda ----
 LIFECYCLE_FN="flotopic-lifecycle"
-LIFECYCLE_ENV_VARS="Variables={REGION=${REGION},TABLE_NAME=${TABLE_NAME},SLACK_WEBHOOK=${SLACK_WEBHOOK}}"
+LIFECYCLE_ENV_VARS="Variables={REGION=${REGION},TABLE_NAME=${TABLE},SLACK_WEBHOOK=${SLACK_WEBHOOK}}"
 echo "[6e] Lifecycle Lambda デプロイ..."
 cd lambda/lifecycle
 zip -q function.zip handler.py
