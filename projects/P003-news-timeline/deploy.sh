@@ -146,7 +146,10 @@ aws iam put-role-policy \
        "Resource":["arn:aws:s3:::p003-news-946554699567","arn:aws:s3:::p003-news-946554699567/*","arn:aws:s3:::p003-news-staging-946554699567","arn:aws:s3:::p003-news-staging-946554699567/*"]},
       {"Sid":"CloudWatchMetrics","Effect":"Allow",
        "Action":["cloudwatch:GetMetricStatistics","cloudwatch:PutMetricData"],
-       "Resource":"*"}
+       "Resource":"*"},
+      {"Sid":"ProcessorDLQ","Effect":"Allow",
+       "Action":"sqs:SendMessage",
+       "Resource":"arn:aws:sqs:ap-northeast-1:'"${ACCOUNT_ID}"':p003-processor-dlq"}
     ]
   }' 2>/dev/null && echo "  -> 最小権限ポリシー適用済み" || true
 
@@ -316,6 +319,12 @@ aws lambda create-function \
     aws lambda update-function-configuration --function-name "$PROCESSOR" --timeout 300 --memory-size 256 --environment "$PROCESSOR_ENV_VARS" --region "$REGION" > /dev/null
     echo "  -> 更新完了"
   }
+# DLQ設定（AI要約失敗時のサイレント消失を防止）
+aws lambda put-function-event-invoke-config --function-name "$PROCESSOR" \
+  --maximum-retry-attempts 1 --region "$REGION" > /dev/null
+aws lambda update-function-configuration --function-name "$PROCESSOR" \
+  --dead-letter-config TargetArn="arn:aws:sqs:${REGION}:${ACCOUNT_ID}:p003-processor-dlq" \
+  --region "$REGION" > /dev/null 2>&1 || true
 rm function.zip
 cd ../..
 

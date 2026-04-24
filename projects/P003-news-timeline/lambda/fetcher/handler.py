@@ -747,12 +747,16 @@ def lambda_handler(event, context):
                 dedup_core[kc] = t
 
         topics_deduped_all = sorted(dedup_long.values(), key=lambda x: int(x.get('score', 0) or 0), reverse=True)
-        # 記事1件かつvelocity=0の死亡トピックをtopics.jsonから除外（ストーリーにならないため）
-        topics_deduped = [
-            t for t in topics_deduped_all
-            if t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES
-            and (int(t.get('articleCount', 0) or 0) >= 2 or float(t.get('velocityScore', 0) or 0) > 0)
-        ][:2000]
+        # velocityScore降順でソートし上位500件に絞り込む
+        # （topics.jsonを1.4MB→300KB台に削減。velocityScore>0は245件なので有効トピックは全カバー）
+        topics_deduped = sorted(
+            [t for t in topics_deduped_all
+             if t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES
+             and (int(t.get('articleCount', 0) or 0) >= 2 or float(t.get('velocityScore', 0) or 0) > 0)
+            ],
+            key=lambda t: (float(t.get('velocityScore', 0) or 0), t.get('lastUpdated', '') or ''),
+            reverse=True,
+        )[:500]
 
         write_s3('api/topics.json', {
             'topics':          topics_deduped,
