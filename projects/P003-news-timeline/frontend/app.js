@@ -281,7 +281,7 @@ function renderTopics(topics) {
   const pageList = list.slice(0, currentPage * CONFIG.TOPICS_PER_PAGE);
   grid.innerHTML = pageList.reduce((html, t, i) => {
     const adSlot = ((i + 1) % CONFIG.AD_CARD_INTERVAL === 0)
-      ? '<div class="topic-card-wrapper ad-card-wrapper"><div class="ad-card" data-ad-inject></div></div>'
+      ? '<div class="topic-card-wrapper ad-card-wrapper"><div class="ad-card" data-ad-inject><span class="ad-label">PR</span></div></div>'
       : '';
     return html + renderTopicCard(t, i) + adSlot;
   }, '');
