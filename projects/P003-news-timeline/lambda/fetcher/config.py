@@ -43,6 +43,11 @@ RSS_FEEDS = [
     {'url': 'https://ascii.jp/rss.xml',                           'genre': 'テクノロジー', 'tier': 2},
     # Gizmodo Japan: ⚠️ グレーゾーン→ 残す
     {'url': 'https://www.gizmodo.jp/index.xml',                   'genre': 'テクノロジー', 'tier': 2},
+    # CNET Japan: ✅ 2026-04-25確認 30件・RSS公開・商業利用制限なし
+    {'url': 'https://feeds.japan.cnet.com/rss/cnet/all.rdf',      'genre': 'テクノロジー', 'tier': 2},
+    # PC Watch / ケータイWatch (Impress): ✅ 2026-04-25確認・RSS明示公開
+    {'url': 'https://pc.watch.impress.co.jp/data/rss/1.0/pcw/feed.rdf',    'genre': 'テクノロジー', 'tier': 2},
+    {'url': 'https://k-tai.watch.impress.co.jp/data/rss/1.0/ktw/feed.rdf', 'genre': 'テクノロジー', 'tier': 2},
     # ===== 総合・一般紙 =====
     # NHK: ✅ 公共放送・見出し+リンクは広く許容→ 残す
     # tier=1: 一次情報・権威性高
@@ -270,6 +275,10 @@ SOURCE_NAME_MAP = {
     'forbesjapan.com': 'Forbes Japan',
     'gigazine.net': 'GIGAZINE',
     'ascii.jp': 'ASCII.jp',
+    'feeds.japan.cnet.com': 'CNET Japan',
+    'japan.cnet.com': 'CNET Japan',
+    'pc.watch.impress.co.jp': 'PC Watch',
+    'k-tai.watch.impress.co.jp': 'ケータイWatch',
     'news.livedoor.com': 'livedoorニュース',
     'www.buzzfeed.com':  'BuzzFeed Japan',
 }
