@@ -67,7 +67,7 @@ function cleanSummary(s) {
     .trim();
 }
 
-const GENRES = ['すべて','総合','政治','ビジネス','株・金融','テクノロジー','スポーツ','エンタメ','科学','健康','国際'];
+const GENRES = ['すべて','政治','ビジネス','株・金融','テクノロジー','スポーツ','エンタメ','科学','健康','国際'];
 const GENRE_EMOJI = {'政治':'🏛️','ビジネス':'💼','株・金融':'📈','テクノロジー':'💻','スポーツ':'⚽','エンタメ':'🎬','科学':'🔬','健康':'💊','国際':'🌏','総合':'📰'};
 
 // ===== パーソナライズ =====
@@ -206,7 +206,6 @@ function renderTopicCard(t, i) {
     ? `<div class="card-thumb"><img class="card-thumb-img" src="${esc(t.imageUrl)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<div class=\\'card-thumb-placeholder ${esc(t.status)}\\'>${genreEmoji(primaryGenre)}</div>'"></div>`
     : `<div class="card-thumb"><div class="card-thumb-placeholder ${esc(t.status)}">${genreEmoji(primaryGenre)}</div></div>`;
   const isFav = userFavorites.has(t.topicId);
-  const adCardHtml = `<div class="ad-card"><span class="ad-label">PR</span><!-- ADSENSE_SLOT_HERE --></div>`;
   return `
     <div class="topic-card-wrapper" style="position:relative;">
       ${renderBadges(t)}
@@ -221,7 +220,7 @@ function renderTopicCard(t, i) {
         </div>
       </a>
       <button class="fav-btn ${isFav ? 'fav-active' : ''}" data-topic-id="${esc(t.topicId)}" title="${isFav ? 'お気に入りを解除' : 'お気に入りに追加'}" aria-label="お気に入り">♥</button>
-    </div>${(i + 1) % CONFIG.AD_CARD_INTERVAL === 0 ? adCardHtml : ''}`;
+    </div>`;
 }
 
 /**
@@ -265,6 +264,10 @@ function renderTopics(topics) {
   if (currentStatus !== 'all')    list = list.filter(t => t.status === currentStatus);
   if (currentGenre  !== 'すべて') list = list.filter(t => (t.genres||[t.genre]).includes(currentGenre));
   if (currentStatus === 'all')    list = list.filter(t => t.lifecycleStatus !== 'archived');
+  // 記事1件のみ かつ velocity=0 の死亡トピックを非表示（検索時・お気に入り時は除く）
+  if (!currentSearch && !showFavsOnly) {
+    list = list.filter(t => (t.articleCount || 0) >= 2 || Number(t.velocityScore || 0) > 0);
+  }
   if (showFavsOnly) list = list.filter(t => userFavorites.has(t.topicId));
 
   // ジャンル多様性を確保（テック偏り防止）
@@ -451,12 +454,21 @@ function showTrendingBanner(topics) {
 // ===== 詳細ページ =====
 let chartInstance = null, viewsChartInstance = null;
 
+function getAnonymousId() {
+  let id = localStorage.getItem('flotopic_anon_id');
+  if (!id) {
+    id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now();
+    localStorage.setItem('flotopic_anon_id', id);
+  }
+  return id;
+}
+
 function trackView(topicId) {
-  if (typeof TRACKER_URL === 'undefined') return;
-  fetch(TRACKER_URL, {
+  if (typeof ANALYTICS_URL === 'undefined' || !topicId) return;
+  fetch(ANALYTICS_URL + 'analytics/event', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({topicId}),
+    body: JSON.stringify({ anonymousId: getAnonymousId(), topicId, eventType: 'page_view' }),
   }).catch(() => {});
 }
 
@@ -556,16 +568,15 @@ function renderDetail(data) {
     threadsBtn.style.display = 'inline-flex';
   }
 
-  // <time> タグ（最終更新日時）
+  // <time> タグ（最終更新日時）— toUnixSec で秒/ミリ秒/ISO 混在を正規化
   const timeEl = document.getElementById('topic-last-updated');
   if (timeEl) {
-    const lastUpdated = meta.lastArticleAt || meta.lastUpdated;
-    if (lastUpdated) {
-      try {
-        const d = new Date(lastUpdated);
-        timeEl.setAttribute('datetime', d.toISOString());
-        timeEl.textContent = d.toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      } catch {}
+    const rawTs = meta.lastArticleAt || meta.lastUpdated;
+    const tsMs = toUnixSec(rawTs) * 1000;
+    if (tsMs > 1000000000000) {
+      const d = new Date(tsMs);
+      timeEl.setAttribute('datetime', d.toISOString());
+      timeEl.textContent = d.toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
   }
 
@@ -605,7 +616,8 @@ function renderDetail(data) {
   const noData = document.getElementById('no-data');
   if (canvas) {
     if (timeline.length < 2) {
-      canvas.style.display='none'; if(vCanvas) vCanvas.style.display='none'; if(noData) noData.style.display='block';
+      const chartCard = canvas.closest('.card');
+      if (chartCard) chartCard.style.display = 'none';
     } else {
       canvas.style.display='block'; if(vCanvas) vCanvas.style.display='block'; if(noData) noData.style.display='none';
 
@@ -718,6 +730,9 @@ function renderDetail(data) {
   }
 
   const storyEl = document.getElementById('story-timeline');
+  if (storyEl && !timeline.length) {
+    storyEl.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;padding:8px 0;">記事データを収集中です。ストーリーはデータが蓄積されると表示されます。</p>';
+  }
   if (storyEl && timeline.length) {
     const seenUrls = new Set();
     const allArticles = [];
@@ -835,6 +850,14 @@ function renderDetail(data) {
       `).join('');
     }
 
+  }
+
+  // timeline=0 の場合は related-articles にも空状態メッセージを表示
+  if (!timeline.length) {
+    const relatedFallback = document.getElementById('related-articles');
+    if (relatedFallback && !relatedFallback.innerHTML.trim()) {
+      relatedFallback.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;padding:8px 0;">関連記事はデータが蓄積されると表示されます。</p>';
+    }
   }
 
   renderDiscovery(meta);
@@ -1018,10 +1041,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const ct = r.headers.get('content-type') || '';
           if (ct.includes('json')) {
             const data = await r.json();
-            if (data.meta) { try { renderDetail(data); } catch {} return; }
+            if (data.meta) { try { renderDetail(data); } catch(e) { console.error('renderDetail:', e); } return; }
           }
         }
-      } catch {}
+      } catch(e) { console.error('topic fetch:', e); }
       // 2. DynamoDB経由（S3にない古いトピック）
       try {
         const gw = typeof _GW !== 'undefined' ? _GW : null;
@@ -1029,10 +1052,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const r2 = await fetch(`${gw}/topic/${topicId}`);
           if (r2.ok) {
             const data2 = await r2.json();
-            if (data2.meta) { try { renderDetail(data2); } catch {} return; }
+            if (data2.meta) { try { renderDetail(data2); } catch(e) { console.error('renderDetail(fallback):', e); } return; }
           }
         }
-      } catch {}
+      } catch(e) { console.error('topic fallback:', e); }
       // 3. topics.jsonからメタデータのみ（最終手段）
       try {
         const r3 = await fetch(apiUrl('topics'));
