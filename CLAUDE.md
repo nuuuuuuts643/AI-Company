@@ -484,7 +484,7 @@ bash projects/P003-news-timeline/deploy.sh
 
 ## 未解決の問題 / 素材不足
 
-- **P003 ANTHROPIC_API_KEY未設定（processor Lambda）** — AI要約が生成されない。残タスクの「優先度: 高」参照。
+- **P003 ANTHROPIC_API_KEY設定済み（processor Lambda）** — ✅ 2026-04-24確認済み。AI要約・タイトル生成とも正常動作中。
 - **P003 アイコン素材不足** — icon-192.png / icon-512.png / apple-touch-icon.png が未作成（ICONS-NEEDED.md参照）。PWAインストール時に必要。
 - **P003 GOOGLE_CLIENT_ID設定済み** — ✅ config.jsに 632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com 設定済み
 - **P003 AdSense審査待ち** — HTTPS化完了済み。申請後、審査通過まで数週間かかる場合あり。それまでは忍者AdMaxで代替。
