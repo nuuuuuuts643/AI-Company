@@ -3,88 +3,298 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'; img-src 'self' https: data: blob:">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="robots" content="noindex">
   <title>プロフィール | Flotopic</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    .profile-hero {
-      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-      color: #fff; padding: 32px 20px 24px; text-align: center;
+    * { box-sizing: border-box; }
+
+    /* ===== Hero Banner ===== */
+    .prof-hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%);
+      padding-top: 80px;
+      padding-bottom: 0;
+      position: relative;
+      overflow: hidden;
     }
-    .profile-avatar {
-      width: 72px; height: 72px; border-radius: 50%;
-      display: inline-flex; align-items: center; justify-content: center;
-      font-size: 2rem; font-weight: 700; background: #3b82f6;
-      color: #fff; margin-bottom: 12px; overflow: hidden;
+    .prof-hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 70% 50%, rgba(99,102,241,0.35) 0%, transparent 60%),
+        radial-gradient(circle at 10% 80%, rgba(56,189,248,0.2) 0%, transparent 50%);
+      pointer-events: none;
     }
-    .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .profile-handle { font-size: 1rem; color: #94a3b8; margin-top: 4px; }
-    .profile-stats { display: flex; justify-content: center; gap: 32px; margin-top: 16px; }
-    .profile-stat { text-align: center; }
-    .profile-stat-num { font-size: 1.4rem; font-weight: 700; }
-    .profile-stat-label { font-size: .75rem; color: #94a3b8; }
-    .comment-history { max-width: 640px; margin: 24px auto; padding: 0 16px; }
-    .hist-card {
-      background: var(--card-bg, #fff); border: 1px solid var(--border, #e2e8f0);
-      border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;
+
+    /* ===== Profile Card ===== */
+    .prof-card {
+      max-width: 580px;
+      margin: 0 auto;
+      padding: 0 16px;
     }
-    .hist-topic {
-      font-size: .78rem; color: var(--primary, #3b82f6); margin-bottom: 6px;
-      text-decoration: none; display: block; font-weight: 600;
+    .prof-avatar-wrap {
+      display: flex;
+      align-items: flex-end;
+      gap: 16px;
+      padding-bottom: 14px;
+      position: relative;
+      margin-top: -44px;
+      z-index: 2;
     }
-    .hist-topic:hover { text-decoration: underline; }
-    .hist-body { font-size: .92rem; color: var(--text-primary, #1a1a1a); margin-bottom: 8px; }
-    .hist-meta { font-size: .75rem; color: var(--text-muted, #64748b); display: flex; gap: 12px; }
-    .hist-quoted {
+    .prof-avatar {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      border: 4px solid #fff;
+      box-shadow: 0 4px 16px rgba(0,0,0,.25);
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #e5e7eb;
+    }
+    .prof-avatar-init {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      border: 4px solid #fff;
+      box-shadow: 0 4px 16px rgba(0,0,0,.25);
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    /* ===== Profile Info ===== */
+    .prof-info-section {
+      max-width: 580px;
+      margin: 0 auto;
+      padding: 0 16px 20px;
+      background: var(--card-bg, #fff);
+    }
+    .prof-name {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text-primary, #0f172a);
+      margin-bottom: 2px;
+    }
+    .prof-handle-badge {
+      display: inline-block;
+      font-size: .82rem;
+      font-weight: 600;
+      color: #6366f1;
+      margin-bottom: 12px;
+    }
+    .prof-stats {
+      display: flex;
+      gap: 0;
+      border-top: 1px solid var(--border, #f1f5f9);
+      padding-top: 14px;
+      margin-top: 4px;
+    }
+    .prof-stat {
+      flex: 1;
+      text-align: center;
+      padding: 4px 8px;
+      border-right: 1px solid var(--border, #f1f5f9);
+    }
+    .prof-stat:last-child { border-right: none; }
+    .prof-stat-num {
+      display: block;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text-primary, #0f172a);
+      line-height: 1.2;
+    }
+    .prof-stat-label {
+      display: block;
+      font-size: .72rem;
+      color: var(--text-muted, #94a3b8);
+      margin-top: 2px;
+    }
+
+    /* ===== Content area ===== */
+    .prof-content {
+      max-width: 580px;
+      margin: 0 auto;
+      padding: 16px 16px 60px;
+    }
+    .prof-section-label {
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--text-muted, #94a3b8);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      padding: 0 2px;
+    }
+
+    /* ===== Comment Cards (X-style) ===== */
+    .pc-card {
+      background: var(--card-bg, #fff);
+      border: 1px solid var(--border, #e8eaf0);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      transition: box-shadow .15s;
+    }
+    .pc-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.07); }
+    .pc-topic-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: .74rem;
+      font-weight: 600;
+      color: #6366f1;
+      text-decoration: none;
+      margin-bottom: 8px;
+      padding: 3px 8px;
+      background: rgba(99,102,241,0.07);
+      border-radius: 20px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .pc-topic-link:hover { background: rgba(99,102,241,0.14); }
+    .pc-quoted {
       background: var(--bg-secondary, #f8fafc);
-      border-left: 3px solid var(--border, #cbd5e1);
-      padding: 8px 10px; border-radius: 4px; margin-bottom: 8px;
-      font-size: .82rem; color: var(--text-muted, #64748b);
+      border-left: 3px solid #6366f1;
+      padding: 7px 10px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: .81rem;
+      color: var(--text-muted, #64748b);
     }
-    .hist-quoted-handle { font-weight: 700; color: var(--primary, #3b82f6); }
-    .loading-msg { text-align: center; padding: 40px; color: var(--text-muted, #64748b); }
-    .back-btn {
-      display: inline-flex; align-items: center; gap: 6px;
-      color: var(--text-muted, #64748b); text-decoration: none;
-      font-size: .85rem; padding: 8px 0;
+    .pc-quoted-handle { font-weight: 700; color: #6366f1; margin-right: 4px; }
+    .pc-body {
+      font-size: .93rem;
+      color: var(--text-primary, #1a1a1a);
+      line-height: 1.6;
+      margin-bottom: 8px;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
-    .back-btn:hover { color: var(--text-primary, #1a1a1a); }
+    .pc-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: .74rem;
+      color: var(--text-muted, #94a3b8);
+    }
+    .pc-like-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      color: #f43f5e;
+      font-weight: 600;
+    }
+
+    /* ===== Back button ===== */
+    .prof-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--text-muted, #64748b);
+      text-decoration: none;
+      font-size: .84rem;
+      padding: 6px 0;
+      margin-bottom: 14px;
+      transition: color .15s;
+    }
+    .prof-back:hover { color: var(--text-primary, #0f172a); }
+
+    /* ===== Loading / empty ===== */
+    .prof-loading {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted, #64748b);
+      font-size: .9rem;
+    }
+
+    /* ===== White surface below hero ===== */
+    .prof-surface {
+      background: var(--card-bg, #fff);
+      border-radius: 0 0 20px 20px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.07);
+      margin-bottom: 4px;
+    }
+
+    /* ===== Hero spacer (for fixed header) ===== */
+    .prof-hero-spacer { height: 24px; }
+
+    /* ===== Dark mode ===== */
+    [data-theme="dark"] .prof-hero {
+      background: linear-gradient(135deg, #0a0b14 0%, #0e0c3b 55%, #1a175e 100%);
+    }
+    [data-theme="dark"] .prof-avatar { border-color: #1e2035; }
+    [data-theme="dark"] .prof-avatar-init { border-color: #1e2035; }
+    [data-theme="dark"] .prof-surface { background: #1e2035; box-shadow: 0 2px 16px rgba(0,0,0,.4); }
+    [data-theme="dark"] .prof-info-section { background: #1e2035; }
+    [data-theme="dark"] .prof-name { color: #eef0f8; }
+    [data-theme="dark"] .prof-stat-num { color: #eef0f8; }
+    [data-theme="dark"] .prof-stat { border-right-color: rgba(99,102,241,0.15); }
+    [data-theme="dark"] .prof-stats { border-top-color: rgba(99,102,241,0.15); }
+    [data-theme="dark"] .pc-card { background: #1e2035; border-color: rgba(99,102,241,0.15); }
+    [data-theme="dark"] .pc-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.3); }
+    [data-theme="dark"] .pc-body { color: #d4d8f0; }
+    [data-theme="dark"] .pc-quoted { background: #252840; border-left-color: #6366f1; }
+    [data-theme="dark"] .prof-back { color: #5c6080; }
+    [data-theme="dark"] .prof-back:hover { color: #eef0f8; }
+    [data-theme="dark"] .prof-section-label { color: #5c6080; }
   </style>
 </head>
 <body>
 <header>
   <div class="inner header-inner">
-    <div>
-      <h1><a href="index.html" style="color:inherit;text-decoration:none;">Flotopic</a></h1>
+    <a href="index.html" class="header-logo-link">
+      <h1>Flotopic</h1>
       <p>話題の流れをAIで追う</p>
-    </div>
+    </a>
     <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替">🌙</button>
   </div>
 </header>
 
-<div class="profile-hero">
-  <div id="profile-avatar" class="profile-avatar">?</div>
-  <div id="profile-name" style="font-size:1.1rem;font-weight:700;">読み込み中...</div>
-  <div id="profile-handle-el" class="profile-handle"></div>
-  <div class="profile-stats">
-    <div class="profile-stat">
-      <div id="profile-count" class="profile-stat-num">—</div>
-      <div class="profile-stat-label">コメント</div>
+<!-- Hero: gradient banner -->
+<div class="prof-hero">
+  <div class="prof-hero-spacer"></div>
+</div>
+
+<!-- White card below hero, overlapping banner -->
+<div class="prof-surface">
+  <div class="prof-card">
+    <div class="prof-avatar-wrap">
+      <div id="prof-avatar-el" class="prof-avatar-init">?</div>
     </div>
-    <div class="profile-stat">
-      <div id="profile-likes" class="profile-stat-num">—</div>
-      <div class="profile-stat-label">獲得いいね</div>
+  </div>
+  <div class="prof-info-section">
+    <div id="prof-name" class="prof-name">読み込み中...</div>
+    <div id="prof-handle" class="prof-handle-badge"></div>
+    <div class="prof-stats">
+      <div class="prof-stat">
+        <span id="prof-count" class="prof-stat-num">—</span>
+        <span class="prof-stat-label">コメント</span>
+      </div>
+      <div class="prof-stat">
+        <span id="prof-likes" class="prof-stat-num">—</span>
+        <span class="prof-stat-label">獲得いいね</span>
+      </div>
     </div>
   </div>
 </div>
 
-<div class="comment-history">
-  <a href="javascript:history.back()" class="back-btn">← 戻る</a>
+<!-- Comment history -->
+<div class="prof-content">
+  <a href="javascript:history.back()" class="prof-back">← 戻る</a>
+  <div class="prof-section-label">コメント履歴</div>
   <div id="history-list">
-    <div class="loading-msg"><div class="spinner"></div><br>読み込み中...</div>
+    <div class="prof-loading"><div class="spinner" style="margin:0 auto 12px;"></div>読み込み中...</div>
   </div>
 </div>
 
@@ -105,68 +315,90 @@ function fmtDate(iso) {
   if (!iso) return '';
   try {
     const d = new Date(iso);
-    return d.toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const diffMin = Math.floor((Date.now() - d) / 60000);
+    if (diffMin < 1)  return 'たった今';
+    if (diffMin < 60) return diffMin + '分前';
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24)   return diffH + '時間前';
+    return d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
   } catch { return ''; }
 }
 
-function initials(name) {
-  return (name || '?').charAt(0).toUpperCase();
+async function loadTopicTitleMap() {
+  try {
+    const apiBase = (typeof API_BASE !== 'undefined') ? API_BASE : '';
+    const r = await fetch(apiBase + 'topics.json');
+    const data = await r.json();
+    const map = {};
+    (data.topics || []).forEach(t => { map[t.topicId] = t.generatedTitle || t.title || ''; });
+    return map;
+  } catch { return {}; }
 }
 
 async function loadProfile() {
   const params = new URLSearchParams(location.search);
   const handle = params.get('handle') || '';
   if (!handle || !/^[A-Za-z0-9_]{1,20}$/.test(handle)) {
-    document.getElementById('history-list').innerHTML = '<div class="loading-msg">handleが指定されていません</div>';
+    document.getElementById('history-list').innerHTML = '<div class="prof-loading">handleが指定されていません</div>';
+    document.getElementById('prof-name').textContent = 'ユーザーが見つかりません';
     return;
   }
 
   document.title = `@${handle} | Flotopic`;
-  document.getElementById('profile-handle-el').textContent = '@' + handle;
-  document.getElementById('profile-avatar').textContent = initials(handle);
+  document.getElementById('prof-handle').textContent = '@' + handle;
+  // Avatar initials from handle
+  const initial = handle.charAt(0).toUpperCase();
+  const avatarEl = document.getElementById('prof-avatar-el');
+  avatarEl.textContent = initial;
 
-  if (typeof _APIGW === 'undefined') return;
+  if (typeof _APIGW === 'undefined' || !_APIGW) {
+    document.getElementById('history-list').innerHTML = '<div class="prof-loading">設定が読み込まれていません</div>';
+    return;
+  }
+
   try {
-    const r = await fetch(`${_APIGW}/user/${encodeURIComponent(handle)}/comments`);
-    if (!r.ok) throw new Error('fetch failed');
-    const data = await r.json();
+    const [commRes, titleMap] = await Promise.all([
+      fetch(`${_APIGW}/user/${encodeURIComponent(handle)}/comments`),
+      loadTopicTitleMap(),
+    ]);
+    if (!commRes.ok) throw new Error('fetch failed');
+    const data = await commRes.json();
     const comments = data.comments || [];
 
-    document.getElementById('profile-name').textContent = handle;
-    document.getElementById('profile-count').textContent = data.count ?? comments.length;
+    document.getElementById('prof-name').textContent = handle;
+    document.getElementById('prof-count').textContent = data.count ?? comments.length;
     const totalLikes = comments.reduce((s, c) => s + (Number(c.likeCount) || 0), 0);
-    document.getElementById('profile-likes').textContent = totalLikes;
+    document.getElementById('prof-likes').textContent = totalLikes;
 
     const listEl = document.getElementById('history-list');
     if (!comments.length) {
-      listEl.innerHTML = '<div class="loading-msg">まだコメントはありません</div>';
+      listEl.innerHTML = '<div class="prof-loading">まだコメントはありません</div>';
       return;
     }
 
     listEl.innerHTML = comments.map(c => {
-      const topicUrl = `topic.html?id=${esc(c.topicId)}`;
-      const quoted = c.quotedHandle ? `
-        <div class="hist-quoted">
-          <span class="hist-quoted-handle">@${esc(c.quotedHandle)}</span>
-          ${esc(c.quotedText || '')}
-        </div>` : '';
+      const topicTitle = titleMap[c.topicId] || '';
+      const topicLabel = topicTitle || 'このトピックを見る';
+      const topicUrl   = `topic.html?id=${esc(c.topicId)}`;
       const likes = Number(c.likeCount) || 0;
-      const dislikes = Number(c.dislikeCount) || 0;
+      const quoted = c.quotedHandle ? `
+        <div class="pc-quoted">
+          <span class="pc-quoted-handle">@${esc(c.quotedHandle)}</span>${esc(c.quotedText || '')}
+        </div>` : '';
       return `
-        <div class="hist-card">
-          <a class="hist-topic" href="${topicUrl}">📰 トピックを見る →</a>
+        <div class="pc-card">
+          <a class="pc-topic-link" href="${topicUrl}">📰 ${esc(topicLabel)}</a>
           ${quoted}
-          <div class="hist-body">${esc(c.body)}</div>
-          <div class="hist-meta">
+          <div class="pc-body">${esc(c.body)}</div>
+          <div class="pc-meta">
             <span>${fmtDate(c.createdAt)}</span>
-            ${likes ? `<span>♡ ${likes}</span>` : ''}
-            ${dislikes ? `<span>👎 ${dislikes}</span>` : ''}
+            ${likes ? `<span class="pc-like-badge">♥ ${likes}</span>` : ''}
           </div>
         </div>`;
     }).join('');
   } catch {
     document.getElementById('history-list').innerHTML =
-      '<div class="loading-msg">読み込みに失敗しました</div>';
+      '<div class="prof-loading">読み込みに失敗しました</div>';
   }
 }
 
