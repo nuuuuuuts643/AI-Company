@@ -66,34 +66,6 @@ query Analytics($accountId: String!, $siteTag: String!, $start: Date!, $end: Dat
 }
 """
 
-# アカウント内の全サイトタグを確認するデバッグ用クエリ（siteTagフィルターなし）
-CF_DEBUG_QUERY = """
-query Debug($accountId: String!, $start: Date!, $end: Date!) {
-  viewer {
-    accounts(filter: {accountTag: $accountId}) {
-      allSites: rumPageloadEventsAdaptiveGroups(
-        filter: {date_geq: $start, date_leq: $end}
-        limit: 10 orderBy: [count_DESC]
-      ) { count dimensions { siteTag } }
-    }
-  }
-}
-"""
-
-
-def _cf_request(query: str, variables: dict) -> dict:
-    req = urllib.request.Request(
-        CF_GRAPHQL,
-        data=json.dumps({'query': query, 'variables': variables}).encode(),
-        headers={'Authorization': f'Bearer {CF_API_TOKEN}', 'Content-Type': 'application/json'},
-        method='POST',
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read())
-    except Exception as e:
-        print(f'[cf-analytics] CF API エラー: {e}')
-        return {}
 
 
 def fetch_cf_analytics(days: int = 7) -> dict:
@@ -105,24 +77,27 @@ def fetch_cf_analytics(days: int = 7) -> dict:
     start = (today - timedelta(days=days)).isoformat()
     end   = today.isoformat()
 
-    # デバッグ: アカウント内の全siteTagを確認
-    dbg = _cf_request(CF_DEBUG_QUERY, {'accountId': CF_ACCOUNT_ID, 'start': start, 'end': end})
-    dbg_accounts = dbg.get('data', {}).get('viewer', {}).get('accounts') or []
-    all_sites = (dbg_accounts[0] if dbg_accounts else {}).get('allSites', [])
-    print(f'[cf-analytics] DEBUG 全siteTag一覧({len(all_sites)}件): {[s["dimensions"].get("siteTag") for s in all_sites[:5]]}')
-    print(f'[cf-analytics] DEBUG 設定中のCF_SITE_TAG={CF_SITE_TAG}')
-
-    result = _cf_request(CF_QUERY, {
-        'accountId': CF_ACCOUNT_ID, 'siteTag': CF_SITE_TAG,
-        'start': start, 'end': end,
-    })
+    req = urllib.request.Request(
+        CF_GRAPHQL,
+        data=json.dumps({'query': CF_QUERY, 'variables': {
+            'accountId': CF_ACCOUNT_ID, 'siteTag': CF_SITE_TAG,
+            'start': start, 'end': end,
+        }}).encode(),
+        headers={'Authorization': f'Bearer {CF_API_TOKEN}', 'Content-Type': 'application/json'},
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            result = json.loads(r.read())
+    except Exception as e:
+        print(f'[cf-analytics] CF API エラー: {e}')
+        return {}
 
     if result.get('errors'):
         print(f'[cf-analytics] GraphQL エラー: {result["errors"]}')
         return {}
 
     accounts = result.get('data', {}).get('viewer', {}).get('accounts') or []
-    print(f'[cf-analytics] DEBUG accounts件数={len(accounts)} daily件数={len((accounts[0] if accounts else {}).get("daily", []))}')
     data = accounts[0] if accounts else {}
     daily = data.get('daily', [])
 
