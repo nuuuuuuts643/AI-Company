@@ -100,34 +100,102 @@
       transition: box-shadow .2s;
     }
     .comment-login-google-btn:hover { box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+    /* ===== トピックページヘッダー内タイトルヒーロー ===== */
+    .topic-hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #2d2a7a 100%);
+      padding: 20px 20px 18px;
+      position: relative;
+      overflow: hidden;
+    }
+    .topic-hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 80% 50%, rgba(99,102,241,0.3) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .topic-hero-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+    .topic-back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: rgba(255,255,255,0.6);
+      text-decoration: none;
+      font-size: .8rem;
+      margin-bottom: 10px;
+      transition: color .15s;
+    }
+    .topic-back-link:hover { color: rgba(255,255,255,0.9); }
+    .topic-hero-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.4;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 480px) { .topic-hero-title { font-size: 1.05rem; } }
+    .topic-hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .topic-share-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    /* dark mode for hero is already dark */
   </style>
 </head>
 <body>
 <header>
-  <div class="inner" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-    <div style="flex:1;min-width:0;">
-      <a href="index.html" class="back-link">← 一覧に戻る</a>
-      <h1 id="topic-title" style="font-size:1.1rem;font-weight:700;">読み込み中...</h1>
-      <div style="margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;">
-        <span id="status-badge" class="status-badge" style="display:none;"></span>
-        <span id="genre-badge"></span>
-        <button id="share-btn" style="display:none;align-items:center;gap:5px;padding:4px 12px;border:none;border-radius:16px;background:rgba(255,255,255,.15);color:#fff;font-size:.78rem;font-weight:600;cursor:pointer;" aria-label="シェア">📤 シェア</button>
-        <a id="x-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:4px 10px;border-radius:16px;background:#000;color:#fff;font-size:.78rem;font-weight:700;text-decoration:none;" aria-label="Xでシェア">𝕏 シェア</a>
-        <a id="hatena-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:4px 10px;border-radius:16px;background:#00a4de;color:#fff;font-size:.78rem;font-weight:700;text-decoration:none;" aria-label="はてなブックマーク">B! はてブ</a>
-        <a id="threads-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:4px 10px;border-radius:16px;background:rgba(255,255,255,.18);color:#fff;font-size:.78rem;font-weight:600;text-decoration:none;" aria-label="Threads">🧵 Threads</a>
+  <div class="inner header-inner">
+    <a href="index.html" class="header-logo-link">
+      <h1>Flotopic</h1>
+      <p>話題の流れをAIで追う</p>
+    </a>
+    <div class="header-right">
+      <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替">🌙</button>
+      <div class="auth-area">
+        <button id="auth-signin-btn" class="auth-btn" style="display:none;">ログイン</button>
+        <a id="auth-user-link" href="mypage.html" class="auth-user-link" style="display:none;">
+          <img id="auth-user-avatar" class="auth-user-avatar" src="" alt="アバター">
+          <span id="auth-user-name" class="auth-user-name"></span>
+        </a>
+        <button id="auth-signout-btn" style="display:none;"></button>
+        <a id="mypage-link" style="display:none;"></a>
       </div>
-      <div id="storymap-link-container"></div>
-    </div>
-    <div class="auth-area">
-      <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替">🌙</button>
-      <a id="mypage-link" href="mypage.html" class="mypage-link-btn">👤 <span class="mypage-label">マイページ</span><span id="notif-badge" class="notif-badge" style="display:none"></span></a>
-      <img id="auth-user-avatar" class="auth-user-avatar" src="" alt="アバター">
-      <span id="auth-user-name" class="auth-user-name"></span>
-      <button id="auth-signin-btn" class="auth-btn" style="display:none;">ログイン</button>
-      <button id="auth-signout-btn" class="auth-btn" style="display:none;">ログアウト</button>
     </div>
   </div>
 </header>
+
+<!-- トピックタイトルヒーロー（ヘッダー外に移動） -->
+<div class="topic-hero">
+  <div class="topic-hero-inner">
+    <a href="index.html" class="topic-back-link">← 一覧に戻る</a>
+    <h1 id="topic-title" class="topic-hero-title">読み込み中...</h1>
+    <div class="topic-hero-meta">
+      <span id="status-badge" class="status-badge" style="display:none;"></span>
+      <span id="genre-badge"></span>
+    </div>
+    <div class="topic-share-bar">
+      <button id="share-btn" style="display:none;align-items:center;gap:5px;padding:5px 14px;border:none;border-radius:16px;background:rgba(255,255,255,.15);color:#fff;font-size:.8rem;font-weight:600;cursor:pointer;backdrop-filter:blur(4px);" aria-label="シェア">📤 シェア</button>
+      <a id="x-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:#000;color:#fff;font-size:.8rem;font-weight:700;text-decoration:none;" aria-label="Xでシェア">𝕏 シェア</a>
+      <a id="hatena-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:#00a4de;color:#fff;font-size:.8rem;font-weight:700;text-decoration:none;" aria-label="はてなブックマーク">B! はてブ</a>
+      <a id="threads-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:rgba(255,255,255,.18);color:#fff;font-size:.8rem;font-weight:600;text-decoration:none;" aria-label="Threads">🧵 Threads</a>
+    </div>
+    <div id="storymap-link-container"></div>
+  </div>
+</div>
+
 <main class="container">
 
 
