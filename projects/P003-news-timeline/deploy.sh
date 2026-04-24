@@ -587,7 +587,11 @@ echo "  -> 同時実行数制限設定完了"
 
 # ---- 6e. Lifecycle Lambda ----
 LIFECYCLE_FN="flotopic-lifecycle"
-LIFECYCLE_ENV_VARS="Variables={REGION=${REGION},TABLE_NAME=${TABLE},SLACK_WEBHOOK=${SLACK_WEBHOOK}}"
+if [ -n "${SLACK_WEBHOOK}" ]; then
+  LIFECYCLE_ENV_VARS="Variables={REGION=${REGION},TABLE_NAME=${TABLE},SLACK_WEBHOOK=${SLACK_WEBHOOK}}"
+else
+  LIFECYCLE_ENV_VARS="Variables={REGION=${REGION},TABLE_NAME=${TABLE}}"
+fi
 echo "[6e] Lifecycle Lambda デプロイ..."
 cd lambda/lifecycle
 zip -q function.zip handler.py
