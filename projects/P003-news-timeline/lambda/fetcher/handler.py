@@ -21,15 +21,18 @@ from scoring import (
     apply_tier_and_diversity_scoring, apply_tech_audience_filter,
     record_filter_feedback,
 )
-from text_utils import (
-    topic_fingerprint, dominant_genres, dominant_lang,
-    extract_source_name, extract_rss_image, cluster,
+from cluster_utils import topic_fingerprint, cluster
+from score_utils import (
     calc_score, calc_velocity_score, apply_time_decay,
     source_diversity_score, compute_lifecycle_status,
-    sort_by_pubdate, extract_trending_keywords,
+    sort_by_pubdate, _parse_pubdate_ts,
+)
+from text_utils import (
+    dominant_genres, dominant_lang,
+    extract_source_name, extract_rss_image,
+    extract_trending_keywords,
     extract_entities, find_related_topics, detect_topic_hierarchy,
     extractive_title, extractive_summary,
-    _parse_pubdate_ts,
 )
 from storage import (
     write_s3, get_all_topics, get_topic_detail,
