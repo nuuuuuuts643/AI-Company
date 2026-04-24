@@ -135,9 +135,17 @@ section h2{font-size:.9rem;font-weight:600;color:#8b949e;text-transform:uppercas
     <!-- サマリーカード（動的生成） -->
     <div class="cards" id="summary-cards"></div>
 
+    <!-- Cloudflare Analytics -->
+    <section>
+      <h2>アクセス数 — 7日間（Cloudflare Analytics）</h2>
+      <div class="panel" id="section-cf-analytics">
+        <div class="no-data">読み込み中...</div>
+      </div>
+    </section>
+
     <!-- アクセス数（analytics） -->
     <section>
-      <h2>アクセス数 — 直近24時間</h2>
+      <h2>アクセス数 — 直近24時間（独自集計）</h2>
       <div class="grid2">
         <div class="panel">
           <div class="bar-list" id="chart-trending-topics">
@@ -206,12 +214,13 @@ section h2{font-size:.9rem;font-weight:600;color:#8b949e;text-transform:uppercas
 // CONFIG — ここだけ変更すれば設定完了
 // ═══════════════════════════════════════════════════════════════════════
 const CONFIG = {
-  allowedEmail:  'owner643@gmail.com',   // 管理者 Google アカウント
-  googleClientId:'632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com',
-  apiBase:       'https://flotopic.com/api/',
-  analyticsUrl:  'https://2svmxx7aou6w5ekdruw5maqnfu0aplju.lambda-url.ap-northeast-1.on.aws/',
-  topTopicsN:    20,
-  recentTopicsN: 10,
+  allowedEmail:    'owner643@gmail.com',
+  googleClientId:  '632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com',
+  apiBase:         'https://flotopic.com/api/',
+  analyticsUrl:    'https://2svmxx7aou6w5ekdruw5maqnfu0aplju.lambda-url.ap-northeast-1.on.aws/',
+  cfAnalyticsUrl:  'https://flotopic.com/api/cf-analytics.json',  // S3キャッシュ
+  topTopicsN:      20,
+  recentTopicsN:   10,
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -297,23 +306,31 @@ function computeMetrics(topics) {
 // SECTIONS
 // ═══════════════════════════════════════════════════════════════════════
 
-function renderSummaryCards(m, analyticsData) {
-  const pv24h  = analyticsData ? analyticsData.trending.reduce((s,t)=>s+(t.views||0),0) : null;
-  const fav24h = analyticsData ? analyticsData.trending.reduce((s,t)=>s+(t.favorites||0),0) : null;
+function renderSummaryCards(m, analyticsData, cfData) {
+  const pv24h  = analyticsData?.trending?.reduce((s,t)=>s+(t.views||0),0) ?? null;
+  const cf     = cfData || {};
+  const users  = cf.users  || {};
+  const comments  = cf.comments  || {};
+  const favorites = cf.favorites || {};
+  const pv7d   = cf.cf?.totalPv7d ?? null;
+
   const cards = [
-    UI.card('blue',   '総トピック数',       m.total.toLocaleString(),
-            `24h更新: ${m.updatedToday}`),
-    UI.card('green',  '総記事数',           m.totalArticles.toLocaleString(),
-            `平均 ${m.avgArticles}件/トピック`),
-    UI.card('purple', 'AI要約済み',         m.aiDone.toLocaleString(),
-            `${U.pct(m.aiDone, m.total)}% 完了`),
-    UI.card('teal',   '24h PV',
-            pv24h !== null ? pv24h.toLocaleString() : '—',
-            pv24h !== null ? `お気に入り ${fav24h}件` : 'データ収集中...'),
-    UI.card('yellow', 'はてブ総数',         m.totalHatena.toLocaleString(),
-            `最高 ${m.maxHatena} ブクマ`),
-    UI.card('orange', 'Active トピック',   (m.lifecycle.active||0).toLocaleString(),
-            `cooling: ${m.lifecycle.cooling||0}`),
+    UI.card('blue',   '総トピック数',    m.total.toLocaleString(),   `24h更新: ${m.updatedToday}`),
+    UI.card('green',  '総記事数',        m.totalArticles.toLocaleString(), `平均 ${m.avgArticles}件/トピック`),
+    UI.card('purple', 'AI要約済み',      m.aiDone.toLocaleString(),  `${U.pct(m.aiDone, m.total)}% 完了`),
+    UI.card('teal',   'PV（7日間）',
+            pv7d !== null ? pv7d.toLocaleString() : (pv24h !== null ? pv24h.toLocaleString() : '—'),
+            pv7d !== null ? 'Cloudflare Analytics' : (pv24h !== null ? '24h（独自集計）' : 'データ収集中...')),
+    UI.card('orange', 'ユーザー数',
+            users.total != null ? users.total.toLocaleString() : '—',
+            users.new7d != null ? `7日新規: ${users.new7d}人` : ''),
+    UI.card('yellow', 'コメント数',
+            comments.total != null ? comments.total.toLocaleString() : '—',
+            comments.new7d != null ? `7日新規: ${comments.new7d}件 / いいね: ${comments.totalLikes||0}` : ''),
+    UI.card('red',    'お気に入り数',
+            favorites.total != null ? favorites.total.toLocaleString() : '—',
+            favorites.new7d != null ? `7日新規: ${favorites.new7d}件` : ''),
+    UI.card('blue',   'はてブ総数',      m.totalHatena.toLocaleString(), `最高 ${m.maxHatena} ブクマ`),
   ];
   document.getElementById('summary-cards').innerHTML = cards.join('');
 }
@@ -322,7 +339,7 @@ function renderAnalytics(analyticsData, topics) {
   const topicMap = {};
   topics.forEach(t => { topicMap[t.topicId] = t; });
 
-  if (!analyticsData || !analyticsData.trending?.length) {
+  if (!analyticsData?.trending?.length) {
     document.getElementById('chart-trending-topics').innerHTML =
       '<div class="no-data">まだアクセスデータがありません。<br>ユーザーがトピックを閲覧すると表示されます。</div>';
     document.getElementById('chart-activity-24h').innerHTML =
@@ -330,7 +347,6 @@ function renderAnalytics(analyticsData, topics) {
     return;
   }
 
-  // トップ10閲覧トピック
   const top10 = analyticsData.trending.slice(0, 10);
   const maxV  = Math.max(...top10.map(t => t.views||0), 1);
   document.getElementById('chart-trending-topics').innerHTML =
@@ -340,17 +356,64 @@ function renderAnalytics(analyticsData, topics) {
       return UI.barRow(label, t.views||0, maxV, 'fill-blue', `${t.views||0} PV`);
     }).join('');
 
-  // 新規 vs リピーター
-  const totalViews   = analyticsData.trending.reduce((s,t)=>s+(t.views||0),0);
-  const totalNew     = analyticsData.trending.reduce((s,t)=>s+(t.new_viewers||0),0);
-  const totalReturn  = totalViews - totalNew;
-  const totalFavs    = analyticsData.trending.reduce((s,t)=>s+(t.favorites||0),0);
-  const maxAct       = Math.max(totalNew, totalReturn, totalFavs, 1);
+  const totalViews  = analyticsData.trending.reduce((s,t)=>s+(t.views||0),0);
+  const totalNew    = analyticsData.trending.reduce((s,t)=>s+(t.new_viewers||0),0);
+  const totalReturn = totalViews - totalNew;
+  const totalFavs   = analyticsData.trending.reduce((s,t)=>s+(t.favorites||0),0);
+  const maxAct      = Math.max(totalNew, totalReturn, totalFavs, 1);
   document.getElementById('chart-activity-24h').innerHTML = [
-    UI.barRow('新規訪問',     totalNew,    maxAct, 'fill-green'),
-    UI.barRow('リピーター',   totalReturn, maxAct, 'fill-blue'),
-    UI.barRow('お気に入り',   totalFavs,   maxAct, 'fill-yellow'),
+    UI.barRow('新規訪問',   totalNew,    maxAct, 'fill-green'),
+    UI.barRow('リピーター', totalReturn, maxAct, 'fill-blue'),
+    UI.barRow('お気に入り', totalFavs,   maxAct, 'fill-yellow'),
   ].join('');
+}
+
+function renderCfAnalytics(cfData) {
+  const el = document.getElementById('section-cf-analytics');
+  if (!el) return;
+  const cf = cfData?.cf;
+  if (!cf?.totalPv7d) {
+    el.innerHTML = '<div class="no-data">CF_API_TOKEN 未設定 — セットアップ手順を参照</div>';
+    return;
+  }
+
+  // 日別PV棒グラフ
+  const daily  = cf.daily || [];
+  const maxPv  = Math.max(...daily.map(d=>d.count||0), 1);
+  const dailyHtml = daily.map(d =>
+    UI.barRow(d.date.slice(5), d.count, maxPv, 'fill-blue')
+  ).join('');
+
+  // トップページ
+  const pages    = cf.topPages || [];
+  const maxPages = Math.max(...pages.map(p=>p.count||0), 1);
+  const pagesHtml = pages.map(p =>
+    UI.barRow(p.path.slice(0,20)||'/', p.count, maxPages, 'fill-teal')
+  ).join('');
+
+  // 国別
+  const countries = cf.byCountry || [];
+  const maxC      = Math.max(...countries.map(c=>c.count||0), 1);
+  const COUNTRY_NAMES = {JP:'日本',US:'米国',KR:'韓国',CN:'中国',GB:'英国',DE:'ドイツ',TW:'台湾',AU:'豪州',CA:'カナダ',FR:'フランス'};
+  const countriesHtml = countries.map(c =>
+    UI.barRow(COUNTRY_NAMES[c.code]||c.code, c.count, maxC, 'fill-purple')
+  ).join('');
+
+  el.innerHTML = `
+    <div class="grid3">
+      <div>
+        <div style="font-size:.8rem;color:#8b949e;margin-bottom:8px">日別 PV（7日間）</div>
+        <div class="bar-list">${dailyHtml || '<div class="no-data">データなし</div>'}</div>
+      </div>
+      <div>
+        <div style="font-size:.8rem;color:#8b949e;margin-bottom:8px">トップページ</div>
+        <div class="bar-list">${pagesHtml || '<div class="no-data">データなし</div>'}</div>
+      </div>
+      <div>
+        <div style="font-size:.8rem;color:#8b949e;margin-bottom:8px">訪問者の国</div>
+        <div class="bar-list">${countriesHtml || '<div class="no-data">データなし</div>'}</div>
+      </div>
+    </div>`;
 }
 
 function renderCharts(m) {
@@ -418,12 +481,14 @@ function renderRecentTopics(topics) {
 }
 
 // ─── セクション登録（新セクション追加はここに関数を追記） ─────────────────
+// 引数: (metrics, topics, analyticsMap, analyticsData, cfData)
 const SECTIONS = [
-  (m, t, am, ad) => renderSummaryCards(m, ad),
-  (m, t, am, ad) => renderAnalytics(ad, t),
+  (m,t,am,ad,cf) => renderSummaryCards(m, ad, cf),
+  (m,t,am,ad,cf) => renderCfAnalytics(cf),
+  (m,t,am,ad)    => renderAnalytics(ad, t),
   (m)            => renderCharts(m),
-  (m, t, am)     => renderTopTopics(t, am),
-  (m, t)         => renderRecentTopics(t),
+  (m,t,am)       => renderTopTopics(t, am),
+  (m,t)          => renderRecentTopics(t),
 ];
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -434,9 +499,10 @@ const Dashboard = {
     document.getElementById('loading').style.display = 'block';
     document.getElementById('dashboard').style.display = 'none';
     try {
-      const [topicsRes, analyticsRes] = await Promise.allSettled([
+      const [topicsRes, analyticsRes, cfRes] = await Promise.allSettled([
         fetch(CONFIG.apiBase + 'topics.json?_=' + Date.now()),
         fetch(CONFIG.analyticsUrl + 'analytics/trending'),
+        fetch(CONFIG.cfAnalyticsUrl + '?_=' + Date.now()),
       ]);
 
       if (topicsRes.status === 'rejected') throw new Error('topics.json 取得失敗');
@@ -448,13 +514,18 @@ const Dashboard = {
         try { analyticsData = await analyticsRes.value.json(); } catch(e) {}
       }
 
-      const m          = computeMetrics(topics);
+      let cfData = null;
+      if (cfRes.status === 'fulfilled' && cfRes.value.ok) {
+        try { cfData = await cfRes.value.json(); } catch(e) {}
+      }
+
+      const m            = computeMetrics(topics);
       const analyticsMap = {};
       if (analyticsData?.trending) {
         analyticsData.trending.forEach(t => { analyticsMap[t.topicId] = t; });
       }
 
-      SECTIONS.forEach(fn => fn(m, topics, analyticsMap, analyticsData));
+      SECTIONS.forEach(fn => fn(m, topics, analyticsMap, analyticsData, cfData));
       U.setText('last-fetch', '更新: ' + new Date().toLocaleTimeString('ja-JP'));
       document.getElementById('loading').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
