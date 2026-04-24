@@ -44,7 +44,7 @@ query Analytics($accountId: String!, $siteTag: String!, $start: Date!, $end: Dat
     accounts(filter: {accountTag: $accountId}) {
       daily: rumPageloadEventsAdaptiveGroups(
         filter: {siteTag: $siteTag, date_geq: $start, date_leq: $end}
-        limit: 30 orderBy: [date_ASC]
+        limit: 31 orderBy: [date_ASC]
       ) { count dimensions { date } }
 
       topPages: rumPageloadEventsAdaptiveGroups(
@@ -215,7 +215,7 @@ def save_to_s3(payload: dict):
 def lambda_handler(event, context):
     print(f'[cf-analytics] 開始: {datetime.now(timezone.utc).isoformat()}')
 
-    cf_data   = fetch_cf_analytics(days=7)
+    cf_data   = fetch_cf_analytics(days=30)
     users     = fetch_user_stats()
     comments  = fetch_comment_stats()
     favorites = fetch_favorites_stats()
@@ -230,6 +230,6 @@ def lambda_handler(event, context):
 
     save_to_s3(payload)
 
-    print(f'[cf-analytics] 完了: PV7d={cf_data.get("totalPv7d","N/A")} '
+    print(f'[cf-analytics] 完了: PV30d={cf_data.get("totalPv7d","N/A")} '
           f'users={users["total"]} comments={comments["total"]} favs={favorites["total"]}')
     return {'statusCode': 200, 'body': json.dumps({'ok': True})}
