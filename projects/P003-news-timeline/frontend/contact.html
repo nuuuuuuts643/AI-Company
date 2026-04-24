@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>お問い合わせ・削除依頼 | Flotopic</title>
+  <meta name="description" content="Flotopicへのお問い合わせ、記事・コンテンツの削除依頼はこちらからご連絡ください。">
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .contact-container {
+      max-width: 680px;
+      margin: 40px auto;
+      padding: 0 16px 80px;
+    }
+    .contact-container h1 {
+      font-size: 1.5rem;
+      margin-bottom: 6px;
+    }
+    .contact-container .subtitle {
+      color: #64748b;
+      font-size: .88rem;
+      margin-bottom: 32px;
+      line-height: 1.7;
+    }
+    .contact-section {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .contact-section h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin: 0 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #1e293b;
+    }
+    .contact-section p {
+      font-size: .88rem;
+      line-height: 1.8;
+      color: #475569;
+      margin-bottom: 10px;
+    }
+    .contact-section ul {
+      font-size: .88rem;
+      line-height: 1.9;
+      color: #475569;
+      padding-left: 1.4em;
+      margin-bottom: 12px;
+    }
+    .contact-email {
+      display: inline-block;
+      font-size: .95rem;
+      font-weight: 600;
+      color: #1e293b;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin: 4px 0 12px;
+      letter-spacing: 0.01em;
+      user-select: all;
+    }
+    .note-box {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: .83rem;
+      color: #0c4a6e;
+      line-height: 1.7;
+      margin: 12px 0;
+    }
+    .note-box strong { color: #075985; }
+    .urgent-badge {
+      display: inline-block;
+      background: #fee2e2;
+      color: #991b1b;
+      font-size: .72rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .issue-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: #1e293b;
+      color: #fff;
+      border-radius: 999px;
+      text-decoration: none;
+      font-size: .88rem;
+      font-weight: 700;
+      transition: opacity .15s;
+      margin-top: 4px;
+    }
+    .issue-btn:hover { opacity: .8; }
+    .back-link {
+      display: inline-block;
+      margin: 20px 16px 0;
+      color: #3b82f6;
+      text-decoration: none;
+      font-size: .9rem;
+    }
+    .back-link:hover { text-decoration: underline; }
+    @media (max-width: 600px) {
+      .contact-section { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="inner header-inner">
+    <div>
+      <h1>📰 Flotopic</h1>
+      <p>話題の盛り上がりをAIで追う</p>
+    </div>
+  </div>
+</header>
+
+<a href="index.html" class="back-link">← トップに戻る</a>
+
+<div class="contact-container">
+  <h1>お問い合わせ・削除依頼</h1>
+  <p class="subtitle">
+    記事の削除依頼、誤情報・内容に関するご指摘、その他お問い合わせは以下からご連絡ください。<br>
+    連絡先メール：<span class="contact-email">contact@flotopic.com</span>
+    <span style="font-size:.8rem;color:#94a3b8;">（準備中 — 現在はGitHub Issuesをご利用ください）</span>
+  </p>
+
+  <!-- 著作権侵害の申告（DMCA Safe Harbor 相当） -->
+  <div class="contact-section">
+    <h2>⚖️ 著作権侵害の申告（削除依頼） <span class="urgent-badge">権利者優先対応</span></h2>
+    <p>Flotopicは公開RSSフィードから記事の見出し・リンクを収集し、AIでトピックをまとめています。著作権者からの申告は<strong>受領後7営業日以内</strong>に対応します。</p>
+
+    <p style="margin-top:14px;font-size:.88rem;color:#374151;"><strong>申告に必要な記載事項（全項目必須）：</strong></p>
+    <ul>
+      <li>① <strong>権利者の情報</strong>：氏名または組織名、および本人確認が可能な連絡先</li>
+      <li>② <strong>侵害コンテンツのURL</strong>：flotopic.com 上の対象ページURL（複数可）</li>
+      <li>③ <strong>著作物の特定</strong>：侵害されていると主張する著作物の説明（元記事URL、書籍名等）</li>
+      <li>④ <strong>誠実な申告の宣言</strong>：「本申告は誠実な信念に基づくものであり、権利者またはその代理人として申告する権限を有することを宣言します」という文言の記載</li>
+    </ul>
+
+    <div class="note-box">
+      <strong>対応フロー：</strong><br>
+      申告受領 → 内容確認（最大3営業日） → 削除または非表示対応（7営業日以内） → 対応完了をIssueにてご報告<br><br>
+      <strong>対象外となる申告：</strong>必要記載事項（①〜④）が不足している場合、対応できない場合があります。
+    </div>
+
+    <p style="font-size:.85rem;color:#475569;margin-top:8px;">申告先はメールアドレスではなく <strong>GitHub Issues</strong> です。個人情報を含む場合は「Private」ラベルを付けてください。</p>
+
+    <a class="issue-btn" href="https://github.com/issues" target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+      GitHub Issues で著作権侵害を申告する
+    </a>
+  </div>
+
+  <!-- プライバシー・誤情報等の削除依頼 -->
+  <div class="contact-section">
+    <h2>🗑️ プライバシー・肖像権・誤情報に関する削除依頼</h2>
+    <p>著作権以外の理由による削除依頼（プライバシー権・肖像権の侵害、名誉毀損、AIによる要約の誤り等）もGitHub Issuesから受け付けています。確認後、<strong>7営業日以内</strong>に対応します。</p>
+    <div class="note-box">
+      <strong>Issueに記載してください：</strong><br>
+      ① 対象コンテンツのURL（flotopic.com/... または元記事URL）<br>
+      ② 権利者名・組織名（任意）<br>
+      ③ 削除を求める理由（プライバシー侵害・名誉毀損・誤情報等）
+    </div>
+    <a class="issue-btn" href="https://github.com/issues" target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+      GitHub Issues で削除依頼を送る
+    </a>
+  </div>
+
+  <!-- 誤情報・内容指摘 -->
+  <div class="contact-section">
+    <h2>⚠️ 誤情報・内容に関するご指摘</h2>
+    <p>AIによる要約・まとめに誤りや不適切な内容が含まれる場合はご連絡ください。確認後、修正または削除します。</p>
+    <div class="note-box">
+      <strong>Issueに記載してください：</strong><br>
+      ① 対象トピックのURL ② 問題のある内容（該当箇所） ③ 正しい情報（わかる場合）
+    </div>
+    <a class="issue-btn" href="https://github.com/issues" target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+      GitHub Issues で誤情報を報告する
+    </a>
+  </div>
+
+  <!-- その他 -->
+  <div class="contact-section">
+    <h2>💬 その他のお問い合わせ</h2>
+    <p>不具合の報告・機能の要望・プライバシーポリシーに関するご質問などはGitHub Issuesからどうぞ。</p>
+    <a class="issue-btn" href="https://github.com/issues" target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+      GitHub Issues を開く
+    </a>
+  </div>
+
+  <!-- 運営情報 -->
+  <div class="contact-section" style="border-color:#f1f5f9;background:#f8fafc;">
+    <h2 style="color:#64748b;">ℹ️ サービスについて</h2>
+    <p>Flotopicは個人が運営するニュースアグリゲーションサービスです。公開RSSフィードから記事の見出しとリンクを収集し、AIがトピックごとにまとめて提供しています。記事の著作権は各報道機関・メディアに帰属します。本サービスは記事の全文転載を行わず、元記事へのリンクのみを掲載しています。</p>
+    <p><a href="terms.html" style="color:#3b82f6;">利用規約</a> &nbsp;·&nbsp; <a href="privacy.html" style="color:#3b82f6;">プライバシーポリシー</a></p>
+  </div>
+</div>
+
+<footer style="text-align:center;padding:20px;color:#94a3b8;font-size:.8rem;margin-top:40px;">
+  <a href="legacy.html" style="color:#94a3b8;text-decoration:underline;">アーカイブ</a>
+  &nbsp;·&nbsp;
+  <a href="terms.html" style="color:#94a3b8;text-decoration:underline;">利用規約</a>
+  &nbsp;·&nbsp;
+  <a href="privacy.html" style="color:#94a3b8;text-decoration:underline;">プライバシーポリシー</a>
+  &nbsp;·&nbsp;
+  <a href="contact.html" style="color:#94a3b8;text-decoration:underline;">お問い合わせ・削除依頼</a>
+  <div style="margin-top:8px;font-size:.75rem;color:#cbd5e1;">記事の著作権は各報道機関・メディアに帰属します</div>
+  <div style="margin-top:4px;font-size:.75rem;color:#cbd5e1;">AI要約は自動生成です。情報の正確性は各元記事をご確認ください。</div>
+  <div style="margin-top:6px;font-size:.75rem;color:#cbd5e1;">© 2024-2026 Flotopic</div>
+</footer>
+
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "099f0d39ef2649a5b3b9421595dd5474"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>

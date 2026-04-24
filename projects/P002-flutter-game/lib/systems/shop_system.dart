@@ -120,7 +120,7 @@ class ShopSystem {
         sessionBuffs.attackSpeedBoost += v;
       case ShopEffectType.elementBoost:
         final el = item.element;
-        if (el \!= null) {
+        if (el != null) {
           sessionBuffs.elementBoosts[el] =
               (sessionBuffs.elementBoosts[el] ?? 0.0) + v;
         }

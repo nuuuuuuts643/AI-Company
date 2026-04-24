@@ -73,6 +73,14 @@ class ElementChart {
     return getMultiplier(attacker, defender) < 1.0;
   }
 
+  /// この属性の弱点（1.5x を与える属性）を返す。なければ null
+  static ElementType? getWeaknessOf(ElementType defender) {
+    for (final attacker in ElementType.values) {
+      if ((getMultiplier(attacker, defender)) >= 1.5) return attacker;
+    }
+    return null;
+  }
+
   /// チェーン反応が発生する属性ペア
   /// 前の攻撃がA属性だった場合、次にB属性で攻撃するとチェーン発動
   static bool triggersChain(ElementType first, ElementType second) {

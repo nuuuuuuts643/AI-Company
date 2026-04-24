@@ -1,4 +1,5 @@
 import '../constants/element_chart.dart';
+import 'terrain_data.dart';
 
 /// カードの種別
 enum CardType {
@@ -32,8 +33,9 @@ class CardData {
   final int baseHp;        // ユニットのHP（魔法・罠は0）
   final double attackSpeed;// 秒あたり攻撃回数
   final double attackRange;// 攻撃射程(px)
-  final int aoeRadius;     // 範囲攻撃半径（0=単体）
-  final String iconPath;   // プレースホルダー: 'placeholder'
+  final int aoeRadius;       // 範囲攻撃半径（0=単体）
+  final String iconPath;     // プレースホルダー: 'placeholder'
+  final TerrainType? terrainType; // null=通常カード、非null=地形配置カード
 
   const CardData({
     required this.id,
@@ -48,6 +50,7 @@ class CardData {
     this.attackRange = 80.0,
     this.aoeRadius = 0,
     this.iconPath = 'placeholder',
+    this.terrainType,
   });
 }
 
@@ -254,6 +257,35 @@ class CardMaster {
       manaCost: 1,
       baseAttack: 15,
     ),
+
+    // ---- 地形カード（敵フィールドに設置）----
+    CardData(
+      id: 'terrain_mountain',
+      name: '山岳',
+      description: 'レーンを封鎖。敵は隣のレーンへ迂回する。ウェーブ中持続。',
+      cardType: CardType.trap,
+      element: ElementType.earth,
+      manaCost: 3,
+      terrainType: TerrainType.mountain,
+    ),
+    CardData(
+      id: 'terrain_river',
+      name: '急流',
+      description: 'そのレーンの敵の移動速度を60%低下させる。18秒持続。',
+      cardType: CardType.trap,
+      element: ElementType.water,
+      manaCost: 2,
+      terrainType: TerrainType.river,
+    ),
+    CardData(
+      id: 'terrain_swamp',
+      name: '毒沼',
+      description: '通過する敵に毒ダメージ15/秒。15秒持続。',
+      cardType: CardType.trap,
+      element: ElementType.dark,
+      manaCost: 2,
+      terrainType: TerrainType.swamp,
+    ),
   ];
 
   /// IDでカードを取得
@@ -275,5 +307,8 @@ class CardMaster {
         'unit_mage_water',
         'spell_earthspike',
         'trap_earth_spike',
+        'terrain_mountain',
+        'terrain_river',
+        'terrain_swamp',
       ];
 }

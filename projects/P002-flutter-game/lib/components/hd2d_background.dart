@@ -1,177 +1,230 @@
 import 'dart:math';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import '../constants/game_constants.dart';
 
-/// HD-2D風パララックス多層背景コンポーネント
-/// スプライトが用意されるまではシンプルな手書き背景で代替
+/// Octopath Traveler 風 HD-2D 多層背景
+/// 1. 空グラデーション
+/// 2. ボケ光球（Bokeh）パーティクル
+/// 3. 山/廃墟シルエット（視差）
+/// 4. 地面グラデーション
 class HD2DBackground extends PositionComponent {
   final String backgroundId;
-  final List<_BgLayer> _layers = [];
+  final _rng = Random(12345);
 
-  // 視差スクロール速度（各レイヤー）
-  double _scrollX = 0;
+  double _elapsed = 0;
+  late List<_BokehOrb> _bokehs;
+  late List<_Star> _stars;
 
-  HD2DBackground({
-    required Vector2 size,
-    required this.backgroundId,
-  }) : super(size: size);
+  HD2DBackground({required Vector2 size, required this.backgroundId})
+      : super(size: size);
 
   @override
   Future<void> onLoad() async {
-    _buildLayers();
+    // ボケ光球を生成
+    _bokehs = List.generate(18, (_) => _BokehOrb(_rng, size));
+    // 星を固定シードで生成
+    _stars = List.generate(55, (_) => _Star(_rng, size));
   }
 
   @override
   void update(double dt) {
-    // 背景をゆっくりスクロール（雰囲気演出）
-    _scrollX += dt * 10;
+    _elapsed += dt;
+    for (final b in _bokehs) {
+      b.elapsed += dt;
+    }
   }
 
   @override
   void render(Canvas canvas) {
-    _renderBackground(canvas);
-  }
-
-  void _buildLayers() {
-    switch (backgroundId) {
-      case 'bg_volcano':
-        _layers.addAll([
-          _BgLayer(color: const Color(0xFF1A0800), depth: 0),   // 遠景: 暗い空
-          _BgLayer(color: const Color(0xFF3D0C00), depth: 1),   // 中景: 火山
-          _BgLayer(color: const Color(0xFF5C1A00), depth: 2),   // 近景: 溶岩地帯
-        ]);
-        break;
-      case 'bg_sea':
-        _layers.addAll([
-          _BgLayer(color: const Color(0xFF0A1628), depth: 0),
-          _BgLayer(color: const Color(0xFF0D2340), depth: 1),
-          _BgLayer(color: const Color(0xFF153354), depth: 2),
-        ]);
-        break;
-      case 'bg_dark_castle':
-        _layers.addAll([
-          _BgLayer(color: const Color(0xFF050508), depth: 0),
-          _BgLayer(color: const Color(0xFF0A0A14), depth: 1),
-          _BgLayer(color: const Color(0xFF12121E), depth: 2),
-        ]);
-        break;
-      default: // bg_forest
-        _layers.addAll([
-          _BgLayer(color: const Color(0xFF0A1A0A), depth: 0),
-          _BgLayer(color: const Color(0xFF122412), depth: 1),
-          _BgLayer(color: const Color(0xFF1A3A1A), depth: 2),
-        ]);
-    }
-  }
-
-  void _renderBackground(Canvas canvas) {
-    if (_layers.isEmpty) return;
-
     final w = size.x;
     final h = size.y;
 
-    // 最遠景: グラデーション空
-    final skyGradient = LinearGradient(
+    _drawSkyGradient(canvas, w, h);
+    _drawStars(canvas);
+    _drawBokeh(canvas);
+    _drawMountainSilhouette(canvas, w, h);
+    _drawGroundFog(canvas, w, h);
+  }
+
+  void _drawSkyGradient(Canvas canvas, double w, double h) {
+    final colors = _skyColors;
+    final grad = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [_layers[0].color, _layers[1].color],
+      colors: colors,
+      stops: const [0.0, 0.35, 0.65, 1.0],
     ).createShader(Rect.fromLTWH(0, 0, w, h));
+
     canvas.drawRect(
       Rect.fromLTWH(0, 0, w, h),
-      Paint()..shader = skyGradient,
+      Paint()..shader = grad,
     );
-
-    // 星（暗い背景時のみ）
-    if (backgroundId == 'bg_dark_castle' || backgroundId == 'bg_sea') {
-      _renderStars(canvas, w, h);
-    }
-
-    // 山シルエット（中景）
-    _renderMountains(canvas, w, h);
-
-    // 地面
-    _renderGround(canvas, w, h);
-
-    // フィールドライン（レーン境界）
-    _renderFieldLines(canvas, w, h);
   }
 
-  void _renderStars(Canvas canvas, double w, double h) {
-    final starPaint = Paint()..color = Colors.white.withOpacity(0.6);
-    // シードベースの固定星配置
-    final rng = Random(42);
-    for (int i = 0; i < 40; i++) {
-      final x = rng.nextDouble() * w;
-      final y = rng.nextDouble() * (h * 0.5);
-      final r = 0.8 + rng.nextDouble() * 1.2;
-      canvas.drawCircle(Offset(x, y), r, starPaint);
+  void _drawStars(Canvas canvas) {
+    final isNight = backgroundId == 'bg_dark_castle' ||
+        backgroundId == 'bg_sea' ||
+        backgroundId == 'bg_forest';
+    if (!isNight) return;
+
+    for (final s in _stars) {
+      final twinkle = 0.5 + sin(_elapsed * s.twinkleSpeed + s.phase) * 0.4;
+      canvas.drawCircle(
+        Offset(s.x, s.y),
+        s.radius,
+        Paint()..color = Colors.white.withOpacity(twinkle * s.brightness),
+      );
     }
   }
 
-  void _renderMountains(Canvas canvas, double w, double h) {
-    final color = _layers.length > 1 ? _layers[1].color : const Color(0xFF1A2A1A);
-    final paint = Paint()..color = color.withOpacity(0.8);
+  void _drawBokeh(Canvas canvas) {
+    for (final b in _bokehs) {
+      final pulse = 0.3 + sin(b.elapsed * b.pulseSpeed + b.phase) * 0.25;
+      final y = b.baseY + sin(b.elapsed * b.floatSpeed + b.floatPhase) * 20;
+
+      // 外側の大きなぼかし円
+      canvas.drawCircle(
+        Offset(b.x, y),
+        b.radius,
+        Paint()
+          ..color = b.color.withOpacity(pulse * 0.18)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+      );
+      // 内側の明るい核
+      canvas.drawCircle(
+        Offset(b.x, y),
+        b.radius * 0.3,
+        Paint()
+          ..color = b.color.withOpacity(pulse * 0.55)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
+    }
+  }
+
+  void _drawMountainSilhouette(Canvas canvas, double w, double h) {
+    final color = _mountainColor;
+    final scrollOffset = _elapsed * 8 % (w * 1.5);
+
+    // 遠景の山（ゆっくり視差）
+    _drawMountainLayer(canvas, w, h, color.withOpacity(0.55),
+        h * 0.38, scrollOffset * 0.2, 80.0, 32.0);
+    // 近景の山（速い視差）
+    _drawMountainLayer(canvas, w, h, color.withOpacity(0.75),
+        h * 0.48, scrollOffset * 0.4, 55.0, 22.0);
+  }
+
+  void _drawMountainLayer(Canvas canvas, double w, double h, Color color,
+      double peakY, double offset, double peakW, double variation) {
+    final paint = Paint()..color = color;
     final path = Path();
+    path.moveTo(0, h);
 
-    // 視差スクロール（奥の山はゆっくり）
-    final offset = _scrollX * 0.3 % (w * 2);
+    double x = -offset % (peakW * 2);
+    path.lineTo(x, h * 0.65);
 
-    path.moveTo(-offset, h * 0.55);
-    for (double x = -offset; x < w + offset + 60; x += 60) {
-      path.lineTo(x + 30, h * 0.35 + sin(x / 40) * 30);
-      path.lineTo(x + 60, h * 0.55);
+    while (x < w + peakW * 2) {
+      final peak = peakY + sin(x / 70.0) * variation;
+      path.lineTo(x + peakW * 0.5, peak);
+      path.lineTo(x + peakW, h * 0.65);
+      x += peakW;
     }
-    path.lineTo(w + offset, h);
-    path.lineTo(-offset, h);
+    path.lineTo(w + peakW * 2, h);
     path.close();
     canvas.drawPath(path, paint);
   }
 
-  void _renderGround(Canvas canvas, double w, double h) {
-    final groundColor = _layers.isNotEmpty ? _layers.last.color : const Color(0xFF0A140A);
-    final groundGradient = LinearGradient(
+  void _drawGroundFog(Canvas canvas, double w, double h) {
+    // フィールドに向かってフォグが立ち込める（大気遠近感）
+    final fogGrad = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [groundColor, groundColor.withRed((groundColor.red * 0.7).round())],
-    ).createShader(Rect.fromLTWH(0, h * 0.6, w, h * 0.4));
+      colors: [
+        _fogColor.withOpacity(0.0),
+        _fogColor.withOpacity(0.28),
+        _fogColor.withOpacity(0.0),
+      ],
+      stops: const [0.0, 0.35, 1.0],
+    ).createShader(Rect.fromLTWH(0, 0, w, GameConstants.fieldTop + 80));
+
     canvas.drawRect(
-      Rect.fromLTWH(0, h * 0.6, w, h * 0.4),
-      Paint()..shader = groundGradient,
+      Rect.fromLTWH(0, 0, w, GameConstants.fieldTop + 80),
+      Paint()..shader = fogGrad,
     );
   }
 
-  void _renderFieldLines(Canvas canvas, double w, double h) {
-    // 城壁
-    const wallX = 20.0;
-    const wallH = 120.0;
-    final wallTop = h * 0.5 - wallH / 2;
+  // ---- カラーテーマ ----
 
-    canvas.drawRect(
-      Rect.fromLTWH(wallX, wallTop, 24, wallH),
-      Paint()..color = const Color(0xFF78909C),
-    );
-    // 城壁の石目
-    final stonePaint = Paint()
-      ..color = const Color(0xFF546E7A)
-      ..strokeWidth = 1;
-    for (int i = 0; i < 6; i++) {
-      canvas.drawLine(
-        Offset(wallX, wallTop + i * 20),
-        Offset(wallX + 24, wallTop + i * 20),
-        stonePaint,
-      );
+  List<Color> get _skyColors {
+    switch (backgroundId) {
+      case 'bg_volcano':
+        return const [Color(0xFF0A0005), Color(0xFF1A0510), Color(0xFF2D0A00), Color(0xFF0E0500)];
+      case 'bg_sea':
+        return const [Color(0xFF020812), Color(0xFF040E1E), Color(0xFF071428), Color(0xFF040B18)];
+      case 'bg_dark_castle':
+        return const [Color(0xFF010108), Color(0xFF06060F), Color(0xFF0A0A18), Color(0xFF050510)];
+      default: // forest
+        return const [Color(0xFF020A04), Color(0xFF050E08), Color(0xFF0A1810), Color(0xFF050C08)];
     }
-    // 城壁ハイライト
-    canvas.drawRect(
-      Rect.fromLTWH(wallX, wallTop, 3, wallH),
-      Paint()..color = Colors.white.withOpacity(0.3),
-    );
+  }
+
+  Color get _mountainColor {
+    switch (backgroundId) {
+      case 'bg_volcano':  return const Color(0xFF1A0800);
+      case 'bg_sea':      return const Color(0xFF071830);
+      case 'bg_dark_castle': return const Color(0xFF080818);
+      default:            return const Color(0xFF081408);
+    }
+  }
+
+  Color get _fogColor {
+    switch (backgroundId) {
+      case 'bg_volcano':  return const Color(0xFF3D1500);
+      case 'bg_sea':      return const Color(0xFF0A2040);
+      case 'bg_dark_castle': return const Color(0xFF120D28);
+      default:            return const Color(0xFF0D1A0D);
+    }
   }
 }
 
-class _BgLayer {
+// ---- ボケ光球パーティクル ----
+class _BokehOrb {
+  final double x;
+  final double baseY;
+  final double radius;
   final Color color;
-  final int depth;
+  final double pulseSpeed;
+  final double floatSpeed;
+  final double phase;
+  final double floatPhase;
+  double elapsed;
 
-  _BgLayer({required this.color, required this.depth});
+  static const _palette = [
+    Color(0xFFFFB347), Color(0xFF87CEEB), Color(0xFFDDA0DD),
+    Color(0xFF98FB98), Color(0xFFFF6B6B), Color(0xFFFFD700),
+    Color(0xFF4169E1), Color(0xFFFF69B4),
+  ];
+
+  _BokehOrb(Random rng, Vector2 size)
+      : x = rng.nextDouble() * size.x,
+        baseY = rng.nextDouble() * size.y * 0.55 + 10,
+        radius = rng.nextDouble() * 28 + 12,
+        color = _palette[rng.nextInt(_palette.length)],
+        pulseSpeed = rng.nextDouble() * 0.8 + 0.3,
+        floatSpeed = rng.nextDouble() * 0.4 + 0.15,
+        phase = rng.nextDouble() * pi * 2,
+        floatPhase = rng.nextDouble() * pi * 2,
+        elapsed = rng.nextDouble() * 10;
+}
+
+class _Star {
+  final double x, y, radius, brightness, twinkleSpeed, phase;
+
+  _Star(Random rng, Vector2 size)
+      : x = rng.nextDouble() * size.x,
+        y = rng.nextDouble() * size.y * 0.45,
+        radius = rng.nextDouble() * 1.4 + 0.4,
+        brightness = rng.nextDouble() * 0.5 + 0.3,
+        twinkleSpeed = rng.nextDouble() * 1.5 + 0.5,
+        phase = rng.nextDouble() * pi * 2;
 }

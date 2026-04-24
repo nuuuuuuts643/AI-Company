@@ -1,9 +1,9 @@
 name: Weekly Digest Agent (週次ダイジェストAI)
 
 on:
-  schedule:
-    # 毎週日曜日 21:00 UTC = 月曜日 06:00 JST
-    - cron: '0 21 * * 0'
+  #   schedule:
+  #    # 毎週日曜日 21:00 UTC = 月曜日 06:00 JST
+  #     - cron: '0 21 * * 0'
   workflow_dispatch:
 
 concurrency:

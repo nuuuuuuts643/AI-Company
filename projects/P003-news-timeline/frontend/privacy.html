@@ -31,7 +31,7 @@
 
 <div class="privacy-container">
   <h1>プライバシーポリシー</h1>
-  <p class="updated">最終更新日：2026年4月22日</p>
+  <p class="updated">最終更新日：2026年4月24日</p>
 
   <h2>1. 基本方針</h2>
   <p>Flotopic（以下「本サービス」）は、ユーザーのプライバシーを尊重し、個人情報の適切な保護に努めます。本ポリシーは、本サービスにおける情報の取り扱いについて説明します。</p>
@@ -56,6 +56,36 @@
   </ul>
   <p>Google OAuth の詳細については <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google プライバシーポリシー</a> をご確認ください。</p>
 
+  <h2>3-A. アバター画像の取り扱い</h2>
+  <p>ユーザーはマイページからプロフィールアバター画像をアップロードできます。</p>
+  <ul>
+    <li><strong>保存場所</strong>：Amazon S3（ap-northeast-1リージョン）に保存し、Amazon CloudFront経由で配信します。</li>
+    <li><strong>保存目的</strong>：コメント投稿時のアバター表示のみ。広告ターゲティングや第三者提供には使用しません。</li>
+    <li><strong>削除タイミング</strong>：アカウント削除依頼を受け付けた時点で、アバター画像もS3から削除します。また、アップロード後にアカウントが一定期間（90日）ログインなしの状態が続いた場合も削除対象となる場合があります。</li>
+    <li><strong>ファイル形式</strong>：JPEG・PNG・WebP のみ受け付けます。最大1MB。</li>
+    <li>アバターを削除したい場合は、マイページのアカウント設定から変更、または削除依頼をお送りください。</li>
+  </ul>
+
+  <h2>3-B. 自己申告プロフィール情報の取り扱い</h2>
+  <p>ユーザーはマイページで任意でプロフィール情報（ハンドル名・年齢層・性別）を設定できます。</p>
+  <ul>
+    <li><strong>収集する情報</strong>：ハンドル名（表示名）、年齢層（例：20代）、性別（任意選択）</li>
+    <li><strong>保存場所</strong>：Amazon DynamoDB（ap-northeast-1リージョン）に保存します。</li>
+    <li><strong>利用目的</strong>：コメント欄でのハンドル名表示、およびサービス改善のための匿名統計分析。個人を特定する目的には使用しません。</li>
+    <li><strong>任意提供</strong>：これらの情報は任意です。設定しなくてもサービスの基本機能は利用できます。</li>
+    <li>プロフィール情報の修正・削除はいつでもマイページから行えます。</li>
+  </ul>
+
+  <h2>3-C. ローカルストレージに保存するデータ</h2>
+  <p>本サービスでは、ユーザーの利便性向上のためブラウザのローカルストレージを使用しています。サーバーには送信されません。</p>
+  <ul>
+    <li><strong>flotopic_favorites</strong>：お気に入りトピックのIDリスト（ログイン前のキャッシュ）</li>
+    <li><strong>flotopic_history</strong>：最近閲覧したトピックのIDと閲覧日時（最大50件）</li>
+    <li><strong>flotopic_profile_set</strong>：プロフィール設定完了フラグ（初回モーダル表示制御）</li>
+    <li><strong>flotopic_saved_comments</strong>：保存ボタンを押したコメントのIDリスト（サーバー非同期）</li>
+    <li>ローカルストレージのデータはブラウザの設定から削除できます。ページを跨いでの追跡には使用しません。</li>
+  </ul>
+
   <h2>4. アクセス解析ツールの使用</h2>
   <p>本サービスでは、Cloudflare Web Analytics を使用してアクセス状況を解析しています。Cloudflare Web Analytics はCookieを使用せず、個人を特定しない形で情報を収集します。詳細は <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare プライバシーポリシー</a> をご確認ください。</p>
 
@@ -65,15 +95,57 @@
   <h2>6. 外部リンク</h2>
   <p>本サービスには外部サイトへのリンクが含まれています。リンク先のプライバシーポリシーについては、各サイトの方針に従ってください。本サービスは外部サイトの情報管理に関して責任を負いません。</p>
 
-  <h2>7. 免責事項</h2>
+  <h2>7. RSSフィードコンテンツの取り扱いについて</h2>
+  <p>本サービスは、各報道機関・メディアが公開しているRSSフィードから記事の見出し・URLを収集し、AIを用いてトピックごとにまとめを生成しています。</p>
+  <ul>
+    <li><strong>記事の著作権は各報道機関・メディアに帰属します。</strong>本サービスは記事の全文転載を行わず、元記事へのリンクのみを掲載しています。</li>
+    <li>AIによるトピックまとめ（タイトル・要約）は、複数記事の内容を参照して独自に生成したものです。元記事の文章をそのまま転用するものではありません。</li>
+    <li>本サービスで収集・処理したデータは、サービス提供の目的以外に使用しません。</li>
+    <li>各メディアのRSS利用規約の変更・改定に伴い、収集対象ソースを予告なく変更する場合があります。</li>
+  </ul>
+
+  <h2>8. コンテンツの削除依頼について</h2>
+  <p>以下に該当する場合、権利者・当事者からの削除依頼を受け付けています。確認後、原則として<strong>2営業日以内</strong>に対応します。</p>
+  <ul>
+    <li>著作権・知的財産権の侵害に当たると判断される場合</li>
+    <li>プライバシー権・肖像権の侵害に当たると判断される場合</li>
+    <li>名誉毀損その他の法的権利が侵害されている場合</li>
+    <li>AIによる要約・まとめに誤りや問題があり、削除・修正を求める場合</li>
+  </ul>
+  <p>削除依頼は <a href="contact.html">お問い合わせ・削除依頼ページ</a> からご連絡ください。依頼の際は、対象コンテンツのURL・権利者情報・削除理由をご記載いただくと迅速に対応できます。受付後<strong>7日以内</strong>に対応します。</p>
+
+  <h2>9. データポータビリティとユーザーの権利</h2>
+  <p>本サービスに保存されたご自身のデータについて、以下の権利を行使できます。</p>
+  <ul>
+    <li><strong>データ確認</strong>：本サービスに保存されているご自身のデータの内容について確認を求めることができます。</li>
+    <li><strong>データ削除（忘れられる権利）</strong>：アカウント・お気に入り・コメント・アバター画像・プロフィール情報など、本サービスに保存された全データの削除を要求できます。<a href="contact.html">お問い合わせページ</a>のGitHub Issuesからご連絡ください。受領後7営業日以内に削除します。</li>
+    <li><strong>データエクスポート</strong>：お気に入りトピックリスト等の個人データのエクスポートを希望する場合は、お問い合わせください。対応可能な範囲でデータを提供します。</li>
+    <li><strong>プロフィール修正</strong>：マイページからいつでも自分でハンドル名・年齢層・性別を変更または削除できます。</li>
+  </ul>
+  <p style="font-size:.88rem;color:#64748b;">ローカルストレージのデータ（閲覧履歴・保存コメントリスト等）はサーバーに送信されないため、ブラウザの設定からご自身で削除できます。</p>
+
+  <h2>10. 免責事項</h2>
   <p>本サービスに掲載されるニュース情報はRSSフィードおよびAIによる要約を含みます。内容の正確性・完全性を保証するものではありません。情報の利用は自己責任でお願いします。</p>
 
-  <h2>8. プライバシーポリシーの変更</h2>
+  <h2>11. プライバシーポリシーの変更</h2>
   <p>本ポリシーは必要に応じて改定することがあります。重要な変更がある場合は本ページにて告知します。</p>
 
-  <h2>9. お問い合わせ</h2>
-  <p>本ポリシーに関するお問い合わせ（データ削除依頼を含む）は、サイト内のフィードバック機能からご連絡ください。</p>
+  <h2>12. お問い合わせ</h2>
+  <p>本ポリシーに関するお問い合わせ（データ削除依頼・コンテンツ削除依頼を含む）は、<a href="contact.html">お問い合わせ・削除依頼ページ</a> からご連絡ください。</p>
 </div>
+
+<footer style="text-align:center;padding:20px;color:#94a3b8;font-size:.8rem;margin-top:40px;">
+  <a href="legacy.html" style="color:#94a3b8;text-decoration:underline;">アーカイブ</a>
+  &nbsp;·&nbsp;
+  <a href="terms.html" style="color:#94a3b8;text-decoration:underline;">利用規約</a>
+  &nbsp;·&nbsp;
+  <a href="privacy.html" style="color:#94a3b8;text-decoration:underline;">プライバシーポリシー</a>
+  &nbsp;·&nbsp;
+  <a href="contact.html" style="color:#94a3b8;text-decoration:underline;">お問い合わせ・削除依頼</a>
+  <div style="margin-top:8px;font-size:.75rem;color:#cbd5e1;">記事の著作権は各報道機関・メディアに帰属します</div>
+  <div style="margin-top:4px;font-size:.75rem;color:#cbd5e1;">AI要約は自動生成です。情報の正確性は各元記事をご確認ください。</div>
+  <div style="margin-top:6px;font-size:.75rem;color:#cbd5e1;">© 2024-2026 Flotopic</div>
+</footer>
 
 <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "099f0d39ef2649a5b3b9421595dd5474"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
