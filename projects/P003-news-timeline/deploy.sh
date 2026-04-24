@@ -572,25 +572,9 @@ aws events put-targets \
   --region "$REGION" > /dev/null 2>&1 || true
 echo "  -> EventBridge スケジュール設定完了（毎日 7:00 JST）"
 
-# ---- config.js に全URL書き込み（GOOGLE_CLIENT_IDは固定値） ----
-echo "  -> config.js に全Lambda URL を書き込み..."
-# GOOGLE_CLIENT_ID: 環境変数 > ハードコード固定値
-HARDCODED_CLIENT_ID="632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com"
-GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-${HARDCODED_CLIENT_ID}}"
-
-cat > frontend/config.js << 'EOF'
-// API_BASE: CloudFront HTTPS経由（Mixed Content回避）
-const API_BASE      = 'https://flotopic.com/api/';
-const _APIGW        = 'https://x73mzc0v06.execute-api.ap-northeast-1.amazonaws.com';
-const COMMENTS_URL  = _APIGW;
-const AUTH_URL      = _APIGW + '/auth';
-const FAVORITES_URL = _APIGW;
-const ANALYTICS_URL = _APIGW + '/';
-
-// Google OAuth Client ID
-const GOOGLE_CLIENT_ID = '632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com';
-EOF
-echo "  -> config.js 更新完了（API Gateway: x73mzc0v06）"
+# config.js はリポジトリの静的ファイルを使用（deploy.shでは生成しない）
+# 編集する場合は frontend/config.js を直接変更してコミットすること
+echo "  -> config.js: リポジトリ版を使用（API Gateway: x73mzc0v06）"
 
 # ---- deploy-security.sh でDynamoDBテーブル作成 ----
 echo "[後処理] セキュリティ用DynamoDBテーブル作成..."
