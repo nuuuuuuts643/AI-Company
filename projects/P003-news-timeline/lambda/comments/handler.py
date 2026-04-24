@@ -31,6 +31,7 @@ import re
 import time
 import uuid
 from datetime import datetime, timezone
+from urllib.parse import unquote
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
 
@@ -541,7 +542,7 @@ def lambda_handler(event, context):
         return handle_like(event)
 
     topic_id = parts[1]
-    comment_id = parts[2] if len(parts) >= 3 else None
+    comment_id = unquote(parts[2]) if len(parts) >= 3 else None
 
     # ── GET: コメント一覧 ─────────────────────────────────────────
     if method == 'GET':

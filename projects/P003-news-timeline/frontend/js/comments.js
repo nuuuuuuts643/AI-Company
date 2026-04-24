@@ -316,7 +316,15 @@ function toggleSave(btn, topicId, comments) {
   const isSaved  = !!savedSet[cid];
 
   if (!isSaved) {
-    savedSet[cid] = true;
+    const c = comments.find(x => (x.commentId || x.SK) === cid) || {};
+    savedSet[cid] = {
+      topicId: topicId || '',
+      body:      c.body      || '',
+      nickname:  c.nickname  || '匿名',
+      handle:    c.handle    || '',
+      createdAt: c.createdAt || '',
+      likeCount: Number(c.likeCount) || 0,
+    };
     btn.classList.add('saved');
     btn.innerHTML = '🔖<span style="font-size:.7rem;font-weight:700;margin-left:2px">済</span>';
     btn.setAttribute('aria-label', '保存済み');
@@ -403,13 +411,27 @@ async function deleteComment(topicId, commentId) {
   const base = commentsApiUrl(topicId);
   if (!base || !currentUser) return;
   try {
-    const r = await fetch(`${base}/${commentId}`, {
+    const r = await fetch(`${base}/${encodeURIComponent(commentId)}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ idToken: currentUser.token }),
     });
-    if (r.ok) await loadComments(topicId);
-  } catch {}
+    if (r.status === 401) {
+      if (typeof openAuthModal === 'function') openAuthModal();
+      if (typeof showToast === 'function') showToast('セッションが切れました。再ログインしてください');
+      return;
+    }
+    if (r.status === 403) {
+      if (typeof showToast === 'function') showToast('このコメントは削除できません');
+      return;
+    }
+    if (r.ok) {
+      if (typeof showToast === 'function') showToast('コメントを削除しました');
+      await loadComments(topicId);
+    }
+  } catch {
+    if (typeof showToast === 'function') showToast('削除に失敗しました。ネットワークを確認してください');
+  }
 }
 
 // ── コメント読み込み ──────────────────────────────────────────────
