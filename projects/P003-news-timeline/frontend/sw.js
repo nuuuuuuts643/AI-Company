@@ -64,7 +64,7 @@ self.addEventListener('fetch', event => {
       fetch(event.request)
         .then(response => {
           if (response && response.status === 200) {
-            caches.open(CACHE_NAME).then(c => c.put(event.request, response.clone()));
+            const r = response.clone(); caches.open(CACHE_NAME).then(c => c.put(event.request, r));
           }
           return response;
         })
@@ -79,7 +79,7 @@ self.addEventListener('fetch', event => {
       fetch(event.request)
         .then(response => {
           if (response && response.status === 200) {
-            caches.open(CACHE_NAME).then(c => c.put(event.request, response.clone()));
+            const r = response.clone(); caches.open(CACHE_NAME).then(c => c.put(event.request, r));
           }
           return response;
         })
@@ -95,7 +95,7 @@ self.addEventListener('fetch', event => {
         if (cached) return cached;
         return fetch(event.request).then(response => {
           if (response && response.status === 200) {
-            caches.open(CACHE_NAME).then(c => c.put(event.request, response.clone()));
+            const r = response.clone(); caches.open(CACHE_NAME).then(c => c.put(event.request, r));
           }
           return response;
         });
@@ -109,7 +109,7 @@ self.addEventListener('fetch', event => {
     fetch(event.request)
       .then(response => {
         if (response && response.status === 200 && response.type === 'basic') {
-          caches.open(CACHE_NAME).then(c => c.put(event.request, response.clone()));
+          const r = response.clone(); caches.open(CACHE_NAME).then(c => c.put(event.request, r));
         }
         return response;
       })
