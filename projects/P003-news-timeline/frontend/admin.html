@@ -324,6 +324,85 @@ function computeMetrics(topics) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// SVG CHARTS — ライブラリ不要の純粋SVGチャート
+// ═══════════════════════════════════════════════════════════════════════
+const SVG = {
+  lineChart(data, { color='#58a6ff', gradId='lg0' } = {}) {
+    if (!data.length) return '<div class="no-data">データなし</div>';
+    const pad = {t:20, r:16, b:28, l:36};
+    const W = 480, H = 160;
+    const iW = W - pad.l - pad.r, iH = H - pad.t - pad.b;
+    const maxV = Math.max(...data.map(d=>d.v), 1);
+    const px = i => data.length===1 ? iW/2 : (i/(data.length-1))*iW;
+    const py = v => iH - (v/maxV)*iH;
+    const pts = data.map((d,i) => [px(i), py(d.v)]);
+
+    // スムーズベジェ
+    let line = `M ${pts[0].join(' ')}`;
+    for (let i=1; i<pts.length; i++) {
+      const cpx = (pts[i-1][0]+pts[i][0])/2;
+      line += ` C ${cpx} ${pts[i-1][1]}, ${cpx} ${pts[i][1]}, ${pts[i].join(' ')}`;
+    }
+    const area = `${line} L ${pts[pts.length-1][0]} ${iH} L ${pts[0][0]} ${iH} Z`;
+
+    // Y補助線
+    const yLines = [0,.5,1].map(r => {
+      const v = Math.round(maxV*r), yp = py(v);
+      return `<line x1="0" y1="${yp}" x2="${iW}" y2="${yp}" stroke="#21262d" stroke-dasharray="3,3"/>
+              <text x="-4" y="${yp+4}" text-anchor="end" fill="#484f58" font-size="9">${v}</text>`;
+    }).join('');
+
+    // X軸ラベル
+    const step = Math.max(1, Math.ceil(data.length/6));
+    const xLabels = data.map((d,i) =>
+      (i%step===0 || i===data.length-1)
+        ? `<text x="${px(i)}" y="${iH+16}" text-anchor="middle" fill="#484f58" font-size="9">${d.label}</text>` : ''
+    ).join('');
+
+    const dots = pts.map(([x,y],i) =>
+      `<circle cx="${x}" cy="${y}" r="3.5" fill="${color}" stroke="#0d1117" stroke-width="2"/>
+       <text x="${x}" y="${y-9}" text-anchor="middle" fill="${color}" font-size="9" font-weight="600">${data[i].v}</text>`
+    ).join('');
+
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;overflow:visible">
+      <defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity=".3"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity=".02"/>
+      </linearGradient></defs>
+      <g transform="translate(${pad.l},${pad.t})">
+        ${yLines}
+        <path d="${area}" fill="url(#${gradId})"/>
+        <path d="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        ${dots}${xLabels}
+      </g></svg>`;
+  },
+
+  donutChart(data, { size=140, thickness=34 } = {}) {
+    const valid = data.filter(d=>d.v>0);
+    if (!valid.length) return '<div class="no-data">データなし</div>';
+    const total = valid.reduce((s,d)=>s+d.v,0);
+    const cx=size/2, cy=size/2, R=size/2-4, Ri=R-thickness;
+    let angle=-Math.PI/2;
+    const paths = valid.map(d => {
+      const da=(d.v/total)*2*Math.PI, ea=angle+da, lg=da>Math.PI?1:0;
+      const path=[
+        `M ${cx+R*Math.cos(angle)} ${cy+R*Math.sin(angle)}`,
+        `A ${R} ${R} 0 ${lg} 1 ${cx+R*Math.cos(ea)} ${cy+R*Math.sin(ea)}`,
+        `L ${cx+Ri*Math.cos(ea)} ${cy+Ri*Math.sin(ea)}`,
+        `A ${Ri} ${Ri} 0 ${lg} 0 ${cx+Ri*Math.cos(angle)} ${cy+Ri*Math.sin(angle)} Z`,
+      ].join(' ');
+      angle=ea;
+      return `<path d="${path}" fill="${d.color}" opacity=".92"/>`;
+    }).join('');
+    return `<svg viewBox="0 0 ${size} ${size}" style="width:${size}px;height:${size}px;flex-shrink:0">
+      ${paths}
+      <text x="${cx}" y="${cy-4}" text-anchor="middle" fill="#e6edf3" font-size="22" font-weight="700">${total}</text>
+      <text x="${cx}" y="${cy+14}" text-anchor="middle" fill="#8b949e" font-size="10">topics</text>
+    </svg>`;
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════
 // TREND HELPERS
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -473,64 +552,73 @@ function renderCfAnalytics(cfData) {
     return;
   }
 
-  // 日別PV棒グラフ
-  const daily  = cf.daily || [];
-  const maxPv  = Math.max(...daily.map(d=>d.count||0), 1);
-  const dailyHtml = daily.map(d =>
-    UI.barRow(d.date.slice(5), d.count, maxPv, 'fill-blue')
-  ).join('');
+  // PV推移ラインチャート
+  const daily = [...(cf.daily||[])].sort((a,b)=>a.date.localeCompare(b.date));
+  const lineData = daily.map(d => ({ label: d.date.slice(5), v: d.count }));
+  const lineChart = SVG.lineChart(lineData, { color:'#58a6ff', gradId:'lg-pv' });
 
   // トップページ
-  const pages    = cf.topPages || [];
-  const maxPages = Math.max(...pages.map(p=>p.count||0), 1);
-  const pagesHtml = pages.map(p =>
-    UI.barRow(p.path.slice(0,20)||'/', p.count, maxPages, 'fill-teal')
+  const pages  = cf.topPages || [];
+  const maxPg  = Math.max(...pages.map(p=>p.count||0), 1);
+  const pagesHtml = pages.slice(0,6).map(p =>
+    UI.barRow(p.path.replace('/index.html','/').slice(0,20)||'/', p.count, maxPg, 'fill-teal')
   ).join('');
 
   // 国別
+  const CNAMES = {JP:'日本',US:'米国',KR:'韓国',CN:'中国',GB:'英国',DE:'ドイツ',TW:'台湾',AU:'豪州',CA:'カナダ',FR:'フランス'};
   const countries = cf.byCountry || [];
-  const maxC      = Math.max(...countries.map(c=>c.count||0), 1);
-  const COUNTRY_NAMES = {JP:'日本',US:'米国',KR:'韓国',CN:'中国',GB:'英国',DE:'ドイツ',TW:'台湾',AU:'豪州',CA:'カナダ',FR:'フランス'};
-  const countriesHtml = countries.map(c =>
-    UI.barRow(COUNTRY_NAMES[c.code]||c.code, c.count, maxC, 'fill-purple')
+  const maxC = Math.max(...countries.map(c=>c.count||0), 1);
+  const countriesHtml = countries.slice(0,6).map(c =>
+    UI.barRow(CNAMES[c.code]||c.code, c.count, maxC, 'fill-purple')
   ).join('');
 
   // デバイス内訳
-  const devices  = cf.byDevice || [];
-  const maxDev   = Math.max(...devices.map(d=>d.count||0), 1);
-  const DEV_NAMES = {desktop:'デスクトップ', mobile:'モバイル', tablet:'タブレット', other:'その他'};
-  const devHtml = devices.map(d =>
-    UI.barRow(DEV_NAMES[d.type]||d.type, d.count, maxDev, 'fill-orange')
-  ).join('');
+  const DNAMES = {desktop:'デスクトップ', mobile:'モバイル', tablet:'タブレット', other:'その他'};
+  const devices = cf.byDevice || [];
+  const totalDev = devices.reduce((s,d)=>s+d.count,0)||1;
+  const devHtml = devices.map(d => {
+    const pct = Math.round(d.count/totalDev*100);
+    return UI.barRow(DNAMES[d.type]||d.type, d.count, totalDev, 'fill-orange', `${d.count} (${pct}%)`);
+  }).join('');
 
   el.innerHTML = `
-    <div class="grid3" style="margin-bottom:16px">
-      <div>
-        <div style="font-size:.8rem;color:#8b949e;margin-bottom:8px">日別 PV（7日間）</div>
-        <div class="bar-list">${dailyHtml || '<div class="no-data">データなし</div>'}</div>
-      </div>
+    <div style="margin-bottom:20px">
+      <div style="font-size:.8rem;color:#8b949e;margin-bottom:10px">PV 推移（7日間）　合計 <strong style="color:#e6edf3">${cf.totalPv7d.toLocaleString()}</strong> PV</div>
+      ${lineChart}
+    </div>
+    <div class="grid3" style="border-top:1px solid #30363d;padding-top:16px">
       <div>
         <div style="font-size:.8rem;color:#8b949e;margin-bottom:8px">トップページ</div>
-        <div class="bar-list">${pagesHtml || '<div class="no-data">データなし</div>'}</div>
+        <div class="bar-list">${pagesHtml||'<div class="no-data">データなし</div>'}</div>
       </div>
       <div>
         <div style="font-size:.8rem;color:#8b949e;margin-bottom:8px">訪問者の国</div>
-        <div class="bar-list">${countriesHtml || '<div class="no-data">データなし</div>'}</div>
+        <div class="bar-list">${countriesHtml||'<div class="no-data">データなし</div>'}</div>
       </div>
-    </div>
-    <div style="border-top:1px solid #30363d;padding-top:14px">
-      <div style="font-size:.8rem;color:#8b949e;margin-bottom:8px">デバイス種別</div>
-      <div class="bar-list">${devHtml || '<div class="no-data">データなし</div>'}</div>
+      <div>
+        <div style="font-size:.8rem;color:#8b949e;margin-bottom:8px">デバイス</div>
+        <div class="bar-list">${devHtml||'<div class="no-data">データなし</div>'}</div>
+      </div>
     </div>`;
 }
 
 function renderCharts(m) {
-  // ライフサイクル
-  const lOrder  = ['active','cooling','archived','legacy'];
-  const lColors = ['fill-green','fill-teal','fill-gray','fill-purple'];
-  const lMax    = Math.max(...Object.values(m.lifecycle), 1);
+  // ライフサイクル — ドーナツチャート
+  const LC_COLORS = {active:'#3fb950', cooling:'#e3b341', archived:'#484f58', legacy:'#bc8cff'};
+  const lcData = ['active','cooling','archived','legacy']
+    .map(s => ({ label:s, v:m.lifecycle[s]||0, color:LC_COLORS[s] }));
+  const legend = lcData.map(d =>
+    `<div style="display:flex;align-items:center;gap:6px;font-size:.78rem;padding:3px 0">
+      <div style="width:9px;height:9px;border-radius:2px;background:${d.color};flex-shrink:0"></div>
+      <span class="muted">${d.label}</span>
+      <span style="margin-left:auto;color:#e6edf3;font-weight:600">${d.v}</span>
+    </div>`
+  ).join('');
   document.getElementById('chart-lifecycle').innerHTML =
-    lOrder.map((s,i) => UI.barRow(s, m.lifecycle[s]||0, lMax, lColors[i])).join('');
+    `<div style="display:flex;gap:16px;align-items:center">
+      ${SVG.donutChart(lcData)}
+      <div style="flex:1">${legend}</div>
+    </div>`;
 
   // AI進捗
   document.getElementById('chart-ai').innerHTML =
