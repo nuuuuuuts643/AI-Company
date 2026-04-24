@@ -518,29 +518,24 @@ aws lambda add-permission \
 
 echo "  -> Analytics URL: $ANALYTICS_URL"
 
-# ---- config.js に全URL書き込み（GOOGLE_CLIENT_IDは既存値を保持） ----
+# ---- config.js に全URL書き込み（GOOGLE_CLIENT_IDは固定値） ----
 echo "  -> config.js に全Lambda URL を書き込み..."
-# 既存のGOOGLE_CLIENT_IDを保持
-EXISTING_CLIENT_ID=""
-if [ -f "frontend/config.js" ]; then
-  EXISTING_CLIENT_ID=$(grep -oP "(?<=GOOGLE_CLIENT_ID = ')[^']*" frontend/config.js 2>/dev/null || true)
-fi
-GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-${EXISTING_CLIENT_ID}}"
+# GOOGLE_CLIENT_ID: 環境変数 > ハードコード固定値
+HARDCODED_CLIENT_ID="632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com"
+GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-${HARDCODED_CLIENT_ID}}"
 
 cat > frontend/config.js << EOF
-// API_BASE: S3静的ホスティング（fetcher が api/topics.json を書き込む設計）
-const API_BASE       = 'http://p003-news-946554699567.s3-website-ap-northeast-1.amazonaws.com/api/';
+// API_BASE: CloudFront HTTPS経由（Mixed Content回避）
+const API_BASE       = 'https://flotopic.com/api/';
 const COMMENTS_URL   = '${COMMENTS_URL}';
 const AUTH_URL       = '${AUTH_URL}';
 const FAVORITES_URL  = '${FAVORITES_URL}';
 const ANALYTICS_URL  = '${ANALYTICS_URL}';
 
 // Google OAuth Client ID
-// Google Cloud Console → APIs & Services → OAuth 2.0 Client IDs で取得
-// 許可済みOrigin: https://flotopic.com を追加すること
 const GOOGLE_CLIENT_ID = '${GOOGLE_CLIENT_ID}';
 EOF
-echo "  -> config.js 更新完了（GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-未設定}）"
+echo "  -> config.js 更新完了（GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}）"
 
 # ---- deploy-security.sh でDynamoDBテーブル作成 ----
 echo "[後処理] セキュリティ用DynamoDBテーブル作成..."
