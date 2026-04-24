@@ -1,24 +1,34 @@
-const CACHE_NAME = 'flotopic-v5';
+const CACHE_NAME = 'flotopic-v6';
 
-// Static assets: cache-first
-const STATIC_ASSETS = [
+// HTML/JS/CSS: stale-while-revalidate (常にバックグラウンドで更新チェック)
+const REVALIDATE_ASSETS = [
   '/',
   '/index.html',
   '/topic.html',
+  '/mypage.html',
+  '/catchup.html',
+  '/storymap.html',
+  '/legacy.html',
   '/style.css',
   '/app.js',
   '/config.js',
   '/manifest.json',
-  '/404.html',
+  '/js/auth.js',
+  '/js/comments.js',
+  '/js/favorites.js',
+  '/js/utils.js',
 ];
 
-// API paths: network-first
-const API_PATHS = ['/api/topics.json'];
+// 画像・フォント: cache-first (変更頻度が低い)
+const STATIC_EXTENSIONS = /\.(png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|eot)$/;
 
-// Install: pre-cache static assets
+// API paths: network-first
+const API_PATHS = ['/api/'];
+
+// Install: pre-cache
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(REVALIDATE_ASSETS))
   );
   self.skipWaiting();
 });
@@ -42,8 +52,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
   // Network-first for API calls
-  const isApi = API_PATHS.some(p => url.pathname.startsWith(p));
-  if (isApi) {
+  if (API_PATHS.some(p => url.pathname.startsWith(p))) {
     event.respondWith(
       fetch(event.request)
         .then(response => {
@@ -58,15 +67,32 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for static assets
-  const isStatic = STATIC_ASSETS.includes(url.pathname) ||
-    /\.(css|js|png|jpg|jpeg|svg|ico|woff2?)$/.test(url.pathname);
-  if (isStatic) {
+  // Stale-while-revalidate for HTML/JS/CSS
+  const isRevalidate = REVALIDATE_ASSETS.includes(url.pathname);
+  if (isRevalidate) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(cache =>
+        cache.match(event.request).then(cached => {
+          const fetchPromise = fetch(event.request).then(response => {
+            if (response && response.status === 200) {
+              cache.put(event.request, response.clone());
+            }
+            return response;
+          }).catch(() => cached);
+          return cached || fetchPromise;
+        })
+      )
+    );
+    return;
+  }
+
+  // Cache-first for images/fonts
+  if (STATIC_EXTENSIONS.test(url.pathname)) {
     event.respondWith(
       caches.match(event.request).then(cached => {
         if (cached) return cached;
         return fetch(event.request).then(response => {
-          if (response && response.status === 200 && response.type === 'basic') {
+          if (response && response.status === 200) {
             const cloned = response.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
           }
@@ -90,7 +116,6 @@ self.addEventListener('fetch', event => {
       .catch(() => {
         return caches.match(event.request).then(cached => {
           if (cached) return cached;
-          // SPA routing: fallback to index.html for navigation requests
           if (event.request.mode === 'navigate') {
             return caches.match('/index.html');
           }
@@ -100,7 +125,6 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// Push notification handler (stub for future use)
 self.addEventListener('push', event => {
   const data = event.data ? event.data.json() : {};
   event.waitUntil(self.registration.showNotification(data.title || 'Flotopic', {

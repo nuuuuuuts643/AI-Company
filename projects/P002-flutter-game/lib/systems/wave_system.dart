@@ -123,6 +123,15 @@ class WaveSystem {
   Set<EnemyType> get nextWaveEnemyTypes =>
       _spawnQueue.map((e) => e.enemyType).toSet();
 
+  /// レーン別スポーン数（ウェーブ予告用）
+  Map<int, int> get nextWaveEnemyCountPerLane {
+    final counts = <int, int>{};
+    for (final entry in _spawnQueue) {
+      counts[entry.laneIndex] = (counts[entry.laneIndex] ?? 0) + 1;
+    }
+    return counts;
+  }
+
   /// 次ウェーブの主要属性（最多属性）
   ElementType? get nextWaveMainElement {
     if (_spawnQueue.isEmpty) return null;

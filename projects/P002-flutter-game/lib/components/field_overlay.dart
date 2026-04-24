@@ -18,15 +18,34 @@ class FieldOverlayComponent extends PositionComponent {
   static const _laneW = GameConstants.laneWidth;
   static const _gameW = GameConstants.gameWidth;
 
+  // ウェーブ予告データ
+  Map<int, int> _wavePreviewCounts = {};
+  double _previewAlpha = 0.0; // 0=非表示, 1=表示
+
   FieldOverlayComponent()
       : super(
           position: Vector2.zero(),
           size: Vector2(GameConstants.gameWidth, GameConstants.gameHeight),
         );
 
+  /// ウェーブインターバル開始時に呼ぶ
+  void showWavePreview(Map<int, int> laneCounts) {
+    _wavePreviewCounts = Map.from(laneCounts);
+    _previewAlpha = 1.0;
+  }
+
+  void hideWavePreview() {
+    _wavePreviewCounts = {};
+    _previewAlpha = 0.0;
+  }
+
   @override
   void update(double dt) {
     _elapsed += dt;
+    // フェードアウト（波開始後に徐々に消える）
+    if (_wavePreviewCounts.isEmpty && _previewAlpha > 0) {
+      _previewAlpha = (_previewAlpha - dt * 2.0).clamp(0.0, 1.0);
+    }
   }
 
   @override
@@ -37,6 +56,7 @@ class FieldOverlayComponent extends PositionComponent {
     _drawLaneBarriers(canvas);
     _drawBattlements(canvas);
     _drawZoneBoundaryLine(canvas);
+    if (_previewAlpha > 0) _drawWavePreview(canvas);
   }
 
   // ---- 敵ゾーン寒色オーバーレイ ----
@@ -271,7 +291,6 @@ class FieldOverlayComponent extends PositionComponent {
   void _drawZoneBoundaryLine(Canvas canvas) {
     final glow = 0.6 + sin(_elapsed * 2.4) * 0.3;
 
-    // 細い輝く境界線
     canvas.drawRect(
       Rect.fromLTWH(0, _gridTop - 1, _gameW, 3),
       Paint()
@@ -282,5 +301,65 @@ class FieldOverlayComponent extends PositionComponent {
       Rect.fromLTWH(0, _gridTop - 0.5, _gameW, 1.5),
       Paint()..color = Color.fromARGB((glow * 220).round(), 255, 120, 100),
     );
+  }
+
+  // ---- ウェーブ予告：各レーン上部に敵数を表示 ----
+  void _drawWavePreview(Canvas canvas) {
+    final a = (_previewAlpha * 255).round();
+    for (int lane = 0; lane < 3; lane++) {
+      final count = _wavePreviewCounts[lane] ?? 0;
+      if (count == 0) continue;
+
+      final cx = _laneW * lane + _laneW / 2;
+      const cy = 100.0;
+
+      // 警告グロー
+      final pulse = 0.6 + sin(_elapsed * 4.0 + lane) * 0.3;
+      canvas.drawCircle(
+        Offset(cx, cy),
+        28,
+        Paint()
+          ..color = Color.fromARGB((a * pulse * 0.35).round(), 255, 60, 60)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+      );
+
+      // 背景パネル
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(cx, cy), width: 60, height: 38),
+          const Radius.circular(8),
+        ),
+        Paint()..color = Color.fromARGB((a * 0.85).round(), 20, 5, 30),
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(cx, cy), width: 60, height: 38),
+          const Radius.circular(8),
+        ),
+        Paint()
+          ..color = Color.fromARGB((a * 0.7).round(), 255, 80, 80)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2,
+      );
+
+      // 敵数テキスト
+      _drawText(canvas, '×$count', 14, Offset(cx, cy + 2),
+          Color.fromARGB(a, 255, 230, 100));
+
+      // 矢印（敵が来ることを示す）
+      _drawText(canvas, '▼', 10, Offset(cx, cy + 22),
+          Color.fromARGB((a * pulse).round(), 255, 100, 100));
+    }
+  }
+
+  void _drawText(Canvas canvas, String text, double size, Offset center, Color color) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(fontSize: size, color: color, fontWeight: FontWeight.bold),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2));
   }
 }
