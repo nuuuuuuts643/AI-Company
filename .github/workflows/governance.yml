@@ -113,6 +113,10 @@ jobs:
     name: ⚖️ リーガルL2 — デプロイ前チェック
     runs-on: ubuntu-latest
     needs: security-layer2
+    # push/PR時はスキップ（API費用削減）。月次スケジュール or 手動のみ実行。
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '0 0 1 * *') ||
+      github.event_name == 'workflow_dispatch'
 
     steps:
       - uses: actions/checkout@v4
