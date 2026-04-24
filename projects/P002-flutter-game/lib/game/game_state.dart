@@ -62,6 +62,7 @@ class BattleState {
   ElementType? lastAttackElement; // 直前の攻撃属性（チェーン判定用）
   DateTime? lastAttackTime;
   List<ChainRecord> recentChains;
+  double manaRegenRate;  // ボーンで加速（1.0=基準）
 
   BattleState({
     required this.stageId,
@@ -80,6 +81,7 @@ class BattleState {
     this.lastAttackElement,
     this.lastAttackTime,
     List<ChainRecord>? recentChains,
+    this.manaRegenRate = 1.0,
   })  : handCardIds = handCardIds ?? [],
         deckCardIds = deckCardIds ?? [],
         droppedMaterials = droppedMaterials ?? {},
@@ -104,6 +106,7 @@ class PlayerData {
   int stamina;
   int maxStamina;
   int totalClearedCount; // 累計クリアステージ数（ランク計算用）
+  bool tutorialSeen;     // チュートリアル表示済みフラグ
 
   PlayerData({
     this.gold = 0,
@@ -111,6 +114,7 @@ class PlayerData {
     this.stamina = 5,
     this.maxStamina = 5,
     this.totalClearedCount = 0,
+    this.tutorialSeen = false,
     Map<String, int>? materials,
     List<String>? unlockedStageIds,
     Map<String, int>? stageBestScores,
@@ -123,11 +127,28 @@ class PlayerData {
         deckCardIds = deckCardIds ?? List.from(CardMaster.starterDeckIds),
         equippedItems = equippedItems ??
             {
-              EquipmentSlot.weapon: null,
-              EquipmentSlot.armor: null,
-              EquipmentSlot.accessory: null,
+              EquipmentSlot.weapon: OwnedEquipment(
+                equipmentId: 'weapon_fire_sword',
+                level: 1,
+                itemState: ItemState.secured,
+              ),
+              EquipmentSlot.armor: OwnedEquipment(
+                equipmentId: 'armor_iron_wall',
+                level: 1,
+                itemState: ItemState.secured,
+              ),
+              EquipmentSlot.accessory: OwnedEquipment(
+                equipmentId: 'acc_lucky_charm',
+                level: 1,
+                itemState: ItemState.secured,
+              ),
             },
-        ownedEquipments = ownedEquipments ?? [];
+        ownedEquipments = ownedEquipments ??
+            [
+              OwnedEquipment(equipmentId: 'weapon_fire_sword', level: 1, itemState: ItemState.secured),
+              OwnedEquipment(equipmentId: 'armor_iron_wall', level: 1, itemState: ItemState.secured),
+              OwnedEquipment(equipmentId: 'acc_lucky_charm', level: 1, itemState: ItemState.secured),
+            ];
 
   /// 難易度スケーリング用（PlayerCharacter.totalPowerと設計統一のため暫定0固定）
   int get totalPower => 0;
@@ -156,6 +177,7 @@ class PlayerData {
         'stamina': stamina,
         'maxStamina': maxStamina,
         'totalClearedCount': totalClearedCount,
+        'tutorialSeen': tutorialSeen,
         'materials': materials,
         'unlockedStageIds': unlockedStageIds,
         'stageBestScores': stageBestScores,
@@ -176,6 +198,7 @@ class PlayerData {
       stamina: json['stamina'] as int? ?? 5,
       maxStamina: json['maxStamina'] as int? ?? 5,
       totalClearedCount: json['totalClearedCount'] as int? ?? 0,
+      tutorialSeen: json['tutorialSeen'] as bool? ?? false,
       materials: Map<String, int>.from(json['materials'] as Map? ?? {}),
       unlockedStageIds: List<String>.from(json['unlockedStageIds'] as List? ?? ['stage_01']),
       stageBestScores: Map<String, int>.from(json['stageBestScores'] as Map? ?? {}),
@@ -209,6 +232,9 @@ class GameStateNotifier extends ChangeNotifier {
   /// 直前のセッション結果（リザルト画面用）
   SessionResult? _lastSessionResult;
 
+  /// 直前のステージクリアで解放されたカードID（リザルト画面用）
+  List<String> _lastUnlockedCards = [];
+
   GamePhase get phase => _phase;
   PlayerData get player => _player;
   BattleState? get battle => _battle;
@@ -217,6 +243,13 @@ class GameStateNotifier extends ChangeNotifier {
   ActiveSession? get activeSession => _activeSession;
   ShopSystem? get shopSystem => _shopSystem;
   SessionResult? get lastSessionResult => _lastSessionResult;
+  List<String> get lastUnlockedCards => _lastUnlockedCards;
+  bool get tutorialSeen => _player.tutorialSeen;
+
+  Future<void> markTutorialSeen() async {
+    _player.tutorialSeen = true;
+    await _savePlayer();
+  }
 
   /// 起動時初期化：セーブデータ読み込み
   Future<void> initialize() async {
@@ -300,7 +333,7 @@ class GameStateNotifier extends ChangeNotifier {
     if (_battle == null) return;
     final b = _battle!;
     if (b.battlePhase == BattlePhase.preparing || b.battlePhase == BattlePhase.waving) {
-      b.mana = (b.mana + GameConstants.manaRegenPerSecond * dt).clamp(0, b.maxMana);
+      b.mana = (b.mana + GameConstants.manaRegenPerSecond * b.manaRegenRate * dt).clamp(0, b.maxMana);
     }
   }
 
@@ -444,6 +477,15 @@ class GameStateNotifier extends ChangeNotifier {
           _player.unlockedStageIds.add(nextId);
         }
       }
+      // カード解放（初回クリア時のみ）
+      _lastUnlockedCards = [];
+      final unlockCandidates = CardMaster.stageUnlockCards[stageId] ?? [];
+      for (final cardId in unlockCandidates) {
+        if (!_player.deckCardIds.contains(cardId)) {
+          _player.deckCardIds.add(cardId);
+          _lastUnlockedCards.add(cardId);
+        }
+      }
       await _savePlayer();
     }
 
@@ -490,6 +532,36 @@ class GameStateNotifier extends ChangeNotifier {
     await _savePlayer();
     notifyListeners();
     return true;
+  }
+
+  // ---- ボーンシステム連携 ----
+
+  /// マナ回復速度にバフを乗せる
+  void applyManaRegenBuff(double rate) {
+    if (_battle == null) return;
+    _battle!.manaRegenRate *= (1.0 + rate);
+    notifyListeners();
+  }
+
+  /// 手札にランダムカードを追加
+  void drawBonusCards(int count) {
+    for (int i = 0; i < count; i++) _drawCard();
+    notifyListeners();
+  }
+
+  /// 全配置済みユニットをパワーアップ（OctoBattleGameコールバック経由）
+  VoidCallback? onPowerUpAllUnits;
+
+  void powerUpAllUnits() {
+    onPowerUpAllUnits?.call();
+    notifyListeners();
+  }
+
+  /// 城壁HPを全回復
+  void fullRestoreWall() {
+    if (_battle == null) return;
+    _battle!.wallHp = _battle!.maxWallHp;
+    notifyListeners();
   }
 
   // ---- プライベートヘルパー ----

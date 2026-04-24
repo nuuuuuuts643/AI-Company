@@ -1,7 +1,10 @@
-const CACHE_NAME = 'flotopic-v7';
+const CACHE_NAME = 'flotopic-v8';
 
-// HTML/JS/CSS: stale-while-revalidate (常にバックグラウンドで更新チェック)
-const REVALIDATE_ASSETS = [
+// config.js は絶対にキャッシュしない（APIのURLが変わると全機能が壊れるため）
+const NEVER_CACHE = ['/config.js'];
+
+// HTML/JS/CSS: network-first + cache fallback（SW更新時に古いJSが残らないように）
+const NETWORK_FIRST_ASSETS = [
   '/',
   '/index.html',
   '/topic.html',
@@ -11,38 +14,36 @@ const REVALIDATE_ASSETS = [
   '/legacy.html',
   '/style.css',
   '/app.js',
-  '/config.js',
   '/manifest.json',
   '/js/auth.js',
   '/js/comments.js',
   '/js/favorites.js',
+  '/js/notifications.js',
+  '/js/theme.js',
   '/js/utils.js',
 ];
 
-// 画像・フォント: cache-first (変更頻度が低い)
+// 画像・フォント: cache-first（変更頻度が低い）
 const STATIC_EXTENSIONS = /\.(png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|eot)$/;
 
 // API paths: network-first
 const API_PATHS = ['/api/'];
 
-// Install: pre-cache
+// Install: pre-cache + 即座に有効化
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(REVALIDATE_ASSETS))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(NETWORK_FIRST_ASSETS))
   );
   self.skipWaiting();
 });
 
-// Activate: delete old caches
+// Activate: 旧キャッシュを全削除して即座に制御を奪う
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-      )
-    )
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 // Fetch handler
@@ -51,14 +52,19 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(event.request.url);
 
-  // Network-first for API calls
+  // config.js は常にネットワークから取得（キャッシュしない）
+  if (NEVER_CACHE.includes(url.pathname)) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // Network-first for API
   if (API_PATHS.some(p => url.pathname.startsWith(p))) {
     event.respondWith(
       fetch(event.request)
         .then(response => {
           if (response && response.status === 200) {
-            const cloned = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
+            caches.open(CACHE_NAME).then(c => c.put(event.request, response.clone()));
           }
           return response;
         })
@@ -67,21 +73,17 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Stale-while-revalidate for HTML/JS/CSS
-  const isRevalidate = REVALIDATE_ASSETS.includes(url.pathname);
-  if (isRevalidate) {
+  // Network-first for HTML/JS/CSS（オフライン時はキャッシュにフォールバック）
+  if (NETWORK_FIRST_ASSETS.includes(url.pathname)) {
     event.respondWith(
-      caches.open(CACHE_NAME).then(cache =>
-        cache.match(event.request).then(cached => {
-          const fetchPromise = fetch(event.request).then(response => {
-            if (response && response.status === 200) {
-              cache.put(event.request, response.clone());
-            }
-            return response;
-          }).catch(() => cached);
-          return cached || fetchPromise;
+      fetch(event.request)
+        .then(response => {
+          if (response && response.status === 200) {
+            caches.open(CACHE_NAME).then(c => c.put(event.request, response.clone()));
+          }
+          return response;
         })
-      )
+        .catch(() => caches.match(event.request))
     );
     return;
   }
@@ -93,8 +95,7 @@ self.addEventListener('fetch', event => {
         if (cached) return cached;
         return fetch(event.request).then(response => {
           if (response && response.status === 200) {
-            const cloned = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
+            caches.open(CACHE_NAME).then(c => c.put(event.request, response.clone()));
           }
           return response;
         });
@@ -103,25 +104,22 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Network-first with cache fallback for everything else
+  // Network-first fallback
   event.respondWith(
     fetch(event.request)
       .then(response => {
         if (response && response.status === 200 && response.type === 'basic') {
-          const cloned = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
+          caches.open(CACHE_NAME).then(c => c.put(event.request, response.clone()));
         }
         return response;
       })
-      .catch(() => {
-        return caches.match(event.request).then(cached => {
+      .catch(() =>
+        caches.match(event.request).then(cached => {
           if (cached) return cached;
-          if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
-          }
+          if (event.request.mode === 'navigate') return caches.match('/index.html');
           return new Response('', { status: 503, statusText: 'Service Unavailable' });
-        });
-      })
+        })
+      )
   );
 });
 

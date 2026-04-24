@@ -24,14 +24,24 @@ class CardSystem {
 
     // カード種別からAttackTypeを判定
     final AttackType attackType;
-    if (card.aoeRadius > 0 && card.attackRange > 100) {
+    if (card.isSupport) {
+      attackType = AttackType.support;
+    } else if (card.aoeRadius > 0 && card.attackRange > 100) {
       attackType = AttackType.aoe;
     } else if (card.attackRange > 100) {
       attackType = AttackType.ranged;
-    } else if (card.element == ElementType.light && card.baseAttack < 0) {
-      attackType = AttackType.support;
     } else {
       attackType = AttackType.melee;
+    }
+
+    // 支援ユニットのスキルを付与
+    final skills = <UnitSkillId>[];
+    if (card.isSupport && card.element == ElementType.light) {
+      skills.add(UnitSkillId.healAura);
+    }
+    if (!card.isSupport && card.element == ElementType.wind &&
+        card.attackRange >= 200) {
+      skills.add(UnitSkillId.blessingAura);
     }
 
     return UnitInstance(
@@ -48,6 +58,7 @@ class CardSystem {
       aoeRadius: card.aoeRadius,
       displayName: card.name,
       emoji: _elementEmoji(card.element),
+      skills: skills,
     );
   }
 

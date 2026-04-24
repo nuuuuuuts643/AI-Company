@@ -1,9 +1,10 @@
 // API_BASE: CloudFront HTTPS経由（Mixed Content回避）
-const API_BASE       = 'https://flotopic.com/api/';
-const COMMENTS_URL   = 'https://mqixchdufs5ky52wrqhovx2t7e0bghcx.lambda-url.ap-northeast-1.on.aws/';
-const AUTH_URL       = 'https://qfkescjdcxfvxhrjnky67za4em0sdqcs.lambda-url.ap-northeast-1.on.aws/';
-const FAVORITES_URL  = 'https://mumlvztiuzh5pqxgndgn4anzfu0wzvlt.lambda-url.ap-northeast-1.on.aws/';
-const ANALYTICS_URL  = 'https://2svmxx7aou6w5ekdruw5maqnfu0aplju.lambda-url.ap-northeast-1.on.aws/';
+const API_BASE      = 'https://flotopic.com/api/';
+const _APIGW        = 'https://x73mzc0v06.execute-api.ap-northeast-1.amazonaws.com';
+const COMMENTS_URL  = _APIGW;
+const AUTH_URL      = _APIGW + '/auth';
+const FAVORITES_URL = _APIGW;
+const ANALYTICS_URL = _APIGW + '/';
 
 // Google OAuth Client ID
 const GOOGLE_CLIENT_ID = '632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com';

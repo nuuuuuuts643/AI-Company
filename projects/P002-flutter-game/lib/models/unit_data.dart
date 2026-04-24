@@ -65,6 +65,12 @@ class UnitInstance {
   bool isBlessed;
   double blessedAttackMultiplier;
 
+  // バフ
+  double atkSpeedBuff;      // 攻撃速度倍率（1.0=無し）
+  double atkSpeedBuffTimer; // バフ残り秒数
+  int    atkFlatBuff;       // 攻撃力加算
+  double atkFlatBuffTimer;
+
   bool isAttacking;
   bool isDying;
 
@@ -91,6 +97,10 @@ class UnitInstance {
     this.burnDamagePerSec = 0,
     this.isBlessed = false,
     this.blessedAttackMultiplier = 1.0,
+    this.atkSpeedBuff = 1.0,
+    this.atkSpeedBuffTimer = 0,
+    this.atkFlatBuff = 0,
+    this.atkFlatBuffTimer = 0,
     this.isAttacking = false,
     this.isDying = false,
   }) : currentHp = currentHp ?? maxHp;
@@ -100,8 +110,30 @@ class UnitInstance {
 
   int get effectiveAttack {
     final fusionMult = 1.0 + (fusionLevel - 1) * 0.5;
-    return (attack * fusionMult * (isBlessed ? blessedAttackMultiplier : 1.0))
+    return ((attack + atkFlatBuff) * fusionMult *
+            (isBlessed ? blessedAttackMultiplier : 1.0))
         .round();
+  }
+
+  double get effectiveAtkSpeed => attackSpeed * atkSpeedBuff;
+
+  bool get isBuffed => atkSpeedBuffTimer > 0 || atkFlatBuffTimer > 0;
+
+  void tickBuffs(double dt) {
+    if (atkSpeedBuffTimer > 0) {
+      atkSpeedBuffTimer -= dt;
+      if (atkSpeedBuffTimer <= 0) {
+        atkSpeedBuff = 1.0;
+        atkSpeedBuffTimer = 0;
+      }
+    }
+    if (atkFlatBuffTimer > 0) {
+      atkFlatBuffTimer -= dt;
+      if (atkFlatBuffTimer <= 0) {
+        atkFlatBuff = 0;
+        atkFlatBuffTimer = 0;
+      }
+    }
   }
 
   /// 同属性フュージョン（パワーアップ）

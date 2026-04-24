@@ -5,18 +5,28 @@ import '../constants/element_chart.dart';
 import '../constants/game_constants.dart';
 import '../game/game_state.dart';
 import '../models/equipment_data.dart';
+import '../models/unit_data.dart';
+
+enum AuraType { heal, atkSpeed, atkPower }
 
 /// オートバトルを処理するシステム
 /// ユニットが射程内の敵を自動で攻撃する
 class BattleSystem {
   final GameStateNotifier gameState;
 
+  // バフ適用時のエフェクトコールバック
+  final void Function(UnitComponent healer, UnitComponent target, AuraType aura)?
+      onAuraApplied;
+
   final _rng = Random();
 
   // 各ユニットの攻撃クールダウン（instanceId → 残秒数）
   final Map<String, double> _attackCooldowns = {};
 
-  BattleSystem({required this.gameState});
+  // オーラのインターバルタイマー（instanceId → 残秒数）
+  final Map<String, double> _auraTimers = {};
+
+  BattleSystem({required this.gameState, this.onAuraApplied});
 
   /// 毎フレーム更新：ユニットvs敵のオートバトル
   void update(
@@ -24,28 +34,88 @@ class BattleSystem {
     List<UnitComponent> units,
     List<EnemyComponent> enemies,
   ) {
+    // バフタイマー更新
+    for (final unit in units) {
+      unit.unitInstance.tickBuffs(dt);
+    }
+
     for (final unit in units) {
       if (!unit.unitInstance.isAlive) continue;
-
-      // クールダウン更新
       final id = unit.unitInstance.instanceId;
+
+      // 支援ユニット（オーラ型）
+      if (unit.unitInstance.attackType == AttackType.support) {
+        _processAura(dt, unit, units);
+        continue;
+      }
+
+      // 攻撃クールダウン更新（バフ後のatkSpeedを使用）
       final cooldown = (_attackCooldowns[id] ?? 0.0) - dt;
       _attackCooldowns[id] = cooldown;
       if (cooldown > 0) continue;
 
-      // 射程内の敵を取得（同レーン優先、次に隣接レーン）
+      // 射程内の敵を取得
       final target = _findTarget(unit, enemies);
       if (target == null) continue;
 
       // 攻撃実行
       _executeAttack(unit, target);
 
-      // クールダウンリセット（攻撃速度に反比例）
-      _attackCooldowns[id] = 1.0 / unit.unitInstance.attackSpeed;
+      // クールダウンリセット（バフ込みの攻撃速度）
+      _attackCooldowns[id] = 1.0 / unit.unitInstance.effectiveAtkSpeed;
     }
 
-    // 燃焼ダメージなどの状態異常処理
+    // 状態異常処理
     _processStatusEffects(dt, enemies);
+  }
+
+  /// 支援ユニットのオーラ処理
+  void _processAura(double dt, UnitComponent healer, List<UnitComponent> allies) {
+    final id = healer.unitInstance.instanceId;
+    final timer = (_auraTimers[id] ?? 0.0) - dt;
+    _auraTimers[id] = timer;
+    if (timer > 0) return;
+
+    final skills = healer.unitInstance.skills;
+
+    // ヒールオーラ：最低HP%の味方を回復
+    if (skills.contains(UnitSkillId.healAura)) {
+      final target = _findLowestHpAlly(healer, allies);
+      if (target != null) {
+        final healAmt = (healer.unitInstance.attack * 1.5).round().clamp(20, 999);
+        target.unitInstance.heal(healAmt);
+        onAuraApplied?.call(healer, target, AuraType.heal);
+      }
+      _auraTimers[id] = 3.5; // 3.5秒ごとに発動
+    }
+
+    // 加速オーラ：同レーン全体に攻撃速度バフ
+    else if (skills.contains(UnitSkillId.blessingAura)) {
+      for (final ally in allies) {
+        if (ally == healer) continue;
+        if (!ally.unitInstance.isAlive) continue;
+        // 隣接レーン含む範囲
+        if ((ally.unitInstance.laneIndex - healer.unitInstance.laneIndex).abs() > 1) continue;
+        ally.unitInstance.atkSpeedBuff = 1.6;
+        ally.unitInstance.atkSpeedBuffTimer = 5.0;
+        onAuraApplied?.call(healer, ally, AuraType.atkSpeed);
+      }
+      _auraTimers[id] = 5.0;
+    }
+  }
+
+  UnitComponent? _findLowestHpAlly(UnitComponent source, List<UnitComponent> allies) {
+    UnitComponent? best;
+    double bestRatio = 1.1;
+    for (final ally in allies) {
+      if (ally == source) continue;
+      if (!ally.unitInstance.isAlive) continue;
+      // 同レーン or 隣接
+      if ((ally.unitInstance.laneIndex - source.unitInstance.laneIndex).abs() > 1) continue;
+      final ratio = ally.unitInstance.hpRatio;
+      if (ratio < bestRatio) { bestRatio = ratio; best = ally; }
+    }
+    return best;
   }
 
   /// 属性倍率計算（外部から呼べるようpublic）

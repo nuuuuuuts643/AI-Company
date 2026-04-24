@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../game/game_state.dart';
+import '../models/card_data.dart';
+import '../constants/element_chart.dart';
+import '../utils/app_transitions.dart';
 import 'stage_select_screen.dart';
 import 'equipment_screen.dart';
 
@@ -45,6 +48,7 @@ class _HubScreenState extends State<HubScreen>
         index: _tab,
         children: [
           _HomeTab(bgCtrl: _bgCtrl),
+          const _DeckTab(),
           const EquipmentScreen(),
           _RankTab(),
         ],
@@ -65,17 +69,18 @@ class _HubScreenState extends State<HubScreen>
           children: [
             _NavItem(icon: '🏠', label: 'ホーム', selected: _tab == 0,
                 onTap: () => setState(() => _tab = 0)),
+            _NavItem(icon: '🃏', label: 'デッキ', selected: _tab == 1,
+                onTap: () => setState(() => _tab = 1)),
             _NavItem(icon: '⚔️', label: '出撃', selected: false,
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => const StageSelectScreen()),
+                    AppTransitions.slideRight(const StageSelectScreen()),
                   );
                 }),
-            _NavItem(icon: '🛡️', label: '装備', selected: _tab == 1,
-                onTap: () => setState(() => _tab = 1)),
-            _NavItem(icon: '📊', label: 'ランク', selected: _tab == 2,
+            _NavItem(icon: '🛡️', label: '装備', selected: _tab == 2,
                 onTap: () => setState(() => _tab = 2)),
+            _NavItem(icon: '📊', label: 'ランク', selected: _tab == 3,
+                onTap: () => setState(() => _tab = 3)),
           ],
         ),
       ),
@@ -120,8 +125,7 @@ class _HomeTab extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 32),
                     child: _DeployButton(onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const StageSelectScreen()),
+                        AppTransitions.slideRight(const StageSelectScreen()),
                       );
                     }),
                   ),
@@ -469,6 +473,266 @@ class _Divider extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Container(width: 1, height: 36, color: const Color(0xFF2A2A4A));
+}
+
+// ---- デッキタブ ----
+
+class _DeckTab extends StatelessWidget {
+  const _DeckTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<GameStateNotifier>(
+      builder: (_, gs, __) {
+        final ids = gs.player.deckCardIds;
+        final cards = ids
+            .map((id) => CardMaster.getById(id))
+            .whereType<CardData>()
+            .toList();
+
+        // 属性ごとに集計
+        final elemCount = <ElementType, int>{};
+        for (final c in cards) {
+          elemCount[c.element] = (elemCount[c.element] ?? 0) + 1;
+        }
+
+        // ソート: 属性順 → 名前順
+        final sorted = List<CardData>.from(cards)
+          ..sort((a, b) {
+            final ei = a.element.index - b.element.index;
+            return ei != 0 ? ei : a.name.compareTo(b.name);
+          });
+
+        return Scaffold(
+          backgroundColor: const Color(0xFF0D0D1A),
+          body: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ヘッダー
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Row(
+                    children: [
+                      const Text(
+                        '🃏 デッキ',
+                        style: TextStyle(
+                          color: Color(0xFFFFE082),
+                          fontFamily: 'DotGothic16',
+                          fontSize: 20,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${cards.length}枚',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontFamily: 'DotGothic16',
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 属性分布バー
+                if (elemCount.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _ElementDistBar(elemCount: elemCount, total: cards.length),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // カード一覧
+                Expanded(
+                  child: sorted.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'カードがありません\nステージをクリアすると解放されます',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white38,
+                              fontFamily: 'DotGothic16',
+                              fontSize: 13,
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          itemCount: sorted.length,
+                          itemBuilder: (_, i) => _DeckCardRow(card: sorted[i]),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ElementDistBar extends StatelessWidget {
+  final Map<ElementType, int> elemCount;
+  final int total;
+  const _ElementDistBar({required this.elemCount, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = elemCount.entries.toList()
+      ..sort((a, b) => a.key.index - b.key.index);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '属性分布',
+          style: TextStyle(color: Colors.white38, fontFamily: 'DotGothic16', fontSize: 10),
+        ),
+        const SizedBox(height: 4),
+        // セグメントバー
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Row(
+            children: entries.map((e) {
+              return Flexible(
+                flex: e.value,
+                child: Container(
+                  height: 10,
+                  color: Color(e.key.colorValue),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 6),
+        // 凡例
+        Wrap(
+          spacing: 10,
+          runSpacing: 4,
+          children: entries.map((e) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: Color(e.key.colorValue),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${e.key.emoji} ${e.value}',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontFamily: 'DotGothic16',
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class _DeckCardRow extends StatelessWidget {
+  final CardData card;
+  const _DeckCardRow({required this.card});
+
+  @override
+  Widget build(BuildContext context) {
+    final elemColor = Color(card.element.colorValue);
+    final typeLabel = card.cardType == CardType.unit
+        ? 'UNIT'
+        : card.cardType == CardType.spell
+            ? 'SPELL'
+            : 'TRAP';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF12121E),
+        borderRadius: BorderRadius.circular(6),
+        border: Border(left: BorderSide(color: elemColor, width: 3)),
+      ),
+      child: Row(
+        children: [
+          Text(card.element.emoji, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  card.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'DotGothic16',
+                    fontSize: 13,
+                  ),
+                ),
+                Text(
+                  card.description,
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontFamily: 'DotGothic16',
+                    fontSize: 10,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // マナコスト
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1565C0),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Center(
+              child: Text(
+                '${card.manaCost}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'DotGothic16',
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          // タイプバッジ
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: elemColor.withAlpha(40),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: elemColor.withAlpha(80)),
+            ),
+            child: Text(
+              typeLabel,
+              style: TextStyle(
+                color: elemColor,
+                fontFamily: 'DotGothic16',
+                fontSize: 9,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ---- ランクタブ ----
