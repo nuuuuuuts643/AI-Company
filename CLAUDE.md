@@ -153,16 +153,13 @@ aws lambda update-function-configuration \
 # 7. P002動作確認
 cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 
-# 8. AWSコストアラート設定
-python3 scripts/setup_aws_budget.py
+# 8. AWSコストアラート設定 ✅ 完了（2026-04-25）
+# python3 scripts/setup_aws_budget.py 実行済み。月$30超でmrkm.naoya643@gmail.comに通知
 
-# 9. Google Search Console登録（手動）
-# https://search.google.com/search-console にアクセス
-# flotopic.com を「URLプレフィックス」で追加
-# HTMLファイル認証を選択 → 生成されたHTMLファイルをfrontend/に配置 → deploy.sh で反映
+# 9. Google Search Console登録 ✅ 完了
+# 認証ファイルS3デプロイ済み・登録完了済み
 
-# 10. flotopic.comドメイン自動更新確認（手動）
-# ドメイン登録サービスのダッシュボードで自動更新がONになっているか確認
+# 10. flotopic.comドメイン自動更新 → 意図的にOFF（更新タイミングを手動管理）
 ```
 
 **待ち（何もしなくていい）**: AdSense審査中
