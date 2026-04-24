@@ -1,9 +1,9 @@
 name: Notion 収益ダッシュボード日次更新
 
 on:
-  #   schedule:
-  #    # 毎日 09:00 JST = UTC 00:00
-  #     - cron: '0 0 * * *'
+  schedule:
+    # 毎日 09:00 JST = UTC 00:00
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 concurrency:
