@@ -249,6 +249,37 @@ def build_status_page():
     return blocks
 
 
+def build_project_blocks(p):
+    """各プロジェクトのページ内コンテンツ"""
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    blocks = [
+        para(f"最終更新: {now}"),
+        divider(),
+        bullet(f"ステータス: {p['status']}"),
+        bullet(f"優先度: {p['priority']}"),
+    ]
+    if p['url']:
+        blocks.append(bullet(f"URL: {p['url']}"))
+    if p['memo']:
+        blocks.append(bullet(f"備考: {p['memo']}"))
+    return blocks
+
+
+def build_summary_blocks():
+    """エージェント・アクション・アイデアのサマリーページ"""
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    blocks = [para(f"最終更新: {now}"), divider(), h2("🤖 エージェント稼働状況")]
+    for a in AGENTS:
+        blocks.append(bullet(f"{a['status']} {a['name']} ({a['schedule']})"))
+    blocks += [divider(), h2("🎯 次のアクション")]
+    for action in NEXT_ACTIONS:
+        blocks.append(bullet(action))
+    blocks += [divider(), h2("💡 将来アイデア")]
+    for idea in FUTURE_IDEAS:
+        blocks.append(bullet(idea))
+    return blocks
+
+
 def main():
     if not NOTION_API_KEY:
         print("❌ NOTION_API_KEY が未設定（環境変数に設定してください）")
@@ -256,11 +287,7 @@ def main():
 
     print("Notion同期開始...")
 
-    # DBのスキーマ確認
-    res = requests.get(
-        f"https://api.notion.com/v1/databases/{DATABASE_ID}",
-        headers=HEADERS,
-    )
+    res = requests.get(f"https://api.notion.com/v1/databases/{DATABASE_ID}", headers=HEADERS)
     if res.status_code != 200:
         print(f"❌ DB接続失敗: {res.status_code} {res.text}")
         return
@@ -269,8 +296,12 @@ def main():
     title_prop = get_title_property_name()
     existing = get_existing_pages()
 
-    # AI-Company状態ページをupsert
-    upsert_page("AI-Company 現在の状態", build_status_page(), existing, title_prop)
+    # プロジェクトを1件ずつ個別ページとして同期
+    for p in PROJECTS:
+        upsert_page(p['name'], build_project_blocks(p), existing, title_prop)
+
+    # エージェント・アクション・アイデアはサマリーページへ
+    upsert_page("📊 運営サマリー（エージェント・アクション）", build_summary_blocks(), existing, title_prop)
 
     print("✅ 同期完了")
 
