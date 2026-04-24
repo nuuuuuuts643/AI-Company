@@ -87,7 +87,7 @@ def generate_story(articles):
         article_lines.append(f'{date_str} {title}'.strip() if date_str else title)
     headlines = '\n'.join(article_lines)
 
-    length_guide = '4〜6文（長期・複雑なトピックは情報量を優先）' if article_count >= 10 else '3〜4文'
+    length_guide = '5〜7文（出来事の経緯が分かる情報量を優先）' if article_count >= 10 else '3〜5文（核心を押さえた端的な説明）'
 
     prompt = (
         '以下は同じニューストピックに関する記事の一覧です（日付付きの場合あり）。\n'
@@ -140,8 +140,8 @@ def generate_story(articles):
 
     try:
         body = json.dumps({
-            'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 900,
+            'model': 'claude-sonnet-4-6',
+            'max_tokens': 1200,
             'messages': [{'role': 'user', 'content': prompt}],
         }).encode('utf-8')
         req = urllib.request.Request(

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flotopic-v6';
+const CACHE_NAME = 'flotopic-v7';
 
 // HTML/JS/CSS: stale-while-revalidate (常にバックグラウンドで更新チェック)
 const REVALIDATE_ASSETS = [
