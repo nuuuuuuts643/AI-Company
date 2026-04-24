@@ -464,7 +464,7 @@ echo "  -> Favorites URL: $FAVORITES_URL"
 # ---- 6d. Analytics Lambda ----
 ANALYTICS_FN="flotopic-analytics"
 ANALYTICS_TABLE="flotopic-analytics"
-ANALYTICS_ENV_VARS="Variables={REGION=${REGION},ANALYTICS_TABLE=${ANALYTICS_TABLE}}"
+ANALYTICS_ENV_VARS="Variables={REGION=${REGION},ANALYTICS_TABLE=${ANALYTICS_TABLE},S3_BUCKET=${BUCKET}}"
 echo "[6d] Analytics Lambda デプロイ..."
 cd lambda/analytics
 zip -q function.zip handler.py
@@ -500,12 +500,17 @@ if [ -z "$ANALYTICS_URL" ] || [ "$ANALYTICS_URL" = "None" ]; then
   ANALYTICS_URL=$(aws lambda create-function-url-config \
     --function-name "$ANALYTICS_FN" \
     --auth-type NONE \
-    --cors '{"AllowOrigins":["*"],"AllowMethods":["POST"],"AllowHeaders":["Content-Type","Authorization"]}' \
+    --cors '{"AllowOrigins":["https://flotopic.com"],"AllowMethods":["GET","POST","OPTIONS"],"AllowHeaders":["Content-Type","Authorization"]}' \
     --region "$REGION" \
     --query FunctionUrl --output text)
   echo "  -> 新規作成: $ANALYTICS_URL"
 else
-  echo "  -> 既存URLを使用: $ANALYTICS_URL"
+  # 既存URLのCORSをGETも許可するように更新
+  aws lambda update-function-url-config \
+    --function-name "$ANALYTICS_FN" \
+    --cors '{"AllowOrigins":["https://flotopic.com"],"AllowMethods":["GET","POST","OPTIONS"],"AllowHeaders":["Content-Type","Authorization"]}' \
+    --region "$REGION" > /dev/null 2>&1 || true
+  echo "  -> 既存URLを使用（CORS更新済み）: $ANALYTICS_URL"
 fi
 
 aws lambda add-permission \
