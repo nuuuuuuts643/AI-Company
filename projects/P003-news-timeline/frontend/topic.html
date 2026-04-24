@@ -248,18 +248,25 @@
   <div style="margin-top:4px;font-size:.75rem;color:#cbd5e1;">AI要約は自動生成です。情報の正確性は各元記事をご確認ください。</div>
   <div style="margin-top:6px;font-size:.75rem;color:#cbd5e1;">© 2024-2026 Flotopic</div>
 </footer>
-<!-- 認証モーダル（Google / 将来: Apple） -->
+<!-- 認証モーダル（Google / Apple） -->
 <div id="auth-modal" class="auth-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="ログイン">
   <div class="auth-modal-inner">
     <button id="auth-modal-close" class="auth-modal-close" aria-label="閉じる">×</button>
     <div class="auth-modal-logo">🌊 Flotopic</div>
-    <h2 class="auth-modal-title">ログイン</h2>
-    <p class="auth-modal-desc">ログインするとコメント・お気に入りが<br>どのデバイスからでも使えます</p>
+    <h2 class="auth-modal-title">ログイン / 新規登録</h2>
+    <p class="auth-modal-desc">コメント・お気に入りを<br>どのデバイスでも同期</p>
     <div id="auth-modal-google-wrap" class="auth-modal-provider-wrap"></div>
-    <button class="auth-modal-apple-btn" disabled title="近日公開">
-      <svg width="16" height="16" viewBox="0 0 814 1000" fill="currentColor"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.9 0 663.2 0 541.3c0-207.4 133.4-317 264.1-317 69.6 0 127.5 45.6 171.2 45.6 41.7 0 107.2-48.5 185-48.5z"/></svg>
-      Appleでログイン（近日公開）
-    </button>
+    <div class="auth-modal-divider"><span>または</span></div>
+    <div class="auth-modal-apple-wrap">
+      <button class="auth-modal-apple-btn" disabled aria-disabled="true">
+        <svg class="apple-icon" viewBox="0 0 814 1000" fill="currentColor" aria-hidden="true">
+          <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.9 0 663.2 0 541.3c0-207.4 133.4-317 264.1-317 69.6 0 127.5 45.6 171.2 45.6 41.7 0 107.2-48.5 185-48.5z"/>
+        </svg>
+        Appleでサインイン
+      </button>
+      <span class="auth-coming-soon">近日公開</span>
+    </div>
+    <p class="auth-modal-terms">続けることで<a href="terms.html" target="_blank">利用規約</a>と<a href="privacy.html" target="_blank">プライバシーポリシー</a>に同意します</p>
   </div>
 </div>
 <script src="config.js"></script>
