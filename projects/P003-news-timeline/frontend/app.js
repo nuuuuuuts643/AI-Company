@@ -140,10 +140,16 @@ function renderKeywordStrip(keywords) {
  * @param {Object} t - トピックオブジェクト
  * @returns {string} バッジのHTML文字列
  */
+function toUnixSec(v) {
+  if (!v) return 0;
+  const n = Number(v);
+  if (!isNaN(n) && n > 1e9) return n;
+  const t = new Date(v).getTime();
+  return isNaN(t) ? 0 : t / 1000;
+}
 function renderBadges(t) {
-  const isNew = t.lastUpdated != null
-    && Number(t.lastUpdated) > 0
-    && Number(t.lastUpdated) >= Date.now() / 1000 - CONFIG.NEW_BADGE_HOURS * 3600;
+  const ts = toUnixSec(t.lastUpdated);
+  const isNew = ts > 0 && ts >= Date.now() / 1000 - CONFIG.NEW_BADGE_HOURS * 3600;
   return isNew ? '<span class="card-new-badge">NEW</span>' : '';
 }
 
@@ -398,7 +404,7 @@ function renderHotStrip(topics) {
   }
   const nowSec = Date.now() / 1000;
   const hot = (topics || [])
-    .filter(t => t.lifecycleStatus !== 'archived' && t.lastUpdated != null && Number(t.lastUpdated) > 0 && Number(t.lastUpdated) >= nowSec - CONFIG.HOT_STRIP_HOURS * 3600)
+    .filter(t => t.lifecycleStatus !== 'archived' && toUnixSec(t.lastUpdated) >= nowSec - CONFIG.HOT_STRIP_HOURS * 3600)
     .sort((a, b) => Number(b.velocityScore || b.score || 0) - Number(a.velocityScore || a.score || 0))
     .slice(0, 5);
   if (!hot.length) { strip.remove(); return; }
