@@ -794,6 +794,70 @@ class OctoBattleGame extends FlameGame
 
   // ---- 外部から呼び出す（カードUI→ゲーム） ----
 
+  /// コマンダースキル発動（全レーンに属性バーストを放つ）
+  void castCommanderSkill() {
+    const lanes = 3;
+    for (int i = 0; i < lanes; i++) {
+      final laneX = _laneX(i);
+      // 各レーンの中心に強力なAoEバースト
+      final burstPos = Vector2(laneX, GameConstants.fieldTop + 80);
+
+      world.add(BurstParticleComponent(
+        position: burstPos,
+        color: const Color(0xFFFFD700),
+        count: 30,
+        speed: 200.0,
+        lifespan: 0.9,
+        radius: 80.0,
+      ));
+      world.add(MagicCircleEffect(
+        position: burstPos + Vector2(-25, -25),
+        color: const Color(0xFFFFD700),
+      ));
+
+      // 各レーンの敵に大ダメージ
+      for (final enemy in List.from(_enemies)) {
+        if (!enemy.isAlive) continue;
+        if (enemy.laneIndex != i) continue;
+        final dmg = (200 + (enemy.enemyData.maxHp * 0.35)).round();
+        enemy.takeDamage(dmg);
+        world.add(ImpactEffect(
+          position: enemy.position + Vector2(-24, -24),
+          color: const Color(0xFFFFD700),
+          style: impactStyleFor(ElementType.light),
+        ));
+        _spawnFloatingText(
+          enemy.position + Vector2(0, -40),
+          '⚡ $dmg',
+          const Color(0xFFFFD700),
+          fontSize: 22,
+        );
+      }
+    }
+
+    // 全体フラッシュ＋強いシェイク
+    _lighting.flashWhite();
+    _shakeController.shake(intensity: 8.0, duration: 0.5);
+    HapticFeedback.heavyImpact();
+    _audio.playSE(AudioSE.chain);
+  }
+
+  /// ボーンで全配置ユニットをパワーアップ
+  void powerUpAllDeployedUnits() {
+    for (final unit in _units) {
+      if (!unit.unitInstance.isAlive) continue;
+      unit.unitInstance.powerUp();
+      _spawnFusionEffect(unit.position, unit.unitInstance.element, powerUp: true);
+    }
+    _spawnFloatingText(
+      Vector2(GameConstants.gameWidth / 2, GameConstants.gameHeight / 2 - 60),
+      '👑 全軍パワーアップ！',
+      const Color(0xFFFFE082),
+      fontSize: 20,
+    );
+    _shakeController.shake(intensity: 4.0, duration: 0.4);
+  }
+
   /// ショップ・抽出画面完了後に呼ぶ（次ウェーブを準備してクリアフラグをリセット）
   void prepareNextWave(int waveNumber) {
     _waveClearHandled = false;
