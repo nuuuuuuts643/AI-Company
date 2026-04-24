@@ -67,7 +67,7 @@ function cleanSummary(s) {
     .trim();
 }
 
-const GENRES = ['すべて','政治','ビジネス','株・金融','テクノロジー','スポーツ','エンタメ','科学','健康','国際'];
+const GENRES = ['総合','政治','ビジネス','株・金融','テクノロジー','スポーツ','エンタメ','科学','健康','国際'];
 const GENRE_EMOJI = {'政治':'🏛️','ビジネス':'💼','株・金融':'📈','テクノロジー':'💻','スポーツ':'⚽','エンタメ':'🎬','科学':'🔬','健康':'💊','国際':'🌏','総合':'📰'};
 
 // ===== パーソナライズ =====
@@ -91,7 +91,7 @@ function savePrefs(prefs) {
 
 // ===== 共通ユーティリティ =====
 const _prefs = loadPrefs();
-let allTopics = [], currentStatus = _prefs.status || 'all', currentGenre = _prefs.genre || 'すべて', currentSearch = '';
+let allTopics = [], currentStatus = _prefs.status || 'all', currentGenre = _prefs.genre || '総合', currentSearch = '';
 let currentPage = 1;
 let lastFetchTime = null;
 
@@ -262,16 +262,12 @@ function renderTopics(topics) {
     list = list.filter(t => (t.generatedTitle||t.title||'').toLowerCase().includes(q));
   }
   if (currentStatus !== 'all')    list = list.filter(t => t.status === currentStatus);
-  if (currentGenre  !== 'すべて') list = list.filter(t => (t.genres||[t.genre]).includes(currentGenre));
+  if (currentGenre  !== '総合') list = list.filter(t => (t.genres||[t.genre]).includes(currentGenre));
   if (currentStatus === 'all')    list = list.filter(t => t.lifecycleStatus !== 'archived');
-  // 記事1件のみ かつ velocity=0 の死亡トピックを非表示（検索時・お気に入り時は除く）
-  if (!currentSearch && !showFavsOnly) {
-    list = list.filter(t => (t.articleCount || 0) >= 2 || Number(t.velocityScore || 0) > 0);
-  }
   if (showFavsOnly) list = list.filter(t => userFavorites.has(t.topicId));
 
   // ジャンル多様性を確保（テック偏り防止）
-  list = applyGenreDiversity(list, currentGenre !== 'すべて');
+  list = applyGenreDiversity(list, currentGenre !== '総合');
 
   const lmContainer = document.getElementById('load-more-container');
   if (!list.length) {
@@ -283,7 +279,20 @@ function renderTopics(topics) {
   }
 
   const pageList = list.slice(0, currentPage * CONFIG.TOPICS_PER_PAGE);
-  grid.innerHTML = pageList.reduce((html, t, i) => html + renderTopicCard(t, i), '');
+  grid.innerHTML = pageList.reduce((html, t, i) => {
+    const adSlot = ((i + 1) % CONFIG.AD_CARD_INTERVAL === 0)
+      ? '<div class="topic-card-wrapper ad-card-wrapper"><div class="ad-card" data-ad-inject></div></div>'
+      : '';
+    return html + renderTopicCard(t, i) + adSlot;
+  }, '');
+  // script はinnerHTMLから実行されないのでDOM操作で注入
+  grid.querySelectorAll('[data-ad-inject]').forEach(el => {
+    el.removeAttribute('data-ad-inject');
+    const s = document.createElement('script');
+    s.type = 'text/javascript';
+    s.src  = 'https://adm.shinobi.jp/s/229723';
+    el.appendChild(s);
+  });
 
   if (lmContainer) {
     if (pageList.length < list.length) {
@@ -310,7 +319,7 @@ function renderTopics(topics) {
 function buildFilters() {
   const sbar = document.getElementById('status-filter');
   if (sbar) {
-    const btns = [{k:'all',l:'すべて'},{k:'rising',l:'🔥 急上昇'},{k:'peak',l:'⚡ 注目中'},{k:'declining',l:'📉 落ち着き'}];
+    const btns = [{k:'all',l:'総合'},{k:'rising',l:'🔥 急上昇'},{k:'peak',l:'⚡ 注目中'},{k:'declining',l:'📉 落ち着き'}];
     sbar.innerHTML = btns.map(b=>`<button class="filter-btn ${currentStatus===b.k?'active':''}" data-status="${b.k}">${b.l}</button>`).join('');
     sbar.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', () => {
       sbar.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
@@ -617,7 +626,15 @@ function renderDetail(data) {
   if (canvas) {
     if (timeline.length < 2) {
       const chartCard = canvas.closest('.card');
-      if (chartCard) chartCard.style.display = 'none';
+      if (chartCard) {
+        chartCard.querySelector('.chart-header') && (chartCard.querySelector('.chart-header').style.display = 'none');
+        const ph = document.createElement('div');
+        ph.style.cssText = 'padding:20px;text-align:center;color:var(--text-muted);font-size:.85rem;';
+        ph.textContent = '⏳ グラフデータを蓄積中です（30分ごとに更新）';
+        chartCard.appendChild(ph);
+        if (canvas) canvas.style.display = 'none';
+        if (vCanvas) vCanvas.style.display = 'none';
+      }
     } else {
       canvas.style.display='block'; if(vCanvas) vCanvas.style.display='block'; if(noData) noData.style.display='none';
 
