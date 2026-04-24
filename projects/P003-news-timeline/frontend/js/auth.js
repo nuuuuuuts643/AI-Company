@@ -120,6 +120,7 @@ async function handleGoogleCredentialResponse(response) {
       saveUser(currentUser);
       mergeServerHandle(data.handle);  // サーバー上のhandleをローカルにマージ
       updateAuthUI();
+      if (typeof loadFavorites === 'function') loadFavorites();  // クロスデバイス同期
       if (typeof showToast === 'function') showToast(`${getDisplayName(currentUser)} でログインしました`);
       const tid = new URLSearchParams(location.search).get('id');
       if (tid && typeof setupCommentForm === 'function') setupCommentForm(tid);

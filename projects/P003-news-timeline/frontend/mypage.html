@@ -5,7 +5,7 @@
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6754575901141756"
      crossorigin="anonymous"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'; img-src 'self' https: data: blob:">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>マイページ | Flotopic</title>
@@ -125,45 +125,65 @@
       border-color: #9ca3af;
     }
 
-    /* ===== プロフィールヘッダー（X風） ===== */
+    /* ===== プロフィールヘッダー ===== */
     .mp-profile-banner {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%);
       border-radius: 16px 16px 0 0;
-      height: 100px;
+      height: 120px;
       position: relative;
+      overflow: hidden;
+    }
+    .mp-profile-banner::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 75% 60%, rgba(99,102,241,0.35) 0%, transparent 55%),
+        radial-gradient(circle at 15% 90%, rgba(56,189,248,0.18) 0%, transparent 45%);
+    }
+    .mp-profile-banner::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0; right: 0;
+      height: 32px;
+      background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.04));
     }
     .mp-profile-card {
       background: #fff;
       border-radius: 0 0 16px 16px;
-      padding: 0 24px 20px;
+      padding: 0 24px 22px;
       margin-bottom: 16px;
-      box-shadow: 0 1px 6px rgba(0,0,0,.07);
+      box-shadow: 0 2px 12px rgba(0,0,0,.08);
     }
     .mp-avatar-wrap {
       position: relative;
-      margin-top: -40px;
-      margin-bottom: 12px;
+      margin-top: -44px;
+      margin-bottom: 14px;
     }
     .mp-avatar {
-      width: 80px;
-      height: 80px;
+      width: 88px;
+      height: 88px;
       border-radius: 50%;
       border: 4px solid #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
       object-fit: cover;
       display: block;
       background: #e5e7eb;
     }
     .mp-avatar-placeholder {
-      width: 80px;
-      height: 80px;
+      width: 88px;
+      height: 88px;
       border-radius: 50%;
       border: 4px solid #fff;
-      background: #334155;
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 2rem;
+      font-size: 2.2rem;
       color: #fff;
+      font-weight: 700;
     }
     /* ===== アバターアップロード ===== */
     .avatar-upload-area {
@@ -219,34 +239,41 @@
     .avatar-upload-status { font-size: .76rem; color: #6366f1; min-height: 1em; }
 
     .mp-display-name {
-      font-size: 1.2rem;
+      font-size: 1.25rem;
       font-weight: 700;
       color: #0f172a;
-      margin-bottom: 2px;
+      margin-bottom: 3px;
     }
     .mp-handle {
       font-size: .82rem;
-      color: #94a3b8;
-      margin-bottom: 14px;
+      color: #6366f1;
+      font-weight: 500;
+      margin-bottom: 16px;
     }
     .mp-stats-row {
       display: flex;
-      gap: 20px;
+      gap: 0;
       flex-wrap: wrap;
     }
     .mp-stat {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
+      padding-right: 20px;
+      margin-right: 20px;
+      border-right: 1px solid #f1f5f9;
     }
+    .mp-stat:last-child { border-right: none; margin-right: 0; }
     .mp-stat-num {
-      font-size: 1rem;
+      font-size: 1.1rem;
       font-weight: 700;
       color: #0f172a;
+      line-height: 1.2;
     }
     .mp-stat-label {
-      font-size: .75rem;
+      font-size: .72rem;
       color: #94a3b8;
+      margin-top: 1px;
     }
 
     /* ===== タブ ===== */
@@ -273,8 +300,9 @@
       font-family: inherit;
     }
     .mp-tab.active {
-      background: #0f172a;
+      background: #6366f1;
       color: #fff;
+      box-shadow: 0 2px 8px rgba(99,102,241,0.3);
     }
     .mp-tab:hover:not(.active) {
       background: #f1f5f9;
@@ -506,6 +534,41 @@
     }
     .mp-modal-confirm:hover { opacity: .87; }
     .mp-modal-confirm:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ===== ダークモード ===== */
+    [data-theme="dark"] body { background: #13141f; }
+    [data-theme="dark"] .mp-profile-card { background: #1e2035; box-shadow: 0 2px 12px rgba(0,0,0,.4); }
+    [data-theme="dark"] .mp-avatar { border-color: #1e2035; }
+    [data-theme="dark"] .mp-avatar-placeholder { border-color: #1e2035; }
+    [data-theme="dark"] .mp-display-name { color: #eef0f8; }
+    [data-theme="dark"] .mp-handle { color: #818cf8; }
+    [data-theme="dark"] .mp-stat-num { color: #eef0f8; }
+    [data-theme="dark"] .mp-stat { border-right-color: rgba(99,102,241,0.15); }
+    [data-theme="dark"] .mp-tabs { background: #1e2035; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+    [data-theme="dark"] .mp-tab { color: #5c6080; }
+    [data-theme="dark"] .mp-tab.active { background: #6366f1; color: #fff; }
+    [data-theme="dark"] .mp-tab:hover:not(.active) { background: #252840; color: #9ba3c4; }
+    [data-theme="dark"] .mp-card { background: #1e2035; box-shadow: 0 1px 6px rgba(0,0,0,.3); }
+    [data-theme="dark"] .mp-topic-row { border-bottom-color: rgba(99,102,241,0.1); color: #eef0f8; }
+    [data-theme="dark"] .mp-topic-row:hover { background: #252840; }
+    [data-theme="dark"] .mp-topic-title { color: #eef0f8; }
+    [data-theme="dark"] .mp-topic-sub { color: #5c6080; }
+    [data-theme="dark"] .mp-account-card { background: #1e2035; }
+    [data-theme="dark"] .mp-account-row { border-bottom-color: rgba(99,102,241,0.1); }
+    [data-theme="dark"] .mp-account-label { color: #5c6080; }
+    [data-theme="dark"] .mp-account-value { color: #eef0f8; }
+    [data-theme="dark"] .mp-nickname-field { border-bottom-color: rgba(99,102,241,0.1); }
+    [data-theme="dark"] .mp-nickname-input { color: #eef0f8; }
+    [data-theme="dark"] .mp-signout-btn { background: #252840; border-color: rgba(99,102,241,0.2); color: #9ba3c4; }
+    [data-theme="dark"] .mp-signout-btn:hover { background: #2a2d4a; }
+    [data-theme="dark"] .mp-login-card { background: #1e2035; }
+    [data-theme="dark"] .mp-login-title { color: #eef0f8; }
+    [data-theme="dark"] .mp-modal { background: #1e2035; }
+    [data-theme="dark"] .mp-modal-title { color: #eef0f8; }
+    [data-theme="dark"] .mp-modal-cancel { background: #252840; border-color: rgba(99,102,241,0.2); color: #9ba3c4; }
+    [data-theme="dark"] .back-link { color: #5c6080; }
+    [data-theme="dark"] .back-link:hover { color: #eef0f8; }
+    [data-theme="dark"] .mp-profile-banner { background: linear-gradient(135deg, #0a0b14 0%, #13104f 55%, #1e1b6f 100%); }
   </style>
 </head>
 <body>
@@ -951,6 +1014,20 @@
   // ===== ログイン後表示 =====
   let currentTab = 'favs';
 
+  let _topicTitleMap = null;
+  async function getTopicTitleMap() {
+    if (_topicTitleMap) return _topicTitleMap;
+    try {
+      const apiBase = (typeof API_BASE !== 'undefined') ? API_BASE : '';
+      const r = await fetch(apiBase + 'topics.json');
+      const data = await r.json();
+      const all = data.topics || [];
+      _topicTitleMap = {};
+      all.forEach(t => { _topicTitleMap[t.topicId] = t.generatedTitle || t.title || ''; });
+    } catch { _topicTitleMap = {}; }
+    return _topicTitleMap;
+  }
+
   async function loadCommentHistory() {
     const listEl = document.getElementById('mp-comment-history-list');
     if (!listEl) return;
@@ -962,9 +1039,12 @@
     }
     if (typeof _APIGW === 'undefined') return;
     try {
-      const r = await fetch(`${_APIGW}/user/${encodeURIComponent(handle)}/comments`);
-      if (!r.ok) throw new Error('fetch failed');
-      const data = await r.json();
+      const [commRes, titleMap] = await Promise.all([
+        fetch(`${_APIGW}/user/${encodeURIComponent(handle)}/comments`),
+        getTopicTitleMap(),
+      ]);
+      if (!commRes.ok) throw new Error('fetch failed');
+      const data = await commRes.json();
       const comments = data.comments || [];
       if (!comments.length) {
         listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#94a3b8;font-size:.85rem;">まだコメントはありません</div>';
@@ -974,9 +1054,11 @@
       const fmtDate = iso => { try { const d = new Date(iso); return d.toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}); } catch { return ''; } };
       listEl.innerHTML = comments.map(c => {
         const likes = Number(c.likeCount) || 0;
+        const topicTitle = titleMap[c.topicId] || '';
+        const topicLabel = topicTitle ? esc(topicTitle) : 'トピックを見る →';
         const quoted = c.quotedHandle ? `<div class="hist-quoted"><span class="hist-quoted-handle">@${esc(c.quotedHandle)}</span> ${esc(c.quotedText||'')}</div>` : '';
         return `<div class="hist-card">
-          <a class="hist-topic" href="topic.html?id=${esc(c.topicId)}">📰 トピックを見る →</a>
+          <a class="hist-topic" href="topic.html?id=${esc(c.topicId)}">📰 ${topicLabel}</a>
           ${quoted}
           <div class="hist-body">${esc(c.body)}</div>
           <div class="hist-meta">
@@ -1018,14 +1100,17 @@
       favTopics = all.filter(t => favIds.includes(t.topicId));
     } catch {}
 
-    const avatarHtml = (user && user.picture)
-      ? `<img class="mp-avatar" src="${safeEsc(user.picture)}" alt="アバター">`
-      : `<div class="mp-avatar-placeholder">👤</div>`;
-    // ニックネーム優先、なければGoogleの名前の最初の部分
-    const rawName    = user ? (user.name || '') : '';
+    // ローカル保存アバター優先、次にGoogleの写真
+    const savedAvatar = (() => { try { return localStorage.getItem('flotopic_avatar') || ''; } catch { return ''; } })();
+    const picUrl = savedAvatar || (user && user.picture ? safeEsc(user.picture) : '');
+    const rawName = user ? (user.name || '') : '';
     const displayName = safeEsc(user ? (user.nickname || rawName.split(' ')[0] || rawName || 'ユーザー') : 'ユーザー');
+    const initial = (displayName.replace(/&[^;]+;/g,'')[0] || '?').toUpperCase();
+    const avatarHtml = picUrl
+      ? `<img class="mp-avatar" src="${picUrl}" alt="アバター" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="mp-avatar-placeholder" style="display:none">${initial}</div>`
+      : `<div class="mp-avatar-placeholder">${initial}</div>`;
     const profile     = readProfile();
-    const handleText  = profile.handle ? `@${profile.handle}` : 'Flotopicメンバー';
+    const handleText  = profile.handle ? `@${profile.handle}` : '@Flotopicメンバー';
 
     const favsHtml = favTopics.length
       ? favTopics.map(t => `
@@ -1053,7 +1138,9 @@
 
     container.innerHTML = `
       <!-- プロフィールヘッダー -->
-      <div class="mp-profile-banner"></div>
+      <div class="mp-profile-banner">
+        <div style="position:absolute;top:16px;right:20px;font-size:.7rem;font-weight:700;letter-spacing:.12em;color:rgba(255,255,255,0.35);user-select:none;">FLOTOPIC</div>
+      </div>
       <div class="mp-profile-card">
         <div class="mp-avatar-wrap">${avatarHtml}</div>
         <div class="mp-display-name">${displayName}</div>

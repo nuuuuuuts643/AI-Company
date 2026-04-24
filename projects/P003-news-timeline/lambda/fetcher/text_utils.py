@@ -43,39 +43,74 @@ def topic_fingerprint(articles):
     return hashlib.md5(' '.join(top).encode()).hexdigest()[:16]
 
 
+def _domain_to_name(domain: str) -> str:
+    """ドメインから表示用メディア名を生成（SOURCE_NAME_MAP優先）"""
+    domain = domain.lower()
+    if domain in SOURCE_NAME_MAP and SOURCE_NAME_MAP[domain]:
+        return SOURCE_NAME_MAP[domain]
+    d = re.sub(r'^www\.', '', domain)
+    d = re.sub(r'\.(co\.jp|or\.jp|ne\.jp|com|jp|net|org|io)$', '', d)
+    d = re.sub(r'\.(co|or|ne)$', '', d)
+    return d if d else ''
+
+
 def extract_source_name(item, article_link: str, feed_url: str) -> str:
+    # 1. <source> 要素のテキスト（Google以外ならそのまま使う）
     source_el = item.find('source')
     if source_el is not None:
         source_text = (source_el.text or '').strip()
         if source_text and 'google' not in source_text.lower():
-            return source_text
+            # "NHK | NHKニュース" → "NHK" に整形
+            return source_text.split('|')[0].strip()
 
+        # テキストが "Google ニュース" 等でも url 属性に本来のメディアURLが入っている
+        source_url = source_el.get('url', '')
+        if source_url:
+            try:
+                src_domain = urllib.parse.urlparse(source_url).netloc.lower()
+                if src_domain and 'google' not in src_domain:
+                    name = _domain_to_name(src_domain)
+                    if name:
+                        return name
+            except Exception:
+                pass
+
+    # 2. article_link のドメインが Google 以外ならそこから取得
     try:
         domain = urllib.parse.urlparse(article_link).netloc.lower()
-        if domain in SOURCE_NAME_MAP and SOURCE_NAME_MAP[domain]:
-            return SOURCE_NAME_MAP[domain]
-        if 'google' in domain:
-            title = (item.findtext('title') or '').strip()
-            match = re.search(r'\s[-–]\s([^\-–]+)$', title)
-            if match:
-                return match.group(1).strip()
+        if domain and 'google' not in domain:
+            name = _domain_to_name(domain)
+            if name:
+                return name
     except Exception:
         pass
 
+    # 3. Google News の場合: タイトル末尾の " - メディア名" を抽出
+    try:
+        domain = urllib.parse.urlparse(article_link).netloc.lower()
+        if 'google' in domain or 'google' in feed_url:
+            title = (item.findtext('title') or '').strip()
+            # "タイトル - NHK" / "タイトル – 読売新聞" / "タイトル｜朝日新聞"
+            for pat in [r'\s[-–―]\s([^-–―｜|]+)$', r'[｜|]([^｜|]+)$']:
+                match = re.search(pat, title)
+                if match:
+                    candidate = match.group(1).strip()
+                    if candidate and len(candidate) < 30:
+                        return candidate
+    except Exception:
+        pass
+
+    # 4. フィードドメインから推定
     try:
         feed_domain = urllib.parse.urlparse(feed_url).netloc.lower()
-        if feed_domain in SOURCE_NAME_MAP and SOURCE_NAME_MAP[feed_domain]:
-            return SOURCE_NAME_MAP[feed_domain]
+        if feed_domain and 'google' not in feed_domain:
+            name = _domain_to_name(feed_domain)
+            if name:
+                return name
     except Exception:
         pass
 
-    try:
-        domain = urllib.parse.urlparse(article_link).netloc
-        domain = re.sub(r'^www\.', '', domain)
-        domain = re.sub(r'\.(co\.jp|com|jp|net|org)$', '', domain)
-        return domain if domain else 'Unknown'
-    except Exception:
-        return 'Unknown'
+    return 'Unknown'
 
 
 def extract_rss_image(item):
