@@ -18,27 +18,27 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
-# 現在の状態
+# 現在の状態（2026-04-24 更新）
 PROJECTS = [
     {
         "name": "P001 AI-Company基盤（自走システム）",
         "status": "保留 ⏸",
         "url": "",
-        "memo": "CEO・秘書・各エージェントのスケジュール停止中（API費用削減）。インフラは存在する。自走は将来再開予定。",
+        "memo": "CEO・秘書・各エージェントのスケジュール停止中（API費用削減）。インフラ（DynamoDB・Lambda）は存在。ユーザー・収益が生まれたら再開。",
         "priority": "低",
     },
     {
         "name": "P002 Flutterゲーム",
         "status": "開発中 🔧",
         "url": "",
-        "memo": "Flutter+Flame実装済み（50+ファイル）。動作確認待ち。コンセプト: オートバトル×HD-2Dドット絵×ローグライト抽出。",
+        "memo": "Flutter+Flame実装済み（50+ファイル）。動作確認待ち。コンセプト: オートバトル×HD-2Dドット絵×ローグライト抽出。スプライト素材・BGM未作成。",
         "priority": "中",
     },
     {
         "name": "P003 Flotopic",
         "status": "本番稼働中 ✅",
         "url": "https://flotopic.com",
-        "memo": "HTTPS化済み。AdSense申請済み（審査待ち）。AI要約未動作（ANTHROPIC_API_KEY未設定）。X自動投稿・catchup.html実装済み。",
+        "memo": "HTTPS化済み。AdSense審査待ち（忍者AdMaxで代替中）。AI要約未動作（ANTHROPIC_API_KEY未設定が原因）。Bluesky自動投稿・catchup.html・X風コメントUI・信頼性シグナル・ホットストリップ実装済み。Google Search Console未登録。",
         "priority": "高",
     },
     {
@@ -65,31 +65,37 @@ PROJECTS = [
 ]
 
 AGENTS = [
-    {"name": "CEO", "schedule": "毎朝8:30 JST", "status": "✅ 稼働中"},
-    {"name": "秘書", "schedule": "毎朝9:00 JST", "status": "✅ 稼働中"},
-    {"name": "開発監視AI", "schedule": "毎時", "status": "✅ 稼働中"},
-    {"name": "マーケティングAI", "schedule": "毎朝10:00 JST", "status": "✅ 稼働中"},
-    {"name": "収益管理AI", "schedule": "毎週月曜9:30 JST", "status": "✅ 稼働中"},
-    {"name": "編集AI", "schedule": "毎週水曜9:00 JST", "status": "✅ 稼働中"},
-    {"name": "SEO AI", "schedule": "毎週月曜10:00 JST", "status": "✅ 稼働中"},
-    {"name": "X投稿AI", "schedule": "日次8:00/週次月9:00/月次1日9:00 JST", "status": "✅ 稼働中"},
-    {"name": "SecurityAI", "schedule": "push時+毎週月曜8:00 JST", "status": "✅ 稼働中"},
-    {"name": "LegalAI", "schedule": "push時+毎月1日", "status": "✅ 稼働中"},
-    {"name": "AuditAI", "schedule": "push時+週次", "status": "✅ 稼働中"},
+    # ── 停止中（スケジュールOFF・API費用削減のため）──
+    {"name": "CEO", "schedule": "毎朝8:30 JST", "status": "⏸ 停止中"},
+    {"name": "秘書", "schedule": "毎朝9:00 JST", "status": "⏸ 停止中"},
+    {"name": "開発監視AI (DevOps)", "schedule": "デプロイ後トリガー", "status": "⏸ 停止中"},
+    {"name": "マーケティングAI", "schedule": "毎朝10:00 JST", "status": "⏸ 停止中"},
+    {"name": "収益管理AI", "schedule": "毎週月曜9:30 JST", "status": "⏸ 停止中"},
+    {"name": "編集AI", "schedule": "毎週水曜9:00 JST", "status": "⏸ 停止中"},
+    {"name": "SEO AI", "schedule": "毎週月曜10:00 JST", "status": "⏸ 停止中"},
+    {"name": "X投稿AI", "schedule": "—", "status": "⏸ 停止中（X API Basic $100/月が必要）"},
+    # ── 稼働中 ──
+    {"name": "Bluesky投稿AI", "schedule": "毎日8:00 / 月曜9:00 / 月初9:00 JST", "status": "✅ 稼働中"},
+    {"name": "SecurityAI", "schedule": "push時（Claude不使用）+ 週次", "status": "✅ 稼働中"},
+    {"name": "LegalAI", "schedule": "push時（Claude少量使用）+ 月次", "status": "✅ 稼働中"},
+    {"name": "AuditAI", "schedule": "push時（Claude不使用）+ 週次", "status": "✅ 稼働中"},
+    {"name": "Notion同期", "schedule": "毎日9:00 JST + push時", "status": "✅ 稼働中"},
 ]
 
 NEXT_ACTIONS = [
-    "【最重要】p003-processor ANTHROPIC_API_KEY設定 → AI要約が動いていない",
-    "AdSense審査通過待ち → 通過後に広告コード差し替え",
-    "P004 Slack Slash Command /ai 設定（api.slack.com/apps）",
-    "auto-push.sh LaunchAgent設定（brew install fswatch後）→ 遠隔自動デプロイ有効化",
+    "【最重要】p003-processor ANTHROPIC_API_KEY設定 → AI要約が動いていない（設定コマンドはCLAUDE.mdに記載）",
+    "AdSense審査通過待ち（申請済み）→ 通過後に広告コード差し替え",
+    "Google Search Console登録（flotopic.com を URLプレフィックスで追加・HTMLファイル認証）",
+    "flotopic.comドメイン自動更新確認（登録サービスのダッシュボードでONか確認）",
     "P002 flutter pub get && flutter run で動作確認",
+    "P004 Slack Slash Command /ai 設定（優先度低）",
 ]
 
 FUTURE_IDEAS = [
-    "P003拡張: トピック起点SNS機能 — Googleログイン前提、トピック消滅でコメントも消える「映画館型」SNS。ユーザーが集まってから実装。",
+    "P003拡張: トピック起点SNS機能 — Googleログイン前提、トピック消滅でコメントも消える「映画館型」SNS。ユーザーが集まってから実装。コメントLambdaは実装済み。",
+    "P003拡張: ユーザー行動分析ダッシュボード — トピックPV・ジャンル傾向・お気に入り率・管理者ページ。Googleログイン連携済みで実装可能。",
     "P003量産: 同じ型でテック特化・経済特化・スポーツ特化版。RSSソースとドメインだけ変えれば1日で新サイトが動く。",
-    "P006候補: Flotopic × 株式投資シグナル — ベロシティ・エンティティを投資シグナルに転用。「アドバイス」でなく「文脈提供」として設計。",
+    "P006候補: Flotopic × 株式投資シグナル — ベロシティ・エンティティを投資シグナルに転用。「アドバイス」でなく「文脈提供」として設計。金融規制に注意。",
 ]
 
 
