@@ -103,6 +103,20 @@ section h2{font-size:.9rem;font-weight:600;color:#8b949e;text-transform:uppercas
 .btn{background:#21262d;border:1px solid #30363d;color:#e6edf3;padding:6px 14px;border-radius:6px;font-size:.8rem;cursor:pointer}
 .btn:hover{background:#30363d}
 .no-data{color:#8b949e;font-size:.85rem;text-align:center;padding:20px}
+
+/* ─── HIGHLIGHT BAR ─────────────────────────────────────────────────── */
+.highlight-bar{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.hl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;transition:background .3s}
+.hl-dot.green{background:#3fb950;box-shadow:0 0 8px #3fb95055}
+.hl-dot.yellow{background:#e3b341;box-shadow:0 0 8px #e3b34155}
+.hl-dot.red{background:#f85149;box-shadow:0 0 8px #f8514955}
+.hl-text{font-size:.87rem;flex:1;line-height:1.6}
+.hl-label{font-size:.72rem;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;flex-shrink:0}
+
+/* ─── TREND ─────────────────────────────────────────────────────────── */
+.trend-up{color:#3fb950;font-weight:600}
+.trend-down{color:#f85149;font-weight:600}
+.trend-flat{color:#8b949e}
 </style>
 </head>
 <body>
@@ -131,6 +145,13 @@ section h2{font-size:.9rem;font-weight:600;color:#8b949e;text-transform:uppercas
 <main>
   <div id="loading">データを読み込み中...</div>
   <div id="dashboard">
+
+    <!-- ハイライトバー -->
+    <div class="highlight-bar" id="highlight-bar" style="display:none">
+      <div class="hl-dot" id="hl-dot"></div>
+      <div class="hl-text" id="hl-text"></div>
+      <div class="hl-label" id="hl-label"></div>
+    </div>
 
     <!-- サマリーカード（動的生成） -->
     <div class="cards" id="summary-cards"></div>
@@ -303,6 +324,76 @@ function computeMetrics(topics) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// TREND HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+
+function pvDayOverDay(daily) {
+  if (!daily || daily.length < 2) return null;
+  const sorted = [...daily].sort((a,b) => a.date.localeCompare(b.date));
+  const last = sorted[sorted.length - 1].count;
+  const prev = sorted[sorted.length - 2].count;
+  if (prev === 0) return null;
+  return { last, prev, pct: Math.round((last - prev) / prev * 100) };
+}
+
+function trendHtml(pct) {
+  if (pct === null) return '';
+  const sign  = pct >= 0 ? '+' : '';
+  const arrow = pct > 0 ? '↑' : pct < 0 ? '↓' : '→';
+  const cls   = pct > 0 ? 'trend-up' : pct < 0 ? 'trend-down' : 'trend-flat';
+  return `<span class="${cls}">${sign}${pct}% ${arrow}</span>`;
+}
+
+// ─── ハイライトバー ──────────────────────────────────────────────────────
+function renderHighlight(m, cfData) {
+  const bar  = document.getElementById('highlight-bar');
+  const dot  = document.getElementById('hl-dot');
+  const text = document.getElementById('hl-text');
+  const lbl  = document.getElementById('hl-label');
+  if (!bar) return;
+
+  const cf    = cfData?.cf || {};
+  const daily = cf.daily || [];
+  const trend = pvDayOverDay(daily);
+
+  // 国別TOP
+  const CNAMES = {JP:'日本',US:'米国',KR:'韓国',CN:'中国',GB:'英国',DE:'ドイツ',TW:'台湾',AU:'豪州',CA:'カナダ',FR:'フランス'};
+  const topC   = cf.byCountry?.[0];
+  const totalPv = cf.totalPv7d || 1;
+  const topCPct = topC ? Math.round(topC.count / totalPv * 100) : null;
+
+  // デバイス
+  const devices = cf.byDevice || [];
+  const desktop = devices.find(d=>d.type==='desktop')?.count || 0;
+  const mobile  = devices.find(d=>d.type==='mobile')?.count || 0;
+  const totalDev = desktop + mobile || 1;
+  const mobilePct = Math.round(mobile / totalDev * 100);
+
+  // 健康状態判定
+  let health = 'green';
+  if (trend !== null && trend.pct < -20) health = 'red';
+  else if (trend !== null && trend.pct < 0) health = 'yellow';
+
+  // テキスト生成
+  const parts = [];
+  if (trend !== null) {
+    parts.push(`昨日のPV <strong>${trend.last}件</strong>（前日比 ${trendHtml(trend.pct)}）`);
+  } else if (cf.totalPv7d) {
+    parts.push(`7日間の総PV <strong>${cf.totalPv7d}件</strong>`);
+  }
+  if (topC && topCPct) parts.push(`${CNAMES[topC.code]||topC.code}からのアクセス ${topCPct}%`);
+  if (desktop + mobile > 0) parts.push(`モバイル比率 ${mobilePct}%`);
+  if (m.lifecycle.active) parts.push(`アクティブトピック ${m.lifecycle.active}件`);
+
+  const STATUS_LABEL = {green:'順調', yellow:'やや注意', red:'要確認'};
+
+  dot.className  = `hl-dot ${health}`;
+  text.innerHTML = parts.length ? parts.join('　·　') : 'データ収集中...';
+  lbl.textContent = STATUS_LABEL[health];
+  bar.style.display = 'flex';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // SECTIONS
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -318,9 +409,14 @@ function renderSummaryCards(m, analyticsData, cfData) {
     UI.card('blue',   '総トピック数',    m.total.toLocaleString(),   `24h更新: ${m.updatedToday}`),
     UI.card('green',  '総記事数',        m.totalArticles.toLocaleString(), `平均 ${m.avgArticles}件/トピック`),
     UI.card('purple', 'AI要約済み',      m.aiDone.toLocaleString(),  `${U.pct(m.aiDone, m.total)}% 完了`),
-    UI.card('teal',   'PV（7日間）',
-            pv7d !== null ? pv7d.toLocaleString() : (pv24h !== null ? pv24h.toLocaleString() : '—'),
-            pv7d !== null ? 'Cloudflare Analytics' : (pv24h !== null ? '24h（独自集計）' : 'データ収集中...')),
+    (() => {
+      const trend = pvDayOverDay(cfData?.cf?.daily || []);
+      const tSub  = trend !== null
+        ? `前日比 ${trend.pct >= 0 ? '+' : ''}${trend.pct}% ${trend.pct > 0 ? '↑' : trend.pct < 0 ? '↓' : '→'}`
+        : (pv7d !== null ? 'Cloudflare Analytics' : (pv24h !== null ? '24h（独自集計）' : 'データ収集中...'));
+      return UI.card('teal', 'PV（7日間）',
+        pv7d !== null ? pv7d.toLocaleString() : (pv24h !== null ? pv24h.toLocaleString() : '—'), tSub);
+    })(),
     UI.card('orange', 'ユーザー数',
             users.total != null ? users.total.toLocaleString() : '—',
             users.new7d != null ? `7日新規: ${users.new7d}人` : ''),
@@ -399,8 +495,16 @@ function renderCfAnalytics(cfData) {
     UI.barRow(COUNTRY_NAMES[c.code]||c.code, c.count, maxC, 'fill-purple')
   ).join('');
 
+  // デバイス内訳
+  const devices  = cf.byDevice || [];
+  const maxDev   = Math.max(...devices.map(d=>d.count||0), 1);
+  const DEV_NAMES = {desktop:'デスクトップ', mobile:'モバイル', tablet:'タブレット', other:'その他'};
+  const devHtml = devices.map(d =>
+    UI.barRow(DEV_NAMES[d.type]||d.type, d.count, maxDev, 'fill-orange')
+  ).join('');
+
   el.innerHTML = `
-    <div class="grid3">
+    <div class="grid3" style="margin-bottom:16px">
       <div>
         <div style="font-size:.8rem;color:#8b949e;margin-bottom:8px">日別 PV（7日間）</div>
         <div class="bar-list">${dailyHtml || '<div class="no-data">データなし</div>'}</div>
@@ -413,6 +517,10 @@ function renderCfAnalytics(cfData) {
         <div style="font-size:.8rem;color:#8b949e;margin-bottom:8px">訪問者の国</div>
         <div class="bar-list">${countriesHtml || '<div class="no-data">データなし</div>'}</div>
       </div>
+    </div>
+    <div style="border-top:1px solid #30363d;padding-top:14px">
+      <div style="font-size:.8rem;color:#8b949e;margin-bottom:8px">デバイス種別</div>
+      <div class="bar-list">${devHtml || '<div class="no-data">データなし</div>'}</div>
     </div>`;
 }
 
@@ -483,6 +591,7 @@ function renderRecentTopics(topics) {
 // ─── セクション登録（新セクション追加はここに関数を追記） ─────────────────
 // 引数: (metrics, topics, analyticsMap, analyticsData, cfData)
 const SECTIONS = [
+  (m,t,am,ad,cf) => renderHighlight(m, cf),
   (m,t,am,ad,cf) => renderSummaryCards(m, ad, cf),
   (m,t,am,ad,cf) => renderCfAnalytics(cf),
   (m,t,am,ad)    => renderAnalytics(ad, t),
