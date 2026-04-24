@@ -1,11 +1,7 @@
 name: DevOps Agent (開発監視AI)
 
 on:
-  workflow_run:
-    workflows:
-      - "P003 デプロイ（Lambda + フロントエンド）"
-      - "AI Developer Agent（自動実装）"
-    types: [completed]
+  # workflow_run: 停止中のため自動トリガー削除（2026-04-25）
   # schedule: 無効化（2026-04-23 AI会社自走停止）
   workflow_dispatch:
 
