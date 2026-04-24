@@ -10,7 +10,7 @@ from config import (
     S3_BUCKET, TABLE_NAME, CACHE_SK_PREFIX, CLAUDE_CALL_CONDITIONS,
     SEEN_KEY, SEEN_MAX, SITE_URL, table, s3,
 )
-from text_utils import apply_time_decay
+from score_utils import apply_time_decay
 
 
 def dec_convert(obj):
