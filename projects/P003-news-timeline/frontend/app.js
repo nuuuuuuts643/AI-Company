@@ -215,9 +215,9 @@ function renderTopicCard(t, i) {
         <div class="card-body">
           <div class="topic-status ${esc(t.status)}">${STATUS_LABEL[t.status] || t.status}</div>
           <h3>${esc(t.generatedTitle || t.title)}</h3>
+          ${t.generatedSummary ? `<p class="card-summary">${esc(t.generatedSummary)}</p>` : ''}
           ${renderCardMeta(t)}
           ${renderReliabilitySignal(t)}
-          <div class="card-attribution">© 記事の権利は各媒体に帰属</div>
         </div>
       </a>
       <button class="fav-btn ${isFav ? 'fav-active' : ''}" data-topic-id="${esc(t.topicId)}" title="${isFav ? 'お気に入りを解除' : 'お気に入りに追加'}" aria-label="お気に入り">♥</button>
@@ -366,7 +366,15 @@ function setupSearch() {
  */
 async function refreshTopics() {
   try {
-    allTopics = await loadTopics();
+    const raw = await loadTopics();
+    // velocityScore → score → lastUpdated 降順でソート（盛り上がり順）
+    allTopics = raw.sort((a, b) => {
+      const vs = Number(b.velocityScore || 0) - Number(a.velocityScore || 0);
+      if (vs !== 0) return vs;
+      const sc = Number(b.score || 0) - Number(a.score || 0);
+      if (sc !== 0) return sc;
+      return (b.lastUpdated || '').localeCompare(a.lastUpdated || '');
+    });
     lastFetchTime = Date.now();
     updateFreshnessDisplay();
     renderHotStrip(allTopics);

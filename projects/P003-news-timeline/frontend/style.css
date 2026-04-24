@@ -242,6 +242,17 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   letter-spacing: -.01em;
 }
 
+.card-summary {
+  font-size: .78rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .topic-meta {
   display: flex;
   flex-wrap: wrap;
