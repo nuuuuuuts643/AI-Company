@@ -699,3 +699,48 @@ cat /tmp/p003-response.json
 echo ""
 echo "  30秒後にサイトURLをブラウザで開いてください。"
 echo "  以降は30分ごとに自動更新されます。"
+
+# ===== デプロイ後 自動検証 =====
+echo ""
+echo "======================================="
+echo "  デプロイ後 自動検証"
+echo "======================================="
+VERIFY_FAIL=0
+
+# 1. CDN上のconfig.jsがAPI Gateway URLを使っているか確認
+CONFIG_CHECK=$(/usr/bin/curl -sf "https://flotopic.com/config.js" 2>/dev/null | grep -c "x73mzc0v06" || echo 0)
+if [ "$CONFIG_CHECK" -ge 1 ]; then
+  echo "  [OK] config.js: API Gateway URL"
+else
+  echo "  [NG] config.js: Lambda URL が混入している!"
+  VERIFY_FAIL=1
+fi
+
+# 2. topics.json が取得できるか
+TOPIC_COUNT=$(/usr/bin/curl -sf "https://flotopic.com/api/topics.json" 2>/dev/null | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('topics',[])))" 2>/dev/null || echo 0)
+if [ "$TOPIC_COUNT" -gt 0 ]; then
+  echo "  [OK] topics.json: ${TOPIC_COUNT}件"
+else
+  echo "  [NG] topics.json: 取得失敗"
+  VERIFY_FAIL=1
+fi
+
+# 3. API Gateway コメント/お気に入りが応答するか
+GW="https://x73mzc0v06.execute-api.ap-northeast-1.amazonaws.com"
+COMMENTS_STATUS=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" -m 5 "$GW/comments/test" -H "Origin: https://flotopic.com")
+FAVS_STATUS=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" -m 5 "$GW/favorites/test" -H "Origin: https://flotopic.com")
+
+[ "$COMMENTS_STATUS" -lt 500 ] && echo "  [OK] GET /comments: $COMMENTS_STATUS" || { echo "  [NG] GET /comments: $COMMENTS_STATUS"; VERIFY_FAIL=1; }
+[ "$FAVS_STATUS" -lt 500 ]    && echo "  [OK] GET /favorites: $FAVS_STATUS"  || { echo "  [NG] GET /favorites: $FAVS_STATUS";  VERIFY_FAIL=1; }
+
+# 4. sw.js のバージョン
+SW_VER=$(/usr/bin/curl -sf "https://flotopic.com/sw.js" 2>/dev/null | head -1 | grep -o "flotopic-v[0-9]*" || echo "不明")
+echo "  [--] sw.js: $SW_VER"
+
+echo ""
+if [ $VERIFY_FAIL -eq 0 ]; then
+  echo "  ✅ 全チェック通過"
+else
+  echo "  ❌ 失敗項目あり — 上記を確認してください"
+  exit 1
+fi
