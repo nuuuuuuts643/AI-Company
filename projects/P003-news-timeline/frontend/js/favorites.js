@@ -37,7 +37,7 @@ async function loadFavorites() {
 
 async function toggleFavorite(topicId, heartBtn) {
   if (!currentUser) {
-    alert('お気に入りするにはGoogleでログインしてください');
+    if (typeof openAuthModal === 'function') openAuthModal();
     return;
   }
   const base = favApiUrl();
