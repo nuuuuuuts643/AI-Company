@@ -1,12 +1,11 @@
-// API_BASE: CloudFront経由HTTPS（flotopic.com → CloudFront → S3）
-const API_BASE       = 'https://flotopic.com/api/';
-
-// API Gateway HTTP API (Lambda URLの代替 - 403問題解消)
-const _GW            = 'https://x73mzc0v06.execute-api.ap-northeast-1.amazonaws.com';
-const COMMENTS_URL   = _GW;
-const AUTH_URL       = _GW + '/auth';
-const FAVORITES_URL  = _GW;
-const ANALYTICS_URL  = _GW + '/analytics';
+// API_BASE: S3静的ホスティング（fetcher が api/topics.json を書き込む設計）
+const API_BASE       = 'http://p003-news-946554699567.s3-website-ap-northeast-1.amazonaws.com/api/';
+const COMMENTS_URL   = 'https://mqixchdufs5ky52wrqhovx2t7e0bghcx.lambda-url.ap-northeast-1.on.aws/';
+const AUTH_URL       = 'https://qfkescjdcxfvxhrjnky67za4em0sdqcs.lambda-url.ap-northeast-1.on.aws/';
+const FAVORITES_URL  = 'https://mumlvztiuzh5pqxgndgn4anzfu0wzvlt.lambda-url.ap-northeast-1.on.aws/';
+const ANALYTICS_URL  = 'https://2svmxx7aou6w5ekdruw5maqnfu0aplju.lambda-url.ap-northeast-1.on.aws/';
 
 // Google OAuth Client ID
-const GOOGLE_CLIENT_ID = '632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com';
+// Google Cloud Console → APIs & Services → OAuth 2.0 Client IDs で取得
+// 許可済みOrigin: https://flotopic.com を追加すること
+const GOOGLE_CLIENT_ID = '';
