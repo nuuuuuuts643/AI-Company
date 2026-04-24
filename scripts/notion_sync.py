@@ -125,7 +125,6 @@ def upsert_page(title, content_blocks, existing_pages):
     """ページ作成または更新"""
     page_id = find_page_by_title(existing_pages, title)
 
-    # プロパティ（タイトルのみ想定）
     properties = {
         "Name": {
             "title": [{"text": {"content": title}}]
@@ -133,41 +132,61 @@ def upsert_page(title, content_blocks, existing_pages):
     }
 
     if page_id:
-        # 既存ページ更新（コンテンツ削除して再作成）
-        requests.patch(
+        print(f"  既存ページ更新: {title} (id={page_id})")
+        r = requests.patch(
             f"https://api.notion.com/v1/pages/{page_id}",
             headers=HEADERS,
             json={"properties": properties},
         )
-        # 子ブロックをクリア
+        print(f"    PATCH page: {r.status_code}")
+
         children = requests.get(
             f"https://api.notion.com/v1/blocks/{page_id}/children",
             headers=HEADERS,
         ).json().get("results", [])
+        print(f"    既存ブロック削除: {len(children)}件")
         for child in children:
-            requests.delete(
-                f"https://api.notion.com/v1/blocks/{child['id']}",
+            requests.delete(f"https://api.notion.com/v1/blocks/{child['id']}", headers=HEADERS)
+
+        # Notion APIは1リクエスト最大100ブロック
+        for i in range(0, len(content_blocks), 100):
+            chunk = content_blocks[i:i+100]
+            r = requests.patch(
+                f"https://api.notion.com/v1/blocks/{page_id}/children",
                 headers=HEADERS,
+                json={"children": chunk},
             )
-        # 新コンテンツ追加
-        requests.patch(
-            f"https://api.notion.com/v1/blocks/{page_id}/children",
-            headers=HEADERS,
-            json={"children": content_blocks},
-        )
-        print(f"  更新: {title}")
+            print(f"    ブロック追加 {i}~{i+len(chunk)}: {r.status_code}")
+            if r.status_code >= 400:
+                print(f"    エラー詳細: {r.text[:300]}")
     else:
-        # 新規作成
-        requests.post(
+        print(f"  新規作成: {title}")
+        # 最初の100ブロックのみで作成し、残りは追記
+        first_chunk = content_blocks[:100]
+        rest = content_blocks[100:]
+        r = requests.post(
             "https://api.notion.com/v1/pages",
             headers=HEADERS,
             json={
                 "parent": {"database_id": DATABASE_ID},
                 "properties": properties,
-                "children": content_blocks,
+                "children": first_chunk,
             },
         )
-        print(f"  作成: {title}")
+        print(f"    POST page: {r.status_code}")
+        if r.status_code >= 400:
+            print(f"    エラー詳細: {r.text[:300]}")
+            return
+        new_page_id = r.json().get("id")
+        for i in range(0, len(rest), 100):
+            chunk = rest[i:i+100]
+            r = requests.patch(
+                f"https://api.notion.com/v1/blocks/{new_page_id}/children",
+                headers=HEADERS,
+                json={"children": chunk},
+            )
+            print(f"    ブロック追記 {100+i}~: {r.status_code}")
+        print(f"  作成完了: {title}")
 
 
 def h2(text):
