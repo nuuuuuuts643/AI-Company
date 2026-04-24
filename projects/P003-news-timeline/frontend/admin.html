@@ -117,6 +117,17 @@ section h2{font-size:.9rem;font-weight:600;color:#8b949e;text-transform:uppercas
 .trend-up{color:#3fb950;font-weight:600}
 .trend-down{color:#f85149;font-weight:600}
 .trend-flat{color:#8b949e}
+
+/* ─── PERIOD BUTTONS ────────────────────────────────────────────────── */
+.period-btn{background:#21262d;border:1px solid #30363d;color:#8b949e;padding:3px 10px;border-radius:5px;font-size:.75rem;cursor:pointer;transition:all .15s}
+.period-btn:hover{border-color:#58a6ff;color:#e6edf3}
+.period-btn.active{background:#1f3a5f;border-color:#58a6ff;color:#58a6ff;font-weight:600}
+
+/* ─── CHART STAT ROW ────────────────────────────────────────────────── */
+.chart-stats{display:flex;gap:24px;margin-bottom:12px;flex-wrap:wrap}
+.chart-stat{display:flex;flex-direction:column;gap:2px}
+.chart-stat-val{font-size:1.4rem;font-weight:700;line-height:1}
+.chart-stat-lbl{font-size:.72rem;color:#8b949e}
 </style>
 </head>
 <body>
@@ -158,7 +169,14 @@ section h2{font-size:.9rem;font-weight:600;color:#8b949e;text-transform:uppercas
 
     <!-- Cloudflare Analytics -->
     <section>
-      <h2>アクセス数 — 7日間（Cloudflare Analytics）</h2>
+      <h2>アクセス数（Cloudflare Analytics）
+        <span style="float:right;display:flex;gap:4px" id="cf-period-btns">
+          <button class="period-btn active" data-days="7">7日</button>
+          <button class="period-btn" data-days="14">14日</button>
+          <button class="period-btn" data-days="30">30日</button>
+          <button class="period-btn" data-days="0">全期間</button>
+        </span>
+      </h2>
       <div class="panel" id="section-cf-analytics">
         <div class="no-data">読み込み中...</div>
       </div>
@@ -543,7 +561,12 @@ function renderAnalytics(analyticsData, topics) {
   ].join('');
 }
 
+// CF Analyticsのグローバル状態（期間切り替えで再描画）
+let _cfDataCache = null;
+let _cfPeriodDays = 7;
+
 function renderCfAnalytics(cfData) {
+  _cfDataCache = cfData;
   const el = document.getElementById('section-cf-analytics');
   if (!el) return;
   const cf = cfData?.cf;
@@ -552,31 +575,87 @@ function renderCfAnalytics(cfData) {
     return;
   }
 
-  // PV推移ラインチャート
-  const daily = [...(cf.daily||[])].sort((a,b)=>a.date.localeCompare(b.date));
+  // 期間ボタンのイベント設定（初回のみ）
+  const btnWrap = document.getElementById('cf-period-btns');
+  if (btnWrap && !btnWrap._bound) {
+    btnWrap._bound = true;
+    btnWrap.addEventListener('click', e => {
+      const btn = e.target.closest('.period-btn');
+      if (!btn) return;
+      btnWrap.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _cfPeriodDays = parseInt(btn.dataset.days);
+      renderCfAnalyticsInner(_cfDataCache);
+    });
+  }
+
+  renderCfAnalyticsInner(cfData);
+}
+
+function renderCfAnalyticsInner(cfData) {
+  const el = document.getElementById('section-cf-analytics');
+  if (!el || !cfData?.cf) return;
+  const cf = cfData.cf;
+  const CNAMES = {JP:'日本',US:'米国',KR:'韓国',CN:'中国',GB:'英国',DE:'ドイツ',TW:'台湾',AU:'豪州',CA:'カナダ',FR:'フランス'};
+  const DNAMES = {desktop:'デスクトップ', mobile:'モバイル', tablet:'タブレット', other:'その他'};
+
+  // 期間フィルター
+  const allDaily = [...(cf.daily||[])].sort((a,b)=>a.date.localeCompare(b.date));
+  const daily = _cfPeriodDays > 0 ? allDaily.slice(-_cfPeriodDays) : allDaily;
+
+  // 統計
+  const totalPv   = daily.reduce((s,d)=>s+d.count,0);
+  const trend     = pvDayOverDay(daily);
+  const maxDay    = daily.reduce((m,d)=>d.count>m.count?d:m, {count:0,date:''});
+
+  // ライングラフ
   const lineData = daily.map(d => ({
-    label: d.date.split('-').slice(1).map(Number).join('/'),  // "04-23" → "4/23" (JST表示)
+    label: d.date.split('-').slice(1).map(Number).join('/'),
     v: d.count,
   }));
-  const lineChart = SVG.lineChart(lineData, { color:'#58a6ff', gradId:'lg-pv' });
+  const chart = SVG.lineChart(lineData, { color:'#58a6ff', gradId:'lg-pv' });
+
+  // 期間サマリー数値
+  const periodLabel = _cfPeriodDays === 0 ? `全期間(${allDaily.length}日)` : `${Math.min(_cfPeriodDays, daily.length)}日間`;
+  const trendStr = trend !== null
+    ? `<span class="${trend.pct>=0?'trend-up':'trend-down'}">${trend.pct>=0?'+':''}${trend.pct}% ${trend.pct>0?'↑':trend.pct<0?'↓':'→'}</span>`
+    : '—';
+
+  const statsHtml = `
+    <div class="chart-stats">
+      <div class="chart-stat">
+        <div class="chart-stat-val" style="color:#58a6ff">${totalPv.toLocaleString()}</div>
+        <div class="chart-stat-lbl">合計PV（${periodLabel}）</div>
+      </div>
+      <div class="chart-stat">
+        <div class="chart-stat-val">${trendStr}</div>
+        <div class="chart-stat-lbl">前日比</div>
+      </div>
+      ${maxDay.count > 0 ? `<div class="chart-stat">
+        <div class="chart-stat-val" style="color:#e3b341">${maxDay.count}</div>
+        <div class="chart-stat-lbl">最高PV（${maxDay.date.split('-').slice(1).map(Number).join('/')}）</div>
+      </div>` : ''}
+      <div class="chart-stat">
+        <div class="chart-stat-val">${daily.length > 0 ? Math.round(totalPv/daily.length) : '—'}</div>
+        <div class="chart-stat-lbl">日平均PV</div>
+      </div>
+    </div>`;
 
   // トップページ
-  const pages  = cf.topPages || [];
-  const maxPg  = Math.max(...pages.map(p=>p.count||0), 1);
+  const pages = cf.topPages || [];
+  const maxPg = Math.max(...pages.map(p=>p.count||0), 1);
   const pagesHtml = pages.slice(0,6).map(p =>
     UI.barRow(p.path.replace('/index.html','/').slice(0,20)||'/', p.count, maxPg, 'fill-teal')
   ).join('');
 
   // 国別
-  const CNAMES = {JP:'日本',US:'米国',KR:'韓国',CN:'中国',GB:'英国',DE:'ドイツ',TW:'台湾',AU:'豪州',CA:'カナダ',FR:'フランス'};
   const countries = cf.byCountry || [];
   const maxC = Math.max(...countries.map(c=>c.count||0), 1);
   const countriesHtml = countries.slice(0,6).map(c =>
     UI.barRow(CNAMES[c.code]||c.code, c.count, maxC, 'fill-purple')
   ).join('');
 
-  // デバイス内訳
-  const DNAMES = {desktop:'デスクトップ', mobile:'モバイル', tablet:'タブレット', other:'その他'};
+  // デバイス
   const devices = cf.byDevice || [];
   const totalDev = devices.reduce((s,d)=>s+d.count,0)||1;
   const devHtml = devices.map(d => {
@@ -585,9 +664,9 @@ function renderCfAnalytics(cfData) {
   }).join('');
 
   el.innerHTML = `
-    <div style="margin-bottom:20px">
-      <div style="font-size:.8rem;color:#8b949e;margin-bottom:10px">PV 推移（7日間）　合計 <strong style="color:#e6edf3">${cf.totalPv7d.toLocaleString()}</strong> PV</div>
-      ${lineChart}
+    <div style="margin-bottom:16px">
+      ${statsHtml}
+      ${chart}
     </div>
     <div class="grid3" style="border-top:1px solid #30363d;padding-top:16px">
       <div>
