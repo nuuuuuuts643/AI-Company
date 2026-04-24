@@ -1,8 +1,0 @@
-# DEPRECATED: 一時的なAPIキー設定ワークフロー（2026-04-24 削除済み扱い）
-# p003-fetcher に ANTHROPIC_API_KEY を設定するone-shot操作だった。
-# 現在はprocessor Lambdaに移行済み。fetcher側への設定は不要。
-# APIキー設定が必要な場合はCLAUDE.mdの「残タスク」を参照（aws lambda update-function-configuration コマンド）。
-# トリガーを除去して無効化。
-#
-# name: Lambda APIキー設定
-# on: workflow_dispatch

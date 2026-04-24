@@ -30,9 +30,9 @@ class ProjectileComponent extends PositionComponent with CollisionCallbacks {
     this.aoeRadius = 0,
     this.isBouncing = false,
     this.target,
-    double? maxLifespan,
+    double maxLifespan = 2.0,
   })  : _velocity = velocity,
-        _maxLifespan = maxLifespan ?? 2.0,
+        _maxLifespan = maxLifespan,
         super(position: position, size: Vector2(8, 8));
 
   @override

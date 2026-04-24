@@ -59,11 +59,109 @@ class _EquipmentScreenState extends State<EquipmentScreen>
           indicatorColor: const Color(0xFFFFE082),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: EquipmentSlot.values
-            .map((slot) => _EquipmentSlotTab(slot: slot))
-            .toList(),
+      body: Column(
+        children: [
+          _MaterialsBar(),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: EquipmentSlot.values
+                  .map((slot) => _EquipmentSlotTab(slot: slot))
+                  .toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 所持素材一覧バー（装備画面上部）
+class _MaterialsBar extends StatelessWidget {
+  static const _labels = {
+    'mat_goblin_fang': ('👺', 'ゴブリンの牙'),
+    'mat_orc_hide': ('🐗', 'オーク革'),
+    'mat_drake_scale': ('🐉', 'ドレイク鱗'),
+    'mat_berserker_axe': ('⚔️', '狂戦士の斧'),
+    'mat_serpent_scale': ('🐍', '海蛇鱗'),
+    'mat_wraith_essence': ('💨', '風霊のエッセンス'),
+    'mat_golem_core': ('⚙️', 'ゴーレムの心'),
+    'mat_dark_blade': ('🗡️', '闇の刃'),
+    'mat_bat_wing': ('🦇', '影蝙蝠の翼'),
+    'mat_shaman_staff': ('🪄', 'シャーマンの杖'),
+    'mat_lich_crown': ('👑', 'リッチの王冠'),
+    'mat_shadow_heart': ('💜', '影の心臓'),
+  };
+
+  const _MaterialsBar();
+
+  @override
+  Widget build(BuildContext context) {
+    final materials = context.watch<GameStateNotifier>().player.materials;
+    final owned = materials.entries.where((e) => e.value > 0).toList();
+    if (owned.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        color: const Color(0xFF0A0A18),
+        child: const Text(
+          '素材なし — バトルで敵を倒すと素材がドロップします',
+          style: TextStyle(color: Colors.white38, fontFamily: 'DotGothic16', fontSize: 11),
+        ),
+      );
+    }
+    return Container(
+      color: const Color(0xFF0A0A18),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 8, bottom: 6),
+            child: Text(
+              '🎒 所持素材（強化に使用）',
+              style: TextStyle(color: Color(0xFFFFE082), fontFamily: 'DotGothic16', fontSize: 11),
+            ),
+          ),
+          SizedBox(
+            height: 34,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              itemCount: owned.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 6),
+              itemBuilder: (_, i) {
+                final id = owned[i].key;
+                final count = owned[i].value;
+                final info = _labels[id];
+                final emoji = info?.$1 ?? '📦';
+                final label = info?.$2 ?? id.replaceAll('mat_', '');
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A2E),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF3A3A5A)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(emoji, style: const TextStyle(fontSize: 14)),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$label ×$count',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontFamily: 'DotGothic16',
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

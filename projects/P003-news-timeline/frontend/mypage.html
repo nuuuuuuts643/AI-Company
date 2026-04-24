@@ -951,6 +951,45 @@
   // ===== ログイン後表示 =====
   let currentTab = 'favs';
 
+  async function loadCommentHistory() {
+    const listEl = document.getElementById('mp-comment-history-list');
+    if (!listEl) return;
+    const profile = readProfile();
+    const handle = profile.handle || '';
+    if (!handle) {
+      listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#94a3b8;font-size:.85rem;">ハンドル名を設定するとコメント履歴が表示されます</div>';
+      return;
+    }
+    if (typeof _APIGW === 'undefined') return;
+    try {
+      const r = await fetch(`${_APIGW}/user/${encodeURIComponent(handle)}/comments`);
+      if (!r.ok) throw new Error('fetch failed');
+      const data = await r.json();
+      const comments = data.comments || [];
+      if (!comments.length) {
+        listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#94a3b8;font-size:.85rem;">まだコメントはありません</div>';
+        return;
+      }
+      const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      const fmtDate = iso => { try { const d = new Date(iso); return d.toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}); } catch { return ''; } };
+      listEl.innerHTML = comments.map(c => {
+        const likes = Number(c.likeCount) || 0;
+        const quoted = c.quotedHandle ? `<div class="hist-quoted"><span class="hist-quoted-handle">@${esc(c.quotedHandle)}</span> ${esc(c.quotedText||'')}</div>` : '';
+        return `<div class="hist-card">
+          <a class="hist-topic" href="topic.html?id=${esc(c.topicId)}">📰 トピックを見る →</a>
+          ${quoted}
+          <div class="hist-body">${esc(c.body)}</div>
+          <div class="hist-meta">
+            <span>${fmtDate(c.createdAt)}</span>
+            ${likes ? `<span>♡ ${likes}</span>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    } catch {
+      listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#94a3b8;font-size:.85rem;">読み込みに失敗しました</div>';
+    }
+  }
+
   function switchTab(tab) {
     currentTab = tab;
     document.querySelectorAll('.mp-tab').forEach(el => {
@@ -1034,6 +1073,7 @@
       <!-- タブ -->
       <div class="mp-tabs">
         <button class="mp-tab active" data-tab="favs">⭐ お気に入り</button>
+        <button class="mp-tab" data-tab="comments">💬 コメント</button>
         <button class="mp-tab" data-tab="history">📖 履歴</button>
         <button class="mp-tab" data-tab="account">アカウント</button>
       </div>
@@ -1041,6 +1081,15 @@
       <!-- お気に入りパネル -->
       <div class="mp-panel active" id="panel-favs">
         <div class="mp-card"><div class="mp-card-inner">${favsHtml}</div></div>
+      </div>
+
+      <!-- コメント履歴パネル -->
+      <div class="mp-panel" id="panel-comments">
+        <div class="mp-card">
+          <div class="mp-card-inner" id="mp-comment-history-list">
+            <div style="text-align:center;padding:24px;color:#94a3b8;font-size:.85rem;">読み込み中...</div>
+          </div>
+        </div>
       </div>
 
       <!-- 履歴パネル -->
@@ -1116,9 +1165,16 @@
         <button class="mp-delete-btn" id="mp-delete-btn">アカウントを削除する</button>
       </div>`;
 
-    // タブ切り替え
+    // タブ切り替え + コメント履歴の遅延ロード
+    let commentHistoryLoaded = false;
     document.querySelectorAll('.mp-tab').forEach(btn => {
-      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      btn.addEventListener('click', () => {
+        switchTab(btn.dataset.tab);
+        if (btn.dataset.tab === 'comments' && !commentHistoryLoaded) {
+          commentHistoryLoaded = true;
+          loadCommentHistory();
+        }
+      });
     });
 
     // ニックネーム編集
@@ -1168,6 +1224,8 @@
         const hn = document.querySelector('.mp-handle');
         if (hn) hn.textContent = v ? `@${v}` : 'Flotopicメンバー';
         if (typeof showToast === 'function') showToast('ハンドル名を保存しました');
+        // サーバーにも同期（デバイス間共有）
+        if (typeof syncHandleToServer === 'function') syncHandleToServer(v);
       });
     }
 
