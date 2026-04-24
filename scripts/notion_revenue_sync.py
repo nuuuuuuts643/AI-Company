@@ -157,6 +157,35 @@ def get_aws_costs() -> dict:
         return {}
 
 
+def get_anthropic_cost_estimate() -> dict:
+    """p003-processor の Lambda 呼び出し回数から Claude API コストを推定"""
+    try:
+        import boto3
+        from datetime import datetime, timezone
+        cw = boto3.client("cloudwatch", region_name="ap-northeast-1")
+        start = datetime(TODAY.year, TODAY.month, 1, tzinfo=timezone.utc)
+        end = datetime.now(timezone.utc)
+        period = max(int((end - start).total_seconds()), 60)
+        resp = cw.get_metric_statistics(
+            Namespace="AWS/Lambda",
+            MetricName="Invocations",
+            Dimensions=[{"Name": "FunctionName", "Value": "p003-processor"}],
+            StartTime=start, EndTime=end,
+            Period=period, Statistics=["Sum"],
+        )
+        invocations = int(sum(dp["Sum"] for dp in resp.get("Datapoints", [])))
+        # 推定: 1回の呼び出しで平均3回 Claude Haiku を使用
+        # Haiku pricing: 入力$0.25/1Mtok + 出力$1.25/1Mtok
+        # 1呼び出しあたり ~800入力+400出力tok ≈ $0.0007
+        estimated_usd = invocations * 3 * 0.0007
+        estimated_jpy = int(estimated_usd * JPY_RATE)
+        print(f"    processor呼び出し {invocations}回 → 推定 ${estimated_usd:.4f} (¥{estimated_jpy:,})")
+        return {"invocations": invocations, "usd": estimated_usd, "jpy": estimated_jpy}
+    except Exception as e:
+        print(f"[anthropic] 推定失敗: {e}")
+        return {}
+
+
 def parse_revenue_log() -> dict:
     try:
         content = REVENUE_LOG.read_text(encoding="utf-8")
@@ -245,7 +274,8 @@ def build_page_blocks(data: dict, aws_costs: dict) -> list:
         f"収益         {_bar(revenue, max_val)}  ¥{revenue:,}",
         f"─── コスト内訳 ───────────────────────",
         f"  AWS        {_bar(aws_cost, max_val)}  ¥{aws_cost:,}",
-        f"  Claude API {_bar(anthropic_cost, max_val)}  ¥{anthropic_cost:,}",
+        f"  Claude API {_bar(anthropic_cost, max_val)}  ¥{anthropic_cost:,}"
+        + (f"  ※推定({data.get('anthropic_invocations','?')}回×3呼出)" if data.get('anthropic_invocations') else ""),
         f"  合計       {_bar(total_cost, max_val)}  ¥{total_cost:,}",
         f"{'─'*44}",
         f"損益         {'▲ -' if profit < 0 else '▶ +'}¥{abs(profit):,}",
@@ -375,6 +405,12 @@ def main():
     if not data:
         data = {"revenue": 0, "aws_cost": 0, "anthropic_cost": 0, "analysis": ""}
     print(f"    収益: ¥{data['revenue']:,} / AWS: ¥{data['aws_cost']:,} / API: ¥{data['anthropic_cost']:,}")
+
+    print("[2b] Claude APIコスト推定（CloudWatch Lambda呼び出し回数から）...")
+    anthropic_estimate = get_anthropic_cost_estimate()
+    if anthropic_estimate:
+        data["anthropic_cost"] = anthropic_estimate["jpy"]
+        data["anthropic_invocations"] = anthropic_estimate["invocations"]
 
     print("[3] Notion DB 取得/作成...")
     db_id = get_or_create_revenue_db()
