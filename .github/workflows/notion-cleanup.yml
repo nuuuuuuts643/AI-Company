@@ -1,0 +1,12 @@
+name: Notion不要ページ削除（一回限り）
+on:
+  workflow_dispatch:
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 不要ページをアーカイブ
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+        run: python3 scripts/notion_cleanup.py
