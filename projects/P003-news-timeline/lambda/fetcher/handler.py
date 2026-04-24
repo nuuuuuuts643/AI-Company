@@ -47,13 +47,15 @@ def fetch_rss(feed):
         req = urllib.request.Request(url, headers={'User-Agent': 'Flotopic/1.0'})
         with urllib.request.urlopen(req, timeout=15) as resp:
             content = resp.read()
-        # RSS 1.0(RDF)はネームスペース付き要素になるため、事前に剥がして統一
-        content_str = re.sub(rb' xmlns(?::\w+)?="[^"]+"', b'', content)
+        # RSS 1.0(RDF)はネームスペース付き要素/属性になるため全て除去して統一
+        content_str = re.sub(rb' xmlns(?::\w+)?="[^"]+"', b'', content)  # xmlns宣言除去
+        content_str = re.sub(rb'<(/?)(\w+):(\w+)', rb'<\1\3', content_str)  # 要素プレフィックス除去
+        content_str = re.sub(rb' \w+:\w+="[^"]*"', b'', content_str)  # 属性プレフィックス除去
         root = ET.fromstring(content_str)
         for item in root.findall('.//item'):
             title   = (item.findtext('title')   or '').strip()
             link    = (item.findtext('link')     or '').strip()
-            # RSS 1.0(RDF)は<dc:date>、RSS 2.0は<pubDate>
+            # RSS 1.0(RDF)は<dc:date>→プレフィックス除去後は<date>、RSS 2.0は<pubDate>
             pubdate = (item.findtext('pubDate') or item.findtext('date') or '').strip()
             img     = extract_rss_image(item)
             if title and link:
