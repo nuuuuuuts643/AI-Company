@@ -45,25 +45,40 @@ async function toggleFavorite(topicId, heartBtn) {
 
   const isFav = userFavorites.has(topicId);
   heartBtn.disabled = true;
+
+  // 楽観的UI更新（即反映）
+  if (isFav) {
+    userFavorites.delete(topicId);
+    heartBtn.classList.remove('fav-active');
+    heartBtn.title = 'お気に入りに追加';
+  } else {
+    userFavorites.add(topicId);
+    heartBtn.classList.add('fav-active');
+    heartBtn.title = 'お気に入りを解除';
+  }
+  saveLocalFavs(userFavorites);
+
   try {
     const r = await fetch(`${base}/favorites`, {
       method: isFav ? 'DELETE' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: currentUser.userId, idToken: currentUser.token, topicId }),
     });
-    if (r.ok) {
-      if (isFav) {
-        userFavorites.delete(topicId);
-        heartBtn.classList.remove('fav-active');
-        heartBtn.title = 'お気に入りに追加';
+    if (!r.ok) {
+      if (r.status === 401) {
+        // トークン切れ → ローカルは反映済みのまま、次回ログイン時にサーバー同期
+        if (typeof showToast === 'function') showToast('セッション切れ。再ログインでサーバー同期されます');
       } else {
-        userFavorites.add(topicId);
-        heartBtn.classList.add('fav-active');
-        heartBtn.title = 'お気に入りを解除';
+        // その他エラー → ロールバック
+        if (isFav) { userFavorites.add(topicId); heartBtn.classList.add('fav-active'); heartBtn.title = 'お気に入りを解除'; }
+        else        { userFavorites.delete(topicId); heartBtn.classList.remove('fav-active'); heartBtn.title = 'お気に入りに追加'; }
+        saveLocalFavs(userFavorites);
+        if (typeof showToast === 'function') showToast('エラーが発生しました');
       }
-      saveLocalFavs(userFavorites);
     }
-  } catch {}
+  } catch {
+    if (typeof showToast === 'function') showToast('ネットワークエラー。ローカルには保存しました');
+  }
   heartBtn.disabled = false;
 }
 
@@ -72,7 +87,7 @@ function setupFavsToggle() {
   if (!btn) return;
   btn.addEventListener('click', () => {
     if (!currentUser && userFavorites.size === 0) {
-      alert('ログインするとお気に入りが保存されます');
+      if (typeof openAuthModal === 'function') openAuthModal();
       return;
     }
     showFavsOnly = !showFavsOnly;
