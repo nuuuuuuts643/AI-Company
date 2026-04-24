@@ -528,6 +528,11 @@ function setupCommentForm(topicId) {
       });
       const data = await r.json();
       if (!r.ok) {
+        if (r.status === 401) {
+          if (errorEl) errorEl.textContent = 'ログインセッションが切れました。再ログインしてください。';
+          if (typeof openAuthModal === 'function') openAuthModal();
+          return;
+        }
         if (errorEl) errorEl.textContent = data.error || '投稿に失敗しました。';
       } else {
         newBody.value = '';

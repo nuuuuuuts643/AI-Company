@@ -61,8 +61,8 @@ class BattleSystem {
       // 攻撃実行
       _executeAttack(unit, target);
 
-      // クールダウンリセット（バフ込みの攻撃速度）
-      _attackCooldowns[id] = 1.0 / unit.unitInstance.effectiveAtkSpeed;
+      // クールダウンリセット（バフ + ボーンSPDバフ込み）
+      _attackCooldowns[id] = 1.0 / (unit.unitInstance.effectiveAtkSpeed * gameState.boonSpdMultiplier);
     }
 
     // 状態異常処理
@@ -163,8 +163,8 @@ class BattleSystem {
     final elementMult =
         ElementChart.getMultiplier(attacker.element, enemyData.element);
 
-    // 基礎ダメージ
-    double dmg = attacker.effectiveAttack.toDouble();
+    // 基礎ダメージ（ボーンATKバフ適用）
+    double dmg = attacker.effectiveAttack.toDouble() * gameState.boonAtkMultiplier;
 
     // アーマー貫通（土騎士は破壊ダメージ倍）
     if (target.hasArmor && target.armorHp > 0) {
@@ -174,7 +174,7 @@ class BattleSystem {
 
     dmg *= elementMult;
 
-    // クリティカル計算（装備の critChance 合算値を参照）
+    // クリティカル計算（装備 + ボーンcritBonus 合算）
     final critChance = _calcCritChance();
     final isCrit = _rng.nextDouble() < critChance;
     if (isCrit) dmg *= GameConstants.criticalDamageMultiplier;
@@ -205,7 +205,7 @@ class BattleSystem {
         }
       }
     }
-    return base.clamp(0.0, 0.75); // 最大75%上限
+    return (base + gameState.boonCritBonus).clamp(0.0, 0.75); // 最大75%上限
   }
 
   void _applyOnHitEffects(

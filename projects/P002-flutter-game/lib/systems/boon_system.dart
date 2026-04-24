@@ -275,9 +275,11 @@ class BoonSystem {
     switch (boon.effectType) {
       case BoonEffectType.atkBoost:
         atkMultiplier += boon.value;
+        gs.applyBoonAtk(boon.value);
         break;
       case BoonEffectType.spdBoost:
         spdMultiplier += boon.value;
+        gs.applyBoonSpd(boon.value);
         break;
       case BoonEffectType.manaRegen:
         manaRegenMultiplier += boon.value;
@@ -288,9 +290,11 @@ class BoonSystem {
         break;
       case BoonEffectType.chainMulti:
         chainMultiplier += boon.value;
+        gs.applyBoonChain(boon.value);
         break;
       case BoonEffectType.critChance:
         critBonus += boon.value;
+        gs.applyBoonCrit(boon.value);
         break;
       case BoonEffectType.hpBoost:
         hpMultiplier += boon.value;
@@ -302,8 +306,8 @@ class BoonSystem {
         commanderCdReduction += boon.value;
         break;
       case BoonEffectType.elemBoost:
-        // 火属性ブーストは全体ATKに乗せる（簡略実装）
         atkMultiplier += boon.value * 0.5;
+        gs.applyBoonAtk(boon.value * 0.5);
         break;
       case BoonEffectType.allUnitPower:
         gs.powerUpAllUnits();
