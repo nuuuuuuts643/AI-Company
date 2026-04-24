@@ -2,14 +2,16 @@
 // 依存: config.js (COMMENTS_URL), auth.js (currentUser, getDisplayName, saveNickname), app.js (esc, showToast)
 
 // ── localStorageキー ──────────────────────────────────────────────
-const LIKES_KEY  = 'flotopic_likes';           // { commentId: true }
-const SAVES_KEY  = 'flotopic_saved_comments';  // { commentId: true }
-const PROFILE_KEY = 'flotopic_profile';        // { handle, ageGroup, gender }
+const LIKES_KEY    = 'flotopic_likes';           // { commentId: true }
+const DISLIKES_KEY = 'flotopic_dislikes';        // { commentId: true }
+const SAVES_KEY    = 'flotopic_saved_comments';  // { commentId: true }
+const PROFILE_KEY  = 'flotopic_profile';         // { handle, ageGroup, gender }
 
 // ── localStorage ヘルパー ─────────────────────────────────────────
-function getLikedSet()  { try { return JSON.parse(localStorage.getItem(LIKES_KEY)  || '{}'); } catch { return {}; } }
-function getSavedSet()  { try { return JSON.parse(localStorage.getItem(SAVES_KEY)  || '{}'); } catch { return {}; } }
-function getProfile()   { try { return JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}'); } catch { return {}; } }
+function getLikedSet()    { try { return JSON.parse(localStorage.getItem(LIKES_KEY)    || '{}'); } catch { return {}; } }
+function getDislikedSet() { try { return JSON.parse(localStorage.getItem(DISLIKES_KEY) || '{}'); } catch { return {}; } }
+function getSavedSet()    { try { return JSON.parse(localStorage.getItem(SAVES_KEY)    || '{}'); } catch { return {}; } }
+function getProfile()     { try { return JSON.parse(localStorage.getItem(PROFILE_KEY)  || '{}'); } catch { return {}; } }
 
 // ── URL ヘルパー ──────────────────────────────────────────────────
 function commentsApiUrl(topicId) {
@@ -77,10 +79,10 @@ function avatarHtml(comment, isOwn) {
   return `<div class="cx-avatar-init">${esc(initials(name))}</div>`;
 }
 
-// ── @メンションを青スパンに変換 ──────────────────────────────────
+// ── @メンションをリンクに変換 ────────────────────────────────────
 function mentionBody(text) {
   return esc(text).replace(/@([A-Za-z0-9_]{1,20})/g,
-    '<span class="cx-mention">@$1</span>');
+    '<a class="cx-mention" href="profile.html?handle=$1">@$1</a>');
 }
 
 // ── コメントリストからハンドルを収集（@サジェスト用） ──────────
@@ -104,16 +106,27 @@ function renderComments(comments, topicId, myHash) {
 
   collectHandles(comments);
 
-  const likedSet = getLikedSet();
-  const savedSet = getSavedSet();
+  const likedSet    = getLikedSet();
+  const dislikedSet = getDislikedSet();
+  const savedSet    = getSavedSet();
 
   listEl.innerHTML = comments.map(c => {
-    const cid     = c.commentId || c.SK || '';
-    const isOwn   = myHash && c.userIdHash === myHash;
-    const handle  = c.handle || '';
-    const liked   = !!likedSet[cid];
-    const saved   = !!savedSet[cid];
-    const lc      = (typeof c.likeCount === 'number') ? c.likeCount : 0;
+    const cid      = c.commentId || c.SK || '';
+    const isOwn    = myHash && c.userIdHash === myHash;
+    const handle   = c.handle || '';
+    const liked    = !!likedSet[cid];
+    const disliked = !!dislikedSet[cid];
+    const saved    = !!savedSet[cid];
+    const lc       = Number(c.likeCount)    || 0;
+    const dc       = Number(c.dislikeCount) || 0;
+    const handleLink = handle
+      ? `<a class="cx-handle" href="profile.html?handle=${esc(handle)}">@${esc(handle)}</a>`
+      : '';
+    const quotedBlock = c.quotedHandle ? `
+      <div class="cx-quoted-block">
+        <a class="cx-quoted-handle" href="profile.html?handle=${esc(c.quotedHandle)}">@${esc(c.quotedHandle)}</a>
+        ${esc(c.quotedText || '')}
+      </div>` : '';
 
     return `
       <div class="cx-comment" data-cid="${esc(cid)}" data-topic="${esc(topicId || '')}">
@@ -121,17 +134,27 @@ function renderComments(comments, topicId, myHash) {
         <div class="cx-content">
           <div class="cx-header">
             <span class="cx-name">${esc(c.nickname || '匿名')}</span>
-            ${handle ? `<span class="cx-handle">@${esc(handle)}</span>` : ''}
+            ${handleLink}
             <span class="cx-dot">·</span>
             <span class="cx-time">${fmtCommentDate(c.createdAt)}</span>
             ${isOwn ? `<button class="cx-delete-btn" data-cid="${esc(cid)}" aria-label="削除">🗑</button>` : ''}
           </div>
+          ${quotedBlock}
           <div class="cx-body">${mentionBody(c.body)}</div>
           <div class="cx-actions">
             <button class="cx-action-btn cx-like-btn${liked ? ' liked' : ''}"
               data-cid="${esc(cid)}" aria-label="いいね">
               <span class="cx-like-icon">${liked ? '♥' : '♡'}</span>
               <span class="cx-like-count">${lc > 0 ? lc : ''}</span>
+            </button>
+            <button class="cx-action-btn cx-action-dislike${disliked ? ' cx-bad-active' : ''}"
+              data-cid="${esc(cid)}" aria-label="よくない">
+              👎<span class="cx-like-count">${dc > 0 ? dc : ''}</span>
+            </button>
+            <button class="cx-action-btn cx-quote-btn"
+              data-cid="${esc(cid)}" data-handle="${esc(handle)}"
+              data-body="${esc((c.body || '').slice(0, 60))}" aria-label="引用">
+              🔁
             </button>
             <button class="cx-action-btn cx-save-btn${saved ? ' saved' : ''}"
               data-cid="${esc(cid)}" aria-label="${saved ? '保存済み' : '保存'}">
@@ -149,6 +172,12 @@ function renderComments(comments, topicId, myHash) {
   // イベントリスナーを一括設定
   listEl.querySelectorAll('.cx-like-btn').forEach(btn => {
     btn.addEventListener('click', () => toggleLike(btn, topicId));
+  });
+  listEl.querySelectorAll('.cx-action-dislike').forEach(btn => {
+    btn.addEventListener('click', () => toggleDislike(btn, topicId));
+  });
+  listEl.querySelectorAll('.cx-quote-btn').forEach(btn => {
+    btn.addEventListener('click', () => triggerQuote(btn.dataset));
   });
   listEl.querySelectorAll('.cx-save-btn').forEach(btn => {
     btn.addEventListener('click', () => toggleSave(btn, topicId, comments));
@@ -208,6 +237,76 @@ async function toggleLike(btn, topicId) {
       console.warn('like fetch error', e);
     }
   }
+}
+
+// ── バッドトグル（楽観的UI + DynamoDB更新） ─────────────────────
+async function toggleDislike(btn, topicId) {
+  const cid         = btn.dataset.cid;
+  const dislikedSet = getDislikedSet();
+  const isDisliked  = !!dislikedSet[cid];
+  const countEl     = btn.querySelector('.cx-like-count');
+  const curCount    = parseInt(countEl ? countEl.textContent : 0) || 0;
+
+  if (!isDisliked) {
+    dislikedSet[cid] = true;
+    btn.classList.add('cx-bad-active');
+    if (countEl) countEl.textContent = curCount + 1;
+  } else {
+    dislikedSet[cid] = false;
+    btn.classList.remove('cx-bad-active');
+    if (countEl) countEl.textContent = curCount > 1 ? curCount - 1 : '';
+  }
+  localStorage.setItem(DISLIKES_KEY, JSON.stringify(dislikedSet));
+
+  if (!isDisliked) {
+    const myHash = await getMyCommentHash();
+    if (!myHash) return;
+    const base = typeof COMMENTS_URL !== 'undefined' ? COMMENTS_URL.replace(/\/$/, '') : null;
+    if (!base) return;
+    const url = `${base}/comments/like?topicId=${encodeURIComponent(topicId)}&commentId=${encodeURIComponent(cid)}&userHash=${encodeURIComponent(myHash)}&type=dislike`;
+    try {
+      const r = await fetch(url, { method: 'PUT' });
+      if (r.ok) {
+        const data = await r.json();
+        if (countEl && typeof data.dislikeCount === 'number') {
+          countEl.textContent = data.dislikeCount > 0 ? data.dislikeCount : '';
+        }
+      }
+    } catch (e) { console.warn('dislike fetch error', e); }
+  }
+}
+
+// ── 引用コメント状態 ──────────────────────────────────────────────
+let _quoteData = null;
+
+function triggerQuote(dataset) {
+  const { cid, handle, body } = dataset;
+  if (!cid) return;
+  _quoteData = { cid, handle, body: body || '' };
+
+  const bodyEl = document.getElementById('comment-body');
+  const preview = document.getElementById('quote-preview');
+  if (preview) {
+    preview.innerHTML = `
+      <div class="cx-quoted-block cx-quote-preview-block">
+        <a class="cx-quoted-handle">@${esc(handle)}</a>
+        <span>${esc((body || '').slice(0, 80))}</span>
+        <button class="cx-quote-cancel-btn" aria-label="引用を取消">×</button>
+      </div>`;
+    preview.style.display = 'block';
+    const cancelBtn = preview.querySelector('.cx-quote-cancel-btn');
+    if (cancelBtn) cancelBtn.addEventListener('click', cancelQuote);
+  }
+  if (bodyEl) {
+    bodyEl.focus();
+    bodyEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function cancelQuote() {
+  _quoteData = null;
+  const preview = document.getElementById('quote-preview');
+  if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
 }
 
 // ── 保存トグル（localStorageのみ） ───────────────────────────────
@@ -414,8 +513,13 @@ function setupCommentForm(topicId) {
         topicId,
         idToken: currentUser.token,
       };
-      if (handle)                  payload.handle    = handle;
+      if (handle)                             payload.handle    = handle;
       if (currentUser && currentUser.picture) payload.avatarUrl = currentUser.picture;
+      if (_quoteData) {
+        payload.quotedCommentId = _quoteData.cid;
+        payload.quotedHandle    = _quoteData.handle;
+        payload.quotedText      = _quoteData.body;
+      }
 
       const r = await fetch(url, {
         method: 'POST',
@@ -428,6 +532,7 @@ function setupCommentForm(topicId) {
       } else {
         newBody.value = '';
         if (charsEl) charsEl.textContent = '0';
+        cancelQuote();
         await loadComments(topicId);
         if (errorEl) {
           errorEl.className = 'comment-success';

@@ -1,8 +1,11 @@
 """
 P003 コメント掲示板 Lambda
-- GET  /comments/{topicId}   → コメント一覧取得（最新100件）
-- POST /comments/{topicId}   → コメント投稿（Google 認証必須）
-- PUT  /comments/like        → いいね更新（冪等性: likedBy Set）
+- GET  /comments/{topicId}         → コメント一覧取得（最新100件）
+- POST /comments/{topicId}         → コメント投稿（Google 認証必須、引用コメント対応）
+- PUT  /comments/like              → いいね/バッド更新（冪等性: likedBy/dislikedBy Set）
+- GET  /user/{handle}/comments     → ユーザー公開コメント履歴（プロフィール用）
+- GET  /notifications/{handle}     → @mention通知一覧
+- PUT  /notifications/{handle}/read→ 通知全既読
 
 スパム対策:
   1. 本文 200 文字以内
@@ -32,10 +35,12 @@ from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
 
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
 
 TABLE_NAME         = os.environ.get('COMMENTS_TABLE', 'ai-company-comments')
+NOTIF_TABLE        = os.environ.get('NOTIF_TABLE', 'flotopic-notifications')
+TOPICS_TABLE       = os.environ.get('TABLE_NAME', 'p003-topics')
 REGION             = os.environ.get('REGION', 'ap-northeast-1')
 S3_BUCKET          = os.environ.get('S3_BUCKET', 'p003-news-946554699567')
 CLOUDFRONT_DOMAIN  = os.environ.get('CLOUDFRONT_DOMAIN', 'flotopic.com')
@@ -44,24 +49,37 @@ MAX_NICK_LEN       = 30
 MAX_PER_TOPIC      = 100
 GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token='
 
-# S3 アバターキープレフィックス
 AVATAR_KEY_PREFIX = 'avatars/'
-AVATAR_PRESIGN_TTL = 300  # 5分
+AVATAR_PRESIGN_TTL = 300
 
-# 許可するアバターURL プレフィックス
 ALLOWED_AVATAR_PREFIXES = (
-    'https://lh3.googleusercontent.com/',  # Google プロフィール
-    'https://flotopic.com/avatars/',        # Flotopic カスタムアバター
+    'https://lh3.googleusercontent.com/',
+    'https://flotopic.com/avatars/',
 )
 
-# セキュリティ関連テーブル
 RATE_TABLE      = 'flotopic-rate-limits'
 USERS_TABLE     = 'flotopic-users'
 ANALYTICS_TABLE = 'flotopic-analytics'
 
-dynamodb  = boto3.resource('dynamodb', region_name=REGION)
-table     = dynamodb.Table(TABLE_NAME)
-s3_client = boto3.client('s3', region_name=REGION)
+MENTION_RE = re.compile(r'@([A-Za-z0-9_]{1,20})')
+
+dynamodb      = boto3.resource('dynamodb', region_name=REGION)
+table         = dynamodb.Table(TABLE_NAME)
+notif_table   = dynamodb.Table(NOTIF_TABLE)
+topics_table  = dynamodb.Table(TOPICS_TABLE)
+s3_client     = boto3.client('s3', region_name=REGION)
+
+
+def increment_topic_comment_count(topic_id: str):
+    """トピックの commentCount をインクリメント（流行スコア用）"""
+    try:
+        topics_table.update_item(
+            Key={'topicId': topic_id, 'SK': 'META'},
+            UpdateExpression='ADD commentCount :one',
+            ExpressionAttributeValues={':one': 1},
+        )
+    except Exception as e:
+        print(f'increment_topic_comment_count error: {e}')
 
 
 # ── CORS ヘッダー ────────────────────────────────────────────────
@@ -230,7 +248,9 @@ def delete_comment(topic_id: str, comment_id: str, user_id: str) -> bool:
 # ── コメント投稿 ──────────────────────────────────────────────────
 
 def post_comment(topic_id: str, body_text: str, nickname: str, user_id: str,
-                 handle: str = '', avatar_url: str = '') -> dict:
+                 handle: str = '', avatar_url: str = '',
+                 quoted_comment_id: str = '', quoted_handle: str = '',
+                 quoted_text: str = '') -> dict:
     now    = datetime.now(timezone.utc)
     ts_str = now.strftime('%Y%m%dT%H%M%S') + f'{now.microsecond // 1000:03d}Z'
     sk     = f'{ts_str}#{uuid.uuid4().hex[:8]}'
@@ -242,17 +262,29 @@ def post_comment(topic_id: str, body_text: str, nickname: str, user_id: str,
         'nickname':   nickname[:MAX_NICK_LEN] if nickname else '匿名',
         'body':       body_text,
         'createdAt':  now.isoformat(),
-        'userId':     user_id,               # 生のまま保存（削除権限チェック用）
-        'userIdHash': hash_str(user_id),     # フロント表示・本人判定用（短縮ハッシュ）
+        'userId':     user_id,
+        'userIdHash': hash_str(user_id),
         'likeCount':  0,
+        'dislikeCount': 0,
         'ttl':        int(time.time()) + 60 * 60 * 24 * 30,
     }
-    # オプションフィールド
     if handle:
         item['handle'] = handle
     if avatar_url:
         item['avatarUrl'] = avatar_url
+    # 引用コメントフィールド
+    if quoted_comment_id:
+        item['quotedCommentId'] = quoted_comment_id
+    if quoted_handle:
+        item['quotedHandle'] = quoted_handle
+    if quoted_text:
+        item['quotedText'] = quoted_text[:100]
+
     table.put_item(Item=item)
+
+    # @mention通知 + トピック流行スコア更新
+    notify_mentions(body_text, handle, nickname, topic_id, sk)
+    increment_topic_comment_count(topic_id)
 
     return {k: v for k, v in item.items() if k not in ('userId', 'ttl')}
 
@@ -264,54 +296,62 @@ HANDLE_RE = re.compile(r'^[A-Za-z0-9_]{1,20}$')
 
 def handle_like(event) -> dict:
     """
-    PUT /comments/like?topicId=xxx&commentId=yyy&userHash=zzz
-    冪等性: likedBy DynamoDB String Set に userHash を ADD。
-    既に含まれていれば ConditionalCheckFailed → 現在件数を返す。
+    PUT /comments/like?topicId=xxx&commentId=yyy&userHash=zzz[&type=like|dislike]
+    冪等性: likedBy / dislikedBy DynamoDB String Set に userHash を ADD。
     """
-    qs = event.get('queryStringParameters') or {}
+    qs         = event.get('queryStringParameters') or {}
     topic_id   = (qs.get('topicId')   or '').strip()
     comment_id = (qs.get('commentId') or '').strip()
     user_hash  = (qs.get('userHash')  or '').strip()
+    like_type  = (qs.get('type')      or 'like').strip()
 
+    if like_type not in ('like', 'dislike'):
+        like_type = 'like'
     if not topic_id or not comment_id or not user_hash:
         return resp(400, {'error': 'topicId, commentId, userHash が必要です'})
-
-    # userHash は 16文字の hex（クライアントの getMyCommentHash() と同じ形式）
     if len(user_hash) > 32 or not re.match(r'^[0-9a-f]+$', user_hash):
         return resp(400, {'error': 'userHash が不正です'})
+
+    count_field = 'likeCount'    if like_type == 'like' else 'dislikeCount'
+    set_field   = 'likedBy'      if like_type == 'like' else 'dislikedBy'
 
     try:
         result = table.update_item(
             Key={'topicId': topic_id, 'SK': comment_id},
-            UpdateExpression='ADD likeCount :one, likedBy :user_set',
+            UpdateExpression=f'ADD {count_field} :one, {set_field} :uset',
             ConditionExpression=(
-                'attribute_exists(topicId) AND NOT contains(likedBy, :user_hash)'
+                f'attribute_exists(topicId) AND NOT contains({set_field}, :uhash)'
             ),
             ExpressionAttributeValues={
-                ':one':       1,
-                ':user_set':  {user_hash},   # DynamoDB String Set
-                ':user_hash': user_hash,
+                ':one':   1,
+                ':uset':  {user_hash},
+                ':uhash': user_hash,
             },
             ReturnValues='ALL_NEW',
         )
-        like_count = int(result['Attributes'].get('likeCount', 1))
-        return resp(200, {'likeCount': like_count, 'liked': True})
-
+        attrs = result['Attributes']
+        return resp(200, {
+            'likeCount':    int(attrs.get('likeCount', 0)),
+            'dislikeCount': int(attrs.get('dislikeCount', 0)),
+            'type': like_type, 'acted': True,
+        })
     except ClientError as e:
-        code = e.response['Error']['Code']
-        if code == 'ConditionalCheckFailedException':
-            # 既にいいね済み → 現在の件数を返す
+        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
             try:
-                r  = table.get_item(Key={'topicId': topic_id, 'SK': comment_id})
-                lc = int(r.get('Item', {}).get('likeCount', 0))
-                return resp(200, {'likeCount': lc, 'liked': False, 'alreadyLiked': True})
+                r = table.get_item(Key={'topicId': topic_id, 'SK': comment_id})
+                item = r.get('Item', {})
+                return resp(200, {
+                    'likeCount':    int(item.get('likeCount', 0)),
+                    'dislikeCount': int(item.get('dislikeCount', 0)),
+                    'type': like_type, 'acted': False, 'alreadyActed': True,
+                })
             except Exception:
-                return resp(200, {'likeCount': 0, 'liked': False, 'alreadyLiked': True})
-        print(f'handle_like DynamoDB error: {e}')
-        return resp(500, {'error': 'いいねの更新に失敗しました'})
+                return resp(200, {'likeCount': 0, 'dislikeCount': 0, 'type': like_type, 'acted': False})
+        print(f'handle_like error: {e}')
+        return resp(500, {'error': 'リアクションの更新に失敗しました'})
     except Exception as e:
         print(f'handle_like error: {e}')
-        return resp(500, {'error': 'いいねの更新に失敗しました'})
+        return resp(500, {'error': 'リアクションの更新に失敗しました'})
 
 
 # ── アバターアップロード URL 生成 ─────────────────────────────────
@@ -350,6 +390,100 @@ def handle_avatar_upload_url(event) -> dict:
         return resp(500, {'error': 'アップロードURLの生成に失敗しました'})
 
 
+# ── @メンション通知 ───────────────────────────────────────────────
+
+def extract_mentions(text: str) -> list:
+    return list(set(MENTION_RE.findall(text)))
+
+
+def notify_mentions(body_text: str, from_handle: str, from_nick: str,
+                    topic_id: str, comment_sk: str):
+    """本文から@handleを抽出してDynamoDB通知を作成する。"""
+    if not from_handle:
+        return
+    mentions = extract_mentions(body_text)
+    if not mentions:
+        return
+    now = datetime.now(timezone.utc)
+    excerpt = body_text[:80] + ('…' if len(body_text) > 80 else '')
+    for handle in mentions:
+        if handle.lower() == from_handle.lower():
+            continue  # 自己メンション無視
+        try:
+            sk = now.strftime('%Y%m%dT%H%M%S') + f'#{uuid.uuid4().hex[:8]}'
+            notif_table.put_item(Item={
+                'handle':     handle,
+                'SK':         sk,
+                'fromHandle': from_handle,
+                'fromNick':   from_nick,
+                'topicId':    topic_id,
+                'commentId':  comment_sk,
+                'excerpt':    excerpt,
+                'read':       False,
+                'createdAt':  now.isoformat(),
+                'ttl':        int(time.time()) + 30 * 86400,
+            })
+        except Exception as e:
+            print(f'notify_mentions error: {e}')
+
+
+# ── ユーザーコメント履歴（プロフィール用） ────────────────────────
+
+def get_user_comments(handle: str) -> list:
+    """handle のコメント履歴を返す（scan + filter）。"""
+    try:
+        result = table.scan(
+            FilterExpression=Attr('handle').eq(handle),
+            ProjectionExpression=(
+                'topicId, SK, #bd, createdAt, likeCount, dislikeCount, '
+                '#nick, quotedHandle, quotedText'
+            ),
+            ExpressionAttributeNames={'#bd': 'body', '#nick': 'nickname'},
+            Limit=500,
+        )
+        items = result.get('Items', [])
+        items.sort(key=lambda x: x.get('createdAt', ''), reverse=True)
+        for item in items:
+            item['commentId'] = item.pop('SK', '')
+        return items[:50]
+    except Exception as e:
+        print(f'get_user_comments error: {e}')
+        return []
+
+
+# ── 通知 ─────────────────────────────────────────────────────────
+
+def get_notifications(handle: str) -> list:
+    try:
+        result = notif_table.query(
+            KeyConditionExpression=Key('handle').eq(handle),
+            ScanIndexForward=False,
+            Limit=50,
+        )
+        return result.get('Items', [])
+    except Exception as e:
+        print(f'get_notifications error: {e}')
+        return []
+
+
+def mark_notifications_read(handle: str):
+    try:
+        result = notif_table.query(
+            KeyConditionExpression=Key('handle').eq(handle),
+            FilterExpression=Attr('read').eq(False),
+            ProjectionExpression='handle, SK',
+        )
+        for item in result.get('Items', []):
+            notif_table.update_item(
+                Key={'handle': item['handle'], 'SK': item['SK']},
+                UpdateExpression='SET #r = :t',
+                ExpressionAttributeNames={'#r': 'read'},
+                ExpressionAttributeValues={':t': True},
+            )
+    except Exception as e:
+        print(f'mark_notifications_read error: {e}')
+
+
 # ── エントリポイント ──────────────────────────────────────────────
 
 def lambda_handler(event, context):
@@ -373,6 +507,31 @@ def lambda_handler(event, context):
     # ── GET /avatar/upload-url ───────────────────────────────────────
     if method == 'GET' and len(parts) >= 2 and parts[0] == 'avatar' and parts[1] == 'upload-url':
         return handle_avatar_upload_url(event)
+
+    # ── GET /user/{handle}/comments ──────────────────────────────────
+    if method == 'GET' and len(parts) >= 3 and parts[0] == 'user' and parts[2] == 'comments':
+        handle_param = parts[1]
+        if not HANDLE_RE.match(handle_param):
+            return resp(400, {'error': '不正なhandle形式です'})
+        comments = get_user_comments(handle_param)
+        return resp(200, {'handle': handle_param, 'comments': comments, 'count': len(comments)})
+
+    # ── GET /notifications/{handle} ───────────────────────────────────
+    if method == 'GET' and len(parts) >= 2 and parts[0] == 'notifications':
+        handle_param = parts[1]
+        if not HANDLE_RE.match(handle_param):
+            return resp(400, {'error': '不正なhandle形式です'})
+        notifs = get_notifications(handle_param)
+        unread = sum(1 for n in notifs if not n.get('read'))
+        return resp(200, {'handle': handle_param, 'notifications': notifs, 'unread': unread})
+
+    # ── PUT /notifications/{handle}/read ─────────────────────────────
+    if method == 'PUT' and len(parts) >= 3 and parts[0] == 'notifications' and parts[2] == 'read':
+        handle_param = parts[1]
+        if not HANDLE_RE.match(handle_param):
+            return resp(400, {'error': '不正なhandle形式です'})
+        mark_notifications_read(handle_param)
+        return resp(200, {'status': 'ok'})
 
     if len(parts) < 2 or parts[0] != 'comments':
         return resp(404, {'error': 'not found'})
@@ -474,8 +633,16 @@ def lambda_handler(event, context):
         if not check_rate_limit(ip, 'comment', max_per_minute=10):
             return resp(429, {'error': '短時間に多くのリクエストがありました。しばらくお待ちください'})
 
+        # 引用コメント（optional）
+        quoted_comment_id = (data.get('quotedCommentId') or '').strip()[:64]
+        quoted_handle     = (data.get('quotedHandle')    or '').strip()[:20]
+        quoted_text       = (data.get('quotedText')      or '').strip()[:100]
+
         comment = post_comment(topic_id_body, body_text, nickname, user_id,
-                               handle=client_handle, avatar_url=client_avatar)
+                               handle=client_handle, avatar_url=client_avatar,
+                               quoted_comment_id=quoted_comment_id,
+                               quoted_handle=quoted_handle,
+                               quoted_text=quoted_text)
 
         # アナリティクス記録（投稿成功後）
         record_event(user_id, 'comment', topic_id=topic_id_body)

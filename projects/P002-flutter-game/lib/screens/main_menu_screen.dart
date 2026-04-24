@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../game/game_state.dart';
 import '../constants/strings.dart';
+import '../utils/app_transitions.dart';
 import 'stage_select_screen.dart';
 import 'equipment_screen.dart';
 
@@ -166,13 +167,13 @@ class _MainMenuScreenState extends State<MainMenuScreen>
 
   void _onDeploy(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const StageSelectScreen()),
+      AppTransitions.slideRight(const StageSelectScreen()),
     );
   }
 
   void _onEquipment(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const EquipmentScreen()),
+      AppTransitions.fade(const EquipmentScreen()),
     );
   }
 }
