@@ -6,7 +6,7 @@ from collections import Counter
 from decimal import Decimal
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 
 from proc_config import S3_BUCKET, SLACK_WEBHOOK, TOPICS_S3_CAP, table, s3
 
@@ -90,19 +90,44 @@ def get_pending_topics(max_topics=100):
         items.sort(key=lambda x: (float(x.get('velocityScore', 0) or 0), int(x.get('score', 0) or 0)), reverse=True)
         return items[:max_topics]
 
-    # フォールバック: DynamoDBスキャン（pending_ai.json未作成時のみ）
-    print('get_pending_topics: S3未作成のためDynamoDBフォールバック')
+    # フォールバック: DynamoDBスキャン
+    # pending_ai.json が空 or 未作成のとき、処理必要なトピックを全スキャンして pending_ai.json を再生成
+    print('get_pending_topics: pending_ai.json空のためDynamoDBフルスキャン（storyTimeline欠如含む）')
+    proj = 'topicId,title,articleCount,score,velocityScore,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI'
+    filt = (
+        Attr('SK').eq('META') & (
+            Attr('pendingAI').eq(True) |
+            Attr('aiGenerated').ne(True) |
+            ~Attr('storyTimeline').exists() |
+            Attr('storyTimeline').eq([])
+        )
+    )
     items, kwargs = [], {
-        'FilterExpression':        'SK = :m AND pendingAI = :t',
-        'ExpressionAttributeValues': {':m': 'META', ':t': True},
-        'ProjectionExpression':    'topicId,title,articleCount,score,velocityScore,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI',
+        'FilterExpression': filt,
+        'ProjectionExpression': proj,
     }
     while True:
         r = table.scan(**kwargs)
         items.extend(r.get('Items', []))
         if not r.get('LastEvaluatedKey'): break
         kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
-    items.sort(key=lambda x: int(x.get('score', 0) or 0), reverse=True)
+
+    items = [it for it in items if needs_ai_processing(it)]
+    items.sort(key=lambda x: (float(x.get('velocityScore', 0) or 0), int(x.get('score', 0) or 0)), reverse=True)
+
+    # 発見したIDをpending_ai.jsonに保存して次回スキャンを省略
+    if S3_BUCKET and items:
+        try:
+            new_ids = [it['topicId'] for it in items]
+            s3.put_object(
+                Bucket=S3_BUCKET, Key='api/pending_ai.json',
+                Body=json.dumps({'topicIds': new_ids}),
+                ContentType='application/json',
+            )
+            print(f'[get_pending_topics] DynamoDBフルスキャン完了: {len(items)}件 → pending_ai.json 再生成')
+        except Exception as e:
+            print(f'[get_pending_topics] pending_ai.json 再生成失敗: {e}')
+
     return items[:max_topics]
 
 
