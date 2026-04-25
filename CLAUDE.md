@@ -207,7 +207,7 @@ cat /Users/OWNER/.claude/projects/-Users-OWNER-ai-company/memory/MEMORY.md
 | CI (.github/workflows/ci.yml) | ✅ 全テスト通過 | 2026-04-25 | YAML バグ修正済み（2022-04-22以来初めて通過） |
 | sw.js バージョン管理 | ✅ 自動 | 2026-04-25 | git SHA 自動注入。ソースは `flotopic-dev` のまま触るな |
 | deploy-p003.yml | ✅ CloudFront invalidation付き | 2026-04-25 | sw.js SHA注入ステップあり |
-| processor AI要約 | ✅ 稼働中（カバレッジ改善中） | 2026-04-25夜 | 4セクション形式・75件/回・4回/日。pending_ai.json全ID清掃・storyTimeline欠如トピックも対象 |
+| processor AI要約 | ✅ 稼働中（カバレッジ改善中） | 2026-04-26 | storyTimeline: 41.4%（48→123件）・generatedSummary: 56.2%（112→167件）。DynamoDB全スキャンで欠如トピック再生成中 |
 | sitemap.xml | ✅ 動的自動生成 | 2026-04-25 | 最新生成確認済み（2026-04-25 19:42）。202URL |
 | news-sitemap.xml | ✅ 実装済み | 2026-04-25 | Google News Sitemap。processor実行時に自動生成。robots.txtに記載済み |
 | rss.xml | ✅ 品質フィルタ済み | 2026-04-25 | 同一イベント重複抑制あり（最大2件/イベント）・株価ticker除外 |
