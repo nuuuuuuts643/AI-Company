@@ -303,7 +303,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 - ~~about.html FAQ + FAQPage JSON-LD~~ ✅ 2026-04-25 完了
 
 ### 優先度2: コンテンツ品質（Claude実行可能）
-- AI要約カバレッジ向上（21.8%→ 自動改善中。pending_ai.json全清掃・storyTimeline欠如修正・fetcher orphan追加）
+- AI要約カバレッジ向上（41.4%まで回復、251件残りpending。processor手動トリガー×2で処理加速中）
 - ~~processor Lambda メモリ 512MB~~ ✅ 確認済み（既に512MB）
 - velocity=0 の停滞トピック → lifecycle Lambda(ARCHIVE_DAYS=7)が次週月曜に自動整理
 - ~~Bluesky 自動投稿~~ ✅ 稼働確認済み
