@@ -91,7 +91,7 @@ def lambda_handler(event, context):
         update_topic_s3_files_parallel(ai_updates)
 
         try:
-            topics = get_all_topics_for_s3()
+            topics, trending_keywords = get_all_topics_for_s3()
             for t in topics:
                 # 処理済みトピックはpendingAIを解除（topics.jsonでも反映）
                 if t.get('aiGenerated') or t.get('generatedSummary'):
@@ -108,10 +108,11 @@ def lambda_handler(event, context):
                     if upd.get('aiGenerated'):               t['aiGenerated']      = True
             ts_iso = datetime.now(timezone.utc).isoformat()
             write_s3('api/topics.json', {
-                'topics':        topics,
-                'updatedAt':     ts_iso,
-                'processedByAI': processed,
-                'aiCallsUsed':   api_calls,
+                'topics':           topics,
+                'trendingKeywords': trending_keywords,
+                'updatedAt':        ts_iso,
+                'processedByAI':    processed,
+                'aiCallsUsed':      api_calls,
             })
             print(f'[Processor] S3 topics.json 再生成完了 ({len(topics)}件)')
             generate_and_upload_sitemap(topics)
