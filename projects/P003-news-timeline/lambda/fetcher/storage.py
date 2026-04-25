@@ -211,9 +211,19 @@ def generate_rss(topics, updated_at):
 
     site_url = SITE_URL
 
+    # 品質フィルタ: active/cooling・記事3件以上・AI生成タイトルあり・株価ティッカー除外
+    import re
+    TICKER_RE = re.compile(r'【\d+[A-Z]?】|：株価|株式情報')
+    filtered = [
+        t for t in topics
+        if t.get('lifecycleStatus', 'active') in ('active', 'cooling', '')
+        and int(t.get('articleCount', 0) or 0) >= 3
+        and t.get('generatedTitle')
+        and not TICKER_RE.search(t.get('generatedTitle', '') + t.get('title', ''))
+    ]
     sorted_topics = sorted(
-        topics,
-        key=lambda x: int(x.get('articleCount', 0) or 0),
+        filtered,
+        key=lambda x: float(x.get('velocityScore', 0) or 0),
         reverse=True,
     )[:20]
 
@@ -308,9 +318,15 @@ def generate_sitemap(topics):
         '  </url>\n'
     )
 
+    import re as _re
+    _TICKER = _re.compile(r'【\d+[A-Z]?】|：株価|株式情報')
     for t in topics:
         tid = t.get('topicId', '')
         if not tid:
+            continue
+        if int(t.get('articleCount', 0) or 0) < 2:
+            continue
+        if _TICKER.search(t.get('generatedTitle', '') + t.get('title', '')):
             continue
         lastmod  = to_date(t.get('lastUpdated', today))
         urls_xml += (
