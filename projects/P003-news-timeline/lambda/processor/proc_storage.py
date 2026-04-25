@@ -43,6 +43,7 @@ def needs_ai_processing(item):
     - aiGenerated=False または未設定
     - storyTimeline が空または未設定（4セクション形式未生成）
     - pendingAI=True（fetcher が新記事を検知してフラグを立てた）
+    - imageUrl が未設定（OGP画像未生成）
     """
     if item.get('pendingAI'):
         return True
@@ -50,6 +51,8 @@ def needs_ai_processing(item):
         return True
     timeline = item.get('storyTimeline')
     if not timeline or (isinstance(timeline, list) and len(timeline) == 0):
+        return True
+    if not item.get('imageUrl'):
         return True
     return False
 
@@ -74,7 +77,7 @@ def get_pending_topics(max_topics=100):
             try:
                 r = table.get_item(
                     Key={'topicId': tid, 'SK': 'META'},
-                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI',
+                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres',
                 )
                 item = r.get('Item')
                 if item and needs_ai_processing(item):
@@ -104,13 +107,14 @@ def get_pending_topics(max_topics=100):
     # フォールバック: DynamoDBスキャン
     # pending_ai.json が空 or 未作成のとき、処理必要なトピックを全スキャンして pending_ai.json を再生成
     print('get_pending_topics: pending_ai.json空のためDynamoDBフルスキャン（storyTimeline欠如含む）')
-    proj = 'topicId,title,articleCount,score,velocityScore,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI'
+    proj = 'topicId,title,articleCount,score,velocityScore,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres'
     filt = (
         Attr('SK').eq('META') & (
             Attr('pendingAI').eq(True) |
             Attr('aiGenerated').ne(True) |
             ~Attr('storyTimeline').exists() |
-            Attr('storyTimeline').eq([])
+            Attr('storyTimeline').eq([]) |
+            ~Attr('imageUrl').exists()
         )
     )
     items, kwargs = [], {
@@ -204,7 +208,8 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
                 update_expr += ', storyPhase = :phase'
                 expr_values[':phase'] = gen_story['phase']
         if image_url:
-            update_expr += ', imageUrl = :img'
+            # if_not_exists: 既にRSS由来画像があれば上書きしない
+            update_expr += ', imageUrl = if_not_exists(imageUrl, :img)'
             expr_values[':img'] = image_url
         table.update_item(
             Key={'topicId': tid, 'SK': 'META'},
