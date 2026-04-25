@@ -1250,12 +1250,12 @@
             <input type="file" id="account-avatar-input" accept="image/*" style="display:none;">
           </div>
           <div class="mp-nickname-field">
-            <span class="mp-nickname-label">表示名</span>
-            <input class="mp-nickname-input" id="mp-nickname-input" type="text" value="${safeEsc(user ? (user.nickname || (user.name || '').split(' ')[0] || '') : '')}" maxlength="20" placeholder="名前を入力">
+            <span class="mp-nickname-label" title="コメントに表示される名前（自由形式）">表示名</span>
+            <input class="mp-nickname-input" id="mp-nickname-input" type="text" value="${safeEsc(user ? (user.nickname || user.name || '') : '')}" maxlength="20" placeholder="名前を入力">
             <button class="mp-nickname-save" id="mp-nickname-save">保存</button>
           </div>
           <div class="mp-nickname-field">
-            <span class="mp-nickname-label">ハンドル名</span>
+            <span class="mp-nickname-label" title="@メンションに使うID（英数字・アンダースコアのみ）">ハンドル名</span>
             <input class="mp-nickname-input" id="mp-handle-input" type="text" value="${safeEsc(profile.handle || '')}" maxlength="20" placeholder="例: flotopic_user123" autocomplete="off" spellcheck="false">
             <button class="mp-nickname-save" id="mp-handle-save">保存</button>
           </div>
