@@ -17,7 +17,7 @@ const NETWORK_FIRST_ASSETS = [
   '/terms.html',
   '/privacy.html',
   '/contact.html',
-  '/tokushoho.html',
+
   '/style.css',
   '/app.js',
   '/detail.js',
