@@ -235,6 +235,10 @@ cat /Users/OWNER/.claude/projects/-Users-OWNER-ai-company/memory/MEMORY.md
 | コメント/お気に入りCTA | ✅ 完了 | 2026-04-26 | 空状態改善+モバイルスティッキーCTAバー追加 |
 | lifecycle S3孤立ファイル削除 | ✅ 実装済み | 2026-04-26 | 削除トピックのapi/topic/{id}.jsonを同時削除。週次sweep=~4600件の孤立ファイルを次回月曜に自動クリア |
 | processor タイトル再生成スキップ | ✅ 最適化 | 2026-04-26 | aiGenerated=True+title既存→タイトルAPI省略。backlog処理効率向上 |
+| Google Newsソース名 | ✅ 強化 | 2026-04-26 | （）/()パターン追加・フォールバック'Unknown'→'Google News' |
+| UIボトムナビ統一 | ✅ 完了 | 2026-04-26 | profile.html(アーカイブ→検索)・storymap.html(ログイン→Googleでログイン)修正 |
+| モバイル広告ラッパー | ✅ 強化 | 2026-04-26 | position:relative追加でiframeクリッピング確実化 |
+| AI要約カバレッジ | ✅ 59% | 2026-04-26 | 21.8%→59%に改善（アクティブは67%）。pending_ai.json空→次回フルスキャン予定 |
 
 ## 専門AI稼働状況
 
