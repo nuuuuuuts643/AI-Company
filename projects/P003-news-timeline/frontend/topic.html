@@ -126,6 +126,40 @@
     [data-theme="dark"] .comment-login-prompt .clp-title { color: #eef0f8; }
     [data-theme="dark"] .comment-login-prompt .clp-sub { color: #9ba3c4; }
     [data-theme="dark"] .comment-login-google-btn { background: #2a2b3d; border-color: #404260; color: #eef0f8; }
+    /* ===== スティッキーCTAバー（モバイル） ===== */
+    .sticky-cta-bar {
+      display: none;
+      position: fixed;
+      bottom: 56px; /* bottom-nav の上 */
+      left: 0; right: 0;
+      z-index: 200;
+      padding: 10px 16px;
+      background: var(--card-bg, #fff);
+      border-top: 1px solid var(--border-color, #e2e8f0);
+      box-shadow: 0 -2px 10px rgba(0,0,0,.08);
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+    }
+    .sticky-cta-bar.visible { display: flex; }
+    .sticky-cta-bar .scb-fav {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 8px 16px; border-radius: 999px;
+      border: 1.5px solid var(--border-color, #e2e8f0);
+      background: transparent; color: var(--text-primary);
+      font-size: .84rem; font-weight: 600; cursor: pointer;
+      transition: all .2s;
+    }
+    .sticky-cta-bar .scb-fav.fav-active { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .sticky-cta-bar .scb-comment {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 8px 20px; border-radius: 999px;
+      border: none; background: var(--accent, #6366f1); color: #fff;
+      font-size: .84rem; font-weight: 700; cursor: pointer;
+      transition: opacity .2s;
+    }
+    .sticky-cta-bar .scb-comment:hover { opacity: .85; }
+    @media (min-width: 769px) { .sticky-cta-bar { display: none !important; } }
     /* ===== トピックページヘッダー内タイトルヒーロー ===== */
     .topic-hero {
       background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #2d2a7a 100%);
@@ -361,6 +395,13 @@
   </div>
 
 </main>
+
+<!-- スティッキーCTAバー（モバイルのみ・コメントセクション表示前まで） -->
+<div class="sticky-cta-bar" id="sticky-cta-bar" aria-hidden="true">
+  <button class="scb-fav" id="scb-fav-btn" aria-label="お気に入り">♥ お気に入り</button>
+  <button class="scb-comment" id="scb-comment-btn">💬 コメントする</button>
+</div>
+
 <footer class="site-footer">
   <div class="site-footer-links">
     <a href="index.html">トップ</a>
