@@ -22,6 +22,7 @@ from proc_storage import (
     update_topic_with_ai, get_all_topics_for_s3,
     update_topic_s3_files_parallel,
     write_s3, notify_slack_error, generate_and_upload_sitemap,
+    generate_and_upload_rss,
 )
 
 
@@ -114,6 +115,7 @@ def lambda_handler(event, context):
             })
             print(f'[Processor] S3 topics.json 再生成完了 ({len(topics)}件)')
             generate_and_upload_sitemap(topics)
+            generate_and_upload_rss(topics)
         except Exception as e:
             err = f'S3再生成エラー: {e}'
             print(f'[Processor] {err}')
