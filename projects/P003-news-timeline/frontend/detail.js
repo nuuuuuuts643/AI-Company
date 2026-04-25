@@ -261,17 +261,21 @@ function renderDetail(data) {
           };
         };
 
-        // 記事数の推移（SNAPデータから）
+        // 記事数の推移（折れ線グラフ）
         const artLabel = aggregate ? '記事数（日次）' : '記事数（30分ごと）';
         if (chartInstance) chartInstance.destroy();
         chartInstance = new Chart(canvas.getContext('2d'), {
-          type: 'bar',
+          type: 'line',
           data: { labels, datasets: [{ label: artLabel, data: mediaCnts,
-            backgroundColor: mediaCnts.map((v, i) => {
-              const prev = i > 0 ? mediaCnts[i-1] : 0;
-              return v > prev ? 'rgba(99,102,241,.75)' : v < prev ? 'rgba(239,68,68,.55)' : 'rgba(99,102,241,.4)';
-            }),
-            borderRadius: 4, borderSkipped: false }]},
+            borderColor: '#6366f1',
+            backgroundColor: (ctx) => {
+              const {ctx: c, chartArea} = ctx.chart;
+              if (!chartArea) return 'rgba(99,102,241,.15)';
+              const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+              g.addColorStop(0, 'rgba(99,102,241,.35)'); g.addColorStop(1, 'rgba(99,102,241,.02)');
+              return g;
+            },
+            borderWidth: 2, pointRadius: 3, pointHoverRadius: 6, tension: 0.4, fill: true }]},
           options: {
             responsive: true, maintainAspectRatio: false,
             interaction: { mode:'index', intersect:false },
@@ -281,16 +285,18 @@ function renderDetail(data) {
         });
 
         if (vCanvas) {
+          // スコアの推移（トピックの「熱量」が上がって落ち着く様子を可視化）
+          const scoreLabel = aggregate ? '注目スコア（日次最大）' : '注目スコア';
           if (viewsChartInstance) viewsChartInstance.destroy();
           viewsChartInstance = new Chart(vCanvas.getContext('2d'), {
             type: 'line',
-            data: { labels: vLabels, datasets: [{ label:'閲覧数', data: vAbsolute,
-              borderColor:'#10b981',
+            data: { labels, datasets: [{ label: scoreLabel, data: scores,
+              borderColor:'#f59e0b',
               backgroundColor: (ctx) => {
                 const {ctx:c, chartArea} = ctx.chart;
-                if (!chartArea) return 'rgba(16,185,129,.2)';
+                if (!chartArea) return 'rgba(245,158,11,.15)';
                 const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                g.addColorStop(0, 'rgba(16,185,129,.4)'); g.addColorStop(1, 'rgba(16,185,129,.02)');
+                g.addColorStop(0, 'rgba(245,158,11,.4)'); g.addColorStop(1, 'rgba(245,158,11,.02)');
                 return g;
               },
               borderWidth:2, pointRadius:3, pointHoverRadius:6, tension:0.4, fill:true }]},
@@ -298,7 +304,7 @@ function renderDetail(data) {
               responsive: true, maintainAspectRatio: false,
               interaction: { mode:'index', intersect:false },
               plugins: { legend: { display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}} }, zoom: zoomOpts },
-              scales: { y: makeScaleY0(vAbsolute) },
+              scales: { y: makeScaleY0(scores) },
             },
           });
         }
