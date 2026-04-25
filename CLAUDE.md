@@ -237,6 +237,8 @@ cat /Users/OWNER/.claude/projects/-Users-OWNER-ai-company/memory/MEMORY.md
 | processor タイトル再生成スキップ | ✅ 最適化 | 2026-04-26 | aiGenerated=True+title既存→タイトルAPI省略。backlog処理効率向上 |
 | Google Newsソース名 | ✅ 強化 | 2026-04-26 | （）/()パターン追加・フォールバック'Unknown'→'Google News' |
 | UIボトムナビ統一 | ✅ 完了 | 2026-04-26 | profile.html(アーカイブ→検索)・storymap.html(ログイン→Googleでログイン)修正 |
+| processor _dedup_topics | ✅ 完了 | 2026-04-26 | topics.json再生成時のAIタイトル生成後重複表示を防止 |
+| fetcher orphan storyTimeline欠如 | ✅ 完了 | 2026-04-26 | generatedSummary+aiGeneratedあり但しstoryTimeline欠如のトピックをorphan追加対象に修正 |
 | モバイル広告ラッパー | ✅ 強化 | 2026-04-26 | position:relative追加でiframeクリッピング確実化 |
 | AI要約カバレッジ | ✅ 59% | 2026-04-26 | 21.8%→59%に改善（アクティブは67%）。pending_ai.json空→次回フルスキャン予定 |
 
