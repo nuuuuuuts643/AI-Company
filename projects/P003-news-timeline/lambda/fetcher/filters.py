@@ -24,8 +24,11 @@ _DIGEST_SKIP_PATS = [
     re.compile(r'本日のヘッドライン'),
     re.compile(r'ヘッドラインニュース$'),
     re.compile(r'株価・株式情報\s*[-–]\s*Yahoo!ファイナンス'),
+    re.compile(r'基準価格・投資信託情報\s*[-–]\s*Yahoo!ファイナンス'),
     re.compile(r'【\d{3,5}】[：:].{0,20}株価'),
+    re.compile(r'【[A-Za-z0-9]{3,10}[A-Za-z]】[：:]'),  # 325A, 0431523B など英数字ティッカー
     re.compile(r'掲示板\s*[-–]\s*Yahoo!ファイナンス'),
+    re.compile(r'\s*[-–]\s*Yahoo!ファイナンス$'),  # Yahoo!ファイナンス全般を末尾でキャッチ
 ]
 
 # ── 意見・コラム記事パターン (正規表現, ベース係数, weight_key) ──────────
