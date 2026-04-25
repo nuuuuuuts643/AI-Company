@@ -27,9 +27,9 @@ git push || echo "push failed, continuing"
 
 **作業完了後に必ずやること：**
 1. `P003 技術状態スナップショット` テーブルを最新状態に更新する
-2. `次フェーズのタスク` の完了済み項目を「完了済み」セクションに移動する
+2. `次フェーズのタスク` の完了済み項目を **HISTORY.md** に移動し、CLAUDE.md には痕跡1行を残す（「完了済みタスク管理ルール」参照）
 3. `現在着手中` から完了タスクを削除する
-4. CLAUDE.md の変更を含めて `git add -A && git commit && git push` する
+4. CLAUDE.md・HISTORY.md の変更を含めて `git add -A && git commit && git push` する
 
 **定期状況確認コマンド（タスク開始前・30分ごとに実行）：**
 ```bash
@@ -56,11 +56,16 @@ cat /Users/OWNER/.claude/projects/-Users-OWNER-ai-company/memory/MEMORY.md
 
 ## 完了済みタスク管理ルール（2026-04-25 制定）
 
-- 作業完了後、完了タスクは CLAUDE.md ではなく **HISTORY.md** に移動する
-- CLAUDE.md には「直近2週間以内に完了した、まだ副作用の確認が必要なタスク」だけ残してよい
-- HISTORY.md への移動フォーマット: 既存の `### 完了済み（日付）` ブロックをそのままappendする
+- **完了したらそのセッション中に即 HISTORY.md へ移動する**（時間を置かない）
+- CLAUDE.md には完了済みを原則残さない。残してよいのは「同セッション内で副作用確認中のもの」だけ
+- 移動後は CLAUDE.md に痕跡1行だけ残す：
+  ```
+  ### 完了済み（YYYY-MM-DD）
+  → HISTORY.md に移動済み（HH:MM JST）
+  ```
+- HISTORY.md への移動フォーマット: 既存の `### 完了済み（日付）` ブロックをそのまま末尾に append する
 - HISTORY.md はセッションをまたいで参照できる唯一の完了履歴。削除禁止。
-- CLAUDE.md の完了済みセクションが30行を超えたら、超過分を HISTORY.md に移動してコンパクト化する
+- 理由: 現在の開発スピードでは1セッション中に数十件完了する。CLAUDE.md に蓄積するとコンテキスト窓を圧迫してセッションが機能しなくなる。
 
 ## ⚠️ バグ再発防止ルール（2026-04-25 制定）
 
@@ -247,7 +252,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 > セッション開始時に必ずここを確認。着手中の作業があればスキップして次の未完了タスクへ。
 > 作業完了したらすぐに「完了済み」セクションへ移動し、このセクションを空にする。
 
-（なし）
+- **AI要約カバレッジ拡張**（2026-04-25夜セッション着手中）— fetcher で summary欠如の古いトピックを pending_ai.json に追加。変更予定ファイル: `lambda/fetcher/handler.py`
 
 ## 次フェーズのタスク（優先度順）
 
