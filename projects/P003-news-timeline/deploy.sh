@@ -298,7 +298,18 @@ aws lambda add-permission \
 echo "  -> Comments URL: $COMMENTS_URL"
 
 # ---- 4b. Processor Lambda ----
-PROCESSOR_ENV_VARS="Variables={TABLE_NAME=${TABLE},S3_BUCKET=${BUCKET},REGION=${REGION},SITE_URL=https://flotopic.com}"
+# ANTHROPIC_API_KEY: 環境変数に設定されていればそれを使い、なければLambdaの現在値を保持
+_CURRENT_ANTHROPIC=$(aws lambda get-function-configuration \
+  --function-name "$PROCESSOR" --region "$REGION" \
+  --query 'Environment.Variables.ANTHROPIC_API_KEY' --output text 2>/dev/null || echo "")
+_EFFECTIVE_ANTHROPIC="${ANTHROPIC_API_KEY:-$_CURRENT_ANTHROPIC}"
+if [ -n "$_EFFECTIVE_ANTHROPIC" ] && [ "$_EFFECTIVE_ANTHROPIC" != "None" ]; then
+  PROCESSOR_ENV_VARS="Variables={TABLE_NAME=${TABLE},S3_BUCKET=${BUCKET},REGION=${REGION},SITE_URL=https://flotopic.com,ANTHROPIC_API_KEY=${_EFFECTIVE_ANTHROPIC}}"
+  echo "  -> ANTHROPIC_API_KEY: 設定済み"
+else
+  PROCESSOR_ENV_VARS="Variables={TABLE_NAME=${TABLE},S3_BUCKET=${BUCKET},REGION=${REGION},SITE_URL=https://flotopic.com}"
+  echo "  ⚠️  ANTHROPIC_API_KEY 未設定 — AI要約が動きません。手動で設定してください。"
+fi
 echo "[4b] Processor Lambda デプロイ（バッチAI処理）..."
 cd lambda/processor
 zip -q function.zip *.py
@@ -347,6 +358,11 @@ aws lambda add-permission \
   --source-arn "$FETCHER_RULE_ARN" \
   --region "$REGION" 2>/dev/null || true
 
+# 既存ターゲットを全削除してから再登録（重複ターゲット防止）
+EXISTING_TARGETS=$(aws events list-targets-by-rule --rule "p003-fetcher-schedule" --region "$REGION" --query 'Targets[*].Id' --output text 2>/dev/null)
+if [ -n "$EXISTING_TARGETS" ]; then
+  aws events remove-targets --rule "p003-fetcher-schedule" --ids $EXISTING_TARGETS --region "$REGION" > /dev/null 2>&1 || true
+fi
 aws events put-targets \
   --rule "p003-fetcher-schedule" \
   --targets "Id=1,Arn=${FETCHER_ARN}" \
