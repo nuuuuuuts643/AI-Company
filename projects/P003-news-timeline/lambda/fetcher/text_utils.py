@@ -172,10 +172,18 @@ _KW_STOPWORDS = {
     'の', 'に', 'は', 'を', 'が', 'で', 'と', 'も', 'する', 'した', 'して',
     'から', 'より', 'まで', 'など', 'ため', 'こと', 'もの', 'ある', 'いる',
     'なる', 'れる', 'られる', 'について', 'による', 'として', 'において',
-    'という', 'および', 'また', 'さらに', 'ただし', 'による',
-    'について', '向け', '対し', '日本', '今', '年', '月', '日', '円',
-    '社', '氏', '同', '新', '元', '前', '後', '以上', '以下', '問題',
-    '発表', '報道', '関連', '情報', '確認', '実施', '開始', '終了',
+    'という', 'および', 'また', 'さらに', 'ただし',
+    '向け', '対し', '日本', '今', '年', '月', '日', '円',
+    '社', '氏', '同', '新', '元', '前', '後', '以上', '以下',
+    # 汎用的すぎるニュース頻出語（proc_storageと共通化）
+    'ニュース', '速報', '最新', '話題', '注目', '動画', '写真', '記事', '中継',
+    '動向', '影響', '情勢', '問題', '対応', '状況', '関係', '活動', '実施', '開催',
+    '発表', '報告', '内容', '結果', '方針', '対策', '検討', '確認', '実現', '推進',
+    '強化', '改善', '整備', '支援', '提供', '拡大', '展開', '継続', '協力', '連携',
+    '取り組み', '見通し', '増加', '減少', '上昇', '下落', '変化', '今後', '今回',
+    '課題', '企業', '議論', '対立', '会議', '調査', '研究', '報道', '声明', '決定',
+    '方向', '制度', '政策', '経済', '社会', '市場', '投資', '技術', '事業', '計画',
+    '関連', '情報', '開始', '終了',
 }
 _KW_MAX_COUNT = 10
 
@@ -205,19 +213,36 @@ def extract_entities(text: str) -> set:
     return entities
 
 
+_KW_STOP_RELATED = {
+    'ニュース', '速報', '最新', '話題', '注目', '動画', '写真', '記事', '中継',
+    '動向', '影響', '情勢', '問題', '対応', '状況', '関係', '活動', '実施', '開催',
+    '発表', '報告', '内容', '結果', '方針', '対策', '検討', '実現', '推進',
+    '強化', '改善', '支援', '提供', '拡大', '継続', '協力', '連携', '取り組み',
+    '増加', '減少', '上昇', '下落', '変化', '今後', '今回',
+    'ついて', '社会', '日本', '世界', '政府', '当局', '地域', '国内', '海外',
+}
+
+
+def _extract_kw_tokens(title: str) -> set:
+    """カタカナ3文字以上・漢字2文字以上のトークンを抽出（汎用語除く）。"""
+    tokens = re.findall(r'[ァ-ヶー]{3,}|[一-龯々]{2,}', title)
+    return {t for t in tokens if t not in _KW_STOP_RELATED and len(t) >= 3}
+
+
 def find_related_topics(topics: list, max_related: int = 5) -> dict:
     topic_entities = {}
+    topic_kw = {}
     for t in topics:
         title = t.get('generatedTitle') or t.get('title', '')
         topic_entities[t['topicId']] = extract_entities(title)
+        topic_kw[t['topicId']] = _extract_kw_tokens(title)
 
+    GENERIC = {'ai', 'it', 'ec', 'pc', 'sns', 'dx'}
     related = {}
     for t in topics:
         tid = t['topicId']
         my_entities = topic_entities.get(tid, set())
-        if not my_entities:
-            related[tid] = []
-            continue
+        my_kw = topic_kw.get(tid, set())
 
         candidates = []
         for other in topics:
@@ -225,16 +250,30 @@ def find_related_topics(topics: list, max_related: int = 5) -> dict:
             if oid == tid:
                 continue
             other_entities = topic_entities.get(oid, set())
-            shared = my_entities & other_entities
-            GENERIC = {'ai', 'it', 'ec', 'pc', 'sns', 'dx'}
-            meaningful = {e for e in shared if len(e) > 1 and e.lower() not in GENERIC}
-            if len(meaningful) >= 2 or (len(meaningful) == 1 and len(shared) >= 2):
-                candidates.append({
-                    'topicId': oid,
-                    'title': other.get('generatedTitle') or other.get('title', ''),
-                    'sharedEntities': list(meaningful or shared),
-                    'overlapScore': len(meaningful) + len(shared),
-                })
+            other_kw = topic_kw.get(oid, set())
+
+            # ① 定義済みエンティティの重複
+            shared_ent = my_entities & other_entities
+            meaningful_ent = {e for e in shared_ent if len(e) > 1 and e.lower() not in GENERIC}
+
+            # ② カタカナ/漢字キーワードの重複（エンティティでカバーできない固有名詞）
+            shared_kw = my_kw & other_kw
+
+            score = len(meaningful_ent) * 3 + len(shared_ent) + len(shared_kw)
+
+            entity_match = len(meaningful_ent) >= 2 or (len(meaningful_ent) == 1 and len(shared_ent) >= 2)
+            kw_match = len(shared_kw) >= 2 and len(shared_kw & my_kw) / max(len(my_kw), 1) >= 0.3
+
+            if not entity_match and not kw_match:
+                continue
+
+            shared_labels = list(meaningful_ent or shared_kw)[:3]
+            candidates.append({
+                'topicId': oid,
+                'title': other.get('generatedTitle') or other.get('title', ''),
+                'sharedEntities': shared_labels,
+                'overlapScore': score,
+            })
 
         candidates.sort(key=lambda x: x['overlapScore'], reverse=True)
         related[tid] = candidates[:max_related]
