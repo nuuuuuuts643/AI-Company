@@ -641,14 +641,10 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
 
 /* ===== ADS ===== */
 .ad-slot {
-  background: var(--surface2);
-  border: 1.5px dashed #e5e7eb;
-  border-radius: var(--radius-sm);
   text-align: center;
-  padding: 20px;
-  color: var(--text-muted);
-  font-size: .78rem;
-  margin-bottom: 14px;
+  margin: 8px 0 14px;
+  min-height: 0;
+  overflow: hidden;
 }
 .ad-card-wrapper { width: 100%; grid-column: 1 / -1; }
 .ad-card {
