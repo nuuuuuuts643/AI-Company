@@ -9,25 +9,21 @@ from datetime import datetime
 
 from proc_config import ANTHROPIC_API_KEY, STOP_WORDS, SYNONYMS, normalize, extract_entities
 
-CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages'
-_CLAUDE_HEADERS = {
-    'x-api-key': ANTHROPIC_API_KEY,
-    'anthropic-version': '2023-06-01',
-    'content-type': 'application/json',
-}
+_CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages'
 
 
 def _call_claude(payload: dict, timeout: int = 25) -> dict:
     """Claude API を呼び出す。429 は最大3回リトライ（指数バックオフ）。"""
     body = json.dumps(payload).encode('utf-8')
+    headers = {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+    }
     delay = 5
     for attempt in range(4):
         try:
-            req = urllib.request.Request(
-                CLAUDE_API_URL, data=body,
-                headers={**_CLAUDE_HEADERS, 'x-api-key': ANTHROPIC_API_KEY},
-                method='POST',
-            )
+            req = urllib.request.Request(_CLAUDE_API_URL, data=body, headers=headers, method='POST')
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return json.loads(resp.read())
         except urllib.error.HTTPError as e:
@@ -117,9 +113,13 @@ def generate_story(articles):
     article_count = len(articles)
     article_lines = []
     for a in articles[:15]:
-        title = clean_headline(a.get('title', ''))
+        title    = clean_headline(a.get('title', ''))
+        desc     = (a.get('description') or '').strip()
         date_str = _format_pub_date(a.get('pubDate', '') or a.get('publishedAt', '') or '')
-        article_lines.append(f'{date_str} {title}'.strip() if date_str else title)
+        line = f'{date_str} {title}'.strip() if date_str else title
+        if desc:
+            line += f'\n  概要: {desc[:150]}'
+        article_lines.append(line)
     headlines = '\n'.join(article_lines)
 
     prompt = (
