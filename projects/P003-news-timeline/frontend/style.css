@@ -2573,8 +2573,9 @@ details[open] .day-more-btn::before { content: '▼ '; }
   font-size: 1.3rem;
   flex-shrink: 0;
 }
-.affiliate-link-logo.amazon { background: #ff9900; }
+.affiliate-link-logo.amazon  { background: #ff9900; }
 .affiliate-link-logo.rakuten { background: #bf0000; color: #fff; font-size: .7rem; font-weight: 800; }
+.affiliate-link-logo.yahoo   { background: #ff0033; color: #fff; font-size: .75rem; font-weight: 900; }
 .affiliate-link-body { flex: 1; min-width: 0; }
 .affiliate-link-shop { font-size: .72rem; color: #94a3b8; font-weight: 500; margin-bottom: 2px; }
 .affiliate-link-title { font-size: .88rem; font-weight: 600; color: #1e293b; line-height: 1.4; }
