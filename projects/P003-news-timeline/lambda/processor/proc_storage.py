@@ -419,6 +419,10 @@ def generate_and_upload_sitemap(topics):
     urls = [
         f'  <url>\n    <loc>https://flotopic.com/</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>hourly</changefreq>\n    <priority>1.0</priority>\n  </url>',
         f'  <url>\n    <loc>https://flotopic.com/catchup.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>',
+        f'  <url>\n    <loc>https://flotopic.com/legacy.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.6</priority>\n  </url>',
+        f'  <url>\n    <loc>https://flotopic.com/about.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.5</priority>\n  </url>',
+        f'  <url>\n    <loc>https://flotopic.com/terms.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.3</priority>\n  </url>',
+        f'  <url>\n    <loc>https://flotopic.com/privacy.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.3</priority>\n  </url>',
     ]
     for t in top:
         tid = t.get('topicId', '')
@@ -439,7 +443,7 @@ def generate_and_upload_sitemap(topics):
             ContentType='application/xml',
             CacheControl='no-cache, must-revalidate',
         )
-        print(f'[Processor] sitemap.xml 更新完了 ({len(top)+2}件)')
+        print(f'[Processor] sitemap.xml 更新完了 ({len(top)+6}件)')
     except Exception as e:
         print(f'[Processor] sitemap.xml 更新エラー: {e}')
 
