@@ -90,6 +90,33 @@ cat /Users/murakaminaoya/.claude/projects/-Users-murakaminaoya-ai-company/memory
 - `aiGenerated=True` はClaudeが実際に結果を返した時だけセットする
 - 失敗時に True を書くと「処理済み」と誤認して永遠に再処理されなくなる
 
+### DynamoDB の SK（ソートキー）は FilterExpression に使えない
+- `FilterExpression=Attr('SK').eq('SNAP#...')` → ValidationException で落ちる
+- SK の範囲絞り込みは必ず `KeyConditionExpression=DKey('SK').between(...)` を使う
+- 実際に lifecycle Lambda の `delete_old_snaps` で発生して修正済み（2026-04-25）
+
+### ARCHIVE_DAYS はサービス稼働期間に合わせる
+- 稼働2週間のサービスに ARCHIVE_DAYS=30 を設定すると、lifecycle が一切発動しない
+- 設定値はサービス年齢（稼働期間）の 1/3 程度を目安にする
+  - 稼働1ヶ月未満 → 7日
+  - 稼働3ヶ月 → 14日
+  - 稼働1年以上 → 30日
+
+### DynamoDB ゾンビトピック（lastArticleAt=0・低スコア）は lifecycle が週次削除する
+- `lastArticleAt=0 かつ score < 20` のトピックは低品質ゾンビとして削除対象
+- DynamoDB item count が topics.json 件数の **20倍以上** になったら lifecycle を手動実行する
+  ```bash
+  aws lambda invoke --function-name flotopic-lifecycle \
+    --region ap-northeast-1 --invocation-type Event \
+    --payload '{}' /tmp/lc.json
+  # 約15分後に CloudWatch で 'Lifecycle sweep:' を確認
+  ```
+
+### pending_ai.json は processor が管理する。手動で全クリアしない
+- `pending_ai.json` の zombie ID クリーンアップは processor が自動で行う（削除済みID = DynamoDB に存在しないIDを除外）
+- 手動クリーンアップが必要なのは、processor が全く動いていない状況のみ
+- fetcher が毎回20件ずつ orphan（AI未処理トピック）を追加する設計になっている（2026-04-25実装）
+
 ---
 
 ## ⚠️ deploy.sh は直接実行しない（2026-04-25 変更）
