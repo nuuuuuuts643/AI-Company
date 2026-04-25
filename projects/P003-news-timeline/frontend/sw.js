@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flotopic-v14';
+const CACHE_NAME = 'flotopic-dev'; // デプロイ時にgit SHAで上書きされる（手動バージョン管理禁止）
 
 // config.js は絶対にキャッシュしない（APIのURLが変わると全機能が壊れるため）
 const NEVER_CACHE = ['/config.js'];
