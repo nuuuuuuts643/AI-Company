@@ -452,13 +452,18 @@ async function loadComments(topicId) {
 // ── 投稿フォームのアバター更新 ────────────────────────────────────
 function updatePostAvatar() {
   const col = document.getElementById('post-avatar-col');
-  if (!col) return;
-  if (currentUser && currentUser.picture) {
-    col.innerHTML = `<img class="cx-post-avatar" src="${esc(currentUser.picture)}" alt=""
+  if (!col || !currentUser) return;
+  // flotopic_avatar（localStorage）> Googleプロフィール画像 の優先順位
+  let pic = '';
+  try { pic = localStorage.getItem('flotopic_avatar') || ''; } catch {}
+  if (!pic) pic = currentUser.picture || '';
+  const init = initials(currentUser.name || '?');
+  if (pic) {
+    col.innerHTML = `<img class="cx-post-avatar" src="${esc(pic)}" alt=""
       onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` +
-      `<div class="cx-post-avatar-init" style="display:none">${esc(initials(currentUser.name || '?'))}</div>`;
-  } else if (currentUser) {
-    col.innerHTML = `<div class="cx-post-avatar-init">${esc(initials(currentUser.name || '?'))}</div>`;
+      `<div class="cx-post-avatar-init" style="display:none">${esc(init)}</div>`;
+  } else {
+    col.innerHTML = `<div class="cx-post-avatar-init">${esc(init)}</div>`;
   }
 }
 
@@ -486,14 +491,12 @@ function setupCommentForm(topicId) {
   // アバター表示
   updatePostAvatar();
 
-  // ハンドル表示
+  // ハンドル表示（ハンドルがあれば @handle のみ、なければ表示名）
   const handleDisplayEl = document.getElementById('post-handle-display');
   if (handleDisplayEl) {
     const profile = getProfile();
     const handle  = profile.handle || '';
-    handleDisplayEl.textContent = handle
-      ? `@${handle}  ·  ${getDisplayName(currentUser)}`
-      : getDisplayName(currentUser);
+    handleDisplayEl.textContent = handle ? `@${handle}` : getDisplayName(currentUser);
   }
 
   // @メンションサジェスト
