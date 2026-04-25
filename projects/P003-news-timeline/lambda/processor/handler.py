@@ -54,7 +54,11 @@ def lambda_handler(event, context):
         gen_title    = topic.get('generatedTitle')
         ai_succeeded = False
 
-        if cnt >= MIN_ARTICLES_FOR_TITLE:
+        # 既にAI処理済み(aiGenerated=True)かつタイトルがあればタイトル再生成をスキップ
+        # → APIコスト半減・スループット2倍
+        needs_title = (cnt >= MIN_ARTICLES_FOR_TITLE
+                       and not (topic.get('aiGenerated') and gen_title))
+        if needs_title:
             new_title = generate_title(articles)
             if new_title:
                 gen_title    = new_title
