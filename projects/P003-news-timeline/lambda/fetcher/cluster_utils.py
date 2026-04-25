@@ -59,7 +59,13 @@ def cluster(articles):
                 continue
             if cluster_size.get(ri, 1) + cluster_size.get(rj, 1) > MAX_CLUSTER_SIZE:
                 continue
-            if jaccard(articles[i]['title'], articles[j]['title']) >= JACCARD_THRESHOLD:
+            wi = normalize(articles[i]['title']) - STOP_WORDS
+            wj = normalize(articles[j]['title']) - STOP_WORDS
+            shared = wi & wj
+            # 共通の有意義な単語が2つ未満なら絶対に結合しない（誤クラスタ防止）
+            if len(shared) < 2:
+                continue
+            if len(shared) / len(wi | wj) >= JACCARD_THRESHOLD:
                 new_size = cluster_size.get(ri, 1) + cluster_size.get(rj, 1)
                 union(i, j)
                 cluster_size[find(i)] = new_size

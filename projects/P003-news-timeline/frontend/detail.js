@@ -261,17 +261,22 @@ function renderDetail(data) {
           };
         };
 
+        // 記事数の推移（SNAPデータから）
+        const artLabel = aggregate ? '記事数（日次）' : '記事数（30分ごと）';
         if (chartInstance) chartInstance.destroy();
         chartInstance = new Chart(canvas.getContext('2d'), {
           type: 'bar',
-          data: { labels: vLabels, datasets: [{ label:'閲覧数増減（昨日比）', data: vDelta,
-            backgroundColor: vDelta.map(v => v >= 0 ? 'rgba(16,185,129,.85)' : 'rgba(239,68,68,.75)'),
+          data: { labels, datasets: [{ label: artLabel, data: mediaCnts,
+            backgroundColor: mediaCnts.map((v, i) => {
+              const prev = i > 0 ? mediaCnts[i-1] : 0;
+              return v > prev ? 'rgba(99,102,241,.75)' : v < prev ? 'rgba(239,68,68,.55)' : 'rgba(99,102,241,.4)';
+            }),
             borderRadius: 4, borderSkipped: false }]},
           options: {
             responsive: true, maintainAspectRatio: false,
             interaction: { mode:'index', intersect:false },
             plugins: { legend: { display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}} }, zoom: zoomOpts },
-            scales: { y: makeScaleDelta(vDelta) },
+            scales: { y: makeScaleY0(mediaCnts) },
           },
         });
 

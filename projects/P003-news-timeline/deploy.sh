@@ -378,7 +378,7 @@ echo "  -> Fetcher: 30分ごとの自動実行を設定完了"
 # cron(分 時 日 月 曜 年) ← AWS EventBridge書式
 PROCESSOR_RULE_ARN=$(aws events put-rule \
   --name "p003-processor-schedule" \
-  --schedule-expression "cron(0 22,3,9 * * ? *)" \
+  --schedule-expression "cron(0 22,3,9,15 * * ? *)" \
   --state ENABLED \
   --region "$REGION" \
   --query RuleArn --output text)
