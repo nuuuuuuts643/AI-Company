@@ -556,6 +556,7 @@ def lambda_handler(event, context):
         generate_rss(topics, ts_iso)
         generate_sitemap(topics)
 
+        _TOPIC_INTERNAL = {'SK', 'pendingAI', 'ttl'}
         s3_written = 0
         for tid in saved_ids:
             meta, snaps, views = get_topic_detail(tid)
@@ -564,8 +565,9 @@ def lambda_handler(event, context):
                 meta['relatedTopics'] = related_map.get(tid, [])
                 if tid in child_to_parent:   meta['parentTopicId'] = child_to_parent[tid]
                 if tid in parent_to_children: meta['childTopics']   = parent_to_children[tid]
+                meta_public = {k: v for k, v in meta.items() if k not in _TOPIC_INTERNAL}
                 write_s3(f'api/topic/{tid}.json', {
-                    'meta': meta,
+                    'meta': meta_public,
                     'timeline': [
                         {'timestamp':    s['timestamp'],
                          'articleCount': s['articleCount'],
