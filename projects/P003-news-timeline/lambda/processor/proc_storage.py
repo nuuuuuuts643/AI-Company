@@ -520,6 +520,8 @@ def generate_and_upload_sitemap(topics):
         f'  <url>\n    <loc>https://flotopic.com/about.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.5</priority>\n  </url>',
         f'  <url>\n    <loc>https://flotopic.com/terms.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.3</priority>\n  </url>',
         f'  <url>\n    <loc>https://flotopic.com/privacy.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.3</priority>\n  </url>',
+        f'  <url>\n    <loc>https://flotopic.com/tokushoho.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.3</priority>\n  </url>',
+        f'  <url>\n    <loc>https://flotopic.com/contact.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.4</priority>\n  </url>',
     ]
     for t in top:
         tid = t.get('topicId', '')
