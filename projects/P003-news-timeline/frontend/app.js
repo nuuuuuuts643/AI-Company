@@ -362,7 +362,12 @@ function renderTopics(topics) {
   let list = topics;
   if (currentSearch) {
     const q = currentSearch.toLowerCase();
-    list = list.filter(t => (t.generatedTitle||t.title||'').toLowerCase().includes(q));
+    list = list.filter(t => {
+      const title = (t.generatedTitle || t.title || '').toLowerCase();
+      const summary = cleanSummary(t.generatedSummary || '').toLowerCase();
+      const genre = (t.genre || '').toLowerCase();
+      return title.includes(q) || summary.includes(q) || genre.includes(q);
+    });
   }
   // 記事1件かつスコア5未満のスタブトピックは品質が低いのでフィードから除外
   list = list.filter(t => parseInt(t.articleCount) >= 2);
