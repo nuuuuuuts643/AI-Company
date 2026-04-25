@@ -34,15 +34,8 @@ class CardSystem {
       attackType = AttackType.melee;
     }
 
-    // 支援ユニットのスキルを付与
-    final skills = <UnitSkillId>[];
-    if (card.isSupport && card.element == ElementType.light) {
-      skills.add(UnitSkillId.healAura);
-    }
-    if (!card.isSupport && card.element == ElementType.wind &&
-        card.attackRange >= 200) {
-      skills.add(UnitSkillId.blessingAura);
-    }
+    // カード定義のスキルをそのまま使用（可変リストにして resurrection 等の消費スキルに対応）
+    final skills = List<UnitSkillId>.from(card.cardSkills);
 
     return UnitInstance(
       instanceId: _uuid.v4(),
@@ -57,7 +50,7 @@ class CardSystem {
       rowIndex: rowIndex,
       aoeRadius: card.aoeRadius,
       displayName: card.name,
-      emoji: _elementEmoji(card.element),
+      emoji: card.emoji.isNotEmpty ? card.emoji : _elementEmoji(card.element),
       skills: skills,
     );
   }

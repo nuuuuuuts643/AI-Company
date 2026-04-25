@@ -47,7 +47,8 @@ class TerrainEntry {
     required this.laneIndex,
     required this.y,
     double? duration,
-  }) : remainingDuration = duration ?? type.defaultDuration;
+    bool permanent = false,
+  }) : remainingDuration = permanent ? null : (duration ?? type.defaultDuration);
 
   bool get expired =>
       remainingDuration != null && remainingDuration! <= 0;

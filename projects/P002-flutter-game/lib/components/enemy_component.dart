@@ -66,18 +66,24 @@ class EnemyComponent extends PositionComponent with CollisionCallbacks {
 
   String get _spriteName {
     switch (enemyData.type) {
-      case EnemyType.goblin:        return 'enemy_goblin.png';
-      case EnemyType.goblinShaman:  return 'enemy_goblin_shaman.png';
-      case EnemyType.orc:           return 'enemy_orc.png';
-      case EnemyType.orcBerserker:  return 'enemy_orc_berserker.png';
-      case EnemyType.fireDrake:     return 'enemy_fire_drake.png';
-      case EnemyType.seaSerpent:    return 'enemy_sea_serpent.png';
-      case EnemyType.windWraith:    return 'enemy_wind_wraith.png';
-      case EnemyType.stoneGolem:    return 'enemy_stone_golem.png';
-      case EnemyType.darkKnight:    return 'enemy_dark_knight.png';
-      case EnemyType.shadowBat:     return 'enemy_shadow_bat.png';
-      case EnemyType.lichKing:      return 'enemy_lich_king.png';
-      case EnemyType.shadowLord:    return 'enemy_shadow_lord.png';
+      case EnemyType.goblin:          return 'enemy_goblin.png';
+      case EnemyType.goblinShaman:    return 'enemy_goblin_shaman.png';
+      case EnemyType.orc:             return 'enemy_orc.png';
+      case EnemyType.orcBerserker:    return 'enemy_orc_berserker.png';
+      case EnemyType.fireDrake:       return 'enemy_fire_drake.png';
+      case EnemyType.seaSerpent:      return 'enemy_sea_serpent.png';
+      case EnemyType.windWraith:      return 'enemy_wind_wraith.png';
+      case EnemyType.stoneGolem:      return 'enemy_stone_golem.png';
+      case EnemyType.darkKnight:      return 'enemy_dark_knight.png';
+      case EnemyType.shadowBat:       return 'enemy_shadow_bat.png';
+      case EnemyType.crystalGolem:    return 'enemy_stone_golem.png';
+      case EnemyType.flameGuardian:   return 'enemy_fire_drake.png';
+      case EnemyType.poisonSpore:     return 'enemy_wind_wraith.png';
+      case EnemyType.thunderWyvern:   return 'enemy_fire_drake.png';
+      case EnemyType.cursedKnight:    return 'enemy_dark_knight.png';
+      case EnemyType.shadowAssassin:  return 'enemy_shadow_bat.png';
+      case EnemyType.lichKing:        return 'enemy_lich_king.png';
+      case EnemyType.shadowLord:      return 'enemy_shadow_lord.png';
     }
   }
 
@@ -349,18 +355,24 @@ class EnemyComponent extends PositionComponent with CollisionCallbacks {
 
   String get _enemyEmoji {
     switch (enemyData.type) {
-      case EnemyType.goblin:        return '👺';
-      case EnemyType.goblinShaman:  return '🧙';
-      case EnemyType.orc:           return '💪';
-      case EnemyType.orcBerserker:  return '😤';
-      case EnemyType.fireDrake:     return '🐲';
-      case EnemyType.seaSerpent:    return '🐍';
-      case EnemyType.windWraith:    return '👻';
-      case EnemyType.stoneGolem:    return '🗿';
-      case EnemyType.darkKnight:    return '🖤';
-      case EnemyType.shadowBat:     return '🦇';
-      case EnemyType.lichKing:      return '💀';
-      case EnemyType.shadowLord:    return '🌑';
+      case EnemyType.goblin:          return '👺';
+      case EnemyType.goblinShaman:    return '🧙';
+      case EnemyType.orc:             return '💪';
+      case EnemyType.orcBerserker:    return '😤';
+      case EnemyType.fireDrake:       return '🐲';
+      case EnemyType.seaSerpent:      return '🐍';
+      case EnemyType.windWraith:      return '👻';
+      case EnemyType.stoneGolem:      return '🗿';
+      case EnemyType.darkKnight:      return '🖤';
+      case EnemyType.shadowBat:       return '🦇';
+      case EnemyType.crystalGolem:    return '💎';
+      case EnemyType.flameGuardian:   return '🔥';
+      case EnemyType.poisonSpore:     return '☁️';
+      case EnemyType.thunderWyvern:   return '⚡';
+      case EnemyType.cursedKnight:    return '💜';
+      case EnemyType.shadowAssassin:  return '🗡️';
+      case EnemyType.lichKing:        return '💀';
+      case EnemyType.shadowLord:      return '🌑';
     }
   }
 
@@ -500,18 +512,25 @@ class _EnemyPixelArt {
   static void draw(Canvas c, EnemyType type, double elapsed, double stepPhase,
       bool frozen, bool burning) {
     switch (type) {
-      case EnemyType.goblin:        _goblin(c, elapsed, stepPhase); break;
-      case EnemyType.goblinShaman:  _shaman(c, elapsed, stepPhase); break;
-      case EnemyType.orc:           _orc(c, elapsed, stepPhase); break;
-      case EnemyType.orcBerserker:  _berserker(c, elapsed, stepPhase); break;
-      case EnemyType.fireDrake:     _drake(c, elapsed, stepPhase); break;
-      case EnemyType.seaSerpent:    _serpent(c, elapsed, stepPhase); break;
-      case EnemyType.windWraith:    _wraith(c, elapsed, stepPhase); break;
-      case EnemyType.stoneGolem:    _golem(c, elapsed, stepPhase); break;
-      case EnemyType.darkKnight:    _darkKnight(c, elapsed, stepPhase); break;
-      case EnemyType.shadowBat:     _bat(c, elapsed, stepPhase); break;
-      case EnemyType.lichKing:      _lich(c, elapsed, stepPhase); break;
-      case EnemyType.shadowLord:    _shadowLord(c, elapsed, stepPhase); break;
+      case EnemyType.goblin:          _goblin(c, elapsed, stepPhase); break;
+      case EnemyType.goblinShaman:    _shaman(c, elapsed, stepPhase); break;
+      case EnemyType.orc:             _orc(c, elapsed, stepPhase); break;
+      case EnemyType.orcBerserker:    _berserker(c, elapsed, stepPhase); break;
+      case EnemyType.fireDrake:       _drake(c, elapsed, stepPhase); break;
+      case EnemyType.seaSerpent:      _serpent(c, elapsed, stepPhase); break;
+      case EnemyType.windWraith:      _wraith(c, elapsed, stepPhase); break;
+      case EnemyType.stoneGolem:      _golem(c, elapsed, stepPhase); break;
+      case EnemyType.darkKnight:      _darkKnight(c, elapsed, stepPhase); break;
+      case EnemyType.shadowBat:       _bat(c, elapsed, stepPhase); break;
+      // 新規敵は既存アートを色違いで流用
+      case EnemyType.crystalGolem:    _crystalGolem(c, elapsed, stepPhase); break;
+      case EnemyType.flameGuardian:   _flameGuardian(c, elapsed, stepPhase); break;
+      case EnemyType.poisonSpore:     _poisonSpore(c, elapsed, stepPhase); break;
+      case EnemyType.thunderWyvern:   _thunderWyvern(c, elapsed, stepPhase); break;
+      case EnemyType.cursedKnight:    _cursedKnight(c, elapsed, stepPhase); break;
+      case EnemyType.shadowAssassin:  _shadowAssassin(c, elapsed, stepPhase); break;
+      case EnemyType.lichKing:        _lich(c, elapsed, stepPhase); break;
+      case EnemyType.shadowLord:      _shadowLord(c, elapsed, stepPhase); break;
     }
   }
 
@@ -925,5 +944,145 @@ class _EnemyPixelArt {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3 + sin(t + i) * 1.5);
     }
+  }
+
+  // --- 水晶ゴーレム: 青白の結晶体 ---
+  static void _crystalGolem(Canvas c, double t, double step) {
+    final pulse = sin(t * 2) * 0.5 + 0.5;
+    // 体（六角形風）
+    _rect(c, const Color(0xFF4DD0E1), -10, -8, 20, 18);
+    _rect(c, const Color(0xFF00BCD4), -7, -14, 14, 8);
+    _rect(c, const Color(0xFF00BCD4), -7, 10, 14, 8);
+    // 結晶の輝き
+    _rect(c, Color.fromARGB((100 + (pulse * 80).round()), 178, 235, 242), -5, -12, 10, 24);
+    // 目（青白く光る）
+    _circ(c, const Color(0xFFE0F7FA), const Offset(-4, -4), 4);
+    _circ(c, const Color(0xFFE0F7FA), const Offset(4, -4), 4);
+    _circ(c, Color.fromARGB((180 + (pulse * 70).round()), 0, 229, 255), const Offset(-4, -4), 2);
+    _circ(c, Color.fromARGB((180 + (pulse * 70).round()), 0, 229, 255), const Offset(4, -4), 2);
+    // 腕（結晶の突起）
+    _rect(c, const Color(0xFF00BCD4), -18, -4, 8, 6);
+    _rect(c, const Color(0xFF00BCD4), 10, -4, 8, 6);
+  }
+
+  // --- 炎の守護者: 赤オレンジの翼付き炎人 ---
+  static void _flameGuardian(Canvas c, double t, double step) {
+    final flicker = sin(t * 8) * 2;
+    // 翼（炎色）
+    final wingL = Path()
+      ..moveTo(-8, 0)..lineTo(-22, -16 + flicker)..lineTo(-8, -12)..close();
+    final wingR = Path()
+      ..moveTo(8, 0)..lineTo(22, -16 + flicker)..lineTo(8, -12)..close();
+    c.drawPath(wingL, _p(const Color(0xFFFF5722)));
+    c.drawPath(wingR, _p(const Color(0xFFFF5722)));
+    // 体
+    _rect(c, const Color(0xFFE53935), -8, -6, 16, 16);
+    // 頭（炎のオーラ）
+    _circ(c, const Color(0xFFFF7043), const Offset(0, -12), 9);
+    _circ(c, const Color(0xFFFFCC02), Offset(0, -12 + flicker * 0.3), 5);
+    // 目（黄）
+    _circ(c, Colors.yellow, const Offset(-3, -13), 2);
+    _circ(c, Colors.yellow, const Offset(3, -13), 2);
+  }
+
+  // --- 毒胞子: 緑紫の幽霊状 ---
+  static void _poisonSpore(Canvas c, double t, double step) {
+    final bob = sin(t * 3) * 3;
+    // 体（半透明な球状）
+    _circ(c, const Color(0xFF7B1FA2), Offset(0, bob), 13);
+    _circ(c, const Color(0xFF9C27B0), Offset(0, bob - 2), 9);
+    // 毒の粒子
+    for (int i = 0; i < 4; i++) {
+      final a = t * 2 + i * pi / 2;
+      _circ(c, const Color(0xFF69F0AE),
+          Offset(cos(a) * 14, sin(a) * 8 + bob), 2.5);
+    }
+    // 目（赤紫）
+    _circ(c, const Color(0xFFEA80FC), Offset(-4, bob - 1), 3);
+    _circ(c, const Color(0xFFEA80FC), Offset(4, bob - 1), 3);
+    // 触手
+    for (int i = 0; i < 3; i++) {
+      final ox = (i - 1) * 6.0;
+      c.drawLine(Offset(ox, 10 + bob), Offset(ox + sin(t * 3 + i) * 4, 18 + bob),
+          Paint()..color = const Color(0xFF6A1B9A)..strokeWidth = 2.5);
+    }
+  }
+
+  // --- 雷竜: 紫青の鱗、電気エフェクト ---
+  static void _thunderWyvern(Canvas c, double t, double step) {
+    final legSwing = sin(step * pi) * 4;
+    // 翼（折りたたみ）
+    _rect(c, const Color(0xFF3949AB), -18, -8, 10, 12);
+    _rect(c, const Color(0xFF3949AB), 8, -8, 10, 12);
+    // 体
+    _rect(c, const Color(0xFF5C6BC0), -9, -6, 18, 16);
+    // 頭
+    _circ(c, const Color(0xFF7986CB), const Offset(0, -14), 10);
+    // 角
+    c.drawLine(const Offset(-4, -22), const Offset(-8, -30),
+        Paint()..color = const Color(0xFF9FA8DA)..strokeWidth = 2.5);
+    c.drawLine(const Offset(4, -22), const Offset(8, -30),
+        Paint()..color = const Color(0xFF9FA8DA)..strokeWidth = 2.5);
+    // 目（電気色）
+    _circ(c, const Color(0xFFFFFF00), const Offset(-3, -14), 2.5);
+    _circ(c, const Color(0xFFFFFF00), const Offset(3, -14), 2.5);
+    // 電気の閃光
+    if ((t * 6).floor() % 3 == 0) {
+      _rect(c, const Color(0xAAFFFF00), -2, -6, 4, 16);
+    }
+    // 脚
+    _rect(c, const Color(0xFF3949AB), -7, 10, 5, 8 + legSwing.abs() ~/ 1 * 0);
+    _rect(c, const Color(0xFF3949AB), 2, 10, 5, 8);
+  }
+
+  // --- 呪いの騎士: 暗紫の重装甲 ---
+  static void _cursedKnight(Canvas c, double t, double step) {
+    final legSwing = sin(step * pi) * 3;
+    final aura = sin(t * 4) * 0.5 + 0.5;
+    // 呪いのオーラ
+    _circ(c, Color.fromARGB((40 + (aura * 30).round()), 156, 39, 176),
+        const Offset(0, 0), 20);
+    // 鎧（暗紫）
+    _rect(c, const Color(0xFF4A148C), -9, -6, 18, 18);
+    _rect(c, const Color(0xFF6A1B9A), -10, -8, 20, 6);
+    // 兜
+    _rect(c, const Color(0xFF311B92), -9, -18, 18, 12);
+    _rect(c, const Color(0xFF4527A0), -6, -14, 12, 8);
+    // 目の隙間（紫に光る）
+    _rect(c, Color.fromARGB((200 + (aura * 55).round()), 234, 128, 252), -5, -14, 10, 3);
+    // 盾
+    _rect(c, const Color(0xFF4A148C), -17, -4, 7, 12);
+    _rect(c, const Color(0xFF7B1FA2), -16, -3, 5, 10);
+    // 剣
+    c.drawLine(const Offset(12, -2), const Offset(20, -14),
+        Paint()..color = const Color(0xFFCE93D8)..strokeWidth = 3);
+    // 脚
+    _rect(c, const Color(0xFF311B92), -7, 12, 6, 8 + legSwing.abs() ~/ 1 * 0);
+    _rect(c, const Color(0xFF311B92), 1, 12, 6, legSwing > 0 ? 10 : 6);
+  }
+
+  // --- 影の刺客: 超高速の黒い人影 ---
+  static void _shadowAssassin(Canvas c, double t, double step) {
+    final dash = sin(step * pi * 2) * 3;
+    // 残像（速度感）
+    _rect(c, const Color(0x3313131E), -5 + dash * 2, -8, 10, 18);
+    _rect(c, const Color(0x2213131E), -5 + dash * 4, -6, 8, 14);
+    // 体（細身）
+    _rect(c, const Color(0xFF13131E), -5, -8, 10, 18);
+    // 頭巾
+    final hood = Path()
+      ..moveTo(-7, -10)..lineTo(0, -24)..lineTo(7, -10)..close();
+    c.drawPath(hood, _p(const Color(0xFF1A1A2E)));
+    // 目（赤い三角形）
+    _circ(c, const Color(0xFFEF5350), const Offset(-2.5, -12), 2);
+    _circ(c, const Color(0xFFEF5350), const Offset(2.5, -12), 2);
+    // 短剣2本
+    c.drawLine(Offset(8 + dash, -4), Offset(16 + dash, -12),
+        Paint()..color = const Color(0xFFB0BEC5)..strokeWidth = 2);
+    c.drawLine(Offset(-8 - dash, -4), Offset(-16 - dash, -12),
+        Paint()..color = const Color(0xFFB0BEC5)..strokeWidth = 2);
+    // 脚（高速移動）
+    _rect(c, const Color(0xFF1A1A2E), -4, 10, 4, 6 + dash.abs());
+    _rect(c, const Color(0xFF1A1A2E), 0, 10, 4, 6);
   }
 }

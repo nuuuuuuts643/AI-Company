@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../game/game_state.dart';
 import '../game/octo_battle_game.dart';
+import '../constants/element_chart.dart';
 import '../constants/strings.dart';
 import '../models/stage_data.dart';
 import '../services/audio_service.dart';
@@ -47,6 +48,10 @@ class _BattleScreenState extends State<BattleScreen>
   // チュートリアルヒント（初回のみ）
   bool _showTutorial = false;
 
+  // 配備フェーズ（バトル開始前）
+  bool _formationPhase = true;
+  int _formationCountdown = 10;
+
   // コマンダースキル
   static const _cmdSkillMaxCd = 35.0;
   double _cmdSkillCd = 0.0; // 0=使用可能, >0=クールダウン中
@@ -80,6 +85,7 @@ class _BattleScreenState extends State<BattleScreen>
       if (mounted) {
         final seen = context.read<GameStateNotifier>().tutorialSeen;
         if (!seen) setState(() => _showTutorial = true);
+        _startFormationCountdown();
       }
     });
 
@@ -176,24 +182,16 @@ class _BattleScreenState extends State<BattleScreen>
           DragTarget<String>(
             onAcceptWithDetails: (details) {
               _game?.handleCardDrop(details.data, details.offset);
+              _game?.setDraggingCard(false);
             },
+            onLeave: (_) => _game?.setDraggingCard(false),
             builder: (ctx, candidateItems, _) {
-              return Stack(
-                children: [
-                  Positioned.fill(child: GameWidget(game: _game!)),
-                  if (candidateItems.isNotEmpty)
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              );
+              // ドラッグ状態をゲームに通知
+              final dragging = candidateItems.isNotEmpty;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _game?.setDraggingCard(dragging);
+              });
+              return Positioned.fill(child: GameWidget(game: _game!));
             },
           ),
 
@@ -207,6 +205,19 @@ class _BattleScreenState extends State<BattleScreen>
 
           // ---- HUD オーバーレイ（Flutter） ----
           SafeArea(child: _buildHUD()),
+
+          // ---- ウェーブ間インターバルヒント（次の敵・弱点表示） ----
+          if ((_game?.isLoaded ?? false) &&
+              (_game?.waveSystem.isInInterval ?? false) &&
+              !_showShop && !_showExtraction && !_showBoonSelect)
+            Positioned(
+              top: 72,
+              left: 8,
+              right: 8,
+              child: SafeArea(
+                child: _WaveIntervalHint(game: _game!),
+              ),
+            ),
 
           // ---- チュートリアルヒント（初回のみ）----
           if (_showTutorial)
@@ -320,6 +331,13 @@ class _BattleScreenState extends State<BattleScreen>
                 boons: _boonChoices,
                 onSelected: _onBoonSelected,
               ),
+            ),
+
+          // ---- 配備フェーズオーバーレイ ----
+          if (_formationPhase)
+            _FormationOverlay(
+              countdown: _formationCountdown,
+              onStart: _endFormation,
             ),
         ],
       ),
@@ -534,6 +552,25 @@ class _BattleScreenState extends State<BattleScreen>
     });
   }
 
+  void _startFormationCountdown() {
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted || !_formationPhase) return false;
+      if (_formationCountdown <= 1) {
+        _endFormation();
+        return false;
+      }
+      setState(() => _formationCountdown--);
+      return true;
+    });
+  }
+
+  void _endFormation() {
+    if (!mounted || !_formationPhase) return;
+    setState(() => _formationPhase = false);
+    _game?.endFormation();
+  }
+
   void _handleCardPlaced(String cardId, int laneIndex) {}
 
   void _handleChainTriggered(int chainCount, double damage) {
@@ -563,6 +600,9 @@ class _BattleScreenState extends State<BattleScreen>
         changed = true;
       }
     }
+    // ウェーブ間インターバル中はカウントダウン表示のため常にリビルド
+    // isLoaded チェックで onLoad() 前のアクセスを防ぐ
+    if ((_game?.isLoaded ?? false) && (_game?.waveSystem.isInInterval ?? false)) changed = true;
     if (changed && mounted) setState(() {});
   }
 
@@ -1783,6 +1823,277 @@ class _WaveClearOverlay extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ---- ウェーブ間インターバルヒント ----
+// 次ウェーブの敵属性と弱点を表示して戦略的な準備を促す
+
+class _WaveIntervalHint extends StatelessWidget {
+  final OctoBattleGame game;
+  const _WaveIntervalHint({required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    final mainElem = game.waveSystem.nextWaveMainElement;
+    final weakElem = mainElem != null ? ElementChart.getWeaknessOf(mainElem) : null;
+    final countdown = game.waveSystem.intervalCountdown.ceil();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xE60D0D1A),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF2A2A4A), width: 1.5),
+        boxShadow: const [BoxShadow(color: Color(0xAA000000), blurRadius: 10)],
+      ),
+      child: Row(
+        children: [
+          // カウントダウン
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$countdown',
+                style: const TextStyle(
+                  color: Color(0xFF69F0AE),
+                  fontFamily: 'DotGothic16',
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Text(
+                '準備',
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontFamily: 'DotGothic16',
+                  fontSize: 9,
+                ),
+              ),
+            ],
+          ),
+
+          Container(width: 1, height: 40, color: const Color(0xFF2A2A4A),
+              margin: const EdgeInsets.symmetric(horizontal: 12)),
+
+          if (mainElem != null) ...[
+            // 次ウェーブの主要属性
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(mainElem.emoji, style: const TextStyle(fontSize: 22)),
+                Text(
+                  '次: ${mainElem.label}属性',
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontFamily: 'DotGothic16',
+                    fontSize: 9,
+                  ),
+                ),
+              ],
+            ),
+
+            if (weakElem != null) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Text('→', style: TextStyle(color: Colors.white30, fontSize: 18)),
+              ),
+              // 弱点属性（有利候補）
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Color(weakElem.colorValue).withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: Color(weakElem.colorValue).withAlpha(120), width: 1.5),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(weakElem.emoji, style: const TextStyle(fontSize: 22)),
+                    Text(
+                      '×2.0！',
+                      style: TextStyle(
+                        color: Color(weakElem.colorValue),
+                        fontFamily: 'DotGothic16',
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ] else ...[
+            const Text(
+              'ウェーブ準備中...',
+              style: TextStyle(
+                color: Colors.white38,
+                fontFamily: 'DotGothic16',
+                fontSize: 11,
+              ),
+            ),
+          ],
+
+          const Spacer(),
+
+          // 右端: 配置ヒント
+          const Text(
+            '⬇️ カードを\nレーンに配置',
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              color: Colors.white24,
+              fontFamily: 'DotGothic16',
+              fontSize: 8,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================
+// 配備フェーズオーバーレイ（バトル開始前）
+// =============================================================
+class _FormationOverlay extends StatelessWidget {
+  final int countdown;
+  final VoidCallback onStart;
+
+  const _FormationOverlay({required this.countdown, required this.onStart});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        ignoring: false,
+        child: Stack(
+          children: [
+            // 下半分のみ暗く（上部フィールドは見える）
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 320,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.82),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // 上部の指示パネル
+            Positioned(
+              top: 80,
+              left: 20,
+              right: 20,
+              child: SafeArea(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xDD0D0D1A),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFFE082).withOpacity(0.6), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFFE082).withOpacity(0.2),
+                        blurRadius: 16,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Text('⚔️', style: TextStyle(fontSize: 24)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '配備フェーズ',
+                              style: TextStyle(
+                                color: Color(0xFFFFE082),
+                                fontFamily: 'DotGothic16',
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'ユニットをグリッドに配置しよう\n前列・後列で役割を分担！',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontFamily: 'DotGothic16',
+                                fontSize: 11,
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // BATTLE STARTボタン（下部中央）
+            Positioned(
+              bottom: 210,
+              left: 40,
+              right: 40,
+              child: GestureDetector(
+                onTap: onStart,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE65100), Color(0xFFBF360C)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0xAAE65100), blurRadius: 20, spreadRadius: 2),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        '⚔️ BATTLE START!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'DotGothic16',
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'カウントダウン: $countdown 秒',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontFamily: 'DotGothic16',
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

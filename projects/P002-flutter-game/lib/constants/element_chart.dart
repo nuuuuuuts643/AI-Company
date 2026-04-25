@@ -56,8 +56,8 @@ extension ElementTypeLabel on ElementType {
 ///   闇 → 土（闇が大地を侵食）
 class ElementChart {
   /// attacker の属性が defender に与えるダメージ倍率を返す
-  /// 1.5 = 弱点（クリティカル演出）
-  /// 0.6 = 耐性（減衰演出）
+  /// 2.0 = 弱点（クリティカル演出）
+  /// 0.5 = 耐性（減衰演出）
   /// 1.0 = 通常
   static double getMultiplier(ElementType attacker, ElementType defender) {
     return _chart[attacker]?[defender] ?? 1.0;
@@ -73,10 +73,10 @@ class ElementChart {
     return getMultiplier(attacker, defender) < 1.0;
   }
 
-  /// この属性の弱点（1.5x を与える属性）を返す。なければ null
+  /// この属性の弱点（2.0x を与える属性）を返す。なければ null
   static ElementType? getWeaknessOf(ElementType defender) {
     for (final attacker in ElementType.values) {
-      if ((getMultiplier(attacker, defender)) >= 1.5) return attacker;
+      if ((getMultiplier(attacker, defender)) >= 2.0) return attacker;
     }
     return null;
   }
@@ -91,43 +91,43 @@ class ElementChart {
 
   static const Map<ElementType, Map<ElementType, double>> _chart = {
     ElementType.fire: {
-      ElementType.wind:  1.5, // 火は風に強い（炎が風をあおる）
-      ElementType.water: 0.6, // 火は水に弱い
+      ElementType.wind:  2.0, // 火は風に強い（炎が風をあおる）
+      ElementType.water: 0.5, // 火は水に弱い
       ElementType.earth: 1.0,
       ElementType.light: 1.0,
       ElementType.dark:  1.0,
     },
     ElementType.water: {
-      ElementType.fire:  1.5, // 水は火に強い
-      ElementType.earth: 1.5, // 水は土を侵食
-      ElementType.wind:  0.6, // 水は風に弱い（蒸発）
+      ElementType.fire:  2.0, // 水は火に強い
+      ElementType.earth: 2.0, // 水は土を侵食
+      ElementType.wind:  0.5, // 水は風に弱い（蒸発）
       ElementType.light: 1.0,
       ElementType.dark:  1.0,
     },
     ElementType.wind: {
-      ElementType.earth: 1.5, // 風は土に強い（砂嵐）
-      ElementType.light: 1.5, // 風は光を分散
-      ElementType.fire:  0.6, // 風は火に弱い
+      ElementType.earth: 2.0, // 風は土に強い（砂嵐）
+      ElementType.light: 2.0, // 風は光を分散
+      ElementType.fire:  0.5, // 風は火に弱い
       ElementType.water: 1.0,
       ElementType.dark:  1.0,
     },
     ElementType.earth: {
-      ElementType.fire:  1.5, // 土は火に強い（地盤が炎を抑制）
-      ElementType.dark:  1.5, // 土は闇に強い（大地の力）
-      ElementType.water: 0.6, // 土は水に弱い
-      ElementType.wind:  0.6, // 土は風に弱い
+      ElementType.fire:  2.0, // 土は火に強い（地盤が炎を抑制）
+      ElementType.dark:  2.0, // 土は闇に強い（大地の力）
+      ElementType.water: 0.5, // 土は水に弱い
+      ElementType.wind:  0.5, // 土は風に弱い
       ElementType.light: 1.0,
     },
     ElementType.light: {
-      ElementType.dark:  1.5, // 光は闇に強い
-      ElementType.wind:  0.6, // 光は風に弱い
+      ElementType.dark:  2.0, // 光は闇に強い
+      ElementType.wind:  0.5, // 光は風に弱い
       ElementType.fire:  1.0,
       ElementType.water: 1.0,
       ElementType.earth: 1.0,
     },
     ElementType.dark: {
-      ElementType.light: 1.5, // 闇は光に強い
-      ElementType.earth: 0.6, // 闇は土に弱い
+      ElementType.light: 2.0, // 闇は光に強い
+      ElementType.earth: 0.5, // 闇は土に弱い
       ElementType.fire:  1.0,
       ElementType.water: 1.0,
       ElementType.wind:  1.0,

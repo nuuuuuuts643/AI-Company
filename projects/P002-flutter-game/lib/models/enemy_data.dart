@@ -22,6 +22,13 @@ enum EnemyType {
   stoneGolem,
   darkKnight,
   shadowBat,
+  // 新規敵
+  crystalGolem,   // 水晶ゴーレム: 超重装甲・水2x・armorBreak必須
+  flameGuardian,  // 炎の守護者: 火属性・飛行・水/土2x
+  poisonSpore,    // 毒胞子: 闇属性・鈍足・光2x
+  thunderWyvern,  // 雷竜: 風属性・突進・火2x
+  cursedKnight,   // 呪いの騎士: 闇属性・重装甲・光2x
+  shadowAssassin, // 影の刺客: 闇属性・超高速ジグザグ・光2x
   lichKing,       // ボス
   shadowLord,     // ボス
 }
@@ -31,7 +38,9 @@ extension EnemyTypeInfo on EnemyType {
   bool get isElite =>
       this == EnemyType.goblinShaman ||
       this == EnemyType.orcBerserker ||
-      this == EnemyType.darkKnight;
+      this == EnemyType.darkKnight ||
+      this == EnemyType.cursedKnight ||
+      this == EnemyType.flameGuardian;
 }
 
 /// 敵1体のマスターデータ
@@ -214,6 +223,94 @@ class EnemyMaster {
       goldDrop: 1,
       dropRate: 0.2,
       dropMaterialId: 'mat_bat_wing',
+    ),
+
+    // ---- 新規敵 ----
+    EnemyType.crystalGolem: EnemyData(
+      type: EnemyType.crystalGolem,
+      name: '水晶ゴーレム',
+      element: ElementType.earth,
+      maxHp: 780,
+      attackPower: 95,
+      moveSpeed: 28.0,
+      movement: MovementPattern.tank,
+      scoreValue: 500,
+      goldDrop: 8,
+      dropRate: 0.75,
+      dropMaterialId: 'mat_crystal_shard',
+      hasArmor: true,
+      armorHp: 280,
+    ),
+    EnemyType.flameGuardian: EnemyData(
+      type: EnemyType.flameGuardian,
+      name: '炎の守護者',
+      element: ElementType.fire,
+      maxHp: 320,
+      attackPower: 65,
+      moveSpeed: 92.0,
+      movement: MovementPattern.flying,
+      scoreValue: 280,
+      goldDrop: 5,
+      dropRate: 0.6,
+      dropMaterialId: 'mat_flame_core',
+      hasArmor: true,
+      armorHp: 60,
+    ),
+    EnemyType.poisonSpore: EnemyData(
+      type: EnemyType.poisonSpore,
+      name: '瘴気の怨霊',
+      element: ElementType.dark,
+      maxHp: 260,
+      attackPower: 55,
+      moveSpeed: 52.0,
+      movement: MovementPattern.tank,
+      scoreValue: 200,
+      goldDrop: 4,
+      dropRate: 0.5,
+      dropMaterialId: 'mat_miasma_orb',
+    ),
+    EnemyType.thunderWyvern: EnemyData(
+      type: EnemyType.thunderWyvern,
+      name: '雷竜',
+      element: ElementType.wind,
+      maxHp: 400,
+      attackPower: 75,
+      moveSpeed: 158.0,
+      movement: MovementPattern.rush,
+      scoreValue: 350,
+      goldDrop: 6,
+      dropRate: 0.65,
+      dropMaterialId: 'mat_thunder_fang',
+      hasArmor: true,
+      armorHp: 80,
+    ),
+    EnemyType.cursedKnight: EnemyData(
+      type: EnemyType.cursedKnight,
+      name: '呪いの騎士',
+      element: ElementType.dark,
+      maxHp: 380,
+      attackPower: 80,
+      moveSpeed: 70.0,
+      movement: MovementPattern.straight,
+      scoreValue: 320,
+      goldDrop: 5,
+      dropRate: 0.65,
+      dropMaterialId: 'mat_cursed_blade',
+      hasArmor: true,
+      armorHp: 120,
+    ),
+    EnemyType.shadowAssassin: EnemyData(
+      type: EnemyType.shadowAssassin,
+      name: '影の刺客',
+      element: ElementType.dark,
+      maxHp: 160,
+      attackPower: 35,
+      moveSpeed: 225.0,
+      movement: MovementPattern.zigzag,
+      scoreValue: 250,
+      goldDrop: 4,
+      dropRate: 0.55,
+      dropMaterialId: 'mat_shadow_blade',
     ),
 
     // ---- ボス ----

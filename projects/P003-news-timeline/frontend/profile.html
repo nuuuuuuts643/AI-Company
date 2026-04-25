@@ -9,14 +9,14 @@
   <meta name="robots" content="noindex">
   <title>プロフィール | Flotopic</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://accounts.google.com/gsi/client" async defer onload="if(window.__gsiReady)window.__gsiReady()"></script>
   <style>
     * { box-sizing: border-box; }
 
-    /* ===== Hero Banner ===== */
+    /* ===== Hero ===== */
     .prof-hero {
-      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%);
-      padding-top: 80px;
-      padding-bottom: 0;
+      background: linear-gradient(150deg, #1e1b4b 0%, #312e81 40%, #4338ca 70%, #6d28d9 100%);
+      padding: 80px 0 60px;
       position: relative;
       overflow: hidden;
     }
@@ -25,126 +25,167 @@
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(circle at 70% 50%, rgba(99,102,241,0.35) 0%, transparent 60%),
-        radial-gradient(circle at 10% 80%, rgba(56,189,248,0.2) 0%, transparent 50%);
+        radial-gradient(ellipse at 80% 40%, rgba(139,92,246,0.45) 0%, transparent 55%),
+        radial-gradient(ellipse at 10% 80%, rgba(56,189,248,0.25) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 110%, rgba(99,102,241,0.3) 0%, transparent 50%);
       pointer-events: none;
     }
+    .prof-hero::after {
+      content: '';
+      position: absolute;
+      bottom: -1px; left: 0; right: 0;
+      height: 48px;
+      background: linear-gradient(to bottom, transparent, var(--bg, #f8fafc));
+      pointer-events: none;
+    }
+    [data-theme="dark"] .prof-hero::after {
+      background: linear-gradient(to bottom, transparent, #13141f);
+    }
 
-    /* ===== Profile Card ===== */
-    .prof-card {
-      max-width: 580px;
+    .prof-hero-inner {
+      max-width: 600px;
       margin: 0 auto;
-      padding: 0 16px;
-    }
-    .prof-avatar-wrap {
-      display: flex;
-      align-items: flex-end;
-      gap: 16px;
-      padding-bottom: 14px;
+      padding: 0 20px;
       position: relative;
-      margin-top: -44px;
-      z-index: 2;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 20px;
     }
-    .prof-avatar {
-      width: 88px;
-      height: 88px;
+
+    /* ===== Avatar ===== */
+    .prof-avatar-hero {
+      width: 96px; height: 96px;
       border-radius: 50%;
-      border: 4px solid #fff;
-      box-shadow: 0 4px 16px rgba(0,0,0,.25);
+      border: 4px solid rgba(255,255,255,0.3);
+      box-shadow: 0 0 0 4px rgba(139,92,246,0.4), 0 8px 32px rgba(0,0,0,0.3);
       object-fit: cover;
       flex-shrink: 0;
-      background: #e5e7eb;
+      background: #4f46e5;
     }
-    .prof-avatar-init {
-      width: 88px;
-      height: 88px;
+    .prof-avatar-init-hero {
+      width: 96px; height: 96px;
       border-radius: 50%;
-      border: 4px solid #fff;
-      box-shadow: 0 4px 16px rgba(0,0,0,.25);
+      border: 4px solid rgba(255,255,255,0.3);
+      box-shadow: 0 0 0 4px rgba(139,92,246,0.4), 0 8px 32px rgba(0,0,0,0.3);
       background: linear-gradient(135deg, #4f46e5, #7c3aed);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 2.2rem;
-      font-weight: 700;
+      font-size: 2.5rem;
+      font-weight: 800;
       color: #fff;
       flex-shrink: 0;
     }
 
-    /* ===== Profile Info ===== */
-    .prof-info-section {
-      max-width: 580px;
-      margin: 0 auto;
-      padding: 0 16px 20px;
-      background: var(--card-bg, #fff);
+    .prof-hero-info { flex: 1; min-width: 0; }
+    .prof-hero-name {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
-    .prof-name {
-      font-size: 1.2rem;
-      font-weight: 700;
-      color: var(--text-primary, #0f172a);
-      margin-bottom: 2px;
-    }
-    .prof-handle-badge {
-      display: inline-block;
-      font-size: .82rem;
-      font-weight: 600;
-      color: #6366f1;
+    .prof-hero-handle {
+      font-size: .9rem;
+      color: rgba(255,255,255,0.7);
       margin-bottom: 12px;
     }
-    .prof-stats {
+    .prof-hero-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .prof-edit-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      border-radius: 999px;
+      border: 1.5px solid rgba(255,255,255,0.4);
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      font-size: .82rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background .15s;
+      font-family: inherit;
+    }
+    .prof-edit-btn:hover { background: rgba(255,255,255,0.2); }
+
+    /* ===== Stats strip ===== */
+    .prof-stats-strip {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 16px 20px 0;
       display: flex;
       gap: 0;
-      border-top: 1px solid var(--border, #f1f5f9);
-      padding-top: 14px;
-      margin-top: 4px;
+      border-bottom: 1px solid var(--border, #e8eaf0);
     }
-    .prof-stat {
+    .prof-stat-item {
       flex: 1;
       text-align: center;
-      padding: 4px 8px;
-      border-right: 1px solid var(--border, #f1f5f9);
+      padding: 8px 4px 16px;
     }
-    .prof-stat:last-child { border-right: none; }
     .prof-stat-num {
       display: block;
-      font-size: 1.3rem;
-      font-weight: 700;
+      font-size: 1.5rem;
+      font-weight: 800;
       color: var(--text-primary, #0f172a);
-      line-height: 1.2;
+      line-height: 1.1;
     }
     .prof-stat-label {
       display: block;
       font-size: .72rem;
       color: var(--text-muted, #94a3b8);
-      margin-top: 2px;
+      margin-top: 3px;
     }
+    [data-theme="dark"] .prof-stat-num { color: #eef0f8; }
 
-    /* ===== Content area ===== */
-    .prof-content {
-      max-width: 580px;
+    /* ===== Tabs ===== */
+    .prof-tabs {
+      max-width: 600px;
       margin: 0 auto;
-      padding: 16px 16px 60px;
+      display: flex;
+      border-bottom: 1px solid var(--border, #e8eaf0);
     }
-    .prof-section-label {
-      font-size: .75rem;
-      font-weight: 700;
+    .prof-tab {
+      flex: 1;
+      padding: 12px 8px;
+      text-align: center;
+      font-size: .85rem;
+      font-weight: 600;
       color: var(--text-muted, #94a3b8);
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      margin-bottom: 10px;
-      padding: 0 2px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color .15s, border-color .15s;
+      font-family: inherit;
     }
+    .prof-tab.active {
+      color: #6366f1;
+      border-bottom-color: #6366f1;
+    }
+    .prof-tab:hover:not(.active) { color: var(--text-secondary, #475569); }
 
-    /* ===== Comment Cards (X-style) ===== */
+    /* ===== Content ===== */
+    .prof-content {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 16px 16px 80px;
+    }
+    .prof-panel { display: none; }
+    .prof-panel.active { display: block; }
+
+    /* ===== Comment Cards ===== */
     .pc-card {
       background: var(--card-bg, #fff);
       border: 1px solid var(--border, #e8eaf0);
       border-radius: 14px;
       padding: 14px 16px;
       margin-bottom: 10px;
-      transition: box-shadow .15s;
+      transition: box-shadow .15s, transform .1s;
     }
-    .pc-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.07); }
+    .pc-card:hover { box-shadow: 0 4px 16px rgba(99,102,241,0.1); transform: translateY(-1px); }
     .pc-topic-link {
       display: inline-flex;
       align-items: center;
@@ -154,15 +195,15 @@
       color: #6366f1;
       text-decoration: none;
       margin-bottom: 8px;
-      padding: 3px 8px;
-      background: rgba(99,102,241,0.07);
+      padding: 3px 10px;
+      background: rgba(99,102,241,0.08);
       border-radius: 20px;
       max-width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .pc-topic-link:hover { background: rgba(99,102,241,0.14); }
+    .pc-topic-link:hover { background: rgba(99,102,241,0.16); }
     .pc-quoted {
       background: var(--bg-secondary, #f8fafc);
       border-left: 3px solid #6366f1;
@@ -195,20 +236,75 @@
       color: #f43f5e;
       font-weight: 600;
     }
+    [data-theme="dark"] .pc-card { background: #1e2035; border-color: rgba(99,102,241,0.15); }
+    [data-theme="dark"] .pc-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+    [data-theme="dark"] .pc-body { color: #d4d8f0; }
+    [data-theme="dark"] .pc-quoted { background: #252840; }
 
-    /* ===== Back button ===== */
-    .prof-back {
-      display: inline-flex;
+    /* ===== Topic list (トピックタブ) ===== */
+    .pt-card {
+      display: flex;
       align-items: center;
-      gap: 5px;
-      color: var(--text-muted, #64748b);
+      gap: 12px;
+      background: var(--card-bg, #fff);
+      border: 1px solid var(--border, #e8eaf0);
+      border-radius: 14px;
+      padding: 12px 16px;
+      margin-bottom: 8px;
       text-decoration: none;
-      font-size: .84rem;
-      padding: 6px 0;
-      margin-bottom: 14px;
-      transition: color .15s;
+      transition: box-shadow .15s, transform .1s;
     }
-    .prof-back:hover { color: var(--text-primary, #0f172a); }
+    .pt-card:hover { box-shadow: 0 4px 16px rgba(99,102,241,0.1); transform: translateY(-1px); }
+    [data-theme="dark"] .pt-card { background: #1e2035; border-color: rgba(99,102,241,0.15); }
+    .pt-icon { font-size: 1.2rem; flex-shrink: 0; }
+    .pt-body { flex: 1; min-width: 0; }
+    .pt-title {
+      font-size: .9rem;
+      font-weight: 600;
+      color: var(--text-primary, #0f172a);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+    [data-theme="dark"] .pt-title { color: #eef0f8; }
+    .pt-cnt { font-size: .74rem; color: var(--text-muted, #94a3b8); }
+    .pt-arrow { color: var(--text-muted, #94a3b8); font-size: .85rem; flex-shrink: 0; }
+
+    /* ===== Genre breakdown ===== */
+    .genre-bar-wrap { margin-bottom: 8px; }
+    .genre-bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: .78rem;
+      margin-bottom: 4px;
+      color: var(--text-secondary, #475569);
+    }
+    [data-theme="dark"] .genre-bar-label { color: #9ba3c4; }
+    .genre-bar-track {
+      height: 6px;
+      background: var(--bg-secondary, #f1f5f9);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    [data-theme="dark"] .genre-bar-track { background: #252840; }
+    .genre-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #6366f1, #8b5cf6);
+      transition: width .6s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ===== Section label ===== */
+    .prof-section-label {
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--text-muted, #94a3b8);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      margin-top: 20px;
+    }
 
     /* ===== Loading / empty ===== */
     .prof-loading {
@@ -218,36 +314,9 @@
       font-size: .9rem;
     }
 
-    /* ===== White surface below hero ===== */
-    .prof-surface {
-      background: var(--card-bg, #fff);
-      border-radius: 0 0 20px 20px;
-      box-shadow: 0 2px 16px rgba(0,0,0,.07);
-      margin-bottom: 4px;
-    }
-
-    /* ===== Hero spacer (for fixed header) ===== */
-    .prof-hero-spacer { height: 24px; }
-
     /* ===== Dark mode ===== */
-    [data-theme="dark"] .prof-hero {
-      background: linear-gradient(135deg, #0a0b14 0%, #0e0c3b 55%, #1a175e 100%);
-    }
-    [data-theme="dark"] .prof-avatar { border-color: #1e2035; }
-    [data-theme="dark"] .prof-avatar-init { border-color: #1e2035; }
-    [data-theme="dark"] .prof-surface { background: #1e2035; box-shadow: 0 2px 16px rgba(0,0,0,.4); }
-    [data-theme="dark"] .prof-info-section { background: #1e2035; }
-    [data-theme="dark"] .prof-name { color: #eef0f8; }
-    [data-theme="dark"] .prof-stat-num { color: #eef0f8; }
-    [data-theme="dark"] .prof-stat { border-right-color: rgba(99,102,241,0.15); }
-    [data-theme="dark"] .prof-stats { border-top-color: rgba(99,102,241,0.15); }
-    [data-theme="dark"] .pc-card { background: #1e2035; border-color: rgba(99,102,241,0.15); }
-    [data-theme="dark"] .pc-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.3); }
-    [data-theme="dark"] .pc-body { color: #d4d8f0; }
-    [data-theme="dark"] .pc-quoted { background: #252840; border-left-color: #6366f1; }
-    [data-theme="dark"] .prof-back { color: #5c6080; }
-    [data-theme="dark"] .prof-back:hover { color: #eef0f8; }
-    [data-theme="dark"] .prof-section-label { color: #5c6080; }
+    [data-theme="dark"] .prof-tabs { border-bottom-color: rgba(99,102,241,0.15); }
+    [data-theme="dark"] .prof-stats-strip { border-bottom-color: rgba(99,102,241,0.15); }
   </style>
 </head>
 <body>
@@ -257,44 +326,103 @@
       <h1>Flotopic</h1>
       <p>話題の流れをAIで追う</p>
     </a>
-    <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替">🌙</button>
+    <div class="header-right">
+      <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替">🌙</button>
+      <div class="auth-area">
+        <button id="auth-signin-btn" class="auth-btn" style="display:none;">ログイン</button>
+        <div class="user-menu-wrap" id="user-menu-wrap" style="display:none;">
+          <button class="user-menu-trigger" id="user-menu-trigger" aria-haspopup="menu" aria-expanded="false">
+            <img id="auth-user-avatar" class="auth-user-avatar" src="" alt="">
+            <div id="auth-user-init" class="auth-user-init"></div>
+            <span id="auth-user-name" class="auth-user-name"></span>
+            <span class="user-menu-caret">▾</span>
+          </button>
+          <div class="user-dropdown" id="user-dropdown" role="menu">
+            <a href="mypage.html" class="user-dd-item" role="menuitem">👤 マイページ</a>
+            <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem">ログアウト</button>
+          </div>
+        </div>
+        <button id="auth-signout-btn" style="display:none;"></button>
+        <a id="auth-user-link" style="display:none;"></a>
+        <a id="mypage-link" style="display:none;"></a>
+      </div>
+    </div>
   </div>
 </header>
 
-<!-- Hero: gradient banner -->
+<!-- Auth modal -->
+<div id="auth-modal" class="auth-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="ログイン">
+  <div class="auth-modal-inner">
+    <button id="auth-modal-close" class="auth-modal-close" aria-label="閉じる">×</button>
+    <div class="auth-modal-logo">🌊 Flotopic</div>
+    <h2 class="auth-modal-title">ログイン / 新規登録</h2>
+    <p class="auth-modal-desc">コメント・お気に入りを<br>どのデバイスでも同期</p>
+    <div id="auth-modal-google-wrap" class="auth-modal-provider-wrap"></div>
+    <p class="auth-modal-terms">続けることで<a href="terms.html" target="_blank">利用規約</a>と<a href="privacy.html" target="_blank">プライバシーポリシー</a>に同意します</p>
+  </div>
+</div>
+
+<!-- Hero -->
 <div class="prof-hero">
-  <div class="prof-hero-spacer"></div>
-</div>
-
-<!-- White card below hero, overlapping banner -->
-<div class="prof-surface">
-  <div class="prof-card">
-    <div class="prof-avatar-wrap">
-      <div id="prof-avatar-el" class="prof-avatar-init">?</div>
-    </div>
-  </div>
-  <div class="prof-info-section">
-    <div id="prof-name" class="prof-name">読み込み中...</div>
-    <div id="prof-handle" class="prof-handle-badge"></div>
-    <div class="prof-stats">
-      <div class="prof-stat">
-        <span id="prof-count" class="prof-stat-num">—</span>
-        <span class="prof-stat-label">コメント</span>
-      </div>
-      <div class="prof-stat">
-        <span id="prof-likes" class="prof-stat-num">—</span>
-        <span class="prof-stat-label">獲得いいね</span>
+  <div class="prof-hero-inner">
+    <div id="prof-avatar-el" class="prof-avatar-init-hero">?</div>
+    <div class="prof-hero-info">
+      <div id="prof-name" class="prof-hero-name">読み込み中...</div>
+      <div id="prof-handle" class="prof-hero-handle"></div>
+      <div class="prof-hero-actions">
+        <a id="prof-edit-btn" href="mypage.html" class="prof-edit-btn" style="display:none;">✏️ プロフィール編集</a>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Comment history -->
+<!-- Stats -->
+<div class="prof-stats-strip">
+  <div class="prof-stat-item">
+    <span id="prof-count" class="prof-stat-num">—</span>
+    <span class="prof-stat-label">コメント</span>
+  </div>
+  <div class="prof-stat-item">
+    <span id="prof-likes" class="prof-stat-num">—</span>
+    <span class="prof-stat-label">獲得いいね</span>
+  </div>
+  <div class="prof-stat-item">
+    <span id="prof-topics-count" class="prof-stat-num">—</span>
+    <span class="prof-stat-label">参加トピック</span>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="prof-tabs">
+  <button class="prof-tab active" data-tab="comments">💬 コメント</button>
+  <button class="prof-tab" data-tab="topics">📰 トピック</button>
+  <button class="prof-tab" data-tab="stats">📊 分析</button>
+</div>
+
+<!-- Content -->
 <div class="prof-content">
-  <a href="javascript:history.back()" class="prof-back">← 戻る</a>
-  <div class="prof-section-label">コメント履歴</div>
-  <div id="history-list">
-    <div class="prof-loading"><div class="spinner" style="margin:0 auto 12px;"></div>読み込み中...</div>
+  <!-- コメントタブ -->
+  <div class="prof-panel active" id="panel-comments">
+    <div id="history-list">
+      <div class="prof-loading"><div class="spinner" style="margin:0 auto 12px;"></div>読み込み中...</div>
+    </div>
+  </div>
+
+  <!-- トピックタブ -->
+  <div class="prof-panel" id="panel-topics">
+    <div id="topics-list">
+      <div class="prof-loading">読み込み中...</div>
+    </div>
+  </div>
+
+  <!-- 分析タブ -->
+  <div class="prof-panel" id="panel-stats">
+    <div class="prof-section-label">コメントしたジャンル</div>
+    <div id="genre-breakdown">
+      <div class="prof-loading">読み込み中...</div>
+    </div>
+    <div class="prof-section-label" style="margin-top:24px;">アクティビティ</div>
+    <div id="activity-summary"></div>
   </div>
 </div>
 
@@ -308,6 +436,7 @@
 
 <script src="config.js"></script>
 <script src="js/theme.js"></script>
+<script src="js/auth.js"></script>
 <script>
 const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -327,13 +456,25 @@ function fmtDate(iso) {
 async function loadTopicTitleMap() {
   try {
     const apiBase = (typeof API_BASE !== 'undefined') ? API_BASE : '';
-    const r = await fetch(apiBase + 'topics.json');
+    const r = await fetch(apiBase + 'api/topics.json');
     const data = await r.json();
     const map = {};
-    (data.topics || []).forEach(t => { map[t.topicId] = t.generatedTitle || t.title || ''; });
+    (data.topics || []).forEach(t => {
+      map[t.topicId] = { title: t.generatedTitle || t.title || '', genre: t.genre || '' };
+    });
     return map;
   } catch { return {}; }
 }
+
+// タブ切り替え
+document.querySelectorAll('.prof-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.prof-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.prof-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
 
 async function loadProfile() {
   const params = new URLSearchParams(location.search);
@@ -346,10 +487,35 @@ async function loadProfile() {
 
   document.title = `@${handle} | Flotopic`;
   document.getElementById('prof-handle').textContent = '@' + handle;
-  // Avatar initials from handle
   const initial = handle.charAt(0).toUpperCase();
   const avatarEl = document.getElementById('prof-avatar-el');
   avatarEl.textContent = initial;
+
+  // 自分のプロフィールならアバター画像を表示
+  try {
+    const user = JSON.parse(localStorage.getItem('flotopic_user') || 'null');
+    const savedAvatar = localStorage.getItem('flotopic_avatar') || '';
+    const picture = savedAvatar || (user && user.picture) || '';
+    if (picture) {
+      avatarEl.textContent = '';
+      avatarEl.style.background = 'none';
+      avatarEl.style.padding = '0';
+      const img = document.createElement('img');
+      img.src = picture;
+      img.alt = handle;
+      img.style.cssText = 'width:100%;height:100%;border-radius:50%;object-fit:cover;';
+      img.onerror = () => { avatarEl.textContent = initial; avatarEl.style.background = ''; };
+      avatarEl.appendChild(img);
+    }
+  } catch {}
+
+  // 自分のプロフィールなら編集ボタン表示
+  try {
+    const prof = JSON.parse(localStorage.getItem('flotopic_profile') || '{}');
+    if (prof.handle && prof.handle === handle) {
+      document.getElementById('prof-edit-btn').style.display = 'inline-flex';
+    }
+  } catch {}
 
   if (typeof _APIGW === 'undefined' || !_APIGW) {
     document.getElementById('history-list').innerHTML = '<div class="prof-loading">設定が読み込まれていません</div>';
@@ -357,7 +523,7 @@ async function loadProfile() {
   }
 
   try {
-    const [commRes, titleMap] = await Promise.all([
+    const [commRes, topicMap] = await Promise.all([
       fetch(`${_APIGW}/user/${encodeURIComponent(handle)}/comments`),
       loadTopicTitleMap(),
     ]);
@@ -370,32 +536,108 @@ async function loadProfile() {
     const totalLikes = comments.reduce((s, c) => s + (Number(c.likeCount) || 0), 0);
     document.getElementById('prof-likes').textContent = totalLikes;
 
+    // ユニークトピック
+    const topicCounts = {};
+    comments.forEach(c => {
+      topicCounts[c.topicId] = (topicCounts[c.topicId] || 0) + 1;
+    });
+    const uniqueTopics = Object.keys(topicCounts);
+    document.getElementById('prof-topics-count').textContent = uniqueTopics.length;
+
+    // ===== コメントタブ =====
     const listEl = document.getElementById('history-list');
     if (!comments.length) {
       listEl.innerHTML = '<div class="prof-loading">まだコメントはありません</div>';
-      return;
+    } else {
+      listEl.innerHTML = comments.map(c => {
+        const info = topicMap[c.topicId] || {};
+        const topicLabel = info.title || 'このトピックを見る';
+        const topicUrl   = `topic.html?id=${esc(c.topicId)}`;
+        const likes = Number(c.likeCount) || 0;
+        const quoted = c.quotedHandle ? `
+          <div class="pc-quoted">
+            <span class="pc-quoted-handle">@${esc(c.quotedHandle)}</span>${esc(c.quotedText || '')}
+          </div>` : '';
+        return `
+          <div class="pc-card">
+            <a class="pc-topic-link" href="${topicUrl}">📰 ${esc(topicLabel)}</a>
+            ${quoted}
+            <div class="pc-body">${esc(c.body)}</div>
+            <div class="pc-meta">
+              <span>${fmtDate(c.createdAt)}</span>
+              ${likes ? `<span class="pc-like-badge">♥ ${likes}</span>` : ''}
+            </div>
+          </div>`;
+      }).join('');
     }
 
-    listEl.innerHTML = comments.map(c => {
-      const topicTitle = titleMap[c.topicId] || '';
-      const topicLabel = topicTitle || 'このトピックを見る';
-      const topicUrl   = `topic.html?id=${esc(c.topicId)}`;
-      const likes = Number(c.likeCount) || 0;
-      const quoted = c.quotedHandle ? `
-        <div class="pc-quoted">
-          <span class="pc-quoted-handle">@${esc(c.quotedHandle)}</span>${esc(c.quotedText || '')}
-        </div>` : '';
-      return `
-        <div class="pc-card">
-          <a class="pc-topic-link" href="${topicUrl}">📰 ${esc(topicLabel)}</a>
-          ${quoted}
-          <div class="pc-body">${esc(c.body)}</div>
-          <div class="pc-meta">
-            <span>${fmtDate(c.createdAt)}</span>
-            ${likes ? `<span class="pc-like-badge">♥ ${likes}</span>` : ''}
+    // ===== トピックタブ =====
+    const topicsEl = document.getElementById('topics-list');
+    if (!uniqueTopics.length) {
+      topicsEl.innerHTML = '<div class="prof-loading">まだ参加したトピックはありません</div>';
+    } else {
+      const sorted = uniqueTopics.sort((a, b) => topicCounts[b] - topicCounts[a]);
+      topicsEl.innerHTML = sorted.map(tid => {
+        const info = topicMap[tid] || {};
+        const title = info.title || 'トピックを見る';
+        const cnt = topicCounts[tid];
+        return `<a class="pt-card" href="topic.html?id=${esc(tid)}">
+          <span class="pt-icon">📰</span>
+          <div class="pt-body">
+            <div class="pt-title">${esc(title)}</div>
+            <div class="pt-cnt">${cnt}件のコメント</div>
           </div>
-        </div>`;
-    }).join('');
+          <span class="pt-arrow">›</span>
+        </a>`;
+      }).join('');
+    }
+
+    // ===== 分析タブ =====
+    // ジャンル集計
+    const genreCounts = {};
+    comments.forEach(c => {
+      const genre = (topicMap[c.topicId] || {}).genre || 'その他';
+      genreCounts[genre] = (genreCounts[genre] || 0) + 1;
+    });
+    const genreEntries = Object.entries(genreCounts).sort((a,b) => b[1]-a[1]).slice(0, 6);
+    const maxG = genreEntries[0]?.[1] || 1;
+    const gbEl = document.getElementById('genre-breakdown');
+    if (!genreEntries.length) {
+      gbEl.innerHTML = '<div class="prof-loading" style="padding:16px 0;">データがありません</div>';
+    } else {
+      gbEl.innerHTML = genreEntries.map(([g, n]) => `
+        <div class="genre-bar-wrap">
+          <div class="genre-bar-label">
+            <span>${esc(g)}</span>
+            <span>${n}件</span>
+          </div>
+          <div class="genre-bar-track">
+            <div class="genre-bar-fill" style="width:${Math.round(n/maxG*100)}%"></div>
+          </div>
+        </div>`).join('');
+    }
+
+    // アクティビティサマリー
+    const actEl = document.getElementById('activity-summary');
+    const bestComment = [...comments].sort((a,b) => (Number(b.likeCount)||0)-(Number(a.likeCount)||0))[0];
+    const recentComment = comments[0];
+    actEl.innerHTML = `
+      <div class="pc-card" style="margin-bottom:10px;">
+        <div style="font-size:.72rem;font-weight:700;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">最も人気のコメント</div>
+        ${bestComment ? `
+          <div class="pc-body" style="font-size:.88rem;">${esc(bestComment.body)}</div>
+          <div class="pc-meta"><span class="pc-like-badge">♥ ${Number(bestComment.likeCount)||0} いいね</span></div>
+        ` : '<div style="color:var(--text-muted);font-size:.85rem;">まだいいねがありません</div>'}
+      </div>
+      <div class="pc-card">
+        <div style="font-size:.72rem;font-weight:700;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">直近のコメント</div>
+        ${recentComment ? `
+          <a class="pc-topic-link" href="topic.html?id=${esc(recentComment.topicId)}">📰 ${esc((topicMap[recentComment.topicId]||{}).title||'トピックを見る')}</a>
+          <div class="pc-body" style="font-size:.88rem;">${esc(recentComment.body)}</div>
+          <div class="pc-meta"><span>${fmtDate(recentComment.createdAt)}</span></div>
+        ` : ''}
+      </div>`;
+
   } catch {
     document.getElementById('history-list').innerHTML =
       '<div class="prof-loading">読み込みに失敗しました</div>';
