@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flotopic-v12';
+const CACHE_NAME = 'flotopic-v14';
 
 // config.js は絶対にキャッシュしない（APIのURLが変わると全機能が壊れるため）
 const NEVER_CACHE = ['/config.js'];
@@ -9,6 +9,7 @@ const NETWORK_FIRST_ASSETS = [
   '/index.html',
   '/topic.html',
   '/mypage.html',
+  '/profile.html',
   '/catchup.html',
   '/storymap.html',
   '/legacy.html',
@@ -29,11 +30,8 @@ const STATIC_EXTENSIONS = /\.(png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|eot)$/;
 // API paths: network-first
 const API_PATHS = ['/api/'];
 
-// Install: pre-cache + 即座に有効化
+// Install: 事前キャッシュなし（ページロードと競合しないよう遅延キャッシュに変更）
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(NETWORK_FIRST_ASSETS))
-  );
   self.skipWaiting();
 });
 
