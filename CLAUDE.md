@@ -360,7 +360,6 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 ## 未解決の問題 / 素材不足
 
 - **P003 AdSense審査待ち** — 申請済み。通過まで数週間かかる場合あり。それまでは忍者AdMaxで代替。
-- **P003 news.google.comがソースとして表示される問題** — Google Newsアグリゲーター経由の記事でソース名がnews.google.comになる。feedparserのauthor/sourceフィールドで元ソース名を取得する改善が必要。
 - **P003 グラフデータ蓄積中** — 長期グラフ（1ヶ月〜1年）はデータ蓄積後に意味を持つ。
 - **P002 Flutterスプライト素材未作成** — AI生成で後日追加。
 - **P002 BGM本番版未作成** — Suno AIで後日生成・差し替え。
