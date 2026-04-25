@@ -179,7 +179,7 @@ cat /Users/OWNER/.claude/projects/-Users-OWNER-ai-company/memory/MEMORY.md
 | CI (.github/workflows/ci.yml) | ✅ 全テスト通過 | 2026-04-25 | YAML バグ修正済み（2022-04-22以来初めて通過） |
 | sw.js バージョン管理 | ✅ 自動 | 2026-04-25 | git SHA 自動注入。ソースは `flotopic-dev` のまま触るな |
 | deploy-p003.yml | ✅ CloudFront invalidation付き | 2026-04-25 | sw.js SHA注入ステップあり |
-| processor AI要約 | ✅ 稼働中（proc_config修正済み） | 2026-04-25夜 | 4セクション形式・4回/日。proc_config.pyモジュールエラー修正・再デプロイ済み |
+| processor AI要約 | ✅ 稼働中（カバレッジ改善中） | 2026-04-25夜 | 4セクション形式・75件/回・4回/日。pending_ai.json全ID清掃・storyTimeline欠如トピックも対象 |
 | sitemap.xml | ✅ 動的自動生成 | 2026-04-25 | 最新生成確認済み（2026-04-25 19:42）。202URL |
 | news-sitemap.xml | ✅ 実装済み | 2026-04-25 | Google News Sitemap。processor実行時に自動生成。robots.txtに記載済み |
 | rss.xml | ✅ 品質フィルタ済み | 2026-04-25 | 同一イベント重複抑制あり（最大2件/イベント）・株価ticker除外 |
@@ -192,7 +192,7 @@ cat /Users/OWNER/.claude/projects/-Users-OWNER-ai-company/memory/MEMORY.md
 | admin dashboard | ✅ グラフ強化 | 2026-04-25 | velocity分布・AIパイプライングラフ追加済み |
 | lifecycle Lambda | ✅ SNAP自動クリーン | 2026-04-25夜 | ARCHIVE_DAYS=7・filter-feedback・30日超SNAP削除（TTLなし含む）を実装 |
 | lifecycle archived保護 | ✅ 修正済み | 2026-04-25夜 | fetcher が archived を上書きしないよう修正（velocity>0なら再active可） |
-| DynamoDB SNAP肥大化 | ⚠️ 対策中 | 2026-04-25夜 | 784K件・366MB。TTL属性 `ttl` はENABLED済み。旧SNAP(TTLなし)はlifecycle Lambda(週次)が30日超を削除中。新SNAPはTTL=7日付きで自動消滅 |
+| DynamoDB SNAP肥大化 | ⚠️ 対策中 | 2026-04-25夜 | 784K件（ItemCount遅延あり、実際は削減中）。lifecycle Lambda(900s)が週次でSNAP削除。新SNAP TTL=7日。旧444K件(TTLなし)は段階削除中 |
 | 検索機能 | ✅ 強化 | 2026-04-25夜 | タイトル→タイトル+AI要約+ジャンルに拡張 |
 | SEO/OGP | ✅ 全ページ完備 | 2026-04-25夜 | Twitter Card全静的ページ・BreadcrumbList JSON-LD・privacy/terms OGP追加 |
 | Bluesky 自動投稿 | ✅ 稼働 | 2026-04-25 | 毎日05:32 JST 投稿確認済み |
@@ -252,7 +252,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 > セッション開始時に必ずここを確認。着手中の作業があればスキップして次の未完了タスクへ。
 > 作業完了したらすぐに「完了済み」セクションへ移動し、このセクションを空にする。
 
-- **AI要約カバレッジ拡張**（2026-04-25夜セッション着手中）— fetcher で summary欠如の古いトピックを pending_ai.json に追加。変更予定ファイル: `lambda/fetcher/handler.py`
+（なし）
 
 ## 次フェーズのタスク（優先度順）
 
@@ -266,7 +266,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 - ~~about.html FAQ + FAQPage JSON-LD~~ ✅ 2026-04-25 完了
 
 ### 優先度2: コンテンツ品質（Claude実行可能）
-- AI要約カバレッジ向上（pending_ai.json修正・高velocity強制再処理で自動改善中）
+- AI要約カバレッジ向上（21.8%→ 自動改善中。pending_ai.json全清掃・storyTimeline欠如修正・fetcher orphan追加）
 - ~~processor Lambda メモリ 512MB~~ ✅ 確認済み（既に512MB）
 - velocity=0 の停滞トピック → lifecycle Lambda(ARCHIVE_DAYS=7)が次週月曜に自動整理
 - ~~Bluesky 自動投稿~~ ✅ 稼働確認済み
