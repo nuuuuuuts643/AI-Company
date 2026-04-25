@@ -220,8 +220,23 @@ def _is_ticker_topic(t):
     return bool(_TICKER_RE.search(title))
 
 
+def _dedup_topics(items):
+    """generatedTitle（またはtitle）の正規化比較で重複トピックを除去し、スコア上位を残す。"""
+    def _norm(t):
+        s = (t.get('generatedTitle') or t.get('title', '')).lower()
+        s = re.sub(r'[「」【】・、。,!?！？\[\]()（）\s　]+', '', s)
+        return s[:18]
+    seen = {}
+    for t in items:
+        key = _norm(t)
+        if key not in seen or int(t.get('score', 0) or 0) > int(seen[key].get('score', 0) or 0):
+            seen[key] = t
+    return list(seen.values())
+
+
 def _cap_topics(items):
     filtered = [t for t in items if not _is_ticker_topic(t)]
+    filtered = _dedup_topics(filtered)
     filtered.sort(key=lambda x: int(x.get('score', 0) or 0), reverse=True)
     return filtered[:TOPICS_S3_CAP]
 
