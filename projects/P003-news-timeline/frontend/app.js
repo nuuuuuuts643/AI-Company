@@ -265,7 +265,7 @@ function renderReliabilitySignal(t) {
     ? `<span class="reliability-badge" title="複数の記事で不確実な表現が多く見られます">⚠️ 情報確認中</span>`
     : '';
   const conflictBadge = t.hasConflict
-    ? `<span class="conflict-badge" title="記事間で数値に食い違いが見られる場合があります">情報精査中</span>`
+    ? `<span class="conflict-badge" title="記事間で数値に食い違いが見られる場合があります">🔍 情報精査中</span>`
     : '';
   if (!reliabilityBadge && !conflictBadge) return '';
   return `<div class="reliability-signals">${reliabilityBadge}${conflictBadge}</div>`;

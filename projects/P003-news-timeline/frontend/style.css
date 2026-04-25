@@ -487,10 +487,14 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   font-weight: 500;
 }
 .conflict-badge {
-  font-size: .7rem;
-  color: var(--text-muted);
-  background: var(--surface2);
-  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: .68rem;
+  font-weight: 600;
+  color: #d97706;
+  background: rgba(217,119,6,.12);
+  border: 1px solid rgba(217,119,6,.3);
   border-radius: 20px;
   padding: 2px 8px;
 }
@@ -734,6 +738,8 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   z-index: 2;
   letter-spacing: .05em;
 }
+/* in-grid広告はモバイルでは非表示（空スペース防止） */
+@media (max-width: 767px) { .ad-card-wrapper { display: none; } }
 .ad-card-wrapper { width: 100%; grid-column: 1 / -1; }
 .ad-card {
   background: #f8fafc;
@@ -1353,7 +1359,8 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .auth-area { display: flex; align-items: center; gap: 10px; }
 
 /* ===== TOPIC CARD WRAPPER ===== */
-.topic-card-wrapper { position: relative; }
+.topic-card-wrapper { position: relative; display: flex; flex-direction: column; }
+.topic-card-wrapper .topic-card { flex: 1; }
 
 /* ===== FAV BUTTON ===== */
 .fav-btn {
