@@ -114,9 +114,11 @@ function renderDetail(data) {
     const heroEl = document.querySelector('.topic-hero');
     if (heroEl) {
       const safeUrl = meta.imageUrl.replace(/'/g, '%27');
-      heroEl.style.backgroundImage = `linear-gradient(rgba(15,23,42,0.78) 0%, rgba(15,23,42,0.62) 100%), url('${safeUrl}')`;
+      // 暗いオーバーレイ(0.82→0.68)で可読性を保ちつつ画像を見せる
+      heroEl.style.backgroundImage = `linear-gradient(rgba(15,23,42,0.82) 0%, rgba(15,23,42,0.68) 60%, rgba(15,23,42,0.82) 100%), url('${safeUrl}')`;
       heroEl.style.backgroundSize = 'cover';
-      heroEl.style.backgroundPosition = 'center';
+      heroEl.style.backgroundPosition = 'center 30%';  // 画像上部(被写体が多い)を優先
+      heroEl.style.minHeight = '150px';  // 短タイトルでも背景画像が見えるよう最低高さ確保
     }
   }
 
