@@ -220,8 +220,8 @@ cat /Users/OWNER/.claude/projects/-Users-OWNER-ai-company/memory/MEMORY.md
 | CI (.github/workflows/ci.yml) | ✅ 全テスト通過 | 2026-04-25 | YAML バグ修正済み（2022-04-22以来初めて通過） |
 | sw.js バージョン管理 | ✅ 自動 | 2026-04-25 | git SHA 自動注入。ソースは `flotopic-dev` のまま触るな |
 | deploy-p003.yml | ✅ CloudFront invalidation付き | 2026-04-25 | sw.js SHA注入ステップあり |
-| processor AI要約 | ✅ 稼働中（カバレッジ改善中） | 2026-04-26 | storyTimeline: 65.1%（188/289件）・generatedSummary: 74.0%（214件）・imageUrl: 55.7%。3回目手動トリガー中（154件残り）|
-| sitemap.xml | ✅ 動的自動生成 | 2026-04-25 | 最新生成確認済み（2026-04-25 19:42）。202URL |
+| processor AI要約 | ✅ 稼働中 | 2026-04-26 | generatedSummary: 88%(266/301件)・storyTimeline: 78%(235件)・imageUrl: 67%(203件)。4x/day自動実行 |
+| sitemap.xml | ✅ 動的自動生成 | 2026-04-26 | tokushoho.html・contact.html追加。270URL（processor実行時に自動更新） |
 | news-sitemap.xml | ✅ 実装済み | 2026-04-25 | Google News Sitemap。processor実行時に自動生成。robots.txtに記載済み |
 | rss.xml | ✅ 品質フィルタ済み | 2026-04-25 | 同一イベント重複抑制あり（最大2件/イベント）・株価ticker除外 |
 | クラスタリング | ✅ 改善 | 2026-04-25 | 【中継】【速報】等のプレフィックスを除去してからJaccard比較 |
@@ -253,11 +253,17 @@ cat /Users/OWNER/.claude/projects/-Users-OWNER-ai-company/memory/MEMORY.md
 | processor _dedup_topics | ✅ 完了 | 2026-04-26 | topics.json再生成時のAIタイトル生成後重複表示を防止 |
 | fetcher orphan storyTimeline欠如 | ✅ 完了 | 2026-04-26 | generatedSummary+aiGeneratedあり但しstoryTimeline欠如のトピックをorphan追加対象に修正 |
 | モバイル広告ラッパー | ✅ 強化 | 2026-04-26 | position:relative追加でiframeクリッピング確実化 |
-| AI要約カバレッジ | ✅ 65.1% | 2026-04-26 | 16.2%→65.1%まで急改善。processor手動トリガー×3で加速。154件処理中 |
+| AI要約カバレッジ | ✅ 88%/78%/67% | 2026-04-26 | summary88%・timeline78%・imageUrl67%。スケジュール実行で継続改善中 |
 | flotopic-notifications テーブル | ✅ 作成済み | 2026-04-26 | PK=handle/SK=SK/TTL=30日。IAMポリシー(flotopic-least-privilege)に権限追加済み |
 | p003-comments 通知権限 | ✅ 修正済み | 2026-04-26 | AccessDeniedException解消（flotopic-notificationsテーブル+IAM権限追加） |
 | lifecycle SK修正 | ✅ 本番確認済み | 2026-04-26 | 手動実行でValidationExceptionなし。303件削除・エラーなし。週次自動実行に任せてOK |
 | アフィリエイト収益化基盤 | ✅ 実装済み | 2026-04-26 | tokushoho.html作成・privacy.html更新・topic.htmlウィジェット枠・全フッターリンク追加。AFFILIATE_AMAZON_TAG/RAKUTEN_IDをconfig.jsに設定するだけで稼働 |
+| お問い合わせフォーム | ✅ 実装済み | 2026-04-26 | contact.html API連携完了（POST /contact → p003-contact Lambda）。SES検証待ち（PO手動作業必要） |
+| 通知タブ(mypage) | ✅ 実装済み | 2026-04-26 | 🔔 通知パネル追加。loadNotifications()で /notifications/{handle} API呼び出し |
+| catchup.htmlサムネイル | ✅ 完了 | 2026-04-26 | imageUrlがあるトピックにサムネイル表示（80px×80px） |
+| trendingKeywordsストップワード | ✅ 強化 | 2026-04-26 | 動向/影響/情勢等の汎用語を除外。最低出現回数2→3に引き上げ |
+| ダークモード漏れ修正 | ✅ 完了 | 2026-04-26 | legacy.html・storymap.htmlにtheme.js追加 |
+| proc_ai.py日付パース | ✅ 修正済み | 2026-04-26 | Unixタイムスタンプ整数に対応（storyTimelineのpubDate表示修正） |
 
 ## 専門AI稼働状況
 
@@ -295,6 +301,15 @@ cat /Users/OWNER/.claude/projects/-Users-OWNER-ai-company/memory/MEMORY.md
 
 # ② P002動作確認（まだ未実施）
 cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
+
+# ③ SES メール検証（お問い合わせフォームを有効にするために必要）
+#    AWSコンソール → SES → us-east-1 → Identities → owner643@gmail.com
+#    「Send verification email」を押してメール確認。または flotopic.com ドメインのDNSに TXT レコード追加:
+#    _amazonses.flotopic.com TXT smy0Jk1Xcd84rc7DHAlaKGESjlab/ZxzSkRE3aw7xjw=
+#    どちらか1つで OK。DNS は flotopic.com のレジストラで設定。
+
+# ④ tokushoho.html の個人情報記入
+#    frontend/tokushoho.html 内の [TODO: 氏名を記入] を埋める（Amazonアソシエイト審査に必要）
 ```
 
 **待ち（何もしなくていい）**: AdSense審査中（忍者AdMaxで代替中）
@@ -326,7 +341,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 - ~~about.html FAQ + FAQPage JSON-LD~~ ✅ 2026-04-25 完了
 
 ### 優先度2: コンテンツ品質（Claude実行可能）
-- AI要約カバレッジ向上（65.1%。154件処理中。スケジュール実行で自動改善継続）
+- AI要約カバレッジ向上（88%/78%/67%。スケジュール実行(4x/day)で自動改善継続）
 - ~~processor Lambda メモリ 512MB~~ ✅ 確認済み（既に512MB）
 - velocity=0 の停滞トピック → lifecycle Lambda(ARCHIVE_DAYS=7)が次週月曜に自動整理
 - ~~Bluesky 自動投稿~~ ✅ 稼働確認済み
