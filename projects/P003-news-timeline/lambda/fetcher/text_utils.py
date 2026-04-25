@@ -96,6 +96,14 @@ def extract_rss_image(item):
     enc = item.find('enclosure')
     if enc is not None and enc.get('type', '').startswith('image'):
         return enc.get('url')
+    # descriptionのHTML内の<img>タグからも抽出
+    desc = item.findtext('description') or ''
+    if desc:
+        m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', desc, re.I)
+        if m:
+            src = m.group(1)
+            if src.startswith('http') and any(ext in src.lower() for ext in ('.jpg', '.jpeg', '.png', '.webp')):
+                return src
     return None
 
 
