@@ -51,7 +51,7 @@ jobs:
           echo "[OK] fetcher デプロイ完了"
 
       # ----------------------------------------------------------------
-      # processor Lambda（外部ライブラリ不要・boto3はLambdaランタイム内蔵）
+      # processor Lambda（Pillow + NotoSansJP フォント同梱でOGP画像生成対応）
       # ----------------------------------------------------------------
       - name: processor Lambda をデプロイ
         id: deploy_processor
@@ -59,7 +59,18 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           cd projects/P003-news-timeline/lambda/processor
-          zip -q function.zip *.py
+          # Pillow をLambdaランタイム(Amazon Linux 2023 x86_64 / Python3.12)向けにインストール
+          pip install Pillow==10.4.0 \
+            --platform manylinux2014_x86_64 \
+            --target . \
+            --python-version 3.12 \
+            --only-binary=:all: \
+            -q
+          # NotoSansJP フォントをダウンロード（OGP画像の日本語テキスト描画用）
+          curl -sL "https://github.com/google/fonts/raw/main/ofl/notosansjp/static/NotoSansJP-Regular.ttf" \
+            -o NotoSansJP-Regular.ttf \
+            || echo "Warning: Font download failed, OGP will use fallback rendering"
+          zip -qr function.zip . --exclude "*.pyc" --exclude "__pycache__/*"
           aws lambda update-function-code \
             --function-name p003-processor \
             --zip-file fileb://function.zip \
