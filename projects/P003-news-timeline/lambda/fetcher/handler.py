@@ -499,10 +499,28 @@ def lambda_handler(event, context):
             'updatedAt':       ts_iso,
         })
 
-        topic_map   = {t['topicId']: t for t in topics}
-        pending_ids = [tid for tid in saved_ids
-                       if not (topic_map.get(tid, {}).get('aiGenerated') and
-                               topic_map.get(tid, {}).get('generatedSummary'))]
+        topic_map = {t['topicId']: t for t in topics}
+
+        # 今回の未処理ID（新規）
+        new_pending = set(tid for tid in saved_ids
+                          if not (topic_map.get(tid, {}).get('aiGenerated') and
+                                  topic_map.get(tid, {}).get('generatedSummary')))
+
+        # 以前のpending IDを読み込み、まだ未処理のものを引き継ぐ
+        old_pending = []
+        try:
+            resp = s3.get_object(Bucket=S3_BUCKET, Key='api/pending_ai.json')
+            old_data = json.loads(resp['Body'].read())
+            old_pending = old_data.get('topicIds', [])
+        except Exception:
+            pass
+        # 以前のIDのうちaiGenerated+generatedSummaryが揃っているものは除外
+        old_still_pending = [tid for tid in old_pending
+                             if tid not in new_pending
+                             and not (topic_map.get(tid, {}).get('aiGenerated') and
+                                      topic_map.get(tid, {}).get('generatedSummary'))]
+
+        pending_ids = list(new_pending) + old_still_pending
         write_s3('api/pending_ai.json', {'topicIds': pending_ids, 'updatedAt': ts_iso})
         generate_rss(topics, ts_iso)
         generate_sitemap(topics)
