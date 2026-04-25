@@ -8,7 +8,7 @@ from boto3.dynamodb.conditions import Key
 
 from config import (
     S3_BUCKET, TABLE_NAME, CACHE_SK_PREFIX, CLAUDE_CALL_CONDITIONS,
-    SEEN_KEY, SEEN_MAX, SITE_URL, table, s3,
+    SEEN_KEY, SEEN_MAX, SITE_URL, table, s3, dynamodb,
 )
 from score_utils import apply_time_decay
 
@@ -78,12 +78,11 @@ def validate_topics_exist(topics, skip_tids=None):
     if not to_check:
         return topics
     valid_ids = set(skip)
-    client = table.meta.client
     for i in range(0, len(to_check), 100):
         chunk = to_check[i:i+100]
-        keys  = [{'topicId': {'S': t['topicId']}, 'SK': {'S': 'META'}} for t in chunk]
+        keys  = [{'topicId': t['topicId'], 'SK': 'META'} for t in chunk]
         try:
-            resp = client.batch_get_item(
+            resp = dynamodb.batch_get_item(
                 RequestItems={TABLE_NAME: {
                     'Keys': keys,
                     'ProjectionExpression': '#tid',
@@ -91,7 +90,7 @@ def validate_topics_exist(topics, skip_tids=None):
                 }}
             )
             for item in resp.get('Responses', {}).get(TABLE_NAME, []):
-                valid_ids.add(item['topicId']['S'])
+                valid_ids.add(item['topicId'])
         except Exception as e:
             print(f'validate_topics_exist error (chunk {i}): {e}')
             for t in chunk:
