@@ -41,6 +41,7 @@ function updateOGP(meta) {
   setName('twitter:title',       title);
   setName('twitter:description', desc);
   setName('twitter:image',       ogImage);
+  setName('description',         desc);
 
   // canonical URL を動的更新
   const canonical = document.getElementById('canonical-url');
