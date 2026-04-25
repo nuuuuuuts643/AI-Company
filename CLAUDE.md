@@ -299,7 +299,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 
 ### 優先度1: SEO・流入強化（Claude実行可能）
 - ~~Google Search Console でサイトマップ送信~~ ✅ 2026-04-26 完了（/sitemap.xml 送信済み・最終読み込み確認済み）
-- トピック別 OGP 画像生成 → Lambda で topic タイトルを canvas に描画してS3保存
+- ~~トピック別 OGP 画像生成~~ ✅ 2026-04-26 完了（Pillow+NotoSansJP、processor AI処理時に api/ogp/{id}.png 自動生成）
 - ~~Google News サイトマップ追加~~ ✅ 実装済み
 - ~~株価ティッカートピックS3除去~~ ✅ 0件確認済み
 - ~~Twitter Card/OGPメタタグ全ページ追加~~ ✅ 2026-04-25 完了
