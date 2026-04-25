@@ -226,6 +226,45 @@ def update_topic_s3_files_parallel(ai_updates, max_workers=5):
     print(f'[Processor] 個別S3ファイル更新完了 ({len(ai_updates)}件)')
 
 
+def generate_and_upload_sitemap(topics):
+    """topics リストから sitemap.xml を生成して S3 にアップロード。"""
+    if not S3_BUCKET:
+        return
+    from datetime import datetime
+    today = datetime.utcnow().strftime('%Y-%m-%d')
+
+    active = [t for t in topics if t.get('lifecycleStatus') in ('active', 'cooling', '')]
+    active.sort(key=lambda x: float(x.get('velocityScore', 0) or 0), reverse=True)
+    top = active[:200]
+
+    urls = [
+        f'  <url>\n    <loc>https://flotopic.com/</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>hourly</changefreq>\n    <priority>1.0</priority>\n  </url>',
+        f'  <url>\n    <loc>https://flotopic.com/catchup.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>',
+    ]
+    for t in top:
+        tid = t.get('topicId', '')
+        if not tid:
+            continue
+        last = (t.get('lastUpdated') or today)[:10]
+        urls.append(f'  <url>\n    <loc>https://flotopic.com/topic.html?id={tid}</loc>\n    <lastmod>{last}</lastmod>\n    <changefreq>hourly</changefreq>\n    <priority>0.7</priority>\n  </url>')
+
+    sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    sitemap += '\n'.join(urls)
+    sitemap += '\n</urlset>\n'
+
+    try:
+        s3.put_object(
+            Bucket=S3_BUCKET,
+            Key='sitemap.xml',
+            Body=sitemap.encode('utf-8'),
+            ContentType='application/xml',
+            CacheControl='no-cache, must-revalidate',
+        )
+        print(f'[Processor] sitemap.xml 更新完了 ({len(top)+2}件)')
+    except Exception as e:
+        print(f'[Processor] sitemap.xml 更新エラー: {e}')
+
+
 def notify_slack_error(error_msg: str):
     if not SLACK_WEBHOOK:
         return
