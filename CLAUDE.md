@@ -256,6 +256,7 @@ cat /Users/murakaminaoya/.claude/projects/-Users-murakaminaoya-ai-company/memory
 | AI要約カバレッジ | ✅ 65.1% | 2026-04-26 | 16.2%→65.1%まで急改善。processor手動トリガー×3で加速。154件処理中 |
 | flotopic-notifications テーブル | ✅ 作成済み | 2026-04-26 | PK=handle/SK=SK/TTL=30日。IAMポリシー(flotopic-least-privilege)に権限追加済み |
 | p003-comments 通知権限 | ✅ 修正済み | 2026-04-26 | AccessDeniedException解消（flotopic-notificationsテーブル+IAM権限追加） |
+| lifecycle SK修正 | ✅ 本番確認済み | 2026-04-26 | 手動実行でValidationExceptionなし。303件削除・エラーなし。週次自動実行に任せてOK |
 
 ## 専門AI稼働状況
 
