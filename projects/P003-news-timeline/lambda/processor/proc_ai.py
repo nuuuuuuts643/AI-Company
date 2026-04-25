@@ -111,14 +111,14 @@ def generate_story(articles):
         '    {"date": "M/D形式または空文字", "event": "何が起きたか（20文字以内の体言止め）"},\n'
         '    ...\n'
         '  ],\n'
-        '  "phase": "発端 または 拡散 または ピーク または 現在地"\n'
+        '  "phase": "発端 または 拡散 または ピーク または 現在地 または 収束"\n'
         '}\n\n'
         '【各フィールドのルール】\n'
         'aiSummary: 改行・箇条書き・見出し禁止。1段落。メディア名不要。\n'
         'spreadReason: なぜ今・なぜこのトピックが広がったかの構造分析。推測の場合は「〜と見られる」で。\n'
         'forecast: 「今後〜が予想される」「〜の可能性がある」で終える。根拠のない予測禁止。\n'
         'timeline: 3〜6件。重要な転換点のみ。\n'
-        'phase: 発端（始まったばかり）/ 拡散（広がっている）/ ピーク（最も活発）/ 現在地（落ち着いてきた）\n\n'
+        'phase: 発端（始まったばかり）/ 拡散（広がっている）/ ピーク（最も活発）/ 現在地（落ち着いてきた）/ 収束（話題が終息した）\n\n'
         f'記事一覧({article_count}件):\n{headlines}'
     )
 
@@ -161,7 +161,7 @@ def generate_story(articles):
             for e in result['timeline']
             if isinstance(e, dict) and e.get('event')
         ][:6]
-        valid_phases = ('発端', '拡散', 'ピーク', '現在地')
+        valid_phases = ('発端', '拡散', 'ピーク', '現在地', '収束')
         if result.get('phase') not in valid_phases:
             result['phase'] = '現在地'
         # spreadReason / forecast は文字列に正規化（なければ空文字）
