@@ -1209,7 +1209,7 @@
     const savedAvatar = (() => { try { return localStorage.getItem('flotopic_avatar') || ''; } catch { return ''; } })();
     const picUrl = savedAvatar || (user && user.picture ? safeEsc(user.picture) : '');
     const rawName = user ? (user.name || '') : '';
-    const displayName = safeEsc(user ? (user.nickname || rawName.split(' ')[0] || rawName || 'ユーザー') : 'ユーザー');
+    const displayName = safeEsc(user ? (user.nickname || 'ユーザー') : 'ユーザー');
     const initial = (displayName.replace(/&[^;]+;/g,'')[0] || '?').toUpperCase();
     const avatarHtml = picUrl
       ? `<img class="mp-avatar" src="${picUrl}" alt="アバター" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="mp-avatar-placeholder" style="display:none">${initial}</div>`

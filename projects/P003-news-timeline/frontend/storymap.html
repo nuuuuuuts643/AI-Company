@@ -333,7 +333,7 @@ function updateAuthUI() {
     if (signInBtn)  signInBtn.style.display  = 'none';
     if (signOutBtn) signOutBtn.style.display = 'inline-flex';
     if (userAvatar) { userAvatar.src = currentUser.picture||''; userAvatar.style.display = currentUser.picture?'inline-block':'none'; }
-    if (userName)   userName.textContent = currentUser.name||'';
+    if (userName)   userName.textContent = '';
   } else {
     if (signInBtn)  signInBtn.style.display  = 'inline-flex';
     if (signOutBtn) signOutBtn.style.display = 'none';
