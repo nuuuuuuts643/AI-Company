@@ -453,9 +453,12 @@ def lambda_handler(event, context):
             s = re.sub(r'\s*[-－–|｜]\s*[^\s].{1,25}$', '', s)
             return s.lower()[:50]
 
+        _LIVE_PREFIX_WORDS = re.compile(r'^(中継|速報|更新|独自|詳報|続報|緊急|号外)\s*')
+
         def _core_key(t):
             s = (t.get('generatedTitle') or t.get('title', '')).lower()
             s = re.sub(r'[「」【】・、。,!?！？\[\]()（）『』""\'\'#＃]', '', s)
+            s = _LIVE_PREFIX_WORDS.sub('', s)  # 【中継】→中継→除去
             s = re.sub(r'\s+', '', s)
             return s[:18]
 
