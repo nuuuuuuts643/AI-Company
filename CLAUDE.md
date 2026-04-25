@@ -341,6 +341,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 - ~~about.html FAQ + FAQPage JSON-LD~~ ✅ 2026-04-25 完了
 
 ### 優先度2: コンテンツ品質（Claude実行可能）
+- **about.html の内容充実**（AdSense対策）: 「なぜFlotopicを作ったか」「他サービスとの違い」「ストーリーで見せる意義」を読み物として書き込む。オリジナルコンテンツとして審査員に伝わるレベルに。現状のFAQだけでは薄い。
 - AI要約カバレッジ向上（88%/78%/67%。スケジュール実行(4x/day)で自動改善継続）
 - ~~processor Lambda メモリ 512MB~~ ✅ 確認済み（既に512MB）
 - velocity=0 の停滞トピック → lifecycle Lambda(ARCHIVE_DAYS=7)が次週月曜に自動整理
