@@ -508,10 +508,10 @@ def lambda_handler(event, context):
 
         topic_map = {t['topicId']: t for t in topics}
 
-        # 今回の未処理ID（新規）
+        # 今回の未処理ID: current_run_metas.pendingAI を信頼
+        # （storyTimeline未生成・要再処理フラグを含む）
         new_pending = set(tid for tid in saved_ids
-                          if not (topic_map.get(tid, {}).get('aiGenerated') and
-                                  topic_map.get(tid, {}).get('generatedSummary')))
+                          if current_run_metas.get(tid, {}).get('pendingAI', True))
 
         # 以前のpending IDを読み込み、まだ未処理のものを引き継ぐ
         old_pending = []
@@ -521,13 +521,33 @@ def lambda_handler(event, context):
             old_pending = old_data.get('topicIds', [])
         except Exception:
             pass
-        # 以前のIDのうちaiGenerated+generatedSummaryが揃っているものは除外
+        # 以前のIDのうちtopic_mapにあり、まだpendingAI=TrueまたはAI未完了のものを引き継ぐ
+        # topic_mapにないID（lifecycle削除済み）は除外する
         old_still_pending = [tid for tid in old_pending
                              if tid not in new_pending
-                             and not (topic_map.get(tid, {}).get('aiGenerated') and
-                                      topic_map.get(tid, {}).get('generatedSummary'))]
+                             and tid in topic_map
+                             and (topic_map[tid].get('pendingAI') or
+                                  not (topic_map[tid].get('aiGenerated') and
+                                       topic_map[tid].get('generatedSummary')))]
 
         pending_ids = list(new_pending) + old_still_pending
+
+        # summary欠如の既存トピックをペンディングに追加（カバレッジ改善）
+        # processor を過負荷させないよう1runあたり最大20件ずつ追加する
+        already_pending = set(pending_ids)
+        orphan_candidates = sorted(
+            (t for t in topics
+             if t['topicId'] not in already_pending
+             and (t.get('pendingAI') or not (t.get('aiGenerated') and t.get('generatedSummary')))
+             and t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES),
+            key=lambda t: float(t.get('velocityScore', 0) or 0),
+            reverse=True,
+        )
+        if orphan_candidates:
+            add_count = min(20, len(orphan_candidates))
+            pending_ids = pending_ids + [t['topicId'] for t in orphan_candidates[:add_count]]
+            print(f'[pending] summary欠如orphan追加: {add_count}件 (残{len(orphan_candidates)-add_count}件)')
+
         write_s3('api/pending_ai.json', {'topicIds': pending_ids, 'updatedAt': ts_iso})
         generate_rss(topics, ts_iso)
         generate_sitemap(topics)
