@@ -733,7 +733,7 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   .ad-sp-only { display: none; }
 }
 /* 728×90をモバイルでスケールダウン表示 */
-.ad-728-scale-wrapper { margin: 0 auto; overflow: hidden; text-align: left; }
+.ad-728-scale-wrapper { margin: 0 auto; overflow: hidden; text-align: left; position: relative; }
 @media (max-width: 767px) {
   /* scale(320/728) ≈ 0.44 → 728×0.44=320px, 90×0.44=40px */
   .ad-728-scale-wrapper { width: 320px; height: 40px; }
