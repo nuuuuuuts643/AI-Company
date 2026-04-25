@@ -2,6 +2,7 @@
 import json
 import urllib.request
 from decimal import Decimal
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from boto3.dynamodb.conditions import Key
 
@@ -182,6 +183,47 @@ def write_s3(key, data):
         ContentType='application/json',
         CacheControl='max-age=60',
     )
+
+
+def update_topic_s3_file(tid, upd):
+    """個別トピックS3ファイルのmetaにAIフィールドをマージ（pendingAI解除含む）。"""
+    if not S3_BUCKET:
+        return
+    key = f'api/topic/{tid}.json'
+    try:
+        resp = s3.get_object(Bucket=S3_BUCKET, Key=key)
+        data = json.loads(resp['Body'].read())
+        meta = data.get('meta', {})
+        meta['pendingAI'] = False
+        if upd.get('generatedTitle'):
+            meta['generatedTitle'] = upd['generatedTitle']
+        if upd.get('generatedSummary'):
+            meta['generatedSummary'] = upd['generatedSummary']
+        if upd.get('storyTimeline') is not None:
+            meta['storyTimeline'] = upd['storyTimeline']
+        if upd.get('storyPhase'):
+            meta['storyPhase'] = upd['storyPhase']
+        if upd.get('spreadReason'):
+            meta['spreadReason'] = upd['spreadReason']
+        if upd.get('forecast'):
+            meta['forecast'] = upd['forecast']
+        if upd.get('aiGenerated'):
+            meta['aiGenerated'] = True
+        data['meta'] = meta
+        write_s3(key, data)
+    except Exception:
+        pass
+
+
+def update_topic_s3_files_parallel(ai_updates, max_workers=5):
+    """ai_updatesの全トピックの個別S3ファイルをAIデータで並列更新。"""
+    if not ai_updates or not S3_BUCKET:
+        return
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futures = {ex.submit(update_topic_s3_file, tid, upd): tid for tid, upd in ai_updates.items()}
+        for _ in as_completed(futures):
+            pass
+    print(f'[Processor] 個別S3ファイル更新完了 ({len(ai_updates)}件)')
 
 
 def notify_slack_error(error_msg: str):

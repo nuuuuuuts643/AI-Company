@@ -335,9 +335,11 @@ class _BattleScreenState extends State<BattleScreen>
 
           // ---- 配備フェーズオーバーレイ ----
           if (_formationPhase)
-            _FormationOverlay(
-              countdown: _formationCountdown,
-              onStart: _endFormation,
+            Positioned.fill(
+              child: _FormationOverlay(
+                countdown: _formationCountdown,
+                onStart: _endFormation,
+              ),
             ),
         ],
       ),
@@ -1965,11 +1967,10 @@ class _FormationOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: IgnorePointer(
-        ignoring: false,
-        child: Stack(
-          children: [
+    return IgnorePointer(
+      ignoring: false,
+      child: Stack(
+        children: [
             // 下半分のみ暗く（上部フィールドは見える）
             Positioned(
               bottom: 0,

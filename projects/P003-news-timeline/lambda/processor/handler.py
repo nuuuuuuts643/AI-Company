@@ -20,6 +20,7 @@ from proc_ai import generate_title, generate_story
 from proc_storage import (
     get_pending_topics, get_latest_articles_for_topic,
     update_topic_with_ai, get_all_topics_for_s3,
+    update_topic_s3_files_parallel,
     write_s3, notify_slack_error,
 )
 
@@ -85,11 +86,18 @@ def lambda_handler(event, context):
     print(f'[Processor] 完了: 処理={processed}件 / API呼び出し={api_calls}回 / スキップ={skipped}件 / {elapsed:.1f}s')
 
     if processed > 0:
+        # 個別トピックS3ファイルをAIデータで並列更新（topic.htmlがAI要約を表示できるように）
+        update_topic_s3_files_parallel(ai_updates)
+
         try:
             topics = get_all_topics_for_s3()
             for t in topics:
+                # 処理済みトピックはpendingAIを解除（topics.jsonでも反映）
+                if t.get('aiGenerated') or t.get('generatedSummary'):
+                    t['pendingAI'] = False
                 upd = ai_updates.get(t.get('topicId', ''))
                 if upd:
+                    t['pendingAI'] = False
                     if upd.get('generatedTitle'):            t['generatedTitle']   = upd['generatedTitle']
                     if upd.get('generatedSummary'):          t['generatedSummary'] = upd['generatedSummary']
                     if upd.get('spreadReason'):              t['spreadReason']     = upd['spreadReason']
