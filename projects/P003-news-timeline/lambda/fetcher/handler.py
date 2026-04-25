@@ -23,7 +23,7 @@ from scoring import (
 )
 from cluster_utils import topic_fingerprint, cluster
 from score_utils import (
-    calc_score, calc_velocity_score, apply_time_decay,
+    calc_score, calc_velocity_score, apply_time_decay, apply_velocity_decay,
     source_diversity_score, compute_lifecycle_status,
     sort_by_pubdate, _parse_pubdate_ts,
 )
@@ -389,11 +389,14 @@ def lambda_handler(event, context):
         topics = get_all_topics()
 
         # 今回のrun で書いたトピック（DynamoDB確定）をtopics.jsonにマージ
-        existing_tids = {t['topicId'] for t in topics}
+        # 既存エントリはフレッシュデータで上書き（旧実装は新規追加のみで更新を取りこぼしていた）
+        topics_by_tid = {t['topicId']: t for t in topics}
         for item in current_run_metas.values():
-            if item['topicId'] not in existing_tids:
-                topics.append(item)
-                existing_tids.add(item['topicId'])
+            if item['topicId'] in topics_by_tid:
+                topics_by_tid[item['topicId']].update(item)  # フレッシュデータで上書き
+            else:
+                topics_by_tid[item['topicId']] = item
+        topics = list(topics_by_tid.values())
 
         # 幽霊エントリ除去: 今回runで書いたtopicはDynamoDB確定なのでスキップ
         saved_tids = set(saved_ids)
@@ -477,6 +480,14 @@ def lambda_handler(event, context):
             key=lambda t: (float(t.get('velocityScore', 0) or 0), t.get('lastUpdated', '') or ''),
             reverse=True,
         )[:500]
+
+        # 今回runで更新されなかったトピックのvelocityScoreを時間減衰させる
+        # DynamoDBには書き戻さない（topics.json の表示スコアのみ調整）
+        current_run_tids = set(current_run_metas.keys())
+        for t in topics_deduped:
+            if t['topicId'] not in current_run_tids:
+                raw_vs = float(t.get('velocityScore', 0) or 0)
+                t['velocityScore'] = apply_velocity_decay(raw_vs, t.get('lastUpdated', ''))
 
         write_s3('api/topics.json', {
             'topics':          topics_deduped,
