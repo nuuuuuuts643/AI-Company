@@ -1,11 +1,45 @@
 """Claude Haiku を使ったタイトル・ストーリー生成とフォールバック (抽出的生成)。"""
 import json
 import re
+import time
+import urllib.error
 import urllib.request
 from collections import Counter
 from datetime import datetime
 
 from proc_config import ANTHROPIC_API_KEY, STOP_WORDS, SYNONYMS, normalize, extract_entities
+
+CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages'
+_CLAUDE_HEADERS = {
+    'x-api-key': ANTHROPIC_API_KEY,
+    'anthropic-version': '2023-06-01',
+    'content-type': 'application/json',
+}
+
+
+def _call_claude(payload: dict, timeout: int = 25) -> dict:
+    """Claude API を呼び出す。429 は最大3回リトライ（指数バックオフ）。"""
+    body = json.dumps(payload).encode('utf-8')
+    delay = 5
+    for attempt in range(4):
+        try:
+            req = urllib.request.Request(
+                CLAUDE_API_URL, data=body,
+                headers={**_CLAUDE_HEADERS, 'x-api-key': ANTHROPIC_API_KEY},
+                method='POST',
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < 3:
+                retry_after = e.headers.get('retry-after')
+                wait = int(retry_after) if retry_after else delay
+                print(f'[Claude] 429 rate limit, {wait}s 待機 (attempt {attempt+1})')
+                time.sleep(wait)
+                delay *= 2
+            else:
+                raise
+    raise RuntimeError('Claude API 429 retries exhausted')
 
 
 def clean_headline(title):
@@ -31,23 +65,11 @@ def generate_title(articles):
         f'見出し:\n{headlines}'
     )
     try:
-        body = json.dumps({
+        data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
             'max_tokens': 30,
             'messages': [{'role': 'user', 'content': prompt}],
-        }).encode('utf-8')
-        req = urllib.request.Request(
-            'https://api.anthropic.com/v1/messages',
-            data=body,
-            headers={
-                'x-api-key': ANTHROPIC_API_KEY,
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json',
-            },
-            method='POST',
-        )
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            data = json.loads(resp.read())
+        }, timeout=12)
         return data['content'][0]['text'].strip()
     except Exception as e:
         print(f'generate_title error: {e}')
@@ -131,23 +153,11 @@ def generate_story(articles):
     )
 
     try:
-        body = json.dumps({
+        data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
             'max_tokens': 1400,
             'messages': [{'role': 'user', 'content': prompt}],
-        }).encode('utf-8')
-        req = urllib.request.Request(
-            'https://api.anthropic.com/v1/messages',
-            data=body,
-            headers={
-                'x-api-key': ANTHROPIC_API_KEY,
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json',
-            },
-            method='POST',
-        )
-        with urllib.request.urlopen(req, timeout=25) as resp:
-            data = json.loads(resp.read())
+        })
         text = data['content'][0]['text'].strip()
 
         json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
