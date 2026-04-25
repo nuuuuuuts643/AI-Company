@@ -562,10 +562,14 @@ async function loadWeather() {
 function setupSearch() {
   const input = document.getElementById('search-input');
   if (!input) return;
+  let debounceTimer;
   input.addEventListener('input', () => {
-    currentSearch = input.value.trim();
-    currentPage = 1;
-    renderTopics(allTopics);
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      currentSearch = input.value.trim();
+      currentPage = 1;
+      renderTopics(allTopics);
+    }, 200);
   });
 }
 
@@ -692,9 +696,11 @@ function showTrendingBanner(topics) {
     .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0))
     .slice(0, 3);
   if (!rising.length) return;
-  const links = rising.map(t =>
-    `<a href="topic.html?id=${esc(t.topicId)}" class="trending-link">${esc(t.generatedTitle || t.title)}</a>`
-  ).join(' <span class="trending-sep">/</span> ');
+  const links = rising.map(t => {
+    const raw = (t.generatedTitle || t.title || '').replace(/[｜|\/].*$/, '').trim();
+    const label = raw.length > 28 ? raw.slice(0, 27) + '…' : raw;
+    return `<a href="topic.html?id=${esc(t.topicId)}" class="trending-link">${esc(label)}</a>`;
+  }).join(' <span class="trending-sep">/</span> ');
   const banner = document.createElement('div');
   banner.id = 'trending-banner';
   banner.className = 'trending-banner';
