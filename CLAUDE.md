@@ -288,7 +288,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 > セッション開始時に必ずここを確認。着手中の作業があればスキップして次の未完了タスクへ。
 > 作業完了したらすぐに「完了済み」セクションへ移動し、このセクションを空にする。
 
-（なし）
+- **コメント・お気に入りCTA強化**（開始: 2026-04-26 JST | 変更予定: frontend/topic.html, frontend/index.html）
 
 ## 次フェーズのタスク（優先度順）
 
