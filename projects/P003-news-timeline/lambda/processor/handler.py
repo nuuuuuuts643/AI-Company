@@ -67,7 +67,9 @@ def lambda_handler(event, context):
                 print(f'  [Claude タイトル] {tid[:8]}... → {new_title[:30]}')
 
         gen_story = None
-        if cnt >= MIN_ARTICLES_FOR_SUMMARY and api_calls < MAX_API_CALLS:
+        needs_story = (cnt >= MIN_ARTICLES_FOR_SUMMARY
+                       and not (topic.get('aiGenerated') and topic.get('storyTimeline')))
+        if needs_story and api_calls < MAX_API_CALLS:
             new_story = generate_story(articles)
             if new_story:
                 gen_story    = new_story
