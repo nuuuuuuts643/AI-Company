@@ -1008,8 +1008,9 @@ class OctoBattleGame extends FlameGame
 
   bool get isFormationPhase => _formationPhase;
 
-  /// ドラッグ状態をフィールドオーバーレイに伝える
+  /// ドラッグ状態をフィールドオーバーレイに伝える（onLoad前は無視）
   void setDraggingCard(bool isDragging) {
+    if (!isLoaded) return;
     _fieldOverlay.setDragging(isDragging);
   }
 

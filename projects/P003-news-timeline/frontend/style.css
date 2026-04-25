@@ -1406,6 +1406,29 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .fav-btn:hover { background: #fff; transform: scale(1.18); }
 .fav-active { color: #f43f5e; }
 
+/* ===== カードシェアボタン ===== */
+.card-share-btn {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(255,255,255,0.88);
+  border: none;
+  border-radius: 50%;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .8rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .18s, transform .15s, background .15s;
+  z-index: 1;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+.topic-card-wrapper:hover .card-share-btn { opacity: 1; }
+.card-share-btn:hover { background: #fff; transform: scale(1.15); }
+[data-theme="dark"] .card-share-btn { background: rgba(19,20,31,.88); }
+[data-theme="dark"] .card-share-btn:hover { background: #252840; }
+
 /* ===== FAV TOGGLE (search row icon) ===== */
 .fav-toggle-btn.icon-only {
   flex-shrink: 0;
