@@ -738,8 +738,6 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   z-index: 2;
   letter-spacing: .05em;
 }
-/* in-grid広告はモバイルでは非表示（空スペース防止） */
-@media (max-width: 767px) { .ad-card-wrapper { display: none; } }
 .ad-card-wrapper { width: 100%; grid-column: 1 / -1; }
 .ad-card {
   background: #f8fafc;
@@ -1359,8 +1357,11 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .auth-area { display: flex; align-items: center; gap: 10px; }
 
 /* ===== TOPIC CARD WRAPPER ===== */
-.topic-card-wrapper { position: relative; display: flex; flex-direction: column; }
-.topic-card-wrapper .topic-card { flex: 1; }
+.topic-card-wrapper { position: relative; }
+@media (min-width: 768px) {
+  /* 同じ行のカード高さを揃える */
+  .topic-card { height: 100%; box-sizing: border-box; }
+}
 
 /* ===== FAV BUTTON ===== */
 .fav-btn {

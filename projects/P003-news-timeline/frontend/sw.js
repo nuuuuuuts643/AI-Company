@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flotopic-v11';
+const CACHE_NAME = 'flotopic-v12';
 
 // config.js は絶対にキャッシュしない（APIのURLが変わると全機能が壊れるため）
 const NEVER_CACHE = ['/config.js'];

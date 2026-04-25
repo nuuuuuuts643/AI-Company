@@ -233,7 +233,7 @@ function renderCardMeta(t) {
   // 分岐トピック（この話から派生した話題がある）
   const childCount = Array.isArray(t.childTopics) ? t.childTopics.length : 0;
   const branchLabel = childCount > 0
-    ? `<a href="storymap.html?id=${esc(t.topicId)}" class="branch-link" title="この話題の分岐を見る">🌿 ${childCount}件の分岐</a>`
+    ? `<span class="branch-link" data-storymap-id="${esc(t.topicId)}" title="この話題の分岐を見る">🌿 ${childCount}件の分岐</span>`
     : '';
 
   // 親トピックがある場合（この話は大きな流れの一部）
@@ -358,6 +358,9 @@ function renderTopics(topics) {
     const q = currentSearch.toLowerCase();
     list = list.filter(t => (t.generatedTitle||t.title||'').toLowerCase().includes(q));
   }
+  // 記事1件かつスコア5未満のスタブトピックは品質が低いのでフィードから除外
+  list = list.filter(t => !(parseInt(t.articleCount) <= 1 && parseInt(t.score) < 5));
+
   // declining フィルターは lifecycleStatus=cooling を含める（status=decliningは実質未使用のため）
   if (currentStatus === 'declining') {
     list = list.filter(t => t.status === 'declining' || t.lifecycleStatus === 'cooling');
@@ -386,7 +389,6 @@ function renderTopics(topics) {
     if ((i + 1) % CONFIG.AD_CARD_INTERVAL !== 0) return html + renderTopicCard(t, i);
     const adHtml = `<div class="topic-card-wrapper ad-card-wrapper">
       <div class="ad-grid-card">
-        <span class="ad-grid-badge">広告</span>
         <div class="admax-slot"></div>
       </div>
     </div>`;
@@ -406,6 +408,15 @@ function renderTopics(topics) {
     });
     slot.appendChild(adDiv);
   });
+  // 3秒後に広告未填充のスロットを非表示（空スペース防止）
+  setTimeout(() => {
+    grid.querySelectorAll('.ad-card-wrapper').forEach(wrapper => {
+      const inner = wrapper.querySelector('.admax-ads');
+      if (!inner || inner.children.length === 0) {
+        wrapper.style.display = 'none';
+      }
+    });
+  }, 3000);
 
   if (lmContainer) {
     if (pageList.length < list.length) {
@@ -416,6 +427,15 @@ function renderTopics(topics) {
       lmContainer.innerHTML = '';
     }
   }
+
+  // 分岐リンク（<a>のネスト回避のためspanにしてJSでナビゲート）
+  grid.querySelectorAll('.branch-link[data-storymap-id]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      location.href = `storymap.html?id=${el.dataset.storymapId}`;
+    });
+  });
 
   // お気に入りボタン + 既読マーク
   grid.querySelectorAll('.fav-btn').forEach(btn => {
