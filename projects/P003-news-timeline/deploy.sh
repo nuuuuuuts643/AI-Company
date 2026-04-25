@@ -359,9 +359,13 @@ aws lambda add-permission \
   --region "$REGION" 2>/dev/null || true
 
 # 既存ターゲットを全削除してから再登録（重複ターゲット防止）
-EXISTING_TARGETS=$(aws events list-targets-by-rule --rule "p003-fetcher-schedule" --region "$REGION" --query 'Targets[*].Id' --output text 2>/dev/null)
-if [ -n "$EXISTING_TARGETS" ]; then
-  aws events remove-targets --rule "p003-fetcher-schedule" --ids $EXISTING_TARGETS --region "$REGION" > /dev/null 2>&1 || true
+# --output json で確実にID一覧取得し、個別に削除する
+_EXISTING_IDS=$(aws events list-targets-by-rule --rule "p003-fetcher-schedule" \
+  --region "$REGION" --query 'Targets[].Id' --output json 2>/dev/null \
+  | python3 -c "import json,sys; ids=json.load(sys.stdin); print(' '.join(ids))" 2>/dev/null || echo "")
+if [ -n "$_EXISTING_IDS" ]; then
+  aws events remove-targets --rule "p003-fetcher-schedule" \
+    --ids $_EXISTING_IDS --region "$REGION" > /dev/null 2>&1 || true
 fi
 aws events put-targets \
   --rule "p003-fetcher-schedule" \
