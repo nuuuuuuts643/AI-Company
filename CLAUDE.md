@@ -140,6 +140,29 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 
 ## 承認済み・実行待ちタスク
 
+### 完了済み（2026-04-25 fetcher安定化・モジュール分割）
+
+#### バグ修正
+- ✅ **DynamoDB Float型エラー修正** — velocity/velocityScoreを`Decimal(str())`変換せずput_itemしていた。全トピック保存が失敗していた根本原因。
+- ✅ **RSS 1.0/RDF ネームスペース対応を正規化** — regex置換からElementTree名前空間API（`findall('{ns}item')`）に変更。mainichi 0→20件 / NHK 0→171件 / toyokeizai 0→20件。
+
+#### Lambda安定化
+- ✅ **fetcher timeout 900s・memory 512MB・retry=0** — 300s超タイムアウト連鎖（473エラー/日）を解消。
+- ✅ **processor DLQ + CloudWatchアラーム** — SQS DLQ追加・メッセージ数≥1でSNSアラーム発火。
+- ✅ **fetcher エラーアラーム確認** — p003-fetcher-errors OK状態。※SNSサブスクリプションがPendingConfirmation（Gmailで確認リンク要クリック）
+
+#### コードのモジュール分割（AI修正ミス防止）
+- ✅ **handler.py 812→511行** — scoring.py（純スコア関数）/ filters.py（フィルターパターン）に分離
+- ✅ **text_utils.py 467行→3ファイル** — cluster_utils.py(74行) / score_utils.py(150行) / text_utils.py(253行)
+
+#### フィード品質改善
+- ✅ **dead feeds削除** — kantei.go.jp(404)・diamond.jp(redirect)を除去
+- ✅ **GitHub Actions整理** — 不要3ファイル削除、devops-agentのworkflow_run二重起動トリガー修正
+- ✅ **テック系フィード追加** — CNET Japan・PC Watch・ケータイWatch（動作確認済みのRSS公開フィードのみ）
+
+#### 未解決
+- ⚠️ **seen_articles.json のSSLエラー** — Lambda上でS3アクセス時にSSL証明書エラーが散発。他のS3操作は正常なため影響小。原因未特定。
+
 ### 完了済み（2026-04-25 インフラ整理・セキュリティ強化・UI刷新）
 
 #### ゴミ掃除
