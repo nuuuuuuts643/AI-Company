@@ -136,51 +136,77 @@ function renderDetail(data) {
     if (gs.length) { genreEl.textContent = gs.join(' / '); genreEl.style.display='inline-block'; }
   }
 
-  const summaryEl = document.querySelector('.summary-placeholder, .summary-text');
-  if (summaryEl) {
-    const cleanedSummary = cleanSummary(meta.generatedSummary);
-    const hasAISummary  = cleanedSummary && !meta.pendingAI;
-    const hasExtractive = cleanedSummary && meta.pendingAI;
-    if (hasAISummary) {
-      summaryEl.textContent = cleanedSummary;
-      summaryEl.className = 'summary-text';
-    } else if (hasExtractive) {
-      const cnt = meta.articleCount || 1;
-      const sources = (meta.sources || []).slice(0, 3).join('・');
-      summaryEl.innerHTML =
-        `<p style="margin:0 0 8px;line-height:1.7;">${esc(cleanedSummary)}</p>` +
-        `<span style="color:var(--text-muted);font-size:.78rem;">⏳ AI要約生成中（1日3回更新）・${cnt}件の記事を追跡${sources ? `（${sources} ほか）` : ''}</span>`;
-      summaryEl.className = 'summary-placeholder';
+  // ── AI 4セクション分析表示 ───────────────────────────────────
+  const aiAnalysisEl = document.getElementById('ai-analysis');
+  if (aiAnalysisEl) {
+    const summary      = cleanSummary(meta.generatedSummary);
+    const spreadReason = meta.spreadReason || '';
+    const forecast     = meta.forecast     || '';
+    const beats        = Array.isArray(meta.storyTimeline) ? meta.storyTimeline : [];
+    const phase        = meta.storyPhase   || '';
+    const hasFullAI    = summary && beats.length > 0;
+    const hasSummary   = summary && meta.aiGenerated;
+
+    const PHASE_COLOR = { '発端':'#f59e0b','拡散':'#3b82f6','ピーク':'#ef4444','現在地':'#10b981' };
+    const PHASE_ICON  = { '発端':'🌱','拡散':'📡','ピーク':'🔥','現在地':'📍' };
+
+    if (hasFullAI || hasSummary) {
+      // ① 何が起きたか
+      const sect1 = `
+        <div class="ai-section">
+          <div class="ai-section-label">① 何が起きたか</div>
+          <p class="ai-section-body">${esc(summary)}</p>
+        </div>`;
+
+      // ② なぜ広がったか
+      const sect2 = spreadReason ? `
+        <div class="ai-section">
+          <div class="ai-section-label">② なぜ広がったか</div>
+          <p class="ai-section-body">${esc(spreadReason)}</p>
+        </div>` : '';
+
+      // ③ 今どの段階か（フェーズ + タイムライン）
+      const phaseChip = phase
+        ? `<span class="ai-phase-chip" style="background:${PHASE_COLOR[phase]||'#6366f1'}">${PHASE_ICON[phase]||'📍'} ${esc(phase)}</span>`
+        : '';
+      const beatsHtml = beats.map(b =>
+        `<div class="ai-beat">
+           <span class="ai-beat-date">${esc(b.date||'')}</span>
+           <span class="ai-beat-event">${esc(b.event||'')}</span>
+         </div>`
+      ).join('');
+      const sect3 = (phaseChip || beatsHtml) ? `
+        <div class="ai-section">
+          <div class="ai-section-label">③ 今どの段階か</div>
+          ${phaseChip}
+          ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
+        </div>` : '';
+
+      // ④ 今後どうなるか
+      const sect4 = forecast ? `
+        <div class="ai-section ai-section-forecast">
+          <div class="ai-section-label">④ 今後どうなるか <span class="ai-hypothesis-badge">仮説</span></div>
+          <p class="ai-section-body">${esc(forecast)}</p>
+        </div>` : '';
+
+      aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2}${sect3}${sect4}</div>`;
+      aiAnalysisEl.style.display = 'block';
     } else {
+      // AI処理待ち
       const cnt = meta.articleCount || 1;
       const sources = (meta.sources || []).slice(0, 3).join('・');
-      summaryEl.innerHTML = `<span style="color:var(--text-muted);font-size:.85rem;">⏳ AI要約を生成中です（1日3回更新）。</span><br><span style="font-size:.82rem;color:var(--text-secondary);">${cnt}件の記事を追跡中${sources ? `（${sources} ほか）` : ''}。</span>`;
-      summaryEl.className = 'summary-placeholder';
+      aiAnalysisEl.innerHTML = `
+        <div class="ai-analysis-inner ai-pending">
+          <span class="ai-pending-icon">⏳</span>
+          <span>AI分析を生成中です（1日4回更新）。${cnt}件の記事を追跡中${sources ? `（${sources} ほか）` : ''}。</span>
+        </div>`;
+      aiAnalysisEl.style.display = 'block';
     }
   }
 
-  // ── storyTimeline / storyPhase 表示 ───────────────────────────
+  // 後方互換: 旧 ai-story-timeline 要素があれば非表示
   const aiStoryEl = document.getElementById('ai-story-timeline');
-  if (aiStoryEl) {
-    const beats = Array.isArray(meta.storyTimeline) ? meta.storyTimeline : [];
-    const phase = meta.storyPhase || '';
-    const PHASE_COLOR = { '発端':'#f59e0b','拡散':'#3b82f6','ピーク':'#ef4444','現在地':'#10b981' };
-    if (beats.length) {
-      const phaseHtml = phase
-        ? `<span style="display:inline-block;background:${PHASE_COLOR[phase]||'#6366f1'};color:#fff;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;margin-bottom:10px;">📍 現在のフェーズ：${esc(phase)}</span>`
-        : '';
-      const beatsHtml = beats.map(b =>
-        `<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;">
-           <span style="flex-shrink:0;font-size:.72rem;color:var(--text-muted);min-width:36px;margin-top:1px;">${esc(b.date||'')}</span>
-           <span style="font-size:.82rem;color:var(--text-secondary);line-height:1.5;">${esc(b.event||'')}</span>
-         </div>`
-      ).join('');
-      aiStoryEl.innerHTML = `<div style="border-left:3px solid var(--primary,#6366f1);padding-left:12px;">${phaseHtml}${beatsHtml}</div>`;
-      aiStoryEl.style.display = 'block';
-    } else {
-      aiStoryEl.style.display = 'none';
-    }
-  }
+  if (aiStoryEl) aiStoryEl.style.display = 'none';
 
   const canvas = document.getElementById('score-chart');
   const vCanvas = document.getElementById('views-chart');
@@ -432,21 +458,37 @@ function renderDetail(data) {
     const relatedEl = document.getElementById('related-articles');
     if (relatedEl) {
       const relatedCard = relatedEl.closest('.card');
-      const candidates = allArticles.filter(a => !shownInTimeline.has(a.url));
+      // タイムライン未掲載の記事を候補に
+      let candidates = allArticles.filter(a => !shownInTimeline.has(a.url));
+      // 候補が少ない場合は全記事から補完（ソースを変えて重複感を減らす）
+      if (candidates.length < 3 && allArticles.length > 3) {
+        const usedInTimeline = allArticles.filter(a => shownInTimeline.has(a.url));
+        const extraSources = new Set(candidates.map(a => a.source));
+        for (const a of usedInTimeline) {
+          if (candidates.length >= 5) break;
+          if (!extraSources.has(a.source)) { candidates.push(a); extraSources.add(a.source); }
+        }
+      }
       if (!candidates.length) {
         if (relatedCard) relatedCard.style.display = 'none';
       } else {
+        // ソース多様性を優先してピック（最大3件）
         const picked = [];
         const usedSources = new Set();
-        const sorted = [...candidates].sort((a, b) => new Date(a._snapTs) - new Date(b._snapTs));
-        if (sorted.length) { picked.push(sorted[0]); usedSources.add(sorted[0].source); }
-        const latest = candidates[0];
-        if (latest && latest.url !== (picked[0] && picked[0].url)) { picked.push(latest); usedSources.add(latest.source); }
-        for (const a of candidates) {
+        // 最新順でソート
+        const sorted = [...candidates].sort((a, b) => {
+          const ta = a.publishedAt ? a.publishedAt * 1000 : new Date(a._snapTs).getTime();
+          const tb = b.publishedAt ? b.publishedAt * 1000 : new Date(b._snapTs).getTime();
+          return tb - ta;
+        });
+        for (const a of sorted) {
           if (picked.length >= 3) break;
-          if (!usedSources.has(a.source) && !picked.some(p => p.url === a.url)) {
-            picked.push(a); usedSources.add(a.source);
-          }
+          if (!usedSources.has(a.source)) { picked.push(a); usedSources.add(a.source); }
+        }
+        // ソース重複でも3件に満たなければ追加
+        for (const a of sorted) {
+          if (picked.length >= 3) break;
+          if (!picked.some(p => p.url === a.url)) picked.push(a);
         }
         relatedEl.innerHTML = picked.map(a => `
           <div class="article-item">

@@ -316,8 +316,11 @@ def lambda_handler(event, context):
             social_bonus = 1.0 + min(comment_count * 0.02 + fav_count * 0.01, 1.0)
             velocity_score = round(velocity_score * social_bonus, 4)
 
+        # 4セクション形式（storyTimeline）が揃っている場合のみ処理済みとみなす
+        # aiGenerated=True でも storyTimeline がなければ再処理させる（再発防止）
+        _has_timeline = bool(existing.get('storyTimeline') and isinstance(existing.get('storyTimeline'), list) and len(existing.get('storyTimeline', [])) > 0)
         pending_ai = not bool(
-            existing.get('aiGenerated') and existing.get('generatedSummary') and not _is_old_extractive
+            existing.get('aiGenerated') and existing.get('generatedSummary') and not _is_old_extractive and _has_timeline
         )
 
         image_url = (
