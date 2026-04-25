@@ -113,16 +113,6 @@ bash /Users/OWNER/ai-company/projects/P003-news-timeline/deploy.sh
 
 ## 残タスク（PO手動作業が必要なもの）
 
-### 🔴 最優先: ANTHROPIC_API_KEY をprocessorに設定（AI要約が動いていない）
-```bash
-# AWS CLIで設定（ANTHROPIC_API_KEYは.envや頭の中にあるやつ）
-aws lambda update-function-configuration \
-  --function-name p003-processor \
-  --environment "Variables={TABLE_NAME=p003-topics,S3_BUCKET=p003-news-946554699567,REGION=ap-northeast-1,SITE_URL=https://flotopic.com,ANTHROPIC_API_KEY=<あなたのAPIキー>}" \
-  --region ap-northeast-1
-```
-設定後は次のprocessor実行（JST 7:00/12:00/18:00）で自動的にAI要約が始まる。
-deploy.sh改修済みのため、次回セッション開始時のデプロイで上書きされなくなった。
 
 ```bash
 # P002動作確認（まだ未実施）
