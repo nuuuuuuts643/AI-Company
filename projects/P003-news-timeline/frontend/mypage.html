@@ -1147,7 +1147,10 @@
       : `<div class="mp-empty">お気に入りのトピックはまだありません<br><a href="index.html">トピック一覧へ →</a></div>`;
 
     const historyHtml = history.length
-      ? history.map(h => `
+      ? `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+           <button id="clear-history-btn" style="background:none;border:1px solid #e2e8f0;border-radius:8px;padding:4px 12px;font-size:.78rem;color:#94a3b8;cursor:pointer;">🗑 履歴を全削除</button>
+         </div>` +
+        history.map(h => `
           <a class="mp-topic-row" href="topic.html?id=${safeEsc(h.topicId)}">
             <div class="mp-topic-icon hist">📖</div>
             <div class="mp-topic-info">
@@ -1397,6 +1400,16 @@
     if (signoutBtn) signoutBtn.addEventListener('click', () => {
       if (typeof signOut === 'function') signOut();
       else { localStorage.removeItem('flotopic_user'); location.href = 'index.html'; }
+    });
+
+    // 履歴全削除ボタン
+    const clearHistBtn = document.getElementById('clear-history-btn');
+    if (clearHistBtn) clearHistBtn.addEventListener('click', () => {
+      try { localStorage.removeItem('flotopic_history'); } catch {}
+      const panel = document.getElementById('panel-history');
+      if (panel) panel.querySelector('.mp-card-inner').innerHTML =
+        '<div class="mp-empty">まだ閲覧履歴がありません<br><a href="index.html">トピックを見てみる →</a></div>';
+      if (typeof showToast === 'function') showToast('閲覧履歴を削除しました');
     });
 
     // 削除ボタン

@@ -20,6 +20,11 @@ function saveNickname(nickname) {
 async function syncProfileToServer(profileData) {
   if (!currentUser || typeof AUTH_URL === 'undefined') return;
   try {
+    // IDトークンの有効期限チェック（1時間で失効）
+    try {
+      const p = JSON.parse(atob(currentUser.token.split('.')[1]));
+      if (p.exp * 1000 < Date.now()) return;
+    } catch {}
     const body = { idToken: currentUser.token };
     if (profileData.handle)   body.handle   = profileData.handle;
     if (profileData.ageGroup) body.ageGroup  = profileData.ageGroup;
@@ -129,23 +134,21 @@ function setupUserDropdown() {
   const wrap    = document.getElementById('user-menu-wrap');
   if (!trigger || !wrap) return;
 
-  trigger.addEventListener('click', e => {
-    e.stopPropagation();
+  trigger.addEventListener('click', () => {
     const isOpen = wrap.classList.toggle('open');
-    trigger.setAttribute('aria-expanded', isOpen);
+    trigger.setAttribute('aria-expanded', String(isOpen));
   });
 
-  // ドロップダウン外クリックで閉じる
-  document.addEventListener('click', () => {
-    if (wrap) { wrap.classList.remove('open'); trigger.setAttribute('aria-expanded', 'false'); }
+  // wrap の外をクリックしたら閉じる（contains でチェック）
+  document.addEventListener('click', e => {
+    if (!wrap.contains(e.target)) {
+      wrap.classList.remove('open');
+      trigger.setAttribute('aria-expanded', 'false');
+    }
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && wrap) { wrap.classList.remove('open'); trigger.setAttribute('aria-expanded', 'false'); }
+    if (e.key === 'Escape') { wrap.classList.remove('open'); trigger.setAttribute('aria-expanded', 'false'); }
   });
-
-  // ドロップダウン内クリックは伝播を止める
-  const dropdown = document.getElementById('user-dropdown');
-  if (dropdown) dropdown.addEventListener('click', e => e.stopPropagation());
 }
 
 // ── Google認証コールバック ─────────────────────────────────────
@@ -203,6 +206,8 @@ function signOut() {
 
 // ── 初期化 ────────────────────────────────────────────────────
 function initGoogleAuth() {
+  if (window.__authInitialized) return;
+  window.__authInitialized = true;
   currentUser = loadUser();
   updateAuthUI();
   setupUserDropdown();
