@@ -81,6 +81,25 @@ def delete_snaps(topic_id: str) -> int:
     return deleted
 
 
+def delete_old_snaps(topic_id: str, cutoff_sk: str) -> int:
+    """30日超のSNAP（TTLなし含む）を削除する。active/coolingトピックの肥大化防止。"""
+    deleted = 0
+    kwargs = {
+        'KeyConditionExpression': DKey('topicId').eq(topic_id) & DKey('SK').begins_with('SNAP#'),
+        'ProjectionExpression': 'topicId, SK',
+        'FilterExpression': Attr('SK').lt(cutoff_sk),
+    }
+    while True:
+        resp = table.query(**kwargs)
+        for item in resp.get('Items', []):
+            table.delete_item(Key={'topicId': item['topicId'], 'SK': item['SK']})
+            deleted += 1
+        if not resp.get('LastEvaluatedKey'):
+            break
+        kwargs['ExclusiveStartKey'] = resp['LastEvaluatedKey']
+    return deleted
+
+
 def cleanup_filter_feedback(now: int) -> int:
     """7日以上前の filter-feedback JSON ファイルを S3 から削除する"""
     prefix = 'api/filter-feedback/'
@@ -131,6 +150,11 @@ def cleanup_filter_feedback(now: int) -> int:
 def lambda_handler(event, context):
     now = int(time.time())
 
+    # 30日前のSNAP SKカットオフ（SNAP#YYYYMMDDTHHMMSSZ 形式）
+    import datetime
+    cutoff_dt  = datetime.datetime.utcfromtimestamp(now - 30 * 86400)
+    cutoff_sk  = f"SNAP#{cutoff_dt.strftime('%Y%m%dT%H%M%SZ')}"
+
     # ---- DynamoDB 全 META アイテムをスキャン ----
     scan_kwargs = {'FilterExpression': Attr('SK').eq('META')}
     items = []
@@ -146,6 +170,7 @@ def lambda_handler(event, context):
     archived_count = 0
     deleted_count  = 0
     skipped_count  = 0
+    old_snap_deleted = 0
 
     for item in items:
         topic_id  = item.get('topicId', '')
@@ -157,8 +182,9 @@ def lambda_handler(event, context):
             legacy_count += 1
             continue
 
-        # 活動停止していないトピックはスキップ
+        # 活動停止していないトピックは30日超SNAPだけ削除してスキップ
         if not is_truly_inactive(item, now):
+            old_snap_deleted += delete_old_snaps(topic_id, cutoff_sk)
             skipped_count += 1
             continue
 
@@ -206,7 +232,7 @@ def lambda_handler(event, context):
     summary = (
         f"Lifecycle sweep: {legacy_count} legacy, "
         f"{archived_count} archived, {deleted_count} deleted, "
-        f"{skipped_count} skipped (still active/cooling) | "
+        f"{skipped_count} skipped (active/cooling, {old_snap_deleted} old SNAPs cleaned) | "
         f"feedback-cleanup: {fb_deleted} files"
     )
     print(summary)
