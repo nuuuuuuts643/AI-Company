@@ -11,12 +11,22 @@ cd /Users/murakaminaoya/ai-company
 git add -A
 git commit -m "chore: sync Cowork session changes $(date '+%Y-%m-%d')" || echo "nothing to commit"
 git push || echo "push failed, continuing"
-
-# 3. P003フロントエンド＋Lambda本番デプロイ
-bash /Users/murakaminaoya/ai-company/projects/P003-news-timeline/deploy.sh
 ```
 
 エラーが出ても止まらず最後まで実行する。完了後に「✅ 起動チェック完了」と報告してからユーザーの指示を待つ。
+
+## ⚠️ deploy.sh は直接実行しない（2026-04-25 変更）
+
+**デプロイは GitHub Actions が自動で行う。Claude から deploy.sh を叩かないこと。**
+
+| 変更ファイル | 自動デプロイ |
+|---|---|
+| `projects/P003-news-timeline/frontend/**` | `.github/workflows/deploy-p003.yml` が S3+CloudFront を自動実行 |
+| `projects/P003-news-timeline/lambda/**` | `.github/workflows/deploy-lambdas.yml` が Lambda を自動実行 |
+
+**Claude のやること**: コードを変更 → `git add / commit / push` のみ。pushしたら GH Actions が本番に反映する（2〜4分後）。
+
+**例外**: インフラ新規作成（DynamoDB テーブル作成・Lambda 新規追加等）が必要な場合のみ `deploy.sh` を使ってよい。その場合はナオヤに確認してから実行する。
 
 ---
 
