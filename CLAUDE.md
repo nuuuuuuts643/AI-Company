@@ -264,6 +264,14 @@ cat /Users/OWNER/.claude/projects/-Users-OWNER-ai-company/memory/MEMORY.md
 | trendingKeywordsストップワード | ✅ 強化 | 2026-04-26 | 動向/影響/情勢等の汎用語を除外。最低出現回数2→3に引き上げ |
 | ダークモード漏れ修正 | ✅ 完了 | 2026-04-26 | legacy.html・storymap.htmlにtheme.js追加 |
 | proc_ai.py日付パース | ✅ 修正済み | 2026-04-26 | Unixタイムスタンプ整数に対応（storyTimelineのpubDate表示修正） |
+| はてなスコア偏重修正 | ✅ 修正済み | 2026-04-26 | 対数スケール+上限30点（旧:生の数値加算→テック偏重の原因）。push待ち |
+| 急上昇ストリップ条件 | ✅ 修正済み | 2026-04-26 | velocityScore>=3 必須条件追加（新着=急上昇バグ修正）。push待ち |
+| Googleディスプレイネーム非表示 | ✅ 修正済み | 2026-04-26 | ニックネーム未設定時は「ユーザー#XXXX」(Google ID末尾4文字)表示。push待ち |
+| storyTimeline繋がり強化 | ✅ 完了 | 2026-04-26 | transition(因果テキスト)追加・記事数で要約深さ分岐・Jaccard関連トピックリンク |
+| 静的SEO HTML生成 | ✅ 完了 | 2026-04-26 | topics/{tid}.html をprocessorが自動生成。Googlebotがコンテンツ全文を読める。sitemapも/topics/に変更 |
+| ジャンル グルメ/ファッション追加 | ✅ 完了 | 2026-04-26 | GENRE_KEYWORDS追加・RSSフィード追加 |
+| NHKフィード削減 | ✅ 完了 | 2026-04-26 | 8本→6本(cat0総合・cat5生活文化削除)。ソース多様性スコア強化(50%超→0.8倍/70%超→0.65倍) |
+| tokushoho.html廃止 | ✅ 完了 | 2026-04-26 | ページはリダイレクト化(noindex)・全フッターリンク削除・sitemap除外 |
 
 ## 専門AI稼働状況
 
@@ -342,6 +350,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 
 ### 優先度2: コンテンツ品質（Claude実行可能）
 - **about.html の内容充実**（AdSense対策）: 「なぜFlotopicを作ったか」「他サービスとの違い」「ストーリーで見せる意義」を読み物として書き込む。オリジナルコンテンツとして審査員に伝わるレベルに。現状のFAQだけでは薄い。
+- **SEO強化（被リンク・流入）**: 静的HTMLは実装済み(topics/{id}.html)。次の打ち手: ①Qiita/note/Zennに技術記事を書いてFlotopicへリンク ②Bluesky/X経由でニッチトピックの流入狙い ③「〇〇 まとめ 経緯」のロングテールキーワードを意識したAIタイトル生成改善
 - AI要約カバレッジ向上（88%/78%/67%。スケジュール実行(4x/day)で自動改善継続）
 - ~~processor Lambda メモリ 512MB~~ ✅ 確認済み（既に512MB）
 - velocity=0 の停滞トピック → lifecycle Lambda(ARCHIVE_DAYS=7)が次週月曜に自動整理
