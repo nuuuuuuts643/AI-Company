@@ -3,68 +3,132 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <title>Flotopicについて | Flotopic</title>
   <meta name="description" content="Flotopicは、ニュースの話題の流れをAIで追うサービスです。同じトピックに関する記事を自動でまとめ、時系列で推移を可視化します。">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="style.css">
+  <script src="https://accounts.google.com/gsi/client" async defer onload="if(window.__gsiReady)window.__gsiReady()"></script>
   <style>
-    .about-container { max-width: 800px; margin: 40px auto; padding: 0 16px 60px; }
-    .about-container h1 { font-size: 1.6rem; margin-bottom: 8px; }
-    .about-container .updated { color: #64748b; font-size: .85rem; margin-bottom: 32px; }
-    .about-container h2 { font-size: 1.1rem; font-weight: 700; margin: 28px 0 8px; border-left: 4px solid #3b82f6; padding-left: 10px; }
-    .about-container p { line-height: 1.8; color: #374151; margin-bottom: 12px; }
-    .about-container ul { padding-left: 1.5em; line-height: 1.9; color: #374151; }
-    .back-link { display: inline-block; margin: 24px 16px 0; color: #3b82f6; text-decoration: none; font-size: .9rem; }
-    .back-link:hover { text-decoration: underline; }
-    .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 16px 0 24px; }
-    .feature-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; }
-    .feature-card .icon { font-size: 1.8rem; margin-bottom: 8px; }
-    .feature-card h3 { font-size: .95rem; font-weight: 700; margin-bottom: 6px; color: #1e293b; }
-    .feature-card p { font-size: .85rem; color: #64748b; margin: 0; line-height: 1.6; }
+    .about-hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #2d2a7a 100%);
+      padding: 36px 20px 28px;
+      text-align: center;
+    }
+    .about-hero h1 { font-size: 1.5rem; font-weight: 700; color: #fff; margin-bottom: 6px; }
+    .about-hero p { font-size: .9rem; color: rgba(255,255,255,0.65); }
+    .about-container { max-width: 800px; margin: 0 auto; padding: 32px 16px 80px; }
+    .about-container h2 {
+      font-size: 1rem; font-weight: 700; margin: 28px 0 10px;
+      border-left: 3px solid #6366f1; padding-left: 10px;
+      color: var(--text-primary, #0f172a);
+    }
+    .about-container p { line-height: 1.85; color: var(--text-secondary, #374151); margin-bottom: 12px; font-size: .93rem; }
+    .about-container ul { padding-left: 1.4em; line-height: 2; color: var(--text-secondary, #374151); font-size: .93rem; }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px; margin: 16px 0 24px;
+    }
+    .feature-card {
+      background: var(--card-bg, #fff);
+      border: 1px solid var(--border, #e8eaf0);
+      border-radius: 12px; padding: 18px;
+    }
+    .feature-card .icon { font-size: 1.6rem; margin-bottom: 8px; }
+    .feature-card h3 { font-size: .9rem; font-weight: 700; margin-bottom: 5px; color: var(--text-primary, #1e293b); }
+    .feature-card p { font-size: .82rem; color: var(--text-muted, #64748b); margin: 0; line-height: 1.6; }
+    [data-theme="dark"] .about-container h2 { color: #eef0f8; }
+    [data-theme="dark"] .about-container p,
+    [data-theme="dark"] .about-container ul { color: #9ba3c4; }
+    [data-theme="dark"] .feature-card { background: #1e2035; border-color: rgba(99,102,241,0.15); }
+    [data-theme="dark"] .feature-card h3 { color: #eef0f8; }
   </style>
 </head>
 <body>
 <header>
   <div class="inner header-inner">
-    <div>
+    <a href="index.html" class="header-logo-link">
       <h1>Flotopic</h1>
       <p>話題の流れをAIで追う</p>
+    </a>
+    <div class="header-right">
+      <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替">🌙</button>
+      <div class="auth-area">
+        <button id="auth-signin-btn" class="auth-btn" style="display:none;">ログイン</button>
+        <div class="user-menu-wrap" id="user-menu-wrap" style="display:none;">
+          <button class="user-menu-trigger" id="user-menu-trigger" aria-haspopup="menu" aria-expanded="false">
+            <img id="auth-user-avatar" class="auth-user-avatar" src="" alt="">
+            <div id="auth-user-init" class="auth-user-init"></div>
+            <span id="auth-user-name" class="auth-user-name"></span>
+            <span class="user-menu-caret">▾</span>
+          </button>
+          <div class="user-dropdown" id="user-dropdown" role="menu">
+            <a href="mypage.html" class="user-dd-item" role="menuitem">👤 マイページ</a>
+            <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem">ログアウト</button>
+          </div>
+        </div>
+        <button id="auth-signout-btn" style="display:none;"></button>
+        <a id="auth-user-link" style="display:none;"></a>
+        <a id="mypage-link" style="display:none;"></a>
+      </div>
     </div>
   </div>
 </header>
 
-<a href="index.html" class="back-link">← トップに戻る</a>
+<div id="auth-modal" class="auth-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="ログイン">
+  <div class="auth-modal-inner">
+    <button id="auth-modal-close" class="auth-modal-close" aria-label="閉じる">×</button>
+    <div class="auth-modal-logo">🌊 Flotopic</div>
+    <h2 class="auth-modal-title">ログイン / 新規登録</h2>
+    <p class="auth-modal-desc">コメント・お気に入りを<br>どのデバイスでも同期</p>
+    <div id="auth-modal-google-wrap" class="auth-modal-provider-wrap"></div>
+    <p class="auth-modal-terms">続けることで<a href="terms.html" target="_blank">利用規約</a>と<a href="privacy.html" target="_blank">プライバシーポリシー</a>に同意します</p>
+  </div>
+</div>
+
+<div class="about-hero">
+  <h1>Flotopicについて</h1>
+  <p>ニュースの流れをAIで追う、個人運営のキュレーションサービス</p>
+</div>
 
 <div class="about-container">
-  <h1>Flotopicについて</h1>
-  <p class="updated">最終更新日：2026年4月24日</p>
 
   <h2>サービス概要</h2>
-  <p>Flotopicは、国内外のニュースをAIが自動でまとめ、話題の流れを時系列で可視化するニュースキュレーションサービスです。同じトピックに関する記事を収集・分析し、「なぜ今この話題が盛り上がっているのか」という文脈を整理して提供します。</p>
+  <p>Flotopicは、国内外のニュースをAIが自動でまとめ、話題の流れを時系列で可視化するサービスです。同じトピックの記事を収集・分析し、「なぜ今この話題が盛り上がっているのか」という文脈を整理して提供します。</p>
   <p>速報を追うのではなく、話題の始まりから推移・終息までの全体像を「後からでも追える」ことを重視して設計しています。</p>
 
   <div class="feature-grid">
     <div class="feature-card">
       <div class="icon">🤖</div>
-      <h3>AI自動要約</h3>
-      <p>複数記事の内容をAIが分析し、トピックの本質をわかりやすくまとめます。</p>
+      <h3>AI自動分析</h3>
+      <p>①何が起きたか ②なぜ広がったか ③今どの段階か ④今後どうなるか を4セクションで整理します。</p>
     </div>
     <div class="feature-card">
       <div class="icon">📈</div>
-      <h3>話題の推移を可視化</h3>
-      <p>記事数・盛り上がり度を時系列グラフで表示。いつ話題になったかが一目でわかります。</p>
+      <h3>推移を可視化</h3>
+      <p>記事数・注目スコアを時系列グラフで表示。いつ話題になったかが一目でわかります。</p>
     </div>
     <div class="feature-card">
       <div class="icon">🔄</div>
       <h3>30分ごと自動更新</h3>
-      <p>国内主要メディアのRSSを定期的に取得し、新しいトピックを自動で検出・追加します。</p>
+      <p>国内主要メディアのRSSを定期取得し、新しいトピックを自動で検出・追加します。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">🕰️</div>
+      <h3>しばらくぶりモード</h3>
+      <p>数日間見ていなかったときに「その間に何が起きたか」をまとめて確認できます。</p>
     </div>
     <div class="feature-card">
       <div class="icon">🔖</div>
-      <h3>お気に入り機能</h3>
+      <h3>お気に入り</h3>
       <p>気になるトピックをブックマーク。Googleログインで複数デバイスから同期できます。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">💬</div>
+      <h3>コメント</h3>
+      <p>トピックに対してコメントを投稿できます。@メンションで他のユーザーに返信も可能です。</p>
     </div>
   </div>
 
@@ -72,33 +136,48 @@
   <p>Flotopicは、各メディアが公開しているRSSフィードを通じてニュース記事の情報を取得しています。記事の著作権は各メディアに帰属します。本サービスはリンクと要約のみを提供し、記事の全文は掲載しておりません。</p>
   <p>AIによる要約・解説文はFlotopicが独自に生成したものです。情報の正確性については各元記事をご確認ください。</p>
 
-  <h2>情報収集のカテゴリ</h2>
+  <h2>カバーするカテゴリ</h2>
   <ul>
-    <li>国内政治・経済</li>
+    <li>国内政治・経済・社会</li>
     <li>国際情勢</li>
     <li>テクノロジー・IT</li>
-    <li>社会・生活</li>
-    <li>スポーツ・エンタメ</li>
+    <li>スポーツ・エンタメ・くらし</li>
+    <li>株式・金融マーケット</li>
   </ul>
 
   <h2>運営情報</h2>
-  <p>本サービスは個人が運営するメディアサービスです。</p>
-  <p>サービスに関するお問い合わせは<a href="contact.html" style="color:#3b82f6;">お問い合わせページ</a>よりご連絡ください。</p>
+  <p>本サービスは個人が運営するメディアサービスです。ご意見・削除依頼は<a href="contact.html" style="color:#6366f1;">お問い合わせページ</a>よりご連絡ください。</p>
 
 </div>
 
-<footer style="text-align:center;padding:20px;color:#94a3b8;font-size:.8rem;margin-top:40px;">
-  <a href="legacy.html" style="color:#94a3b8;text-decoration:underline;">アーカイブ</a>
-  &nbsp;·&nbsp;
-  <a href="privacy.html" style="color:#94a3b8;text-decoration:underline;">プライバシーポリシー</a>
-  &nbsp;·&nbsp;
-  <a href="terms.html" style="color:#94a3b8;text-decoration:underline;">利用規約</a>
-  &nbsp;·&nbsp;
-  <a href="contact.html" style="color:#94a3b8;text-decoration:underline;">お問い合わせ</a>
-  &nbsp;·&nbsp;
-  <a href="about.html" style="color:#94a3b8;text-decoration:underline;">Flotopicについて</a>
-  <br style="margin-top:8px;">
-  <span style="display:block;margin-top:8px;">© 2024-2025 Flotopic — AI要約は自動生成です。情報の正確性は各元記事をご確認ください。</span>
+<footer class="site-footer">
+  <div class="site-footer-links">
+    <a href="index.html">トップ</a>
+    <a href="legacy.html">アーカイブ</a>
+    <a href="terms.html">利用規約</a>
+    <a href="privacy.html">プライバシーポリシー</a>
+    <a href="contact.html">お問い合わせ</a>
+  </div>
+  <div class="site-footer-copy">記事の著作権は各報道機関に帰属します。AI要約は自動生成です。© 2024-2026 Flotopic</div>
 </footer>
+
+<nav class="bottom-nav" id="bottom-nav" aria-label="ナビゲーション">
+  <a href="index.html" class="bn-item" id="bn-home">
+    <span class="bn-icon">🏠</span><span>ホーム</span>
+  </a>
+  <a href="catchup.html" class="bn-item" id="bn-catchup">
+    <span class="bn-icon">🕰️</span><span>ふりかえり</span>
+  </a>
+  <a href="legacy.html" class="bn-item">
+    <span class="bn-icon">📚</span><span>アーカイブ</span>
+  </a>
+  <a href="mypage.html" class="bn-item" id="bn-mypage">
+    <span class="bn-icon">👤</span><span>マイページ</span>
+  </a>
+</nav>
+
+<script src="config.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/auth.js"></script>
 </body>
 </html>

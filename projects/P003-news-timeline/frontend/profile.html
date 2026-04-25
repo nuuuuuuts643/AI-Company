@@ -428,10 +428,14 @@
 
 <footer class="site-footer">
   <div class="site-footer-links">
+    <a href="index.html">トップ</a>
+    <a href="about.html">Flotopicについて</a>
+    <a href="legacy.html">アーカイブ</a>
     <a href="terms.html">利用規約</a>
     <a href="privacy.html">プライバシーポリシー</a>
+    <a href="contact.html">お問い合わせ</a>
   </div>
-  <div class="site-footer-copy">© 2024-2026 Flotopic</div>
+  <div class="site-footer-copy">記事の著作権は各報道機関に帰属します。AI要約は自動生成です。© 2024-2026 Flotopic</div>
 </footer>
 
 <script src="config.js"></script>
@@ -456,7 +460,7 @@ function fmtDate(iso) {
 async function loadTopicTitleMap() {
   try {
     const apiBase = (typeof API_BASE !== 'undefined') ? API_BASE : '';
-    const r = await fetch(apiBase + 'api/topics.json');
+    const r = await fetch(apiBase + 'topics.json');
     const data = await r.json();
     const map = {};
     (data.topics || []).forEach(t => {
@@ -646,5 +650,11 @@ async function loadProfile() {
 
 document.addEventListener('DOMContentLoaded', loadProfile);
 </script>
+<nav class="bottom-nav" aria-label="ナビゲーション">
+  <a href="index.html" class="bn-item"><span class="bn-icon">🏠</span><span>ホーム</span></a>
+  <a href="catchup.html" class="bn-item"><span class="bn-icon">🕰️</span><span>ふりかえり</span></a>
+  <a href="legacy.html" class="bn-item"><span class="bn-icon">📚</span><span>アーカイブ</span></a>
+  <a href="mypage.html" class="bn-item"><span class="bn-icon">👤</span><span>マイページ</span></a>
+</nav>
 </body>
 </html>
