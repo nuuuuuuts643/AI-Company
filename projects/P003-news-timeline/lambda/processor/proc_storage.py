@@ -22,7 +22,15 @@ _OGP_CARD   = (30, 41, 59)        # #1e293b (カード背景)
 _FONT_PATH  = '/var/task/NotoSansJP-Regular.ttf'  # Lambda zip内に同梱
 
 _TICKER_RE  = re.compile(r'【\d{3,5}[A-Z]?】|：株価|株式情報\b|株価情報\b')
-_KW_STOP    = {'ニュース', '速報', '最新', '話題', '注目', '動画', '写真', '記事', '中継'}
+_KW_STOP    = {
+    'ニュース', '速報', '最新', '話題', '注目', '動画', '写真', '記事', '中継',
+    # 汎用的すぎる漢字語（ニュース文中に頻出するが固有名詞・話題でない）
+    '動向', '影響', '情勢', '問題', '対応', '状況', '関係', '活動', '実施', '開催',
+    '発表', '報告', '内容', '結果', '方針', '対策', '検討', '確認', '実現', '推進',
+    '強化', '改善', '整備', '支援', '提供', '拡大', '展開', '継続', '協力', '連携',
+    '取り組み', '見通し', '増加', '減少', '上昇', '下落', '変化', '今後', '今回',
+    'について', 'とは', 'のため', 'による', 'として',
+}
 _KW_MAX     = 10
 
 
@@ -33,7 +41,7 @@ def _extract_trending_keywords(topics: list) -> list:
         for w in re.findall(r'[ァ-ヶー]{3,}|[一-龯々]{2,}|[A-Za-z]{4,}', title):
             if w not in _KW_STOP:
                 counter[w] += 1
-    return [{'keyword': w, 'count': c} for w, c in counter.most_common(_KW_MAX * 3) if c >= 2][:_KW_MAX]
+    return [{'keyword': w, 'count': c} for w, c in counter.most_common(_KW_MAX * 3) if c >= 3][:_KW_MAX]
 
 
 def needs_ai_processing(item):
