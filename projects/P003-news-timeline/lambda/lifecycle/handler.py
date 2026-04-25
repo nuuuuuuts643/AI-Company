@@ -33,6 +33,7 @@ from boto3.dynamodb.conditions import Attr, Key as DKey
 
 REGION     = os.environ.get('REGION', 'ap-northeast-1')
 TABLE      = os.environ.get('TABLE_NAME', 'p003-topics')
+S3_BUCKET  = os.environ.get('S3_BUCKET', 'p003-news-946554699567')
 SLACK_URL  = os.environ.get('SLACK_WEBHOOK', '')
 
 # スコア閾値
@@ -40,10 +41,15 @@ LEGACY_SCORE_THRESHOLD = 50   # このスコア以上なら legacy 保存
 DEAD_SCORE_THRESHOLD   = 20   # このスコア未満なら削除
 
 # 日数閾値（velocity <= 0 との AND 条件）
-ARCHIVE_DAYS = 30   # 30日以上記事がなく、velocity <= 0 → 判定対象に入れる
+# サービス稼働2週間時点では30日条件はゼロ件しか処理しない。7日で十分。
+ARCHIVE_DAYS = 7    # 7日以上記事がなく、velocity <= 0 → 判定対象に入れる
+
+# filter-feedback ファイルの保持日数
+FEEDBACK_RETENTION_DAYS = 7   # 7日以上前のファイルは削除
 
 dynamodb = boto3.resource('dynamodb', region_name=REGION)
 table    = dynamodb.Table(TABLE)
+s3       = boto3.client('s3', region_name=REGION)
 
 
 def is_truly_inactive(item: dict, now: int) -> bool:
@@ -72,6 +78,21 @@ def delete_snaps(topic_id: str) -> int:
         if not resp.get('LastEvaluatedKey'):
             break
         kwargs['ExclusiveStartKey'] = resp['LastEvaluatedKey']
+    return deleted
+
+
+def cleanup_filter_feedback(now: int) -> int:
+    """7日以上前の filter-feedback JSON ファイルを S3 から削除する"""
+    prefix = 'api/filter-feedback/'
+    cutoff = now - FEEDBACK_RETENTION_DAYS * 86400
+    deleted = 0
+    paginator = s3.get_paginator('list_objects_v2')
+    for page in paginator.paginate(Bucket=S3_BUCKET, Prefix=prefix):
+        for obj in page.get('Contents', []):
+            ts = obj['LastModified'].timestamp()
+            if ts < cutoff:
+                s3.delete_object(Bucket=S3_BUCKET, Key=obj['Key'])
+                deleted += 1
     return deleted
 
 
@@ -174,10 +195,19 @@ def lambda_handler(event, context):
             archived_count += 1
             print(f"[archived] topicId={topic_id} score={score} snaps_deleted={snaps_deleted}")
 
+    # ---- filter-feedback S3 クリーンアップ ----
+    try:
+        fb_deleted = cleanup_filter_feedback(now)
+        print(f"[feedback-cleanup] {fb_deleted} files deleted")
+    except Exception as e:
+        print(f"[feedback-cleanup] error: {e}")
+        fb_deleted = -1
+
     summary = (
         f"Lifecycle sweep: {legacy_count} legacy, "
         f"{archived_count} archived, {deleted_count} deleted, "
-        f"{skipped_count} skipped (still active/cooling)"
+        f"{skipped_count} skipped (still active/cooling) | "
+        f"feedback-cleanup: {fb_deleted} files"
     )
     print(summary)
 

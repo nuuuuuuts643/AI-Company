@@ -775,7 +775,7 @@ function renderCharts(m) {
     UI.barRow('中 (10-49)', vel.mid,  velMax, 'fill-blue',   `${vel.mid}件`),
     UI.barRow('高 (50+)',   vel.high, velMax, 'fill-green',  `${vel.high}件`),
   ].join('') + `<div style="margin-top:8px;font-size:.75rem;color:#8b949e">
-    停滞トピック ${vel.zero}件はlifecycle Lambdaが30日後に自動整理</div>`;
+    停滞トピック ${vel.zero}件はlifecycle Lambdaが7日後に自動整理</div>`;
 
   // ジャンル
   const gList = Object.entries(m.genre).sort((a,b)=>b[1]-a[1]);
