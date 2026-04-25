@@ -73,6 +73,19 @@ function updateOGP(meta) {
     };
     jsonLdEl.textContent = JSON.stringify(jsonLd);
   }
+
+  // BreadcrumbList 構造化データ
+  const breadcrumbEl = document.getElementById('jsonld-breadcrumb');
+  if (breadcrumbEl && meta.topicId) {
+    breadcrumbEl.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      'itemListElement': [
+        { '@type': 'ListItem', 'position': 1, 'name': 'Flotopic', 'item': 'https://flotopic.com/' },
+        { '@type': 'ListItem', 'position': 2, 'name': title.slice(0, 80), 'item': url }
+      ]
+    });
+  }
 }
 
 
