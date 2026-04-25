@@ -115,7 +115,8 @@ cat /Users/murakaminaoya/.claude/projects/-Users-murakaminaoya-ai-company/memory
 ### pending_ai.json は processor が管理する。手動で全クリアしない
 - `pending_ai.json` の zombie ID クリーンアップは processor が自動で行う（削除済みID = DynamoDB に存在しないIDを除外）
 - 手動クリーンアップが必要なのは、processor が全く動いていない状況のみ
-- fetcher が毎回20件ずつ orphan（AI未処理トピック）を追加する設計になっている（2026-04-25実装）
+- fetcher は pending 件数が80件未満の場合のみ最大20件の orphan（AI未処理トピック）を追加する（2026-04-26 cap実装で肥大化バグ修正済み）
+- orphan追加はtopics_deduped（公開対象500件）のみ対象。非公開トピックをqueueに入れない
 
 ---
 
