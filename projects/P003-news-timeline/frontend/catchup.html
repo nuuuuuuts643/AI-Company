@@ -418,7 +418,7 @@ function isWithinDays(isoStr, days) {
 // ── トピックデータ取得 ────────────────────────────────────────────────────────
 async function fetchTopics() {
   try {
-    const url = (typeof API_BASE !== 'undefined' ? API_BASE : '') + 'api/topics.json';
+    const url = (typeof API_BASE !== 'undefined' ? API_BASE : 'https://flotopic.com/api/') + 'topics.json';
     const resp = await fetch(url, { cache: 'no-store' });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
