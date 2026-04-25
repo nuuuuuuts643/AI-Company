@@ -281,33 +281,67 @@
     .mp-tabs {
       display: flex;
       background: #fff;
-      border-radius: 12px;
-      padding: 4px;
-      gap: 2px;
+      border-bottom: 1.5px solid #f1f5f9;
       margin-bottom: 16px;
-      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+      box-shadow: 0 1px 4px rgba(0,0,0,.04);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
+    .mp-tabs::-webkit-scrollbar { display: none; }
     .mp-tab {
-      flex: 1;
-      padding: 9px 8px;
+      flex: 1 0 auto;
+      padding: 14px 12px;
       border: none;
+      border-bottom: 2.5px solid transparent;
       background: transparent;
-      border-radius: 9px;
       font-size: .83rem;
-      font-weight: 600;
+      font-weight: 500;
       color: #94a3b8;
       cursor: pointer;
-      transition: all .15s;
+      transition: color .15s, border-color .15s;
       font-family: inherit;
+      white-space: nowrap;
     }
     .mp-tab.active {
-      background: #6366f1;
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+      border-bottom-color: #6366f1;
+      color: #6366f1;
+      font-weight: 700;
     }
     .mp-tab:hover:not(.active) {
-      background: #f1f5f9;
       color: #475569;
+      background: rgba(99,102,241,0.03);
+    }
+
+    /* ===== パネルトランジション ===== */
+    .mp-panel { display: none; }
+    .mp-panel.active {
+      display: block;
+      animation: panelSlideIn 0.22s ease;
+    }
+    @keyframes panelSlideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== タイムライン空状態 ===== */
+    .mp-timeline-empty {
+      text-align: center;
+      padding: 56px 24px 48px;
+    }
+    .mp-timeline-empty-icon { font-size: 3rem; margin-bottom: 16px; opacity: .55; }
+    .mp-timeline-empty-title { font-size: 1rem; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+    .mp-timeline-empty-desc { font-size: .85rem; color: #94a3b8; line-height: 1.7; }
+    .mp-timeline-coming-badge {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 4px 14px;
+      background: rgba(99,102,241,0.1);
+      color: #6366f1;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .04em;
     }
 
     /* ===== コンテンツカード ===== */
@@ -373,10 +407,6 @@
       line-height: 1.6;
     }
     .mp-empty a { color: #2563eb; }
-
-    /* ===== タブパネル ===== */
-    .mp-panel { display: none; }
-    .mp-panel.active { display: block; }
 
     /* ===== ニックネーム編集 ===== */
     .mp-nickname-field {
@@ -545,10 +575,11 @@
     [data-theme="dark"] .mp-handle { color: #818cf8; }
     [data-theme="dark"] .mp-stat-num { color: #eef0f8; }
     [data-theme="dark"] .mp-stat { border-right-color: rgba(99,102,241,0.15); }
-    [data-theme="dark"] .mp-tabs { background: #1e2035; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+    [data-theme="dark"] .mp-tabs { background: #1e2035; border-bottom-color: rgba(99,102,241,0.12); }
     [data-theme="dark"] .mp-tab { color: #5c6080; }
-    [data-theme="dark"] .mp-tab.active { background: #6366f1; color: #fff; }
-    [data-theme="dark"] .mp-tab:hover:not(.active) { background: #252840; color: #9ba3c4; }
+    [data-theme="dark"] .mp-tab.active { border-bottom-color: #818cf8; color: #818cf8; }
+    [data-theme="dark"] .mp-tab:hover:not(.active) { color: #9ba3c4; background: rgba(99,102,241,0.05); }
+    [data-theme="dark"] .mp-timeline-empty-title { color: #eef0f8; }
     [data-theme="dark"] .mp-card { background: #1e2035; box-shadow: 0 1px 6px rgba(0,0,0,.3); }
     [data-theme="dark"] .mp-topic-row { border-bottom-color: rgba(99,102,241,0.1); color: #eef0f8; }
     [data-theme="dark"] .mp-topic-row:hover { background: #252840; }
@@ -1191,13 +1222,21 @@
         <div class="mp-display-name">${displayName}</div>
         <div class="mp-handle">${safeEsc(handleText)}</div>
         <div class="mp-stats-row">
+          <div class="mp-stat" style="cursor:default;">
+            <span class="mp-stat-num">0</span>
+            <span class="mp-stat-label">フォロー</span>
+          </div>
+          <div class="mp-stat" style="cursor:default;">
+            <span class="mp-stat-num">0</span>
+            <span class="mp-stat-label">フォロワー</span>
+          </div>
           <div class="mp-stat">
             <span class="mp-stat-num">${favTopics.length}</span>
             <span class="mp-stat-label">お気に入り</span>
           </div>
-          <div class="mp-stat">
+          <div class="mp-stat" style="border-right:none;margin-right:0;">
             <span class="mp-stat-num">${history.length}</span>
-            <span class="mp-stat-label">閲覧履歴</span>
+            <span class="mp-stat-label">閲覧</span>
           </div>
         </div>
       </div>
@@ -1207,7 +1246,8 @@
         <button class="mp-tab active" data-tab="favs">⭐ お気に入り</button>
         <button class="mp-tab" data-tab="comments">💬 コメント</button>
         <button class="mp-tab" data-tab="history">📖 履歴</button>
-        <button class="mp-tab" data-tab="account">アカウント</button>
+        <button class="mp-tab" data-tab="timeline">📡 タイムライン</button>
+        <button class="mp-tab" data-tab="account">⚙️ 設定</button>
       </div>
 
       <!-- お気に入りパネル -->
@@ -1232,6 +1272,18 @@
       <!-- 履歴パネル -->
       <div class="mp-panel" id="panel-history">
         <div class="mp-card"><div class="mp-card-inner">${historyHtml}</div></div>
+      </div>
+
+      <!-- タイムラインパネル -->
+      <div class="mp-panel" id="panel-timeline">
+        <div class="mp-card">
+          <div class="mp-timeline-empty">
+            <div class="mp-timeline-empty-icon">📡</div>
+            <div class="mp-timeline-empty-title">タイムライン</div>
+            <div class="mp-timeline-empty-desc">フォローしているユーザーのアクティビティが<br>ここに表示されます。</div>
+            <div class="mp-timeline-coming-badge">近日公開予定</div>
+          </div>
+        </div>
       </div>
 
       <!-- アカウントパネル -->
@@ -1326,6 +1378,8 @@
             if (u) { u.nickname = v; localStorage.setItem('flotopic_user', JSON.stringify(u)); }
           } catch {}
         }
+        // クロスデバイス同期
+        if (typeof syncProfileToServer === 'function') syncProfileToServer({ nickname: v });
         nickSave.style.display = 'none';
         nickSave.textContent = '保存';
         // プロフィールヘッダーの名前も更新
