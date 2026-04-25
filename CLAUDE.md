@@ -146,13 +146,17 @@ git push || echo "push failed, continuing"
 | CI (.github/workflows/ci.yml) | ✅ 全テスト通過 | 2026-04-25 | YAML バグ修正済み（2022-04-22以来初めて通過） |
 | sw.js バージョン管理 | ✅ 自動 | 2026-04-25 | git SHA 自動注入。ソースは `flotopic-dev` のまま触るな |
 | deploy-p003.yml | ✅ CloudFront invalidation付き | 2026-04-25 | sw.js SHA注入ステップあり |
-| processor AI要約 | ✅ 稼働中 | 2026-04-25 | 4セクション形式・**velocityScore優先**・4回/日・MAX 150件/回 |
-| sitemap.xml | ✅ 202 URL | 2026-04-25 | processor が topics.json 更新のたびに自動再生成 |
-| rss.xml | ✅ 品質フィルタ済み | 2026-04-25 | AI タイトルあり・active/cooling・株価ticker除外 |
+| processor AI要約 | ✅ 稼働中 | 2026-04-25 | 4セクション形式・velocityScore優先・4回/日。334件中70件 aiGenerated |
+| sitemap.xml | ✅ 動的自動生成 | 2026-04-25 | ⚠️ 静的frontend/sitemap.xml削除済み。次のprocessor実行で202URL再生成される |
+| news-sitemap.xml | ✅ 実装済み | 2026-04-25 | Google News Sitemap。processor実行時に自動生成。robots.txtに記載済み |
+| rss.xml | ✅ 品質フィルタ済み | 2026-04-25 | 同一イベント重複抑制あり（最大2件/イベント）・株価ticker除外 |
+| クラスタリング | ✅ 改善 | 2026-04-25 | 【中継】【速報】等のプレフィックスを除去してからJaccard比較 |
+| 株価ティッカーフィルタ | ✅ 強化 | 2026-04-25 | 英数字コード(325A等)・Yahoo!ファイナンス全般を除外 |
 | CloudFront | ✅ 自動無効化 | 2026-04-25 | push → GH Actions → S3 + CF invalidation |
 | view tracking | ✅ 稼働 | 2026-04-25 | POST /analytics/event → flotopic-analytics Lambda |
 | admin dashboard | ✅ 稼働 | 2026-04-25 | flotopic.com/admin.html（Google 認証・owner643@gmail.com のみ） |
-| topics.json AI カバレッジ | 🔄 進行中 | 2026-04-25 | 330件中67件 aiGenerated・28件 4セクション完備。毎回増加中 |
+| Bluesky 自動投稿 | ✅ 稼働 | 2026-04-25 | 毎日05:32 JST 投稿確認済み |
+| Claude Code 確認ダイアログ | ✅ 対策済み | 2026-04-25 | ~/.claude/settings.json に Bash/Edit/Write を allow 追加。再起動後有効 |
 
 ## 専門AI稼働状況
 
