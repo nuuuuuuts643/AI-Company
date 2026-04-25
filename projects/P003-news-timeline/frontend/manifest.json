@@ -10,9 +10,10 @@
   "lang": "ja",
   "categories": ["news", "lifestyle"],
   "icons": [
-    {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
-    {"src": "/ogp.png", "sizes": "1200x630", "type": "image/png"}
+    {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
   ],
   "shortcuts": [
     {
@@ -21,8 +22,13 @@
       "description": "急上昇中のトピックを見る"
     },
     {
+      "name": "ふりかえり",
+      "url": "/catchup.html",
+      "description": "過去の注目トピックを振り返る"
+    },
+    {
       "name": "お気に入り",
-      "url": "/?favs=1",
+      "url": "/mypage.html",
       "description": "お気に入りトピック一覧"
     }
   ]
