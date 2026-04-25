@@ -160,6 +160,14 @@
       gap: 6px;
       margin-top: 10px;
     }
+    .topic-fav-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 14px; border-radius: 16px; border: 1.5px solid rgba(255,255,255,.4);
+      background: transparent; color: rgba(255,255,255,.75);
+      font-size: .8rem; font-weight: 600; cursor: pointer; transition: all .2s;
+    }
+    .topic-fav-btn:hover { background: rgba(255,255,255,.15); color: #fff; }
+    .topic-fav-btn.fav-active { background: #ef4444; border-color: #ef4444; color: #fff; }
     /* dark mode for hero is already dark */
   </style>
 </head>
@@ -204,6 +212,7 @@
       <span id="genre-badge"></span>
     </div>
     <div class="topic-share-bar">
+      <button id="topic-fav-btn" class="topic-fav-btn" title="お気に入りに追加" aria-label="お気に入り">♥ お気に入り</button>
       <button id="share-btn" style="display:none;align-items:center;gap:5px;padding:5px 14px;border:none;border-radius:16px;background:rgba(255,255,255,.15);color:#fff;font-size:.8rem;font-weight:600;cursor:pointer;backdrop-filter:blur(4px);" aria-label="シェア">📤 シェア</button>
       <a id="x-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:#000;color:#fff;font-size:.8rem;font-weight:700;text-decoration:none;" aria-label="Xでシェア">𝕏 シェア</a>
       <a id="hatena-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:#00a4de;color:#fff;font-size:.8rem;font-weight:700;text-decoration:none;" aria-label="はてなブックマーク">B! はてブ</a>
