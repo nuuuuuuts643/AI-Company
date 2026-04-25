@@ -396,7 +396,7 @@ aws events put-targets \
   --rule "p003-processor-schedule" \
   --targets "Id=1,Arn=${PROCESSOR_ARN}" \
   --region "$REGION" > /dev/null
-echo "  -> Processor: JST 7:00/12:00/18:00 の自動実行を設定完了 (UTC 22:00/03:00/09:00)"
+echo "  -> Processor: JST 7:00/12:00/18:00/0:00 の自動実行を設定完了 (UTC 22:00/03:00/09:00/15:00)"
 
 # ---- 8. フロントエンド (config.js は全Lambda URL確定後に書き込み) ----
 echo "[8/8] フロントエンドデプロイの準備..."
@@ -650,6 +650,10 @@ echo "  -> robots.txt / sitemap.xml / ogp.png / ads.txt アップロード完了
 aws s3 cp frontend/404.html "s3://${BUCKET}/404.html" \
   --content-type "text/html" --cache-control "public, max-age=300" --region "$REGION"
 echo "  -> 404.html アップロード完了"
+# sw.js は常に no-store（ブラウザキャッシュ禁止）でアップロード → SW更新が即反映される
+aws s3 cp frontend/sw.js "s3://${BUCKET}/sw.js" \
+  --content-type "application/javascript" --cache-control "no-store, no-cache, must-revalidate" --region "$REGION"
+echo "  -> sw.js (no-cache) アップロード完了"
 
 # ---- Lambda 同時実行数制限（DDoS/コスト防衛） ----
 echo "  -> Lambda 同時実行数制限を設定..."
