@@ -1,9 +1,39 @@
 // ===== お気に入り管理 =====
 // 依存: config.js (FAVORITES_URL), auth.js (currentUser), app.js (renderTopics, allTopics, currentPage)
 
-const FAV_LS_KEY = 'flotopic_favs';
+const FAV_LS_KEY  = 'flotopic_favs';
+const FAV_SEEN_KEY = 'flotopic_fav_seen'; // {topicId: lastUpdated文字列}
 let userFavorites = new Set();
 let showFavsOnly = false;
+
+// お気に入りトピックの「既読lastUpdated」を管理
+function getFavSeenMap() {
+  try { return JSON.parse(localStorage.getItem(FAV_SEEN_KEY) || '{}'); } catch { return {}; }
+}
+function markFavSeen(topicId, lastUpdated) {
+  try {
+    const m = getFavSeenMap();
+    m[topicId] = lastUpdated || '';
+    localStorage.setItem(FAV_SEEN_KEY, JSON.stringify(m));
+  } catch {}
+}
+// トピックリスト更新後に呼ぶ: 初回ならseenに記録し、2回目以降は更新検知
+function syncFavSeenTimes(topics) {
+  const m = getFavSeenMap();
+  topics.forEach(t => {
+    if (userFavorites.has(t.topicId) && !(t.topicId in m)) {
+      m[t.topicId] = t.lastUpdated || '';
+    }
+  });
+  try { localStorage.setItem(FAV_SEEN_KEY, JSON.stringify(m)); } catch {}
+}
+// お気に入りかつ前回より更新されているか
+function isFavUpdated(t) {
+  if (!userFavorites.has(t.topicId)) return false;
+  const m = getFavSeenMap();
+  if (!(t.topicId in m)) return false; // 初回は更新扱いしない
+  return (t.lastUpdated || '') > (m[t.topicId] || '');
+}
 
 function loadLocalFavs() {
   try {

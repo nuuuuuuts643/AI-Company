@@ -54,7 +54,7 @@ function showErrorBanner(message) {
   }
 }
 
-const STATUS_LABEL = { rising:'🔥 急上昇', peak:'⚡ 注目中', declining:'📉 落ち着き' };
+const STATUS_LABEL = { rising:'🔥 急上昇', peak:'⚡ 注目中', declining:'📉 落ち着き', cooling:'📉 落ち着き' };
 
 function cleanSummary(s) {
   if (!s) return s;
@@ -197,7 +197,11 @@ function toUnixSec(v) {
 function renderBadges(t) {
   const ts = toUnixSec(t.lastUpdated);
   const isNew = ts > 0 && ts >= Date.now() / 1000 - CONFIG.NEW_BADGE_HOURS * 3600;
-  return isNew ? '<span class="card-new-badge">NEW</span>' : '';
+  const newBadge = isNew ? '<span class="card-new-badge">NEW</span>' : '';
+  const favUpdated = (typeof isFavUpdated === 'function' && isFavUpdated(t))
+    ? '<span class="card-fav-updated-badge">♥ 更新</span>'
+    : '';
+  return newBadge + favUpdated;
 }
 
 /**
@@ -208,14 +212,30 @@ function renderBadges(t) {
 function renderCardMeta(t) {
   const readMins = Math.min(30, Math.max(1, Math.round((t.articleCount || 1) * 0.8)));
   const srcCount = t.uniqueSourceCount || (t.sources ? t.sources.length : 0);
-  const srcLabel = srcCount > 1
-    ? `<span class="src-count-label" title="${srcCount}社のソースが報道">📰 ${srcCount}社が報道</span>`
-    : (srcCount === 1 ? `<span class="src-count-label src-single" title="1社のみの報道">📰 1社のみ</span>` : '');
+  const srcNames = Array.isArray(t.sources) ? t.sources : [];
+
+  // ソース表示: 2社以下はファビコン付き名前表示、3社以上は件数
+  let srcLabel = '';
+  if (srcCount >= 3) {
+    srcLabel = `<span class="src-count-label" title="${srcNames.slice(0,6).join('、')}">📰 ${srcCount}社が報道</span>`;
+  } else if (srcCount === 2) {
+    srcLabel = `<span class="src-count-label">${srcNames.slice(0,2).map(s => srcFaviconImg(s) + esc(s)).join(' · ')}</span>`;
+  } else if (srcCount === 1) {
+    srcLabel = `<span class="src-count-label src-single">${srcFaviconImg(srcNames[0])}${esc(srcNames[0] || '1社のみ')}</span>`;
+  }
+
+  // はてなブックマーク数（ソーシャルエンゲージメント指標）
+  const hatena = parseInt(t.hatenaCount || 0, 10);
+  const hatenaLabel = hatena >= 10
+    ? `<span class="hatena-count" title="はてなブックマーク数">🔖 ${hatena}</span>`
+    : '';
+
   const genres = t.genres || [t.genre || '総合'];
   return `
     <div class="topic-meta">
       <span class="article-count">📄 ${t.articleCount}件 · 約${readMins}分</span>
       ${srcLabel}
+      ${hatenaLabel}
       ${genres.map(g => `<span class="genre-tag">${esc(g)}</span>`).join('')}
       <span>${fmtDate(t.lastUpdated)}</span>
     </div>`;
@@ -247,20 +267,38 @@ function renderReliabilitySignal(t) {
  */
 function renderTopicCard(t, i) {
   const primaryGenre = (t.genres || [t.genre || '総合'])[0];
+  // lifecycleStatus=cooling/archived はカード表示を declining に統一
+  const isCooling = t.lifecycleStatus === 'cooling' || t.lifecycleStatus === 'archived';
+  const displayStatus = isCooling ? 'declining' : (t.status || 'rising');
+
   const thumbHtml = t.imageUrl
-    ? `<div class="card-thumb"><img class="card-thumb-img" src="${esc(t.imageUrl)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<div class=\\'card-thumb-placeholder ${esc(t.status)}\\'>${genreEmoji(primaryGenre)}</div>'"></div>`
-    : `<div class="card-thumb"><div class="card-thumb-placeholder ${esc(t.status)}">${genreEmoji(primaryGenre)}</div></div>`;
+    ? `<div class="card-thumb"><img class="card-thumb-img" src="${esc(t.imageUrl)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<div class=\\'card-thumb-placeholder ${displayStatus}\\'>${genreEmoji(primaryGenre)}</div>'"></div>`
+    : `<div class="card-thumb"><div class="card-thumb-placeholder ${displayStatus}">${genreEmoji(primaryGenre)}</div></div>`;
   const isFav    = userFavorites.has(t.topicId);
   const isViewed = viewedTopics.has(t.topicId);
+
+  // cooling時に「N日前に沈静化」を表示
+  const coolingAgeHtml = (() => {
+    if (!isCooling || !t.lastArticleAt) return '';
+    const h = Math.floor((Date.now() / 1000 - Number(t.lastArticleAt)) / 3600);
+    const label = h >= 48 ? `${Math.floor(h/24)}日前に沈静化` : `${h}時間前に沈静化`;
+    return `<span class="cooling-age">${label}</span>`;
+  })();
+
+  // AI要約なし時のフォールバック（pendingAIなら「準備中」、それ以外は非表示）
+  const summaryHtml = t.generatedSummary
+    ? `<p class="card-summary">${esc(cleanSummary(t.generatedSummary))}</p>`
+    : (t.pendingAI ? `<p class="card-summary-pending">AI要約を生成中…</p>` : '');
+
   return `
     <div class="topic-card-wrapper" style="position:relative;">
       ${renderBadges(t)}
-      <a class="topic-card ${esc(t.status)}${isViewed ? ' viewed' : ''}" href="topic.html?id=${esc(t.topicId)}" data-tid="${esc(t.topicId)}">
+      <a class="topic-card ${displayStatus}${isViewed ? ' viewed' : ''}" href="topic.html?id=${esc(t.topicId)}" data-tid="${esc(t.topicId)}">
         ${thumbHtml}
         <div class="card-body">
-          <div class="topic-status ${esc(t.status)}">${STATUS_LABEL[t.status] || t.status}</div>
+          <div class="topic-status ${displayStatus}">${STATUS_LABEL[displayStatus] || displayStatus}${coolingAgeHtml}</div>
           <h3>${esc(t.generatedTitle || t.title)}</h3>
-          ${t.generatedSummary ? `<p class="card-summary">${esc(t.generatedSummary)}</p>` : ''}
+          ${summaryHtml}
           ${renderCardMeta(t)}
           ${renderReliabilitySignal(t)}
         </div>
@@ -307,9 +345,15 @@ function renderTopics(topics) {
     const q = currentSearch.toLowerCase();
     list = list.filter(t => (t.generatedTitle||t.title||'').toLowerCase().includes(q));
   }
-  if (currentStatus !== 'all')    list = list.filter(t => t.status === currentStatus);
+  // declining フィルターは lifecycleStatus=cooling を含める（status=decliningは実質未使用のため）
+  if (currentStatus === 'declining') {
+    list = list.filter(t => t.status === 'declining' || t.lifecycleStatus === 'cooling');
+  } else if (currentStatus !== 'all') {
+    list = list.filter(t => t.status === currentStatus && t.lifecycleStatus !== 'cooling');
+  } else {
+    list = list.filter(t => t.lifecycleStatus !== 'archived');
+  }
   if (currentGenre  !== '総合') list = list.filter(t => (t.genres||[t.genre]).includes(currentGenre));
-  if (currentStatus === 'all')    list = list.filter(t => t.lifecycleStatus !== 'archived');
   if (showFavsOnly) list = list.filter(t => userFavorites.has(t.topicId));
 
   // ジャンル多様性を確保（テック偏り防止）
@@ -466,7 +510,9 @@ async function refreshTopics() {
     lastFetchTime = Date.now();
     updateFreshnessDisplay();
     renderHotStrip(allTopics);
+    renderFavStrip(allTopics);
     renderTopics(allTopics);
+    if (typeof syncFavSeenTimes === 'function') syncFavSeenTimes(allTopics);
   } catch(e) {
     console.error(e);
     showErrorBanner('データの読み込みに失敗しました。しばらくしてから再度お試しください。');
@@ -517,6 +563,34 @@ function renderHotStrip(topics) {
     </div>`;
 }
 
+// お気に入りトピックの最新動向ストリップ（更新があれば表示）
+function renderFavStrip(topics) {
+  const existingStrip = document.getElementById('fav-strip');
+  if (existingStrip) existingStrip.remove();
+  if (!topics || !topics.length || typeof userFavorites === 'undefined') return;
+
+  const favTopics = topics.filter(t => userFavorites.has(t.topicId));
+  if (!favTopics.length) return;
+
+  const updated = favTopics.filter(t => typeof isFavUpdated === 'function' && isFavUpdated(t));
+  const displayList = updated.length ? updated : favTopics.slice(0, 3);
+
+  const grid = document.getElementById('topics-grid');
+  if (!grid) return;
+  const strip = document.createElement('section');
+  strip.id = 'fav-strip';
+  strip.className = 'fav-strip';
+  strip.innerHTML = `
+    <div class="hot-strip-header">⭐ お気に入り${updated.length ? `（${updated.length}件更新あり）` : ''}</div>
+    <div class="hot-strip-chips">
+      ${displayList.map(t => {
+        const hasUpdate = typeof isFavUpdated === 'function' && isFavUpdated(t);
+        return `<a href="topic.html?id=${esc(t.topicId)}" class="hot-chip${hasUpdate ? ' fav-chip-updated' : ''}">${esc(t.generatedTitle || t.title)}${hasUpdate ? ' <span class="fav-new-dot">●</span>' : ''}</a>`;
+      }).join('')}
+    </div>`;
+  grid.parentNode.insertBefore(strip, grid);
+}
+
 function showTrendingBanner(topics) {
   const grid = document.getElementById('topics-grid');
   if (!grid) return;
@@ -551,6 +625,11 @@ function markViewed(topicId) {
     const arr = [...viewedTopics].slice(-200);
     localStorage.setItem(LS_VIEWED, JSON.stringify(arr));
   } catch {}
+  // お気に入りの場合は既読時刻を更新（次回の「更新あり」バッジを消す）
+  if (typeof userFavorites !== 'undefined' && userFavorites.has(topicId) && typeof markFavSeen === 'function') {
+    const t = (typeof allTopics !== 'undefined' ? allTopics : []).find(x => x.topicId === topicId);
+    if (t) markFavSeen(topicId, t.lastUpdated);
+  }
 }
 loadViewedTopics();
 
