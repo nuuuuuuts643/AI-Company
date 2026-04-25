@@ -479,6 +479,7 @@ def lambda_handler(event, context):
             [t for t in topics_deduped_all
              if t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES
              and (int(t.get('articleCount', 0) or 0) >= 2 or float(t.get('velocityScore', 0) or 0) > 0)
+             and not any(p.search(t.get('title', '') + t.get('generatedTitle', '')) for p in _DIGEST_SKIP_PATS)
             ],
             key=lambda t: (float(t.get('velocityScore', 0) or 0), t.get('lastUpdated', '') or ''),
             reverse=True,
