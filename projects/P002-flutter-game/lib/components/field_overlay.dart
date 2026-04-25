@@ -22,6 +22,12 @@ class FieldOverlayComponent extends PositionComponent {
   Map<int, int> _wavePreviewCounts = {};
   double _previewAlpha = 0.0; // 0=非表示, 1=表示
 
+  // カードドラッグ中のグリッドハイライト
+  bool _isDragging = false;
+  double _dragHighlightAlpha = 0.0;
+
+  void setDragging(bool v) => _isDragging = v;
+
   FieldOverlayComponent()
       : super(
           position: Vector2.zero(),
@@ -42,9 +48,14 @@ class FieldOverlayComponent extends PositionComponent {
   @override
   void update(double dt) {
     _elapsed += dt;
-    // フェードアウト（波開始後に徐々に消える）
     if (_wavePreviewCounts.isEmpty && _previewAlpha > 0) {
       _previewAlpha = (_previewAlpha - dt * 2.0).clamp(0.0, 1.0);
+    }
+    // ドラッグハイライトのフェード
+    if (_isDragging && _dragHighlightAlpha < 1.0) {
+      _dragHighlightAlpha = (_dragHighlightAlpha + dt * 6.0).clamp(0.0, 1.0);
+    } else if (!_isDragging && _dragHighlightAlpha > 0.0) {
+      _dragHighlightAlpha = (_dragHighlightAlpha - dt * 8.0).clamp(0.0, 1.0);
     }
   }
 
@@ -56,7 +67,48 @@ class FieldOverlayComponent extends PositionComponent {
     _drawLaneBarriers(canvas);
     _drawBattlements(canvas);
     _drawZoneBoundaryLine(canvas);
+    if (_dragHighlightAlpha > 0) _drawGridCellHighlight(canvas);
     if (_previewAlpha > 0) _drawWavePreview(canvas);
+  }
+
+  void _drawGridCellHighlight(Canvas canvas) {
+    final a = _dragHighlightAlpha;
+    final pulse = 0.5 + sin(_elapsed * 5) * 0.3;
+    for (int col = 0; col < GameConstants.laneCount.toInt(); col++) {
+      for (int row = 0; row < GameConstants.gridRows; row++) {
+        final x = col * _laneW;
+        final y = _gridTop + GameConstants.cellHeight * row;
+        final w = _laneW;
+        final h = GameConstants.cellHeight;
+
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(x + 3, y + 3, w - 6, h - 6),
+            const Radius.circular(5),
+          ),
+          Paint()
+            ..color = Color.fromARGB((a * pulse * 55).round(), 0, 255, 170)
+            ..style = PaintingStyle.fill,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(x + 3, y + 3, w - 6, h - 6),
+            const Radius.circular(5),
+          ),
+          Paint()
+            ..color = Color.fromARGB((a * 180).round(), 0, 255, 170)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5,
+        );
+
+        final rowLabels = ['前列', '2列', '3列', '後列'];
+        if (col == 0) {
+          _drawText(canvas, rowLabels[row], 8,
+              Offset(x + 18, y + h / 2),
+              Color.fromARGB((a * 160).round(), 0, 255, 170));
+        }
+      }
+    }
   }
 
   // ---- 敵ゾーン寒色オーバーレイ ----

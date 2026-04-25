@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'package:flame/components.dart';
+import 'package:flutter/material.dart';
 import '../components/enemy_component.dart';
 import '../components/unit_component.dart';
 import '../constants/element_chart.dart';
@@ -18,6 +20,13 @@ class BattleSystem {
   final void Function(UnitComponent healer, UnitComponent target, AuraType aura)?
       onAuraApplied;
 
+  // 攻撃ヒット時の視覚エフェクトコールバック（既にダメージ適用済み）
+  final void Function(UnitComponent unit, EnemyComponent target, int damage, bool isWeakness)?
+      onAttackVisual;
+
+  // スキル発動時のフローティングテキストコールバック
+  final void Function(String text, Color color, Vector2 pos)? onSkillProc;
+
   final _rng = Random();
 
   // 各ユニットの攻撃クールダウン（instanceId → 残秒数）
@@ -26,7 +35,15 @@ class BattleSystem {
   // オーラのインターバルタイマー（instanceId → 残秒数）
   final Map<String, double> _auraTimers = {};
 
-  BattleSystem({required this.gameState, this.onAuraApplied});
+  // 敵の近接攻撃インターバルタイマー（1秒ごとに一括処理）
+  double _enemyMeleeTimer = 1.0;
+
+  BattleSystem({
+    required this.gameState,
+    this.onAuraApplied,
+    this.onAttackVisual,
+    this.onSkillProc,
+  });
 
   /// 毎フレーム更新：ユニットvs敵のオートバトル
   void update(
@@ -67,6 +84,16 @@ class BattleSystem {
 
     // 状態異常処理
     _processStatusEffects(dt, enemies);
+
+    // 挑発オーラ（tauntスキル持ちが近くの敵を減速）
+    _processTauntAura(units, enemies);
+
+    // 敵の近接攻撃（ユニットとの接触ダメージ・0.5秒インターバル）
+    _enemyMeleeTimer -= dt;
+    if (_enemyMeleeTimer <= 0) {
+      _enemyMeleeTimer = 1.0;
+      _processEnemyMelee(units, enemies);
+    }
   }
 
   /// 支援ユニットのオーラ処理
@@ -166,10 +193,11 @@ class BattleSystem {
     // 基礎ダメージ（ボーンATKバフ適用）
     double dmg = attacker.effectiveAttack.toDouble() * gameState.boonAtkMultiplier;
 
-    // アーマー貫通（土騎士は破壊ダメージ倍）
+    // アーマー軽減（armorBreakスキルがあれば貫通）
     if (target.hasArmor && target.armorHp > 0) {
-      // アーマーへのダメージ（一部スキルで2倍）
-      dmg *= 0.5;
+      if (!attacker.skills.contains(UnitSkillId.armorBreak)) {
+        dmg *= 0.5;
+      }
     }
 
     dmg *= elementMult;
@@ -184,11 +212,74 @@ class BattleSystem {
     // 攻撃アニメーション起動
     unit.triggerAttackAnimation();
 
-    // 実際のダメージ適用はgame層のコールバック経由（FloatingText等と連動）
     target.takeDamage(finalDmg);
+
+    // 攻撃視覚コールバック（スラッシュ・プロジェクタイル・ダメージ数値）
+    onAttackVisual?.call(unit, target, finalDmg, elementMult >= 2.0);
+
+    // lifeSteal: ダメージの22%をHP回復
+    if (attacker.skills.contains(UnitSkillId.lifeSteal)) {
+      final healed = (finalDmg * 0.22).round().clamp(1, 80);
+      attacker.heal(healed);
+      onSkillProc?.call(
+        '+$healed 🩸',
+        const Color(0xFF66BB6A),
+        unit.position.clone() + Vector2(0, -30),
+      );
+    }
+
+    // doubleShot: 70%威力の2発目
+    if (attacker.skills.contains(UnitSkillId.doubleShot) && target.isAlive) {
+      final secondDmg = (finalDmg * 0.7).round().clamp(1, 9999);
+      target.takeDamage(secondDmg);
+      onSkillProc?.call(
+        '💫 $secondDmg',
+        const Color(0xFF80DEEA),
+        target.position.clone() + Vector2(10, -35),
+      );
+    }
 
     // 状態異常付与（スキル依存）
     _applyOnHitEffects(attacker, target, attacker.element);
+  }
+
+  /// 挑発オーラ: tauntスキル持ちユニットの近くにいる敵を強力に減速させる
+  void _processTauntAura(List<UnitComponent> units, List<EnemyComponent> enemies) {
+    for (final unit in units) {
+      if (!unit.unitInstance.isAlive) continue;
+      if (!unit.unitInstance.skills.contains(UnitSkillId.taunt)) continue;
+      for (final enemy in enemies) {
+        if (!enemy.isAlive) continue;
+        if (enemy.laneIndex != unit.unitInstance.laneIndex) continue;
+        final dist = (unit.position.y - enemy.position.y).abs();
+        if (dist < 90) {
+          enemy.applySlow(factor: 0.35, duration: 0.6);
+        }
+      }
+    }
+  }
+
+  /// 敵の近接攻撃: 敵ユニットとの接触でユニットにダメージ（1秒ごとに一括処理）
+  void _processEnemyMelee(List<UnitComponent> units, List<EnemyComponent> enemies) {
+    for (final enemy in enemies) {
+      if (!enemy.isAlive) continue;
+      for (final unit in units) {
+        if (!unit.unitInstance.isAlive) continue;
+        if (enemy.laneIndex != unit.unitInstance.laneIndex) continue;
+        final dist = (unit.position.y - enemy.position.y).abs();
+        if (dist < 45) {
+          final dmg = (enemy.enemyData.attackPower * 0.10).round().clamp(1, 999);
+          unit.unitInstance.takeDamage(dmg);
+
+          // resurrection: HP0になったとき1度だけ50%で復活
+          if (!unit.unitInstance.isAlive &&
+              unit.unitInstance.skills.contains(UnitSkillId.resurrection)) {
+            unit.unitInstance.skills.remove(UnitSkillId.resurrection);
+            unit.unitInstance.heal((unit.unitInstance.maxHp * 0.5).round());
+          }
+        }
+      }
+    }
   }
 
 
@@ -215,16 +306,28 @@ class BattleSystem {
   ) {
     switch (element) {
       case ElementType.fire:
-        // 火属性：燃焼付与
         target.applyBurn(damagePerSec: 5.0, duration: 3.0);
+        onSkillProc?.call(
+          '🔥燃焼',
+          const Color(0xFFFF7043),
+          target.position.clone() + Vector2(-10, -28),
+        );
         break;
       case ElementType.water:
-        // 水属性：鈍足付与
         target.applySlow(factor: 0.5, duration: 2.0);
+        onSkillProc?.call(
+          '❄スロー',
+          const Color(0xFF64B5F6),
+          target.position.clone() + Vector2(-10, -28),
+        );
         break;
       case ElementType.wind:
-        // 風属性：ノックバック
         target.applyKnockback(distance: 20.0);
+        onSkillProc?.call(
+          '💨ノックバック',
+          const Color(0xFF80CBC4),
+          target.position.clone() + Vector2(-14, -28),
+        );
         break;
       default:
         break;

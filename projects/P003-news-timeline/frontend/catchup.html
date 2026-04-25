@@ -15,6 +15,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="style.css">
+  <script src="https://accounts.google.com/gsi/client" async defer onload="if(window.__gsiReady)window.__gsiReady()"></script>
   <script src="config.js"></script>
   <style>
     /* ===== キャッチアップ専用スタイル ===== */
@@ -287,29 +288,6 @@
       color: #93c5fd;
     }
 
-    /* ── ナビゲーション ── */
-    .catchup-nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 20px;
-      background: #0a0e1f;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .catchup-nav .logo {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: #60a5fa;
-      text-decoration: none;
-    }
-    .catchup-nav .home-link {
-      font-size: 0.85rem;
-      color: #64748b;
-      text-decoration: none;
-    }
-    .catchup-nav .home-link:hover {
-      color: #94a3b8;
-    }
 
     @media (max-width: 480px) {
       .catchup-hero h1 { font-size: 1.4rem; }
@@ -319,11 +297,45 @@
 </head>
 <body>
 
-<!-- ナビゲーション -->
-<nav class="catchup-nav">
-  <a href="/" class="logo">Flotopic</a>
-  <a href="/" class="home-link">← トップに戻る</a>
-</nav>
+<header>
+  <div class="inner header-inner">
+    <a href="index.html" class="header-logo-link">
+      <h1>Flotopic</h1>
+      <p>話題の流れをAIで追う</p>
+    </a>
+    <div class="header-right">
+      <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替">🌙</button>
+      <div class="auth-area">
+        <button id="auth-signin-btn" class="auth-btn" style="display:none;">ログイン</button>
+        <div class="user-menu-wrap" id="user-menu-wrap" style="display:none;">
+          <button class="user-menu-trigger" id="user-menu-trigger" aria-haspopup="menu" aria-expanded="false">
+            <img id="auth-user-avatar" class="auth-user-avatar" src="" alt="">
+            <div id="auth-user-init" class="auth-user-init"></div>
+            <span id="auth-user-name" class="auth-user-name"></span>
+            <span class="user-menu-caret">▾</span>
+          </button>
+          <div class="user-dropdown" id="user-dropdown" role="menu">
+            <a href="mypage.html" class="user-dd-item" role="menuitem">👤 マイページ</a>
+            <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem">ログアウト</button>
+          </div>
+        </div>
+        <button id="auth-signout-btn" style="display:none;"></button>
+        <a id="auth-user-link" style="display:none;"></a>
+        <a id="mypage-link" style="display:none;"></a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- auth modal -->
+<div id="auth-modal" class="auth-modal" style="display:none;" role="dialog" aria-modal="true">
+  <div class="auth-modal-inner">
+    <button id="auth-modal-close" class="auth-modal-close" aria-label="閉じる">×</button>
+    <div class="auth-modal-logo">🌊 Flotopic</div>
+    <h2 class="auth-modal-title">ログイン / 新規登録</h2>
+    <div id="auth-modal-google-wrap" class="auth-modal-provider-wrap"></div>
+  </div>
+</div>
 
 <!-- ヒーロー：期間セレクター -->
 <div class="catchup-hero">
@@ -428,24 +440,23 @@ function getFilteredTopics() {
       const lc = t.lifecycleStatus || 'active';
       if (!activeLCSet.has(lc)) return false;
 
-      // 期間フィルタ: 期間内に「勃発(created)」または「急上昇(velocity)」したか
-      const created   = t.createdAt   ? new Date(t.createdAt).getTime()   : 0;
-      const updated   = t.updatedAt   ? new Date(t.updatedAt).getTime()   : 0;
-      const velocity  = parseInt(t.velocityScore || 0);
+      // 期間フィルタ: lastUpdated（ISO文字列）を使用
+      // topics.jsonは createdAt を持たず lastUpdated のみ存在する
+      const lastUp = t.lastUpdated ? new Date(t.lastUpdated).getTime() : 0;
+      const velocity = parseInt(t.velocityScore || 0);
 
-      // ① 期間内に作成されたトピック（新規勃発）
-      if (created >= cutoff) return true;
-      // ② 期間内に更新されており、かつvelocity > 10（急上昇判定）
-      if (updated >= cutoff && velocity > 10) return true;
+      // 期間内に更新されたトピックを全表示（velocity制限なし）
+      if (lastUp >= cutoff) return true;
 
       return false;
     })
     .sort((a, b) => {
-      // 優先度: ① 期間内に作成（新規勃発） ② velocityScore 降順
-      const aNew = new Date(a.createdAt || 0).getTime() >= cutoff ? 1 : 0;
-      const bNew = new Date(b.createdAt || 0).getTime() >= cutoff ? 1 : 0;
-      if (bNew !== aNew) return bNew - aNew;
-      return parseInt(b.velocityScore || 0) - parseInt(a.velocityScore || 0);
+      // velocity降順、同率なら最終更新が新しい順
+      const vDiff = parseInt(b.velocityScore || 0) - parseInt(a.velocityScore || 0);
+      if (vDiff !== 0) return vDiff;
+      const aUp = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+      const bUp = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
+      return bUp - aUp;
     });
 }
 
@@ -609,5 +620,7 @@ document.getElementById('loadMoreBtn').addEventListener('click', () => {
   render();
 })();
 </script>
+<script src="js/theme.js"></script>
+<script src="js/auth.js"></script>
 </body>
 </html>

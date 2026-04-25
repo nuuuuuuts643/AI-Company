@@ -586,11 +586,20 @@
       <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替">🌙</button>
       <div class="auth-area">
         <button id="auth-signin-btn" class="auth-btn" style="display:none;">ログイン</button>
-        <a id="auth-user-link" href="mypage.html" class="auth-user-link" style="display:none;">
-          <img id="auth-user-avatar" class="auth-user-avatar" src="" alt="アバター">
-          <span id="auth-user-name" class="auth-user-name"></span>
-        </a>
+        <div class="user-menu-wrap" id="user-menu-wrap" style="display:none;">
+          <button class="user-menu-trigger" id="user-menu-trigger" aria-haspopup="menu" aria-expanded="false">
+            <img id="auth-user-avatar" class="auth-user-avatar" src="" alt="">
+            <div id="auth-user-init" class="auth-user-init"></div>
+            <span id="auth-user-name" class="auth-user-name"></span>
+            <span class="user-menu-caret">▾</span>
+          </button>
+          <div class="user-dropdown" id="user-dropdown" role="menu">
+            <a href="mypage.html" class="user-dd-item" role="menuitem">👤 マイページ</a>
+            <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem">ログアウト</button>
+          </div>
+        </div>
         <button id="auth-signout-btn" style="display:none;"></button>
+        <a id="auth-user-link" style="display:none;"></a>
         <a id="mypage-link" style="display:none;"></a>
       </div>
     </div>
@@ -691,6 +700,20 @@
   &nbsp;·&nbsp;
   <a href="privacy.html" style="color:#94a3b8;text-decoration:underline;">プライバシーポリシー</a>
 </footer>
+<nav class="bottom-nav" id="bottom-nav" aria-label="ナビゲーション">
+  <a href="index.html" class="bn-item" id="bn-home">
+    <span class="bn-icon">🏠</span><span>ホーム</span>
+  </a>
+  <button class="bn-item" id="bn-search">
+    <span class="bn-icon">🔍</span><span>検索</span>
+  </button>
+  <button class="bn-item" id="bn-favs">
+    <span class="bn-icon">★</span><span>お気に入り</span>
+  </button>
+  <a href="mypage.html" class="bn-item active" id="bn-mypage">
+    <span class="bn-icon">👤</span><span>マイページ</span>
+  </a>
+</nav>
 
 <script src="config.js"></script>
 <script src="js/auth.js"></script>
@@ -955,12 +978,15 @@
         if (errEl) errEl.textContent = '英数字とアンダースコアのみ、20文字以内で入力してください。';
         return;
       }
-      saveProfile({
+      const prof = {
         handle:   handle,
         ageGroup: ageIn   ? ageIn.value   : '',
         gender:   genderIn ? genderIn.value : '',
-      });
+      };
+      saveProfile(prof);
       closeModal();
+      // サーバーにも同期（デバイス間共有）
+      if (typeof syncProfileToServer === 'function') syncProfileToServer(prof);
       // プロフィールヘッダーのハンドル表示を更新
       const handleEl = document.querySelector('.mp-handle');
       if (handleEl) handleEl.textContent = handle ? `@${handle}` : 'Flotopicメンバー';
@@ -1361,6 +1387,8 @@
         if (genderEl) p.gender   = genderEl.value;
         saveProfile(p);
         if (typeof showToast === 'function') showToast('プロフィールを保存しました');
+        // サーバーにも同期（デバイス間共有）
+        if (typeof syncProfileToServer === 'function') syncProfileToServer(p);
       });
     }
 
