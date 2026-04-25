@@ -218,6 +218,9 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
             if gen_story.get('phase'):
                 update_expr += ', storyPhase = :phase'
                 expr_values[':phase'] = gen_story['phase']
+            if gen_story.get('summaryMode'):
+                update_expr += ', summaryMode = :smode'
+                expr_values[':smode'] = gen_story['summaryMode']
         if image_url:
             # if_not_exists: 既にRSS由来画像があれば上書きしない
             update_expr += ', imageUrl = if_not_exists(imageUrl, :img)'
@@ -301,8 +304,10 @@ def write_s3(key, data):
     )
 
 
-def update_topic_s3_file(tid, upd):
-    """個別トピックS3ファイルのmetaにAIフィールドをマージ（pendingAI解除含む）。"""
+def update_topic_s3_file(tid, upd, articles=None):
+    """個別トピックS3ファイルのmetaにAIフィールドをマージ（pendingAI解除含む）。
+    articles が渡された場合は静的SEO用HTMLも生成する。
+    """
     if not S3_BUCKET:
         return
     key = f'api/topic/{tid}.json'
@@ -323,25 +328,36 @@ def update_topic_s3_file(tid, upd):
             meta['spreadReason'] = upd['spreadReason']
         if upd.get('forecast'):
             meta['forecast'] = upd['forecast']
+        if upd.get('summaryMode'):
+            meta['summaryMode'] = upd['summaryMode']
         if upd.get('aiGenerated'):
             meta['aiGenerated'] = True
         if upd.get('imageUrl') and not meta.get('imageUrl'):
             meta['imageUrl'] = upd['imageUrl']
         data['meta'] = meta
         write_s3(key, data)
+        # 静的SEO用HTML生成（AI処理完了後に常に更新）
+        if upd.get('aiGenerated'):
+            generate_static_topic_html(tid, meta, articles or data.get('articles', []))
     except Exception:
         pass
 
 
-def update_topic_s3_files_parallel(ai_updates, max_workers=5):
-    """ai_updatesの全トピックの個別S3ファイルをAIデータで並列更新。"""
+def update_topic_s3_files_parallel(ai_updates, max_workers=5, articles_cache=None):
+    """ai_updatesの全トピックの個別S3ファイルをAIデータで並列更新。
+    articles_cache が渡された場合は静的SEO用HTMLも同時生成。
+    """
     if not ai_updates or not S3_BUCKET:
         return
+    _arts = articles_cache or {}
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
-        futures = {ex.submit(update_topic_s3_file, tid, upd): tid for tid, upd in ai_updates.items()}
+        futures = {
+            ex.submit(update_topic_s3_file, tid, upd, _arts.get(tid)): tid
+            for tid, upd in ai_updates.items()
+        }
         for _ in as_completed(futures):
             pass
-    print(f'[Processor] 個別S3ファイル更新完了 ({len(ai_updates)}件)')
+    print(f'[Processor] 個別S3ファイル+静的HTML更新完了 ({len(ai_updates)}件)')
 
 
 def generate_and_upload_rss(topics):
@@ -482,7 +498,7 @@ def generate_and_upload_news_sitemap(topics):
         kw = xml_escape(', '.join(genres[:3]))
         items.append(
             f'  <url>\n'
-            f'    <loc>https://flotopic.com/topic.html?id={tid}</loc>\n'
+            f'    <loc>https://flotopic.com/topics/{tid}.html</loc>\n'
             f'    <news:news>\n'
             f'      <news:publication>\n'
             f'        <news:name>Flotopic</news:name>\n'
@@ -531,7 +547,6 @@ def generate_and_upload_sitemap(topics):
         f'  <url>\n    <loc>https://flotopic.com/about.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.5</priority>\n  </url>',
         f'  <url>\n    <loc>https://flotopic.com/terms.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.3</priority>\n  </url>',
         f'  <url>\n    <loc>https://flotopic.com/privacy.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.3</priority>\n  </url>',
-        f'  <url>\n    <loc>https://flotopic.com/tokushoho.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.3</priority>\n  </url>',
         f'  <url>\n    <loc>https://flotopic.com/contact.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.4</priority>\n  </url>',
     ]
     for t in top:
@@ -539,7 +554,8 @@ def generate_and_upload_sitemap(topics):
         if not tid:
             continue
         last = (t.get('lastUpdated') or today)[:10]
-        urls.append(f'  <url>\n    <loc>https://flotopic.com/topic.html?id={tid}</loc>\n    <lastmod>{last}</lastmod>\n    <changefreq>hourly</changefreq>\n    <priority>0.7</priority>\n  </url>')
+        # 静的HTMLが存在する場合はそちらをSEO canonical URLとして使用
+        urls.append(f'  <url>\n    <loc>https://flotopic.com/topics/{tid}.html</loc>\n    <lastmod>{last}</lastmod>\n    <changefreq>hourly</changefreq>\n    <priority>0.8</priority>\n  </url>')
 
     sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
     sitemap += '\n'.join(urls)
@@ -650,6 +666,153 @@ def generate_ogp_image(tid: str, title: str, genre: str = '') -> 'str | None':
     except Exception as e:
         print(f'[OGP] S3アップロード失敗 [{tid}]: {e}')
         return None
+
+
+def _html_esc(s: str) -> str:
+    return (s or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+
+
+def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
+    """トピックの静的SEO用HTMLをS3の topics/{tid}.html に書き出す。
+    Googlebotが読める完全なHTMLを生成する（JavaScriptなし）。
+    """
+    if not S3_BUCKET:
+        return
+    title      = _html_esc(meta.get('generatedTitle') or meta.get('title', ''))
+    summary    = _html_esc(meta.get('generatedSummary') or '')
+    spread     = _html_esc(meta.get('spreadReason') or '')
+    forecast   = _html_esc(meta.get('forecast') or '')
+    genre      = _html_esc((meta.get('genres') or [meta.get('genre', '総合')])[0])
+    image_url  = _html_esc(meta.get('imageUrl') or 'https://flotopic.com/icons/icon-512.png')
+    canonical  = f'https://flotopic.com/topics/{tid}.html'
+    interactive = f'https://flotopic.com/topic.html?id={tid}'
+    timeline   = meta.get('storyTimeline') or []
+    last_upd   = (meta.get('lastUpdated') or '')[:10] or ''
+
+    # ストーリータイムラインHTML
+    timeline_html = ''
+    if timeline:
+        items_html = []
+        for ev in timeline:
+            ev_title    = _html_esc(ev.get('title', ''))
+            ev_desc     = _html_esc(ev.get('description', ''))
+            ev_date     = _html_esc(str(ev.get('pubDate', ev.get('date', '')))[:10])
+            ev_trans    = _html_esc(ev.get('transition', ''))
+            trans_part  = f'<p class="tr">{ev_trans}</p>' if ev_trans else ''
+            items_html.append(
+                f'<div class="ev">'
+                f'<span class="ev-date">{ev_date}</span>'
+                f'<strong>{ev_title}</strong>'
+                f'<p>{ev_desc}</p>'
+                f'{trans_part}'
+                f'</div>'
+            )
+        timeline_html = '<section><h2>ストーリーの流れ</h2>' + ''.join(items_html) + '</section>'
+
+    # 記事リストHTML（上位10件）
+    articles_html = ''
+    if articles:
+        art_items = []
+        for a in articles[:10]:
+            a_title  = _html_esc(a.get('title', ''))
+            a_url    = _html_esc(a.get('url', ''))
+            a_src    = _html_esc(a.get('source', ''))
+            a_date   = _html_esc(str(a.get('pubDate', ''))[:10])
+            if a_url and a_title:
+                art_items.append(
+                    f'<li><a href="{a_url}" rel="noopener">{a_title}</a>'
+                    f'<span class="src"> — {a_src} {a_date}</span></li>'
+                )
+        if art_items:
+            articles_html = '<section><h2>関連記事</h2><ul>' + ''.join(art_items) + '</ul></section>'
+
+    # AI要約セクション
+    ai_html = ''
+    if summary:
+        parts = [f'<section><h2>AIによるまとめ</h2><p>{summary}</p>']
+        if spread:
+            parts.append(f'<h3>なぜ広がっているか</h3><p>{spread}</p>')
+        if forecast:
+            parts.append(f'<h3>今後の展望</h3><p>{forecast}</p>')
+        parts.append('</section>')
+        ai_html = ''.join(parts)
+
+    # JSON-LD
+    jsonld = json.dumps({
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        'headline': meta.get('generatedTitle') or meta.get('title', ''),
+        'description': meta.get('generatedSummary', '')[:200],
+        'image': meta.get('imageUrl') or 'https://flotopic.com/icons/icon-512.png',
+        'dateModified': last_upd,
+        'publisher': {'@type': 'Organization', 'name': 'Flotopic', 'url': 'https://flotopic.com'},
+        'url': canonical,
+        'keywords': genre,
+    }, ensure_ascii=False)
+
+    html = f"""<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{title} — Flotopic</title>
+<meta name="description" content="{summary[:120] if summary else title}">
+<link rel="canonical" href="{canonical}">
+<meta property="og:type" content="article">
+<meta property="og:title" content="{title}">
+<meta property="og:description" content="{summary[:120] if summary else title}">
+<meta property="og:image" content="{image_url}">
+<meta property="og:url" content="{canonical}">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{jsonld}</script>
+<style>
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:800px;margin:0 auto;padding:16px;color:#1e293b;line-height:1.7}}
+h1{{font-size:1.6rem;margin-bottom:.5rem}}
+h2{{font-size:1.1rem;border-left:4px solid #6366f1;padding-left:.6rem;margin-top:2rem}}
+h3{{font-size:1rem;color:#475569;margin-top:1.2rem}}
+.genre{{display:inline-block;background:#e0e7ff;color:#4338ca;border-radius:4px;padding:2px 8px;font-size:.8rem;margin-bottom:.5rem}}
+.ev{{border-left:2px solid #c7d2fe;margin:.8rem 0;padding:.4rem .8rem}}
+.ev-date{{font-size:.8rem;color:#64748b;display:block}}
+.tr{{font-style:italic;color:#6366f1;margin:.3rem 0 0}}
+.cta{{background:#f1f5f9;border-radius:8px;padding:16px;margin:2rem 0;text-align:center}}
+.cta a{{color:#6366f1;font-weight:bold}}
+ul{{padding-left:1.2rem}}
+li{{margin:.4rem 0}}
+.src{{font-size:.8rem;color:#94a3b8}}
+a{{color:#3b82f6}}
+header{{display:flex;align-items:center;gap:12px;margin-bottom:1rem;border-bottom:1px solid #e2e8f0;padding-bottom:.8rem}}
+header a{{color:#6366f1;font-weight:bold;font-size:1.1rem;text-decoration:none}}
+</style>
+</head>
+<body>
+<header><a href="https://flotopic.com">Flotopic</a><span style="color:#94a3b8;font-size:.85rem">— 話題の盛り上がりをAIで追う</span></header>
+<span class="genre">#{genre}</span>
+<h1>{title}</h1>
+{ai_html}
+{timeline_html}
+{articles_html}
+<div class="cta">
+  <p>コメント・お気に入り登録などのインタラクティブ機能は<br>
+  <a href="{interactive}">Flotopicのトピックページ</a>でご利用いただけます。</p>
+</div>
+<footer style="margin-top:2rem;padding-top:1rem;border-top:1px solid #e2e8f0;font-size:.8rem;color:#94a3b8">
+  <a href="https://flotopic.com">Flotopic</a> &nbsp;|&nbsp;
+  <a href="https://flotopic.com/about.html">About</a> &nbsp;|&nbsp;
+  <a href="https://flotopic.com/privacy.html">プライバシーポリシー</a>
+</footer>
+</body>
+</html>"""
+
+    try:
+        s3.put_object(
+            Bucket=S3_BUCKET,
+            Key=f'topics/{tid}.html',
+            Body=html.encode('utf-8'),
+            ContentType='text/html; charset=utf-8',
+            CacheControl='max-age=600',
+        )
+    except Exception as e:
+        print(f'[StaticHTML] S3書き込みエラー [{tid}]: {e}')
 
 
 def notify_slack_error(error_msg: str):

@@ -33,10 +33,11 @@ def lambda_handler(event, context):
     pending = get_pending_topics(max_topics=100)
     print(f'[Processor] pendingAI=True トピック数: {len(pending)}')
 
-    api_calls  = 0
-    processed  = 0
-    skipped    = 0
-    ai_updates = {}
+    api_calls      = 0
+    processed      = 0
+    skipped        = 0
+    ai_updates     = {}
+    articles_cache = {}
 
     for topic in pending:
         if api_calls >= MAX_API_CALLS:
@@ -71,13 +72,14 @@ def lambda_handler(event, context):
         needs_story = (cnt >= MIN_ARTICLES_FOR_SUMMARY
                        and not (topic.get('aiGenerated') and topic.get('storyTimeline')))
         if needs_story and api_calls < MAX_API_CALLS:
-            new_story = generate_story(articles)
+            new_story = generate_story(articles, article_count=cnt)
             api_calls += 1
             time.sleep(1.5)
             if new_story:
                 gen_story    = new_story
                 ai_succeeded = True
-                print(f'  [Claude ストーリー] {tid[:8]}... phase={new_story.get("phase")} timeline={len(new_story.get("timeline", []))}件')
+                mode = new_story.get('summaryMode', 'full')
+                print(f'  [Claude ストーリー] {tid[:8]}... mode={mode} phase={new_story.get("phase")} timeline={len(new_story.get("timeline", []))}件')
 
         # OGP画像生成（imageUrl未設定の場合のみ。AI処理成否に関わらず実行）
         ogp_url = None
@@ -93,6 +95,7 @@ def lambda_handler(event, context):
 
         update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=ai_succeeded, image_url=ogp_url)
         processed += 1
+        articles_cache[tid] = articles
         ai_updates[tid] = {
             'generatedTitle':   gen_title,
             'generatedSummary': gen_story['aiSummary']      if gen_story else None,
@@ -100,6 +103,7 @@ def lambda_handler(event, context):
             'forecast':         gen_story['forecast']       if gen_story else None,
             'storyTimeline':    gen_story['timeline']       if gen_story else None,
             'storyPhase':       gen_story['phase']          if gen_story else None,
+            'summaryMode':      gen_story['summaryMode']    if gen_story else None,
             'aiGenerated':      ai_succeeded,
             'imageUrl':         ogp_url,
         }
@@ -108,8 +112,8 @@ def lambda_handler(event, context):
     print(f'[Processor] 完了: 処理={processed}件 / API呼び出し={api_calls}回 / スキップ={skipped}件 / {elapsed:.1f}s')
 
     if processed > 0:
-        # 個別トピックS3ファイルをAIデータで並列更新（topic.htmlがAI要約を表示できるように）
-        update_topic_s3_files_parallel(ai_updates)
+        # 個別トピックS3ファイルをAIデータで並列更新（静的HTML生成含む）
+        update_topic_s3_files_parallel(ai_updates, articles_cache=articles_cache)
 
         try:
             topics, trending_keywords = get_all_topics_for_s3()
@@ -123,6 +127,7 @@ def lambda_handler(event, context):
                     if upd.get('forecast'):                  t['forecast']         = upd['forecast']
                     if upd.get('storyTimeline') is not None: t['storyTimeline']    = upd['storyTimeline']
                     if upd.get('storyPhase'):                t['storyPhase']       = upd['storyPhase']
+                    if upd.get('summaryMode'):               t['summaryMode']      = upd['summaryMode']
                     if upd.get('aiGenerated'):               t['aiGenerated']      = True
                     if upd.get('imageUrl') and not t.get('imageUrl'): t['imageUrl'] = upd['imageUrl']
             ts_iso = datetime.now(timezone.utc).isoformat()
