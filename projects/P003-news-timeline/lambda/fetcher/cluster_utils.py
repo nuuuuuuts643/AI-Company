@@ -8,7 +8,10 @@ from collections import Counter
 from config import STOP_WORDS, SYNONYMS, JACCARD_THRESHOLD, MAX_CLUSTER_SIZE
 
 
+_LIVE_PREFIX = re.compile(r'^【(中継|速報|更新|独自|詳報|続報|緊急|号外)[^】]*】')
+
 def normalize(text):
+    text = _LIVE_PREFIX.sub('', text).strip()  # 【中継】【速報】等のプレフィックスを除去してから比較
     text = re.sub(r'[【】「」『』（）()\[\]！？!?\s　・]+', ' ', text.lower())
     words = set()
     for w in text.split():
