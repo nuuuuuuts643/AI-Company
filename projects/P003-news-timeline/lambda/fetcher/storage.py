@@ -83,7 +83,11 @@ def validate_topics_exist(topics, skip_tids=None):
         keys  = [{'topicId': {'S': t['topicId']}, 'SK': {'S': 'META'}} for t in chunk]
         try:
             resp = client.batch_get_item(
-                RequestItems={TABLE_NAME: {'Keys': keys, 'ProjectionExpression': 'topicId'}}
+                RequestItems={TABLE_NAME: {
+                    'Keys': keys,
+                    'ProjectionExpression': '#tid',
+                    'ExpressionAttributeNames': {'#tid': 'topicId'},
+                }}
             )
             for item in resp.get('Responses', {}).get(TABLE_NAME, []):
                 valid_ids.add(item['topicId']['S'])
