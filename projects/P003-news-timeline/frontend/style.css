@@ -1605,6 +1605,24 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .skeleton-card .sk-line.sk-short  { width: 60%; }
 .skeleton-card .sk-line.sk-tiny   { width: 38%; height: 9px; margin-bottom: 0; }
 
+/* ===== トピック詳細ページ スケルトンローディング ===== */
+.topic-sk .sk-line {
+  height: 11px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e9eaec 50%, #f3f4f6 75%);
+  background-size: 1200px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+.topic-sk .sk-line.sk-title { width: 80%; height: 15px; margin-bottom: 16px; }
+.topic-sk .sk-line.sk-mid   { width: 90%; }
+.topic-sk .sk-line.sk-short { width: 60%; }
+.topic-sk .sk-line.sk-tiny  { width: 40%; height: 9px; }
+[data-theme="dark"] .topic-sk .sk-line {
+  background: linear-gradient(90deg, #1e2535 25%, #283048 50%, #1e2535 75%);
+  background-size: 1200px 100%;
+}
+
 /* ===== 急上昇キーワードストリップ ===== */
 .keyword-strip {
   display: flex;
@@ -2516,3 +2534,53 @@ details[open] .day-more-btn::before { content: '▼ '; }
 }
 [data-theme="dark"] .native-ad-title { color: #a5b4fc; }
 [data-theme="dark"] .native-ad-desc { color: #818cf8; }
+
+/* ===== アフィリエイトウィジェット ===== */
+.affiliate-card { padding: 16px 20px 20px; }
+.affiliate-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.affiliate-header h2 { font-size: 1rem; font-weight: 700; margin: 0; }
+.affiliate-label {
+  display: inline-block;
+  padding: 2px 7px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: .68rem;
+  font-weight: 700;
+  border-radius: 4px;
+  letter-spacing: .03em;
+  flex-shrink: 0;
+}
+.affiliate-links { display: flex; flex-direction: column; gap: 10px; }
+.affiliate-link-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color .15s, box-shadow .15s;
+}
+.affiliate-link-item:hover {
+  border-color: #f59e0b;
+  box-shadow: 0 2px 8px rgba(245,158,11,.12);
+}
+.affiliate-link-logo {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+.affiliate-link-logo.amazon { background: #ff9900; }
+.affiliate-link-logo.rakuten { background: #bf0000; color: #fff; font-size: .7rem; font-weight: 800; }
+.affiliate-link-body { flex: 1; min-width: 0; }
+.affiliate-link-shop { font-size: .72rem; color: #94a3b8; font-weight: 500; margin-bottom: 2px; }
+.affiliate-link-title { font-size: .88rem; font-weight: 600; color: #1e293b; line-height: 1.4; }
+.affiliate-link-arrow { color: #94a3b8; font-size: 1rem; flex-shrink: 0; }
+.affiliate-note { margin-top: 10px; font-size: .73rem; color: #94a3b8; }
+
+[data-theme="dark"] .affiliate-link-item { border-color: #334155; }
+[data-theme="dark"] .affiliate-link-item:hover { border-color: #f59e0b; }
+[data-theme="dark"] .affiliate-link-title { color: #e2e8f0; }
