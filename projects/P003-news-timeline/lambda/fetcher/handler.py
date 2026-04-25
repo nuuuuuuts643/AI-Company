@@ -553,7 +553,9 @@ def lambda_handler(event, context):
             orphan_candidates = sorted(
                 (t for t in topics_deduped  # 公開対象のみ対象
                  if t['topicId'] not in already_pending
-                 and not (t.get('aiGenerated') and t.get('generatedSummary'))),
+                 and not (t.get('aiGenerated')
+                          and t.get('generatedSummary')
+                          and t.get('storyTimeline'))),  # timeline欠如も再処理対象
                 key=lambda t: float(t.get('velocityScore', 0) or 0),
                 reverse=True,
             )
