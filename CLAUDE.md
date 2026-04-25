@@ -177,8 +177,10 @@ cat /Users/murakaminaoya/.claude/projects/-Users-murakaminaoya-ai-company/memory
 | CloudFront | ✅ 自動無効化 | 2026-04-25 | push → GH Actions → S3 + CF invalidation |
 | view tracking | ✅ 稼働 | 2026-04-25 | POST /analytics/event → flotopic-analytics Lambda |
 | admin dashboard | ✅ グラフ強化 | 2026-04-25 | velocity分布・AIパイプライングラフ追加済み |
-| lifecycle Lambda | ✅ ARCHIVE_DAYS=7 | 2026-04-25 | 30→7日に変更。filter-feedbackクリーンアップ追加 |
+| lifecycle Lambda | ✅ SNAP自動クリーン | 2026-04-25夜 | ARCHIVE_DAYS=7・filter-feedback・30日超SNAP削除（TTLなし含む）を実装 |
 | lifecycle archived保護 | ✅ 修正済み | 2026-04-25夜 | fetcher が archived を上書きしないよう修正（velocity>0なら再active可） |
+| DynamoDB SNAP肥大化 | ⚠️ 対策中 | 2026-04-25夜 | 784K件中SNAPの大半はTTLなし。lifecycle Lambda(週次)が30日超SNAPを削除。新SNAPはTTL=7日付き |
+| 検索機能 | ✅ 強化 | 2026-04-25夜 | タイトル→タイトル+AI要約+ジャンルに拡張 |
 | SEO/OGP | ✅ 全ページ完備 | 2026-04-25夜 | Twitter Card全静的ページ・BreadcrumbList JSON-LD・privacy/terms OGP追加 |
 | Bluesky 自動投稿 | ✅ 稼働 | 2026-04-25 | 毎日05:32 JST 投稿確認済み |
 | Claude Code 確認ダイアログ | ✅ 対策済み | 2026-04-25 | ~/.claude/settings.json に Bash/Edit/Write を allow 追加。再起動後有効 |
