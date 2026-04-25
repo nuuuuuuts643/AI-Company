@@ -196,14 +196,38 @@ def make_reply_ref(post_response) -> 'models.AppBskyFeedPost.ReplyRef':
     return models.AppBskyFeedPost.ReplyRef(root=strong_ref, parent=strong_ref)
 
 
-def make_link_embed(uri: str, title: str, description: str) -> 'models.AppBskyEmbedExternal.Main':
-    """flotopic.com へのリンクカード embed を生成"""
+def fetch_image_blob(client: Client, image_url: str):
+    """画像URLからblobをアップロードして返す（失敗時はNone）"""
+    try:
+        req = urllib.request.Request(image_url, headers={'User-Agent': 'Flotopic/1.0'})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = resp.read()
+        mime = 'image/jpeg'
+        if image_url.lower().endswith('.png'):
+            mime = 'image/png'
+        elif image_url.lower().endswith('.webp'):
+            mime = 'image/webp'
+        blob_resp = client.upload_blob(data, mime_type=mime)
+        return blob_resp.blob
+    except Exception as e:
+        print(f'[bluesky_agent] 画像アップロード失敗（スキップ）: {e}')
+        return None
+
+
+def make_link_embed(client: Client, uri: str, title: str, description: str, image_url: str = None) -> 'models.AppBskyEmbedExternal.Main':
+    """flotopic.com へのリンクカード embed を生成（サムネ画像付き）"""
+    thumb = None
+    if image_url:
+        thumb = fetch_image_blob(client, image_url)
+    external_kwargs = {
+        'uri': uri,
+        'title': title[:100],
+        'description': description[:200],
+    }
+    if thumb:
+        external_kwargs['thumb'] = thumb
     return models.AppBskyEmbedExternal.Main(
-        external=models.AppBskyEmbedExternal.External(
-            uri=uri,
-            title=title[:100],        # タイトルは 100 文字以内
-            description=description[:200],  # 説明は 200 文字以内
-        )
+        external=models.AppBskyEmbedExternal.External(**external_kwargs)
     )
 
 
@@ -281,11 +305,12 @@ def post_daily(client, dry_run=False):
         print('[bluesky_agent] 投稿対象トピックなし（全件投稿済みまたはトピック不足）')
         return
 
-    topic   = candidates[0]
-    title   = topic.get('generatedTitle') or topic.get('title', '')
-    summary = topic.get('generatedSummary') or topic.get('extractiveSummary', '')
-    tid     = topic.get('topicId', '')
-    cnt     = int(topic.get('articleCount', 0) or 0)
+    topic     = candidates[0]
+    title     = topic.get('generatedTitle') or topic.get('title', '')
+    summary   = topic.get('generatedSummary') or topic.get('extractiveSummary', '')
+    tid       = topic.get('topicId', '')
+    cnt       = int(topic.get('articleCount', 0) or 0)
+    image_url = topic.get('imageUrl') or ''
     tag     = genre_tag(topic)
     url     = f'{SITE_URL}/topic.html?id={tid}'
     label   = time_label()
@@ -301,9 +326,11 @@ def post_daily(client, dry_run=False):
     post_text = post_text[:BSKY_MAX_CHARS]
 
     embed = make_link_embed(
+        client=client,
         uri=url,
         title=truncate(title, 80),
         description=truncate(summary, 150),
+        image_url=image_url,
     )
 
     if dry_run:
@@ -359,8 +386,9 @@ def post_weekly(client, dry_run=False):
     )
     post_text = post_text[:BSKY_MAX_CHARS]
 
-    # リンクカード: Flotopic トップページ
+    # リンクカード: Flotopic トップページ（週次はトップページ画像なし）
     embed = make_link_embed(
+        client=client,
         uri=SITE_URL,
         title='Flotopic — 今週の5大ストーリー',
         description='\n'.join(lines),
@@ -429,8 +457,8 @@ def post_monthly(client, dry_run=False):
     )
     post_text = post_text[:BSKY_MAX_CHARS]
 
-    # リンクカード: Flotopic トップページ
     embed = make_link_embed(
+        client=client,
         uri=SITE_URL,
         title=f'Flotopic — {month_str} ニュース総括',
         description='\n'.join(lines) + f'\n\n今月は「{top_genre}」の話題が活発でした。',
