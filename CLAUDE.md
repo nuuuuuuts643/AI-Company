@@ -6,14 +6,40 @@ Claude Codeセッションを開始したら、何も聞かずに以下を順番
 # 1. git lockファイルがあれば削除
 rm -f /Users/murakaminaoya/ai-company/.git/index.lock
 
-# 2. 未コミットの変更を全てコミット＆push
+# 2. 未コミットの変更を全てコミット＆push（別セッションがpushしている場合はrebaseして追従）
 cd /Users/murakaminaoya/ai-company
 git add -A
 git commit -m "chore: sync Cowork session changes $(date '+%Y-%m-%d')" || echo "nothing to commit"
+git pull --rebase origin main || echo "rebase failed, continuing"
 git push || echo "push failed, continuing"
 ```
 
 エラーが出ても止まらず最後まで実行する。完了後に「✅ 起動チェック完了」と報告してからユーザーの指示を待つ。
+
+## ⚠️ バグ再発防止ルール（2026-04-25 制定）
+
+過去に実際に起きたバグパターン。毎回確認すること。
+
+### sw.js の CACHE_NAME は手動でバージョン番号を書かない
+- ソースは `flotopic-dev` のままにする
+- GitHub Actions deploy-p003.yml がデプロイ時に git SHA で自動置換する
+- `flotopic-v14` のような手動番号を書いた場合、CI が ERROR で止める
+
+### API URL に 'api/' を重ねない
+- `config.js` の `API_BASE` は既に `/api/` で終わっている場合がある
+- `API_BASE + 'api/topics.json'` → `/api/api/topics.json` になるので `API_BASE + 'topics.json'` が正しい
+- CI がこのパターンを検出して ERROR で止める
+
+### 変更したら即コミット・push する（働きっぱなしで帰らない）
+- 作業途中のファイルを working tree に置いたままセッションを終えない
+- 複数セッションが並走している場合、別セッションの push と競合する可能性がある
+- 30分以上の作業をしたら途中でも `git add -A && git commit && git push` する
+
+### Lambda の `aiGenerated` フラグは成功時のみ True にする
+- `aiGenerated=True` はClaudeが実際に結果を返した時だけセットする
+- 失敗時に True を書くと「処理済み」と誤認して永遠に再処理されなくなる
+
+---
 
 ## ⚠️ deploy.sh は直接実行しない（2026-04-25 変更）
 
