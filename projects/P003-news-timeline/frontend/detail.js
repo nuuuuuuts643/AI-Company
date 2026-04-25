@@ -51,7 +51,11 @@ function updateOGP(meta) {
   if (jsonLdEl && meta.topicId) {
     const iso = (ts) => {
       if (!ts) return new Date().toISOString();
-      try { return new Date(ts).toISOString(); } catch { return new Date().toISOString(); }
+      try {
+        // Unix seconds → milliseconds (integers under 2e10 are seconds, not ms)
+        const ms = typeof ts === 'number' && ts < 2e10 ? ts * 1000 : ts;
+        return new Date(ms).toISOString();
+      } catch { return new Date().toISOString(); }
     };
     const datePublished = iso(meta.firstArticleAt || meta.createdAt);
     const dateModified  = iso(meta.lastArticleAt  || meta.lastUpdated);
@@ -682,3 +686,45 @@ function renderDiscovery(meta) {
       </div>`;
   });
 }
+
+// ── スティッキーCTAバー（モバイル） ──────────────────────────────────────
+(function initStickyCta() {
+  const bar        = document.getElementById('sticky-cta-bar');
+  const favBtn     = document.getElementById('scb-fav-btn');
+  const commentBtn = document.getElementById('scb-comment-btn');
+  const commSec    = document.getElementById('comments-section');
+  if (!bar || !commSec) return;
+
+  // コメントセクションが見えたら非表示
+  const observer = new IntersectionObserver(
+    entries => { bar.classList.toggle('visible', !entries[0].isIntersecting); },
+    { threshold: 0.1 }
+  );
+  observer.observe(commSec);
+
+  // お気に入りボタン：topic-fav-btn と連動
+  function syncFav() {
+    const srcBtn = document.getElementById('topic-fav-btn');
+    if (favBtn && srcBtn) {
+      favBtn.classList.toggle('fav-active', srcBtn.classList.contains('fav-active'));
+      favBtn.textContent = srcBtn.textContent;
+    }
+  }
+  new MutationObserver(syncFav).observe(document.getElementById('topic-fav-btn') || document.body, { attributes: true, childList: true, subtree: true });
+  if (favBtn) favBtn.addEventListener('click', () => document.getElementById('topic-fav-btn')?.click());
+
+  // コメントボタン
+  if (commentBtn) {
+    commentBtn.addEventListener('click', () => {
+      commSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(() => {
+        const textarea = document.getElementById('comment-body');
+        if (textarea && getComputedStyle(textarea.closest('#comment-form-area') || document.body).display !== 'none') {
+          textarea.focus();
+        } else {
+          document.getElementById('auth-signin-btn')?.click();
+        }
+      }, 400);
+    });
+  }
+})();
