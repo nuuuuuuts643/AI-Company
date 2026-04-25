@@ -304,10 +304,9 @@ function renderTopicCard(t, i) {
     return `<span class="cooling-age">${label}</span>`;
   })();
 
-  // AI要約なし時のフォールバック（pendingAIなら「準備中」、それ以外は非表示）
   const summaryHtml = t.generatedSummary
     ? `<p class="card-summary">${esc(cleanSummary(t.generatedSummary))}</p>`
-    : (t.pendingAI ? `<p class="card-summary-pending">AI要約を生成中…</p>` : '');
+    : '';
 
   return `
     <div class="topic-card-wrapper" style="position:relative;">
@@ -323,6 +322,7 @@ function renderTopicCard(t, i) {
         </div>
       </a>
       <button class="fav-btn ${isFav ? 'fav-active' : ''}" data-topic-id="${esc(t.topicId)}" title="${isFav ? 'お気に入りを解除' : 'お気に入りに追加'}" aria-label="お気に入り">♥</button>
+      <button class="card-share-btn" data-share-id="${esc(t.topicId)}" data-share-title="${esc(t.generatedTitle || t.title)}" title="URLをコピー" aria-label="URLをコピー">🔗</button>
     </div>`;
 }
 
@@ -455,6 +455,28 @@ function renderTopics(topics) {
     a.addEventListener('click', () => {
       markViewed(a.dataset.tid);
       a.classList.add('viewed');
+    });
+  });
+
+  grid.querySelectorAll('.card-share-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const url = `https://flotopic.com/topic.html?id=${btn.dataset.shareId}`;
+      const title = btn.dataset.shareTitle || 'Flotopic';
+      if (navigator.share) {
+        navigator.share({ title, url }).catch(() => {});
+      } else {
+        navigator.clipboard.writeText(url).then(() => showToast('URLをコピーしました')).catch(() => {
+          const tmp = document.createElement('textarea');
+          tmp.value = url;
+          document.body.appendChild(tmp);
+          tmp.select();
+          document.execCommand('copy');
+          document.body.removeChild(tmp);
+          showToast('URLをコピーしました');
+        });
+      }
     });
   });
 
