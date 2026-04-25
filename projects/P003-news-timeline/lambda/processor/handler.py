@@ -92,13 +92,10 @@ def lambda_handler(event, context):
 
         try:
             topics, trending_keywords = get_all_topics_for_s3()
+            _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl'}
             for t in topics:
-                # 処理済みトピックはpendingAIを解除（topics.jsonでも反映）
-                if t.get('aiGenerated') or t.get('generatedSummary'):
-                    t['pendingAI'] = False
                 upd = ai_updates.get(t.get('topicId', ''))
                 if upd:
-                    t['pendingAI'] = False
                     if upd.get('generatedTitle'):            t['generatedTitle']   = upd['generatedTitle']
                     if upd.get('generatedSummary'):          t['generatedSummary'] = upd['generatedSummary']
                     if upd.get('spreadReason'):              t['spreadReason']     = upd['spreadReason']
@@ -107,8 +104,9 @@ def lambda_handler(event, context):
                     if upd.get('storyPhase'):                t['storyPhase']       = upd['storyPhase']
                     if upd.get('aiGenerated'):               t['aiGenerated']      = True
             ts_iso = datetime.now(timezone.utc).isoformat()
+            topics_pub = [{k: v for k, v in t.items() if k not in _PROC_INTERNAL} for t in topics]
             write_s3('api/topics.json', {
-                'topics':           topics,
+                'topics':           topics_pub,
                 'trendingKeywords': trending_keywords,
                 'updatedAt':        ts_iso,
                 'processedByAI':    processed,
