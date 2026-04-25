@@ -55,32 +55,17 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Python 構文チェック（ast.parse）
+      - name: Python 構文チェック（py_compile）
         run: |
           echo "=== Lambda Python 構文チェック ==="
           ERRORS=0
-          find projects/P003-news-timeline/lambda -name "*.py" | while read f; do
-            python3 -c "
-import ast, sys
-try:
-    ast.parse(open('$f').read())
-    print('  OK:', '$f')
-except SyntaxError as e:
-    print('  NG:', '$f', '-', e)
-    sys.exit(1)
-" || ERRORS=$((ERRORS+1))
-          done
-          find scripts -name "*.py" 2>/dev/null | while read f; do
-            python3 -c "
-import ast, sys
-try:
-    ast.parse(open('$f').read())
-    print('  OK:', '$f')
-except SyntaxError as e:
-    print('  NG:', '$f', '-', e)
-    sys.exit(1)
-" || true
-          done
+          while IFS= read -r f; do
+            python3 -m py_compile "$f" && echo "  OK: $f" || { echo "  NG: $f"; ERRORS=$((ERRORS+1)); }
+          done < <(find projects/P003-news-timeline/lambda -name "*.py")
+          while IFS= read -r f; do
+            python3 -m py_compile "$f" && echo "  OK: $f" || true
+          done < <(find scripts -name "*.py" 2>/dev/null)
+          [ $ERRORS -eq 0 ] || exit 1
           echo "✅ Lambda 構文チェック完了"
 
       - name: 危険パターン検出
