@@ -1,5 +1,6 @@
 """DynamoDB / S3 アクセス層と Slack 通知。"""
 import json
+import re
 import urllib.request
 from decimal import Decimal
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -7,6 +8,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from boto3.dynamodb.conditions import Key
 
 from proc_config import S3_BUCKET, SLACK_WEBHOOK, TOPICS_S3_CAP, table, s3
+
+_TICKER_RE = re.compile(r'【\d{3,5}[A-Z]?】|：株価|株式情報\b|株価情報\b')
 
 
 def needs_ai_processing(item):
@@ -140,9 +143,15 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False):
         print(f'update_topic_with_ai error [{tid}]: {e}')
 
 
+def _is_ticker_topic(t):
+    title = t.get('generatedTitle') or t.get('title') or ''
+    return bool(_TICKER_RE.search(title))
+
+
 def _cap_topics(items):
-    items.sort(key=lambda x: int(x.get('score', 0) or 0), reverse=True)
-    return items[:TOPICS_S3_CAP]
+    filtered = [t for t in items if not _is_ticker_topic(t)]
+    filtered.sort(key=lambda x: int(x.get('score', 0) or 0), reverse=True)
+    return filtered[:TOPICS_S3_CAP]
 
 
 def get_all_topics_for_s3():
@@ -297,6 +306,81 @@ def generate_and_upload_rss(topics):
         print(f'[Processor] rss.xml 更新完了 ({len(top)}件)')
     except Exception as e:
         print(f'[Processor] rss.xml 更新エラー: {e}')
+
+
+def generate_and_upload_news_sitemap(topics):
+    """Google News Sitemap (news sitemap) を生成してS3にアップロード。
+    直近2日以内に更新されたactive/coolingトピックのみ対象。
+    """
+    if not S3_BUCKET:
+        return
+    from datetime import datetime, timezone, timedelta
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=2)
+    news_topics = []
+    for t in topics:
+        if t.get('lifecycleStatus') not in ('active', 'cooling'):
+            continue
+        if not t.get('generatedTitle') and not t.get('title'):
+            continue
+        raw_ts = t.get('lastArticleAt') or t.get('lastUpdated')
+        if not raw_ts:
+            continue
+        try:
+            if isinstance(raw_ts, (int, float)):
+                ts = datetime.fromtimestamp(float(raw_ts), tz=timezone.utc)
+            else:
+                ts = datetime.fromisoformat(str(raw_ts).replace('Z', '+00:00'))
+            if ts < cutoff:
+                continue
+            news_topics.append((t, ts))
+        except Exception:
+            continue
+
+    news_topics.sort(key=lambda x: x[1], reverse=True)
+    news_topics = news_topics[:50]
+
+    def xml_escape(s):
+        return str(s or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+    items = []
+    for t, ts in news_topics:
+        tid = t.get('topicId', '')
+        title = xml_escape(t.get('generatedTitle') or t.get('title', ''))
+        pub_iso = ts.strftime('%Y-%m-%dT%H:%M:%S+00:00')
+        genres = t.get('genres') or ([t['genre']] if t.get('genre') else ['総合'])
+        kw = xml_escape(', '.join(genres[:3]))
+        items.append(
+            f'  <url>\n'
+            f'    <loc>https://flotopic.com/topic.html?id={tid}</loc>\n'
+            f'    <news:news>\n'
+            f'      <news:publication>\n'
+            f'        <news:name>Flotopic</news:name>\n'
+            f'        <news:language>ja</news:language>\n'
+            f'      </news:publication>\n'
+            f'      <news:publication_date>{pub_iso}</news:publication_date>\n'
+            f'      <news:title>{title}</news:title>\n'
+            f'      <news:keywords>{kw}</news:keywords>\n'
+            f'    </news:news>\n'
+            f'  </url>'
+        )
+
+    ns = 'xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"'
+    sitemap = f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset {ns}>\n'
+    sitemap += '\n'.join(items)
+    sitemap += '\n</urlset>\n'
+
+    try:
+        s3.put_object(
+            Bucket=S3_BUCKET,
+            Key='news-sitemap.xml',
+            Body=sitemap.encode('utf-8'),
+            ContentType='application/xml',
+            CacheControl='no-cache, must-revalidate',
+        )
+        print(f'[Processor] news-sitemap.xml 更新完了 ({len(items)}件)')
+    except Exception as e:
+        print(f'[Processor] news-sitemap.xml 更新エラー: {e}')
 
 
 def generate_and_upload_sitemap(topics):
