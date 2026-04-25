@@ -231,6 +231,8 @@ cat /Users/OWNER/.claude/projects/-Users-OWNER-ai-company/memory/MEMORY.md
 | Bluesky 自動投稿 | ✅ 稼働 | 2026-04-25 | 毎日05:32 JST 投稿確認済み |
 | Claude Code 確認ダイアログ | ✅ 対策済み | 2026-04-25 | ~/.claude/settings.json に Bash/Edit/Write を allow 追加。再起動後有効 |
 | topics.json 内部フィールド除去 | ✅ 完了 | 2026-04-26 | SK/pendingAI/ttlをfetcher・processor両方でpublicJSONから除去 |
+| fetcher _core_key重複防止 | ✅ 完了 | 2026-04-26 | 【中継】【速報】等のプレフィックス除去でトピック重複デdup精度向上 |
+| コメント/お気に入りCTA | ✅ 完了 | 2026-04-26 | 空状態改善+モバイルスティッキーCTAバー追加 |
 | lifecycle S3孤立ファイル削除 | ✅ 実装済み | 2026-04-26 | 削除トピックのapi/topic/{id}.jsonを同時削除。週次sweep=~4600件の孤立ファイルを次回月曜に自動クリア |
 | processor タイトル再生成スキップ | ✅ 最適化 | 2026-04-26 | aiGenerated=True+title既存→タイトルAPI省略。backlog処理効率向上 |
 
