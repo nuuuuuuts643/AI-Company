@@ -51,7 +51,7 @@ def get_all_topics():
     items, kwargs = [], {
         'FilterExpression': 'SK = :m',
         'ExpressionAttributeValues': {':m': 'META'},
-        'ProjectionExpression': 'topicId,title,generatedTitle,generatedSummary,imageUrl,#s,articleCount,lastUpdated,genre,genres,#l,score,mediaCount,hatenaCount,lastArticleAt,velocityScore,lifecycleStatus,pendingAI,aiGenerated,relatedTopics,sources',
+        'ProjectionExpression': 'topicId,title,generatedTitle,generatedSummary,spreadReason,imageUrl,#s,articleCount,lastUpdated,genre,genres,#l,score,mediaCount,hatenaCount,lastArticleAt,velocityScore,lifecycleStatus,pendingAI,aiGenerated,relatedTopics,sources',
         'ExpressionAttributeNames': {'#s': 'status', '#l': 'lang'},
     }
     while True:
@@ -274,10 +274,19 @@ def generate_rss(topics, updated_at):
     for t in sorted_topics:
         tid         = t.get('topicId', '')
         title       = esc(t.get('generatedTitle') or t.get('title', ''))
-        description = esc(t.get('generatedSummary') or t.get('generatedTitle') or t.get('title', ''))
+        summary     = t.get('generatedSummary') or ''
+        spread      = t.get('spreadReason') or ''
+        full_desc   = (summary + ('　' + spread if spread else '')).strip()
+        description = esc(full_desc or t.get('generatedTitle') or t.get('title', ''))
         link        = f'{site_url}/topic.html?id={tid}'
         pub_date    = to_rfc2822(t.get('lastUpdated', updated_at))
         genre       = esc(t.get('genre', ''))
+        img_url     = t.get('imageUrl', '')
+
+        enclosure = (
+            f'      <enclosure url="{esc(img_url)}" type="image/jpeg" length="0"/>\n'
+            if img_url and img_url.startswith('http') else ''
+        )
 
         items_xml += (
             f'    <item>\n'
@@ -287,6 +296,7 @@ def generate_rss(topics, updated_at):
             f'      <guid isPermaLink="true">{link}</guid>\n'
             f'      <pubDate>{pub_date}</pubDate>\n'
             f'      <category>{genre}</category>\n'
+            f'{enclosure}'
             f'    </item>\n'
         )
 
