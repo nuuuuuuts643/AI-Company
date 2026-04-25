@@ -246,6 +246,11 @@ def detect_topic_hierarchy(topics: list, topic_entities: dict) -> dict:
                 continue
 
             score_b = int(topic_b.get('score', 0))
+            cnt_b   = int(topic_b.get('articleCount', 0))
+
+            # 記事数・スコアが低いスタブトピック（株価ページ等）を親子関係から除外
+            if score_b < 3 or cnt_b < 2:
+                continue
 
             if entities_b.issubset(entities_a) and score_a > score_b and len(entities_a) > len(entities_b):
                 parent_map[tid_b] = tid_a
