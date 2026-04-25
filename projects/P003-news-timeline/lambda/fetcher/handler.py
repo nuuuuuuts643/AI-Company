@@ -319,7 +319,10 @@ def lambda_handler(event, context):
         # 4セクション形式（storyTimeline）が揃っている場合のみ処理済みとみなす
         # aiGenerated=True でも storyTimeline がなければ再処理させる（再発防止）
         _has_timeline = bool(existing.get('storyTimeline') and isinstance(existing.get('storyTimeline'), list) and len(existing.get('storyTimeline', [])) > 0)
-        pending_ai = not bool(
+        _existing_cnt = int(existing.get('articleCount', 0) or 0)
+        # 急上昇中(velocity>40)かつ新記事が増えている場合は再処理（ストーリーを最新状態に保つ）
+        _force_reprocess = velocity_score > 40 and existing.get('aiGenerated') and cnt > _existing_cnt
+        pending_ai = _force_reprocess or not bool(
             existing.get('aiGenerated') and existing.get('generatedSummary') and not _is_old_extractive and _has_timeline
         )
 
