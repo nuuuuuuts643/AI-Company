@@ -112,6 +112,19 @@ cat /Users/murakaminaoya/.claude/projects/-Users-murakaminaoya-ai-company/memory
   # 約15分後に CloudWatch で 'Lifecycle sweep:' を確認
   ```
 
+### CloudWatch エラーログは最新ログストリームで確認する（2026-04-26 制定）
+- `aws logs filter-log-events` の `--start-time` を広く取ると、**修正前のエラーが混入**して誤診断になる
+- 正しい手順：
+  1. `aws logs describe-log-streams --order-by LastEventTime --descending` で最新ストリーム名を取得
+  2. `aws logs get-log-events --log-stream-name <最新ストリーム名>` でその実行だけを見る
+  3. 最新デプロイ（GH Actionsの`gh run list --workflow deploy-lambdas.yml`で確認）**より前**の実行のエラーは「修正済みの可能性」として扱う
+  4. **新規修正は最新ログストリームで再現したものだけ**を対象にする
+
+### インフラ変更（DynamoDB テーブル作成・IAM 権限追加）は deploy.sh 不要
+- DynamoDB テーブル作成・IAM ポリシー更新は AWS CLI で直接行ってよい（deploy.sh は不要）
+- ただし実行前にナオヤへの事前確認が必要（CLAUDE.md の「deploy.sh」ルールに準拠）
+- 実際の変更例（2026-04-26）: `flotopic-notifications` テーブル作成 + IAM `flotopic-least-privilege` に権限追加
+
 ### pending_ai.json は processor が管理する。手動で全クリアしない
 - `pending_ai.json` の zombie ID クリーンアップは processor が自動で行う（削除済みID = DynamoDB に存在しないIDを除外）
 - 手動クリーンアップが必要なのは、processor が全く動いていない状況のみ
@@ -241,6 +254,8 @@ cat /Users/murakaminaoya/.claude/projects/-Users-murakaminaoya-ai-company/memory
 | fetcher orphan storyTimeline欠如 | ✅ 完了 | 2026-04-26 | generatedSummary+aiGeneratedあり但しstoryTimeline欠如のトピックをorphan追加対象に修正 |
 | モバイル広告ラッパー | ✅ 強化 | 2026-04-26 | position:relative追加でiframeクリッピング確実化 |
 | AI要約カバレッジ | ✅ 59% | 2026-04-26 | 21.8%→59%に改善（アクティブは67%）。pending_ai.json空→次回フルスキャン予定 |
+| flotopic-notifications テーブル | ✅ 作成済み | 2026-04-26 | PK=handle/SK=SK/TTL=30日。IAMポリシー(flotopic-least-privilege)に権限追加済み |
+| p003-comments 通知権限 | ✅ 修正済み | 2026-04-26 | AccessDeniedException解消（flotopic-notificationsテーブル+IAM権限追加） |
 
 ## 専門AI稼働状況
 
