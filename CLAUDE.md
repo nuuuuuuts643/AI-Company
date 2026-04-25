@@ -222,7 +222,11 @@ cat /Users/murakaminaoya/.claude/projects/-Users-murakaminaoya-ai-company/memory
 | DynamoDB SNAP肥大化 | ✅ 大幅改善 | 2026-04-25深夜 | 784K→735K件。TTL ENABLED。lifecycle手動2回で1524件削除。残8306件は高スコアゾンビ（保護中） |
 | pending_ai.json ゾンビ蓄積 | ✅ 修正済み | 2026-04-25深夜 | fetcher が topics_deduped 外のトピックをqueue追加していたバグ修正。1613→245件にクリーンアップ |
 | 検索機能 | ✅ 強化 | 2026-04-25夜 | タイトル→タイトル+AI要約+ジャンルに拡張 |
-| SEO/OGP | ✅ 全ページ完備 | 2026-04-25夜 | Twitter Card全静的ページ・BreadcrumbList JSON-LD・privacy/terms OGP追加 |
+| SEO/OGP | ✅ 全ページ完備 | 2026-04-26 | JSON-LD全静的ページ追加（legacy=CollectionPage, catchup/privacy/terms=WebPage+BreadcrumbList） |
+| trendingKeywords | ✅ 修正済み | 2026-04-26 | processorが毎回_extract_trending_keywords()で再生成するように変更（旧コードはstale S3値を保持して空が固定していた） |
+| processor スループット | ✅ 増量 | 2026-04-26 | MAX_API_CALLS 30→150（15件→75件/回）。238件pending → ~3回で完全消化見込み |
+| fetcher S3コスト | ✅ 削減 | 2026-04-26 | 1605件→~194件の個別S3書き込みに削減（公開対象のみ） |
+| DynamoDB SNAP肥大化 | ✅ 改善中 | 2026-04-26 | 784K→742K件。TTL ENABLED。lifecycle週次で30日超SNAP削除中 |
 | Bluesky 自動投稿 | ✅ 稼働 | 2026-04-25 | 毎日05:32 JST 投稿確認済み |
 | Claude Code 確認ダイアログ | ✅ 対策済み | 2026-04-25 | ~/.claude/settings.json に Bash/Edit/Write を allow 追加。再起動後有効 |
 
