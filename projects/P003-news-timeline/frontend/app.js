@@ -324,41 +324,20 @@ function renderTopics(topics) {
     return;
   }
 
-  // ネイティブプロモカード用コンテンツ（ローテーション）
-  const NATIVE_ADS = [
-    { icon:'🕰️', title:'しばらくぶりですか？', body:'見逃した話題をまとめてキャッチアップ', url:'catchup.html', cta:'まとめて確認する' },
-    { icon:'⭐', title:'お気に入り機能', body:'気になるトピックを保存してあとで読む', url:'mypage.html', cta:'マイページへ' },
-    { icon:'📱', title:'アプリとして使う', body:'ホーム画面に追加してすぐ起動', url:'#', cta:'インストール', pwa:true },
-  ];
   const pageList = list.slice(0, currentPage * CONFIG.TOPICS_PER_PAGE);
   grid.innerHTML = pageList.reduce((html, t, i) => {
     if ((i + 1) % CONFIG.AD_CARD_INTERVAL !== 0) return html + renderTopicCard(t, i);
-    _nativeAdIdx = (_nativeAdIdx + 1) % NATIVE_ADS.length;
-    const ad = NATIVE_ADS[_nativeAdIdx];
-    const adHtml = `
-      <div class="topic-card-wrapper ad-card-wrapper">
-        <div class="native-ad-card" data-pwa="${ad.pwa||false}">
-          <span class="ad-label">PR</span>
-          <div class="native-ad-inner">
-            <span class="native-ad-icon">${ad.icon}</span>
-            <div class="native-ad-body">
-              <div class="native-ad-title">${esc(ad.title)}</div>
-              <div class="native-ad-desc">${esc(ad.body)}</div>
-            </div>
-            <a href="${esc(ad.url)}" class="native-ad-cta">${esc(ad.cta)} →</a>
-          </div>
-        </div>
-      </div>`;
+    // 忍者AdMaxをscriptタグで動的注入するためのプレースホルダー
+    const adHtml = `<div class="topic-card-wrapper ad-card-wrapper"><div class="admax-slot" style="min-height:100px;width:100%;text-align:center;"></div></div>`;
     return html + renderTopicCard(t, i) + adHtml;
   }, '');
 
-  // PWAカードクリック時はインストールプロンプト
-  grid.querySelectorAll('.native-ad-card[data-pwa="true"] .native-ad-cta').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.preventDefault();
-      const banner = document.getElementById('pwa-install-banner');
-      if (banner) { banner.style.display = 'flex'; banner.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
-    });
+  // 忍者AdMax: innerHTML内のscriptは実行されないためcreateElementで注入
+  grid.querySelectorAll('.admax-slot').forEach(slot => {
+    const s = document.createElement('script');
+    s.src = 'https://adm.shinobi.jp/s/570fe6c87677ba7c5417119c60ca979d';
+    s.type = 'text/javascript';
+    slot.appendChild(s);
   });
 
   if (lmContainer) {
