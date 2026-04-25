@@ -725,12 +725,22 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   justify-content: center;
   padding: 4px 0;
 }
-/* PC/スマホ広告切替 */
+/* PC/スマホ広告切替（レガシー） */
 .ad-pc-only { display: none; }
 .ad-sp-only { display: block; }
 @media (min-width: 768px) {
   .ad-pc-only { display: block; }
   .ad-sp-only { display: none; }
+}
+/* 728×90をモバイルでスケールダウン表示 */
+.ad-728-scale-wrapper { margin: 0 auto; overflow: hidden; text-align: left; }
+@media (max-width: 767px) {
+  /* scale(320/728) ≈ 0.44 → 728×0.44=320px, 90×0.44=40px */
+  .ad-728-scale-wrapper { width: 320px; height: 40px; }
+  .ad-728-scale-wrapper .admax-ads { display: block !important; transform: scale(0.44); transform-origin: top left; }
+}
+@media (min-width: 768px) {
+  .ad-728-scale-wrapper { max-width: 728px; text-align: center; }
 }
 .ad-grid-badge {
   position: absolute;
