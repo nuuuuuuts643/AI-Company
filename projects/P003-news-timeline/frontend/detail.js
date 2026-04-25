@@ -576,6 +576,7 @@ function renderDetail(data) {
   }
 
   renderDiscovery(meta);
+  renderAffiliate(meta);
 }
 
 // ===== Discovery: 深掘り & 拡張 =====
@@ -701,6 +702,61 @@ function renderDiscovery(meta) {
         ${smLink}
       </div>`;
   });
+}
+
+// ===== アフィリエイトウィジェット =====
+function renderAffiliate(meta) {
+  const section = document.getElementById('affiliate-section');
+  const linksEl = document.getElementById('affiliate-links');
+  if (!section || !linksEl) return;
+
+  const amazonTag   = (typeof AFFILIATE_AMAZON_TAG  !== 'undefined') ? AFFILIATE_AMAZON_TAG  : '';
+  const rakutenId   = (typeof AFFILIATE_RAKUTEN_ID  !== 'undefined') ? AFFILIATE_RAKUTEN_ID  : '';
+
+  if (!amazonTag && !rakutenId) return;
+
+  const rawTitle = meta.generatedTitle || meta.title || '';
+  const keyword  = rawTitle.replace(/[【】「」『』（）()【】\[\]]/g, '').trim().slice(0, 40);
+  if (!keyword) return;
+
+  const items = [];
+
+  if (amazonTag) {
+    const q = encodeURIComponent(keyword);
+    items.push({
+      href:      `https://www.amazon.co.jp/s?k=${q}&tag=${encodeURIComponent(amazonTag)}`,
+      logoClass: 'amazon',
+      logoText:  '🛒',
+      shop:      'Amazon.co.jp',
+      label:     `「${keyword}」をAmazonで探す`,
+    });
+  }
+
+  if (rakutenId) {
+    const q = encodeURIComponent(keyword);
+    items.push({
+      href:      `https://hb.afl.rakuten.co.jp/hgc/${encodeURIComponent(rakutenId)}/?pc=https://search.rakuten.co.jp/search/mall/${q}/`,
+      logoClass: 'rakuten',
+      logoText:  '楽天',
+      shop:      '楽天市場',
+      label:     `「${keyword}」を楽天市場で探す`,
+    });
+  }
+
+  if (!items.length) return;
+
+  linksEl.innerHTML = items.map(it => `
+    <a href="${esc(it.href)}" target="_blank" rel="noopener sponsored" class="affiliate-link-item">
+      <div class="affiliate-link-logo ${esc(it.logoClass)}">${it.logoText}</div>
+      <div class="affiliate-link-body">
+        <div class="affiliate-link-shop">${esc(it.shop)}</div>
+        <div class="affiliate-link-title">${esc(it.label)}</div>
+      </div>
+      <span class="affiliate-link-arrow">›</span>
+    </a>
+  `).join('') + `<p class="affiliate-note">※ アフィリエイトリンクを含みます。購入者様の費用は変わりません。</p>`;
+
+  section.style.display = '';
 }
 
 // ── スティッキーCTAバー（モバイル） ──────────────────────────────────────
