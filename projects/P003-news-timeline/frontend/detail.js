@@ -188,19 +188,8 @@ function renderDetail(data) {
   if (canvas) {
     const chartCard = canvas.closest('.card');
     if (timeline.length < 2) {
-      if (chartCard) {
-        const header = chartCard.querySelector('.chart-header');
-        if (header) header.style.display = 'none';
-        // 既存プレースホルダーを削除してから追加（重複防止）
-        chartCard.querySelectorAll('.chart-placeholder').forEach(el => el.remove());
-        const ph = document.createElement('div');
-        ph.className = 'chart-placeholder';
-        ph.style.cssText = 'padding:20px;text-align:center;color:var(--text-muted);font-size:.85rem;';
-        ph.textContent = '⏳ グラフデータを蓄積中です（30分ごとに更新）';
-        chartCard.appendChild(ph);
-        if (canvas) canvas.style.display = 'none';
-        if (vCanvas) vCanvas.style.display = 'none';
-      }
+      // データ不足時はグラフカードごと非表示（空の暗いブロックを残さない）
+      if (chartCard) chartCard.style.display = 'none';
     } else {
       if (chartCard) {
         // プレースホルダー削除 & chart-header 復元
