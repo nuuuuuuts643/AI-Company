@@ -351,3 +351,10 @@ bash projects/P003-news-timeline/deploy.sh
   - `scripts/audit_agent.py` — 外部監査AI（全9エージェント監視・**Claude不使用・純粋Pythonルール判定**・ナオヤさん直接Slack報告）
   - `.github/workflows/governance.yml` — 統合ガバナンスワークフロー（L1→L2→Legal→Audit の直列パイプライン）
   - **設計原則**: 監査AIはClaudeを一切呼ばない（独立性の担保）。数値閾値・パターンマッチング・統計計算のみで判断。
+
+### 完了済みタスク（2026-04-26 基盤安定化）
+- ✅ **CloudWatchログ確認ルール追加** — 「最新ログストリームのみで確認する」ルールをCLAUDE.mdに追記。24時間フィルターで修正前エラーを重大バグ扱いしてしまうミスを防ぐ
+- ✅ **flotopic-notifications DynamoDBテーブル作成** — PK=handle/SK=SK/TTL=30日。p003-commentsの `get_notifications` がAccessDeniedException で落ちていた問題を解消（最新実行で再現確認済み）
+- ✅ **IAMポリシー更新** — `p003-lambda-role` の `flotopic-least-privilege` に `flotopic-notifications` テーブルへのDynamoDB権限を追加
+- ✅ **lifecycle SK FilterExpression バグ修正確認** — 最新デプロイ後（2026-04-26）の手動実行でValidationExceptionなし。修正が適用されていることを確認
+- ✅ **スナップショット更新** — CLAUDE.mdのP003技術状態スナップショットに通知テーブル・IAM修正を記録

@@ -108,6 +108,17 @@ function renderDetail(data) {
   const titleEl = document.getElementById('topic-title');
   if (titleEl) titleEl.textContent = meta.generatedTitle || meta.title;
 
+  // ヒーロー背景画像（imageUrlがある場合、グラデーション+画像でリッチ表示）
+  if (meta.imageUrl) {
+    const heroEl = document.querySelector('.topic-hero');
+    if (heroEl) {
+      const safeUrl = meta.imageUrl.replace(/'/g, '%27');
+      heroEl.style.backgroundImage = `linear-gradient(rgba(15,23,42,0.78) 0%, rgba(15,23,42,0.62) 100%), url('${safeUrl}')`;
+      heroEl.style.backgroundSize = 'cover';
+      heroEl.style.backgroundPosition = 'center';
+    }
+  }
+
   // お気に入りボタン（トピックページのヒーロー内）
   const topicFavBtn = document.getElementById('topic-fav-btn');
   if (topicFavBtn && meta.topicId) {
