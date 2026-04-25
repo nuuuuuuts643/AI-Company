@@ -237,7 +237,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 > セッション開始時に必ずここを確認。着手中の作業があればスキップして次の未完了タスクへ。
 > 作業完了したらすぐに「完了済み」セクションへ移動し、このセクションを空にする。
 
-- **about.html FAQ追加・SEO改善**（開始: 2026-04-25 JST | 変更予定: frontend/about.html）← 完了次第削除
+（なし）
 
 ## 次フェーズのタスク（優先度順）
 
@@ -248,15 +248,16 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 - ~~株価ティッカートピックS3除去~~ ✅ 0件確認済み
 - ~~Twitter Card/OGPメタタグ全ページ追加~~ ✅ 2026-04-25 完了
 - ~~BreadcrumbList JSON-LD追加~~ ✅ 2026-04-25 完了
+- ~~about.html FAQ + FAQPage JSON-LD~~ ✅ 2026-04-25 完了
 
 ### 優先度2: コンテンツ品質（Claude実行可能）
-- AI要約カバレッジ向上: 321件中68件（21%）→ pending_ai.jsonバックログ修正で自動改善中
+- AI要約カバレッジ向上（pending_ai.json修正・高velocity強制再処理で自動改善中）
 - ~~processor Lambda メモリ 512MB~~ ✅ 確認済み（既に512MB）
-- velocity=0 の停滞トピック196件 → lifecycle Lambda(ARCHIVE_DAYS=7)が次週月曜に自動整理
+- velocity=0 の停滞トピック → lifecycle Lambda(ARCHIVE_DAYS=7)が次週月曜に自動整理
 - ~~Bluesky 自動投稿~~ ✅ 稼働確認済み
 
 ### 優先度3: ユーザー体験（Claude実行可能）
-- モバイルUX改善（現在モバイル4%・デスクトップ96%、実ユーザー獲得後に重要度UP）
+- モバイルUX改善（実ユーザー獲得後に重要度UP）
 - コメント・お気に入り促進UI（現在0件）→ CTAを目立たせる
 
 ### 優先度4: 運用・インフラ（Claude実行可能）
