@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flotopic-v10';
+const CACHE_NAME = 'flotopic-v11';
 
 // config.js は絶対にキャッシュしない（APIのURLが変わると全機能が壊れるため）
 const NEVER_CACHE = ['/config.js'];
@@ -51,6 +51,9 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+
+  // 外部ドメインはSWを素通り（CORSエラー防止・広告スクリプト正常動作のため）
+  if (url.origin !== self.location.origin) return;
 
   // config.js は常にネットワークから取得（キャッシュしない）
   if (NEVER_CACHE.includes(url.pathname)) {
