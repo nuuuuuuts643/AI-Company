@@ -257,6 +257,7 @@ cat /Users/murakaminaoya/.claude/projects/-Users-murakaminaoya-ai-company/memory
 | flotopic-notifications テーブル | ✅ 作成済み | 2026-04-26 | PK=handle/SK=SK/TTL=30日。IAMポリシー(flotopic-least-privilege)に権限追加済み |
 | p003-comments 通知権限 | ✅ 修正済み | 2026-04-26 | AccessDeniedException解消（flotopic-notificationsテーブル+IAM権限追加） |
 | lifecycle SK修正 | ✅ 本番確認済み | 2026-04-26 | 手動実行でValidationExceptionなし。303件削除・エラーなし。週次自動実行に任せてOK |
+| アフィリエイト収益化基盤 | ✅ 実装済み | 2026-04-26 | tokushoho.html作成・privacy.html更新・topic.htmlウィジェット枠・全フッターリンク追加。AFFILIATE_AMAZON_TAG/RAKUTEN_IDをconfig.jsに設定するだけで稼働 |
 
 ## 専門AI稼働状況
 
@@ -311,7 +312,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 > セッション開始時に必ずここを確認。着手中の作業があればスキップして次の未完了タスクへ。
 > 作業完了したらすぐに「完了済み」セクションへ移動し、このセクションを空にする。
 
-- **[アフィリエイト収益化基盤実装]**（開始: 2026-04-26 JST | 変更予定: frontend/tokushoho.html, frontend/privacy.html, frontend/topic.html, frontend/index.html, frontend/style.css）
+（なし）
 
 ## 次フェーズのタスク（優先度順）
 
@@ -339,8 +340,11 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 - ~~DynamoDB 784K件のTTL動作確認~~ ✅ 2026-04-25 確認済み（TTL ENABLED・属性名 `ttl`）
 - ~~admin ダッシュボード velocity分布・AIパイプライングラフ~~ ✅ 2026-04-25 完了
 
-### 優先度5: 収益化（待ち）
+### 優先度5: 収益化
 - AdSense 審査通過後の広告設定切り替え（忍者 AdMax → AdSense）→ 審査中・ナオヤ待ち
+- **Amazonアソシエイト申請**（ナオヤ手動）→ 申請後 `config.js` の `AFFILIATE_AMAZON_TAG` に取得タグを設定するだけで即稼働
+- **楽天アフィリエイト申請**（ナオヤ手動）→ 申請後 `AFFILIATE_RAKUTEN_ID` に設定
+- **tokushoho.html の個人情報記入**（ナオヤ手動）→ `[TODO: 氏名を記入]` 部分を埋める（Amazonアソシエイト審査に必要）
 - X 投稿エージェント再開（X API Basic Plan $100/月が必要）→ 収益化後に判断
 
 ## 承認済み・実行待ちタスク
