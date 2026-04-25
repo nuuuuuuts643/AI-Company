@@ -171,7 +171,7 @@ def compute_lifecycle_status(score: int, last_article_ts: int, velocity_score: i
         return 'active'
     elif days_since < 7:
         return 'cooling'
-    elif days_since >= 14 and velocity_score <= 0:
+    elif velocity_score <= 0:
         return 'archived'
     else:
         return 'cooling'
