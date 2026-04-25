@@ -91,6 +91,8 @@ def lambda_handler(event, context):
 
         update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=ai_succeeded, image_url=ogp_url)
         processed += 1
+        if api_calls > 0:
+            time.sleep(0.5)
         ai_updates[tid] = {
             'generatedTitle':   gen_title,
             'generatedSummary': gen_story['aiSummary']      if gen_story else None,
