@@ -537,20 +537,22 @@ def lambda_handler(event, context):
         pending_ids = list(new_pending) + old_still_pending
 
         # summary欠如の既存トピックをペンディングに追加（カバレッジ改善）
-        # processor を過負荷させないよう1runあたり最大20件ずつ追加する
-        already_pending = set(pending_ids)
-        orphan_candidates = sorted(
-            (t for t in topics
-             if t['topicId'] not in already_pending
-             and (t.get('pendingAI') or not (t.get('aiGenerated') and t.get('generatedSummary')))
-             and t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES),
-            key=lambda t: float(t.get('velocityScore', 0) or 0),
-            reverse=True,
-        )
-        if orphan_candidates:
-            add_count = min(20, len(orphan_candidates))
-            pending_ids = pending_ids + [t['topicId'] for t in orphan_candidates[:add_count]]
-            print(f'[pending] summary欠如orphan追加: {add_count}件 (残{len(orphan_candidates)-add_count}件)')
+        # pending が _ORPHAN_CAP 件以下の場合のみ追加し、キューの無限肥大を防ぐ
+        _ORPHAN_CAP = 80
+        if len(pending_ids) < _ORPHAN_CAP:
+            already_pending = set(pending_ids)
+            orphan_candidates = sorted(
+                (t for t in topics
+                 if t['topicId'] not in already_pending
+                 and (t.get('pendingAI') or not (t.get('aiGenerated') and t.get('generatedSummary')))
+                 and t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES),
+                key=lambda t: float(t.get('velocityScore', 0) or 0),
+                reverse=True,
+            )
+            if orphan_candidates:
+                add_count = min(20, _ORPHAN_CAP - len(pending_ids), len(orphan_candidates))
+                pending_ids = pending_ids + [t['topicId'] for t in orphan_candidates[:add_count]]
+                print(f'[pending] summary欠如orphan追加: {add_count}件 (残{len(orphan_candidates)-add_count}件, total={len(pending_ids)})')
 
         write_s3('api/pending_ai.json', {'topicIds': pending_ids, 'updatedAt': ts_iso})
         generate_rss(topics, ts_iso)
