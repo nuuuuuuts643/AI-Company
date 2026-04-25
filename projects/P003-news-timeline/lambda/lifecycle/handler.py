@@ -56,11 +56,15 @@ def is_truly_inactive(item: dict, now: int) -> bool:
     """
     「本当に活動停止しているか」を判定する。
     velocity_score <= 0 かつ lastArticleAt が ARCHIVE_DAYS 以上前の場合のみ True。
-    lastArticleAt=0 は pubDate 未設定による誤値なので除外する（削除しない）。
+
+    lastArticleAt=0 の扱い:
+    - 高スコア(>= DEAD_SCORE_THRESHOLD): 保護する（pubDate未解析の正当なトピックの可能性）
+    - 低スコア(< DEAD_SCORE_THRESHOLD): True を返す（ゾンビトピックとして削除対象）
     """
     last_article = int(item.get('lastArticleAt', 0))
     if last_article == 0:
-        return False  # pubDate未解析トピックは誤判定で削除しない
+        score = int(item.get('score', 0))
+        return score < DEAD_SCORE_THRESHOLD  # 低スコアゾンビは削除対象
     velocity   = int(item.get('velocityScore', 0))
     days_since = (now - last_article) / 86400
     return days_since >= ARCHIVE_DAYS and velocity <= 0
