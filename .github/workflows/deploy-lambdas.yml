@@ -8,6 +8,10 @@ on:
     paths:
       - "projects/P003-news-timeline/lambda/**"
 
+concurrency:
+  group: deploy-p003-lambda
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
