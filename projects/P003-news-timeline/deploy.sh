@@ -701,14 +701,14 @@ aws lambda create-function \
   --role "$ROLE_ARN" \
   --handler handler.lambda_handler \
   --zip-file fileb://function.zip \
-  --timeout 300 --memory-size 256 \
+  --timeout 900 --memory-size 256 \
   --environment "$LIFECYCLE_ENV_VARS" \
   --region "$REGION" 2>/dev/null \
   && echo "  -> 新規作成完了" \
   || {
     aws lambda update-function-code --function-name "$LIFECYCLE_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
     aws lambda wait function-updated --function-name "$LIFECYCLE_FN" --region "$REGION"
-    aws lambda update-function-configuration --function-name "$LIFECYCLE_FN" --timeout 300 --memory-size 256 --environment "$LIFECYCLE_ENV_VARS" --region "$REGION" > /dev/null
+    aws lambda update-function-configuration --function-name "$LIFECYCLE_FN" --timeout 900 --memory-size 256 --environment "$LIFECYCLE_ENV_VARS" --region "$REGION" > /dev/null
     echo "  -> 更新完了"
   }
 rm function.zip
