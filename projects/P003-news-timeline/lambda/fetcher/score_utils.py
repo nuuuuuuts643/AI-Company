@@ -56,6 +56,33 @@ def apply_time_decay(score: int, last_article_ts: int) -> int:
     return max(1, int(score * decay))
 
 
+def apply_velocity_decay(velocity_score: float, last_updated_iso: str) -> float:
+    """
+    lastUpdated からの経過時間に応じて velocityScore を指数減衰させる。
+    半減期 12時間: t=12h→×0.50, t=24h→×0.25, t=48h→×0.063
+
+    設計上の注意:
+      - DynamoDB には書き戻さない（表示用スコアの調整のみ）
+      - 今回の fetcher run で更新されたトピックには適用しないこと
+        （handler.py 側で current_run_tids を除外して呼ぶ）
+    """
+    import math
+    vs = float(velocity_score or 0)
+    if vs == 0 or not last_updated_iso:
+        return vs
+    try:
+        lu = datetime.fromisoformat(last_updated_iso)
+        if lu.tzinfo is None:
+            lu = lu.replace(tzinfo=timezone.utc)
+        age_hours = (datetime.now(timezone.utc) - lu).total_seconds() / 3600
+        if age_hours <= 0:
+            return vs
+        decay = math.exp(-age_hours * math.log(2) / 12.0)
+        return round(vs * decay, 4)
+    except Exception:
+        return vs
+
+
 def calc_velocity_score(articles: list) -> int:
     now = int(time.time())
     recent = sum(1 for a in articles if now - a.get('published_ts', 0) < 7200)
