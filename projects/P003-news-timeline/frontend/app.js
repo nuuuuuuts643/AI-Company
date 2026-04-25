@@ -365,7 +365,7 @@ function renderTopics(topics) {
     list = list.filter(t => (t.generatedTitle||t.title||'').toLowerCase().includes(q));
   }
   // 記事1件かつスコア5未満のスタブトピックは品質が低いのでフィードから除外
-  list = list.filter(t => !(parseInt(t.articleCount) <= 1 && parseInt(t.score) < 5));
+  list = list.filter(t => parseInt(t.articleCount) >= 2);
 
   // declining フィルターは lifecycleStatus=cooling を含める（status=decliningは実質未使用のため）
   if (currentStatus === 'declining') {
@@ -802,35 +802,25 @@ function initBottomNav() {
   if (!nav) return;
   const path = location.pathname;
   const isIndex   = path.endsWith('index.html') || path === '/' || path.endsWith('/');
-  const isTopic   = path.includes('topic.html');
   const isMypage  = path.includes('mypage.html');
+  const isCatchup = path.includes('catchup.html');
 
   const items = {
     'bn-home':    isIndex,
-    'bn-search':  isIndex && document.getElementById('search-input') !== null,
-    'bn-favs':    false,
+    'bn-catchup': isCatchup,
     'bn-mypage':  isMypage,
   };
-
   Object.entries(items).forEach(([id, active]) => {
     const el = document.getElementById(id);
     if (el && active) el.classList.add('active');
   });
 
+  // 検索ボタン: 検索入力があればフォーカス、なければindexへ
   const searchEl = document.getElementById('bn-search');
-  if (searchEl) {
+  if (searchEl && searchEl.tagName === 'BUTTON') {
     searchEl.addEventListener('click', () => {
       const inp = document.getElementById('search-input');
       if (inp) { inp.focus(); inp.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-      else location.href = 'index.html#search-input';
-    });
-  }
-
-  const favsEl = document.getElementById('bn-favs');
-  if (favsEl) {
-    favsEl.addEventListener('click', () => {
-      const btn = document.getElementById('fav-toggle-btn');
-      if (btn) btn.click();
       else location.href = 'index.html';
     });
   }
