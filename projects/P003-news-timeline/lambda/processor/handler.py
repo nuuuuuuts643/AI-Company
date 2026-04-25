@@ -75,11 +75,11 @@ def lambda_handler(event, context):
                 ai_succeeded = True
                 print(f'  [Claude ストーリー] {tid[:8]}... phase={new_story.get("phase")} timeline={len(new_story.get("timeline", []))}件')
 
-        # OGP画像生成（AI処理成功かつimageUrlが未設定の場合のみ）
+        # OGP画像生成（imageUrl未設定の場合のみ。AI処理成否に関わらず実行）
         ogp_url = None
-        if ai_succeeded and not topic.get('imageUrl'):
+        if not topic.get('imageUrl'):
             try:
-                title_for_ogp = gen_title or topic.get('title', '')
+                title_for_ogp = gen_title or topic.get('generatedTitle') or topic.get('title', '')
                 genres = topic.get('genres') or ([topic['genre']] if topic.get('genre') else [])
                 ogp_url = generate_ogp_image(tid, title_for_ogp, genres[0] if genres else '')
                 if ogp_url:
