@@ -20,7 +20,7 @@ from proc_ai import generate_title, generate_story
 from proc_storage import (
     get_pending_topics, get_latest_articles_for_topic,
     update_topic_with_ai, get_all_topics_for_s3,
-    update_topic_s3_files_parallel,
+    update_topic_s3_files_parallel, generate_ogp_image,
     write_s3, notify_slack_error, generate_and_upload_sitemap,
     generate_and_upload_rss, generate_and_upload_news_sitemap,
 )
@@ -75,7 +75,19 @@ def lambda_handler(event, context):
                 ai_succeeded = True
                 print(f'  [Claude ストーリー] {tid[:8]}... phase={new_story.get("phase")} timeline={len(new_story.get("timeline", []))}件')
 
-        update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=ai_succeeded)
+        # OGP画像生成（AI処理成功かつimageUrlが未設定の場合のみ）
+        ogp_url = None
+        if ai_succeeded and not topic.get('imageUrl'):
+            try:
+                title_for_ogp = gen_title or topic.get('title', '')
+                genres = topic.get('genres') or ([topic['genre']] if topic.get('genre') else [])
+                ogp_url = generate_ogp_image(tid, title_for_ogp, genres[0] if genres else '')
+                if ogp_url:
+                    print(f'  [OGP] {tid[:8]}... 生成完了')
+            except Exception as ogp_err:
+                print(f'  [OGP] {tid[:8]}... 失敗（スキップ）: {ogp_err}')
+
+        update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=ai_succeeded, image_url=ogp_url)
         processed += 1
         ai_updates[tid] = {
             'generatedTitle':   gen_title,
@@ -85,6 +97,7 @@ def lambda_handler(event, context):
             'storyTimeline':    gen_story['timeline']       if gen_story else None,
             'storyPhase':       gen_story['phase']          if gen_story else None,
             'aiGenerated':      ai_succeeded,
+            'imageUrl':         ogp_url,
         }
 
     elapsed = time.time() - start_time
@@ -107,6 +120,7 @@ def lambda_handler(event, context):
                     if upd.get('storyTimeline') is not None: t['storyTimeline']    = upd['storyTimeline']
                     if upd.get('storyPhase'):                t['storyPhase']       = upd['storyPhase']
                     if upd.get('aiGenerated'):               t['aiGenerated']      = True
+                    if upd.get('imageUrl') and not t.get('imageUrl'): t['imageUrl'] = upd['imageUrl']
             ts_iso = datetime.now(timezone.utc).isoformat()
             topics_pub = [{k: v for k, v in t.items() if k not in _PROC_INTERNAL} for t in topics]
             write_s3('api/topics.json', {
