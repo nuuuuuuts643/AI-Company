@@ -646,6 +646,35 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   min-height: 0;
   overflow: hidden;
 }
+/* ===== グリッド内広告カード（トピックカードと同じ枠） ===== */
+.ad-grid-card {
+  position: relative;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: var(--radius, 12px);
+  overflow: hidden;
+  width: 100%;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ad-grid-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: .58rem;
+  color: var(--text-muted, #94a3b8);
+  background: var(--surface2, rgba(148,163,184,.12));
+  padding: 2px 6px;
+  border-radius: 4px;
+  z-index: 2;
+  letter-spacing: .05em;
+}
+[data-theme="dark"] .ad-grid-card {
+  background: #1e2035;
+  border-color: rgba(99,102,241,.12);
+}
 .ad-card-wrapper { width: 100%; grid-column: 1 / -1; }
 .ad-card {
   background: #f8fafc;
