@@ -43,7 +43,12 @@ def get_pending_topics(max_topics=100):
 
     if pending_ids:
         items = []
-        for tid in pending_ids[:max_topics * 2]:
+        still_pending = []
+        # 全IDを走査し、未処理のものを収集しながら処理済みIDも整理する
+        for tid in pending_ids:
+            if len(items) >= max_topics * 3:
+                still_pending.append(tid)
+                continue
             try:
                 r = table.get_item(
                     Key={'topicId': tid, 'SK': 'META'},
@@ -52,8 +57,23 @@ def get_pending_topics(max_topics=100):
                 item = r.get('Item')
                 if item and needs_ai_processing(item):
                     items.append(item)
+                    still_pending.append(tid)
+                # 存在しないIDまたは処理済みIDはstill_pendingに追加しない（自動クリーンアップ）
             except Exception:
-                pass
+                still_pending.append(tid)
+
+        # pending_ai.jsonを処理済みIDを除去した状態に更新
+        if S3_BUCKET and len(still_pending) < len(pending_ids):
+            try:
+                s3.put_object(
+                    Bucket=S3_BUCKET, Key='api/pending_ai.json',
+                    Body=json.dumps({'topicIds': still_pending}),
+                    ContentType='application/json',
+                )
+                print(f'[get_pending_topics] pending_ai.json 更新: {len(pending_ids)} → {len(still_pending)} 件')
+            except Exception as e:
+                print(f'[get_pending_topics] pending_ai.json 更新失敗: {e}')
+
         # velocityScore 優先（急上昇中のホットトピックを先に処理）、同値時は score で補助
         items.sort(key=lambda x: (float(x.get('velocityScore', 0) or 0), int(x.get('score', 0) or 0)), reverse=True)
         return items[:max_topics]
