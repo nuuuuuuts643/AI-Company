@@ -370,21 +370,26 @@ function statusLabel(status) {
   return '';
 }
 
-function renderBranchCard(t, showStatus) {
+function renderBranchCard(t, showStatus, idx) {
   const title = t.generatedTitle || t.title || '';
   const count = t.articleCount || 0;
   const ago   = fmtAgo(t.lastArticleAt || t.lastUpdated || 0);
+  const startedAt = t.firstArticleAt || t.lastUpdated || 0;
+  const startAgo = startedAt ? fmtAgo(startedAt) : '';
   const status = t.lifecycleStatus || '';
   const entities = extractEntities(title).slice(0,2);
   const entityHtml = entities.map(e => `<span style="background:#eff6ff;color:#2563eb;font-size:.62rem;padding:1px 6px;border-radius:999px;font-weight:600;">${esc(e)}</span>`).join(' ');
+  const stepLabel = idx === 0 ? '発端' : (status === 'active' ? '継続中' : status === 'cooling' ? '収束' : '');
+  const stepHtml = stepLabel ? `<span style="font-size:.6rem;font-weight:700;color:#6366f1;background:rgba(99,102,241,.1);padding:1px 6px;border-radius:999px;margin-right:4px;">${stepLabel}</span>` : '';
 
   return `
     <a href="topic.html?id=${esc(t.topicId)}" class="sm-branch-card ${statusClass(status)}">
-      <div class="sm-branch-card-title">${esc(title)}</div>
+      <div class="sm-branch-card-title">${stepHtml}${esc(title)}</div>
       ${entityHtml ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">${entityHtml}</div>` : ''}
       <div class="sm-branch-card-foot">
         <span class="sm-branch-card-count">📄 ${count}件</span>
-        ${ago ? `<span class="sm-branch-card-date">${esc(ago)}</span>` : ''}
+        ${startAgo ? `<span class="sm-branch-card-date">開始 ${esc(startAgo)}</span>` : ''}
+        ${ago && ago !== startAgo ? `<span class="sm-branch-card-date">最新 ${esc(ago)}</span>` : ''}
       </div>
       ${showStatus && status ? `<div style="margin-top:6px;">${statusLabel(status)}</div>` : ''}
     </a>`;
@@ -397,12 +402,16 @@ function renderStorymap(parent, allTopics) {
   const allMap = {};
   for (const t of allTopics) allMap[t.topicId] = t;
 
-  // Resolve children
+  // Resolve children — 時系列順（古い→新しい）で話の流れを分かりやすく
   const childRefs = parent.childTopics || [];
   const children  = childRefs
     .map(ref => allMap[ref.topicId] || ref)
     .filter(Boolean)
-    .sort((a, b) => (b.score || 0) - (a.score || 0)); // top by score
+    .sort((a, b) => {
+      const ta = a.firstArticleAt || a.lastUpdated || 0;
+      const tb = b.firstArticleAt || b.lastUpdated || 0;
+      return (new Date(ta).getTime() || 0) - (new Date(tb).getTime() || 0);
+    });
 
   const parentTitle = parent.generatedTitle || parent.title || '';
   document.title = `${parentTitle} | ストーリーマップ`;
@@ -453,7 +462,7 @@ function renderStorymap(parent, allTopics) {
   } else {
     const visible   = children.slice(0, SHOW_INITIAL);
     const hidden    = children.slice(SHOW_INITIAL);
-    const cardsHtml = visible.map(t => renderBranchCard(t, true)).join('');
+    const cardsHtml = visible.map((t, i) => renderBranchCard(t, true, i)).join('');
     const hiddenHtml = hidden.length > 0
       ? `<div id="sm-hidden-branches" style="display:none;">
            <div class="sm-branch-grid">${hidden.map(t => renderBranchCard(t, true)).join('')}</div>
