@@ -510,12 +510,15 @@ def lambda_handler(event, context):
             'updatedAt':       ts_iso,
         })
 
-        topic_map = {t['topicId']: t for t in topics}
+        # topics_deduped に含まれるIDのみ pending 対象にする
+        # （サイト非公開の低品質トピックをAI処理キューに入れない）
+        deduped_tids = {t['topicId'] for t in topics_deduped}
+        topic_map = {t['topicId']: t for t in topics if t['topicId'] in deduped_tids}
 
-        # 今回の未処理ID: current_run_metas.pendingAI を信頼
-        # （storyTimeline未生成・要再処理フラグを含む）
+        # 今回の未処理ID: 公開対象(topics_deduped)かつ pendingAI=True のみ
         new_pending = set(tid for tid in saved_ids
-                          if current_run_metas.get(tid, {}).get('pendingAI', True))
+                          if tid in deduped_tids
+                          and current_run_metas.get(tid, {}).get('pendingAI'))
 
         # 以前のpending IDを読み込み、まだ未処理のものを引き継ぐ
         old_pending = []
@@ -525,8 +528,7 @@ def lambda_handler(event, context):
             old_pending = old_data.get('topicIds', [])
         except Exception:
             pass
-        # 以前のIDのうちtopic_mapにあり、まだpendingAI=TrueまたはAI未完了のものを引き継ぐ
-        # topic_mapにないID（lifecycle削除済み）は除外する
+        # 以前のIDのうち公開対象かつAI未完了のものを引き継ぐ。それ以外（削除済み・非公開）は除外。
         old_still_pending = [tid for tid in old_pending
                              if tid not in new_pending
                              and tid in topic_map
@@ -535,6 +537,7 @@ def lambda_handler(event, context):
                                        topic_map[tid].get('generatedSummary')))]
 
         pending_ids = list(new_pending) + old_still_pending
+        print(f'[pending] new={len(new_pending)} old={len(old_still_pending)} total={len(pending_ids)}')
 
         # summary欠如の既存トピックをペンディングに追加（カバレッジ改善）
         # pending が _ORPHAN_CAP 件以下の場合のみ追加し、キューの無限肥大を防ぐ
@@ -542,10 +545,9 @@ def lambda_handler(event, context):
         if len(pending_ids) < _ORPHAN_CAP:
             already_pending = set(pending_ids)
             orphan_candidates = sorted(
-                (t for t in topics
+                (t for t in topics_deduped  # 公開対象のみ対象
                  if t['topicId'] not in already_pending
-                 and (t.get('pendingAI') or not (t.get('aiGenerated') and t.get('generatedSummary')))
-                 and t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES),
+                 and not (t.get('aiGenerated') and t.get('generatedSummary'))),
                 key=lambda t: float(t.get('velocityScore', 0) or 0),
                 reverse=True,
             )
