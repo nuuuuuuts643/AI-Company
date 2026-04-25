@@ -223,7 +223,7 @@ def update_topic_s3_file(tid, upd):
         resp = s3.get_object(Bucket=S3_BUCKET, Key=key)
         data = json.loads(resp['Body'].read())
         meta = data.get('meta', {})
-        meta['pendingAI'] = False
+        meta.pop('pendingAI', None)
         if upd.get('generatedTitle'):
             meta['generatedTitle'] = upd['generatedTitle']
         if upd.get('generatedSummary'):
