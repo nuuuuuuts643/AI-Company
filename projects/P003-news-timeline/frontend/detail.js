@@ -87,6 +87,26 @@ function renderDetail(data) {
   const titleEl = document.getElementById('topic-title');
   if (titleEl) titleEl.textContent = meta.generatedTitle || meta.title;
 
+  // お気に入りボタン（トピックページのヒーロー内）
+  const topicFavBtn = document.getElementById('topic-fav-btn');
+  if (topicFavBtn && meta.topicId) {
+    const updateFavBtnUI = () => {
+      const isFav = typeof userFavorites !== 'undefined' && userFavorites.has(meta.topicId);
+      topicFavBtn.classList.toggle('fav-active', isFav);
+      topicFavBtn.title = isFav ? 'お気に入りを解除' : 'お気に入りに追加';
+      topicFavBtn.textContent = isFav ? '♥ 登録済み' : '♥ お気に入り';
+    };
+    updateFavBtnUI();
+    topicFavBtn.addEventListener('click', async () => {
+      if (typeof toggleFavorite === 'function') {
+        await toggleFavorite(meta.topicId, topicFavBtn);
+        updateFavBtnUI();
+      } else if (typeof openAuthModal === 'function') {
+        openAuthModal();
+      }
+    });
+  }
+
   const shareBtn = document.getElementById('share-btn');
   if (shareBtn && navigator.share) {
     shareBtn.style.display = 'inline-flex';

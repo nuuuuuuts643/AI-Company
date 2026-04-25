@@ -200,18 +200,29 @@ section h2{font-size:.9rem;font-weight:600;color:#8b949e;text-transform:uppercas
     </section>
 
     <!-- チャート行 -->
-    <div class="grid3" style="margin-bottom:28px">
+    <div class="grid3" style="margin-bottom:20px">
       <section>
         <h2>ライフサイクル</h2>
         <div class="panel"><div class="bar-list" id="chart-lifecycle"></div></div>
       </section>
       <section>
-        <h2>AI要約 進捗</h2>
+        <h2>AI要約 カバレッジ</h2>
         <div class="panel" id="chart-ai"></div>
       </section>
       <section>
         <h2>ジャンル別トピック数</h2>
         <div class="panel"><div class="bar-list" id="chart-genre"></div></div>
+      </section>
+    </div>
+    <!-- チャート行2 -->
+    <div class="grid2" style="margin-bottom:28px">
+      <section>
+        <h2>Velocity 分布</h2>
+        <div class="panel"><div class="bar-list" id="chart-velocity"></div></div>
+      </section>
+      <section>
+        <h2>AI処理 パイプライン</h2>
+        <div class="panel" id="chart-ai-pipeline"></div>
       </section>
     </div>
 
@@ -337,8 +348,23 @@ function computeMetrics(topics) {
   const genre = {};
   topics.forEach(t => { const g = t.genre||'総合'; genre[g]=(genre[g]||0)+1; });
 
+  // AI詳細
+  const aiGenerated = topics.filter(t => t.aiGenerated).length;
+  const hasTimeline = topics.filter(t => t.storyTimeline && t.storyTimeline.length > 0).length;
+
+  // velocity分布
+  const velBuckets = { zero: 0, low: 0, mid: 0, high: 0 };
+  topics.forEach(t => {
+    const v = parseFloat(t.velocityScore) || 0;
+    if (v === 0)       velBuckets.zero++;
+    else if (v < 10)   velBuckets.low++;
+    else if (v < 50)   velBuckets.mid++;
+    else               velBuckets.high++;
+  });
+
   return { total, totalArticles, aiDone, totalHatena, maxHatena, updatedToday, lifecycle, genre,
-           avgArticles: total > 0 ? (totalArticles/total).toFixed(1) : '0' };
+           avgArticles: total > 0 ? (totalArticles/total).toFixed(1) : '0',
+           aiGenerated, hasTimeline, velBuckets };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -702,9 +728,54 @@ function renderCharts(m) {
       <div style="flex:1">${legend}</div>
     </div>`;
 
-  // AI進捗
-  document.getElementById('chart-ai').innerHTML =
-    UI.progressBar(m.aiDone, m.total, 'fill-green');
+  // AI要約カバレッジ（aiGenerated = 完全生成済み）
+  const aiGenPct = U.pct(m.aiGenerated, m.total);
+  const tlPct    = U.pct(m.hasTimeline, m.total);
+  document.getElementById('chart-ai').innerHTML = `
+    <div style="font-size:.78rem;color:#8b949e;margin-bottom:4px;display:flex;justify-content:space-between">
+      <span>aiGenerated（完全生成）</span><span style="color:#3fb950;font-weight:600">${aiGenPct}%</span>
+    </div>
+    ${UI.progressBar(m.aiGenerated, m.total, 'fill-green')}
+    <div style="margin-top:12px;border-top:1px solid #21262d;padding-top:10px">
+      <div style="font-size:.78rem;color:#8b949e;margin-bottom:4px;display:flex;justify-content:space-between">
+        <span>storyTimeline 有</span><span style="color:#39d3aa;font-weight:600">${tlPct}%</span>
+      </div>
+      ${UI.progressBar(m.hasTimeline, m.total, 'fill-teal')}
+    </div>
+    <div style="margin-top:10px;display:flex;gap:16px;font-size:.78rem;color:#8b949e">
+      <span>未処理: <strong style="color:#e6edf3">${m.total - m.aiGenerated}件</strong></span>
+      <span>timeline欠: <strong style="color:#e6edf3">${m.total - m.hasTimeline}件</strong></span>
+    </div>`;
+
+  // AI処理パイプライン（funnel）
+  const pipelineSteps = [
+    { label: '全トピック',          val: m.total,         color: '#58a6ff' },
+    { label: 'aiGenerated',        val: m.aiGenerated,   color: '#3fb950' },
+    { label: 'storyTimeline 有',   val: m.hasTimeline,   color: '#39d3aa' },
+  ];
+  const pmx = pipelineSteps[0].val;
+  document.getElementById('chart-ai-pipeline').innerHTML =
+    pipelineSteps.map(s => {
+      const w = pmx > 0 ? U.pct(s.val, pmx) : 0;
+      return `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:.78rem;color:#8b949e;margin-bottom:3px">
+          <span>${s.label}</span>
+          <span style="color:${s.color};font-weight:600">${s.val.toLocaleString()} (${U.pct(s.val,m.total)}%)</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:${w}%;background:${s.color}"></div></div>
+      </div>`;
+    }).join('');
+
+  // velocity分布
+  const vel = m.velBuckets;
+  const velMax = Math.max(vel.zero, vel.low, vel.mid, vel.high, 1);
+  document.getElementById('chart-velocity').innerHTML = [
+    UI.barRow('停滞 (=0)',  vel.zero, velMax, 'fill-gray',   `${vel.zero}件 (${U.pct(vel.zero, m.total)}%)`),
+    UI.barRow('低 (1-9)',   vel.low,  velMax, 'fill-yellow', `${vel.low}件`),
+    UI.barRow('中 (10-49)', vel.mid,  velMax, 'fill-blue',   `${vel.mid}件`),
+    UI.barRow('高 (50+)',   vel.high, velMax, 'fill-green',  `${vel.high}件`),
+  ].join('') + `<div style="margin-top:8px;font-size:.75rem;color:#8b949e">
+    停滞トピック ${vel.zero}件はlifecycle Lambdaが30日後に自動整理</div>`;
 
   // ジャンル
   const gList = Object.entries(m.genre).sort((a,b)=>b[1]-a[1]);
