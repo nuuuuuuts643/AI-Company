@@ -2,8 +2,12 @@ name: BlueSky Agent (BlueSky自動投稿)
 
 on:
   schedule:
-    # 日次: JST 8:00 = UTC 23:00（前日）
+    # 日次1回目: JST 8:00 = UTC 23:00（前日）
     - cron: '0 23 * * *'
+    # 日次2回目: JST 12:00 = UTC 3:00
+    - cron: '0 3 * * *'
+    # 日次3回目: JST 18:00 = UTC 9:00
+    - cron: '0 9 * * *'
     # 週次: 月曜 JST 9:00 = UTC 0:00
     - cron: '0 0 * * 1'
     # 月次: 毎月1日 JST 9:00 = UTC 0:00
