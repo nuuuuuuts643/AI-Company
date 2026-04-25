@@ -217,9 +217,10 @@ cat /Users/murakaminaoya/.claude/projects/-Users-murakaminaoya-ai-company/memory
 | CloudFront | ✅ 自動無効化 | 2026-04-25 | push → GH Actions → S3 + CF invalidation |
 | view tracking | ✅ 稼働 | 2026-04-25 | POST /analytics/event → flotopic-analytics Lambda |
 | admin dashboard | ✅ グラフ強化 | 2026-04-25 | velocity分布・AIパイプライングラフ追加済み |
-| lifecycle Lambda | ✅ SNAP自動クリーン | 2026-04-25夜 | ARCHIVE_DAYS=7・filter-feedback・30日超SNAP削除（TTLなし含む）を実装 |
+| lifecycle Lambda | ✅ ゾンビ削除改善 | 2026-04-25深夜 | ARCHIVE_DAYS=7・lastArticleAt=0低スコアゾンビも削除対象。手動2回実行で296+1228件削除 |
 | lifecycle archived保護 | ✅ 修正済み | 2026-04-25夜 | fetcher が archived を上書きしないよう修正（velocity>0なら再active可） |
-| DynamoDB SNAP肥大化 | ⚠️ 対策中 | 2026-04-25夜 | 784K件（ItemCount遅延あり、実際は削減中）。lifecycle Lambda(900s)が週次でSNAP削除。新SNAP TTL=7日。旧444K件(TTLなし)は段階削除中 |
+| DynamoDB SNAP肥大化 | ✅ 大幅改善 | 2026-04-25深夜 | 784K→735K件。TTL ENABLED。lifecycle手動2回で1524件削除。残8306件は高スコアゾンビ（保護中） |
+| pending_ai.json ゾンビ蓄積 | ✅ 修正済み | 2026-04-25深夜 | fetcher が topics_deduped 外のトピックをqueue追加していたバグ修正。1613→245件にクリーンアップ |
 | 検索機能 | ✅ 強化 | 2026-04-25夜 | タイトル→タイトル+AI要約+ジャンルに拡張 |
 | SEO/OGP | ✅ 全ページ完備 | 2026-04-25夜 | Twitter Card全静的ページ・BreadcrumbList JSON-LD・privacy/terms OGP追加 |
 | Bluesky 自動投稿 | ✅ 稼働 | 2026-04-25 | 毎日05:32 JST 投稿確認済み |
