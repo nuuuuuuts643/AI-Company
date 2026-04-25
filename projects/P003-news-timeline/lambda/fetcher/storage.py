@@ -334,13 +334,24 @@ def generate_sitemap(topics):
 
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
-    urls_xml = (
-        '  <url>\n'
-        f'    <loc>{site_url}/</loc>\n'
-        '    <changefreq>hourly</changefreq>\n'
-        '    <priority>1.0</priority>\n'
-        '  </url>\n'
-    )
+    static_pages = [
+        ('/', '1.0', 'hourly'),
+        ('/catchup.html', '0.8', 'daily'),
+        ('/legacy.html',  '0.6', 'daily'),
+        ('/about.html',   '0.5', 'monthly'),
+        ('/terms.html',   '0.3', 'monthly'),
+        ('/privacy.html', '0.3', 'monthly'),
+    ]
+    urls_xml = ''
+    for path, priority, freq in static_pages:
+        urls_xml += (
+            '  <url>\n'
+            f'    <loc>{site_url}{path}</loc>\n'
+            f'    <lastmod>{today}</lastmod>\n'
+            f'    <changefreq>{freq}</changefreq>\n'
+            f'    <priority>{priority}</priority>\n'
+            '  </url>\n'
+        )
 
     import re as _re
     _TICKER = _re.compile(r'【\d+[A-Z]?】|：株価|株式情報')
