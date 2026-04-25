@@ -1083,6 +1083,25 @@ details[open] .day-more-btn::before { content: '▼ '; }
   text-align: center; padding: 32px 0;
   font-size: .86rem; color: var(--text-muted);
 }
+.comments-empty-state {
+  text-align: center; padding: 32px 16px;
+}
+.ces-icon { font-size: 2.4rem; margin-bottom: 10px; }
+.ces-title {
+  font-size: 1rem; font-weight: 700; color: var(--text-primary);
+  margin: 0 0 6px;
+}
+.ces-sub {
+  font-size: .84rem; color: var(--text-muted); margin: 0 0 18px; line-height: 1.6;
+}
+.ces-cta-btn {
+  display: inline-block; padding: 10px 24px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: 999px;
+  font-size: .88rem; font-weight: 700; cursor: pointer;
+  transition: opacity .2s;
+}
+.ces-cta-btn:hover { opacity: .85; }
 @media (max-width: 600px) {
   .comment-form-actions { flex-direction: column; align-items: stretch; }
   .comment-submit-btn  { width: 100%; }

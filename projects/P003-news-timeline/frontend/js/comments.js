@@ -100,7 +100,11 @@ function renderComments(comments, topicId, myHash) {
   if (!listEl) return;
 
   if (!comments || !comments.length) {
-    listEl.innerHTML = '<div class="comments-empty">まだコメントはありません。最初のコメントを投稿しましょう！</div>';
+    const loggedIn = !!currentUser;
+    const ctaHtml = loggedIn
+      ? `<button class="ces-cta-btn" onclick="document.getElementById('comment-body')?.focus();document.getElementById('comment-form-area')?.scrollIntoView({behavior:'smooth',block:'center'})">コメントを書く</button>`
+      : `<button class="ces-cta-btn" onclick="document.getElementById('auth-signin-btn')?.click()">Googleでログインして投稿</button>`;
+    listEl.innerHTML = `<div class="comments-empty-state"><div class="ces-icon">💬</div><p class="ces-title">まだコメントがありません</p><p class="ces-sub">このトピックについて、あなたの考えを最初に投稿しませんか？</p>${ctaHtml}</div>`;
     return;
   }
 
