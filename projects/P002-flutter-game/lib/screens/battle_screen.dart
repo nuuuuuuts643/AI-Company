@@ -2094,7 +2094,6 @@ class _FormationOverlay extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 }

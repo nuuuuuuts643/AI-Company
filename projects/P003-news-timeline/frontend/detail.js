@@ -25,13 +25,22 @@ function updateOGP(meta) {
   const rawDesc = cleanSummary(meta.generatedSummary) || '';
   const desc    = rawDesc.length > 0 ? rawDesc.slice(0, 100) : 'Flotopicでトピックの推移をAIが分析';
   const url     = `https://flotopic.com/topic.html?id=${meta.topicId || ''}`;
+  const ogImage = meta.imageUrl || 'https://flotopic.com/ogp.png';
   const setMeta = (prop, val) => {
     const el = document.querySelector(`meta[property="${prop}"]`);
+    if (el) el.setAttribute('content', val);
+  };
+  const setName = (name, val) => {
+    const el = document.querySelector(`meta[name="${name}"]`);
     if (el) el.setAttribute('content', val);
   };
   setMeta('og:title',       title);
   setMeta('og:description', desc);
   setMeta('og:url',         url);
+  setMeta('og:image',       ogImage);
+  setName('twitter:title',       title);
+  setName('twitter:description', desc);
+  setName('twitter:image',       ogImage);
 
   // canonical URL を動的更新
   const canonical = document.getElementById('canonical-url');
