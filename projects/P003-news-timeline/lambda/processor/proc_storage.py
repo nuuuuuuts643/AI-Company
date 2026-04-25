@@ -815,6 +815,46 @@ header a{{color:#6366f1;font-weight:bold;font-size:1.1rem;text-decoration:none}}
         print(f'[StaticHTML] S3書き込みエラー [{tid}]: {e}')
 
 
+def batch_generate_static_html(max_topics: int = 500) -> int:
+    """既存の api/topic/{tid}.json を全件読み込み、topics/{tid}.html を生成する。
+    新規追加した静的HTML機能を既存トピックに適用するために使う。
+    """
+    if not S3_BUCKET:
+        return 0
+
+    paginator = s3.get_paginator('list_objects_v2')
+    pages = paginator.paginate(Bucket=S3_BUCKET, Prefix='api/topic/')
+    keys = []
+    for page in pages:
+        for obj in page.get('Contents', []):
+            k = obj['Key']
+            if k.endswith('.json') and '/topic/' in k:
+                keys.append(k)
+    keys = keys[:max_topics]
+    print(f'[StaticHTML] バッチ生成対象: {len(keys)}件')
+
+    generated = 0
+
+    def _gen(key):
+        tid = key.split('/')[-1].replace('.json', '')
+        try:
+            resp = s3.get_object(Bucket=S3_BUCKET, Key=key)
+            data = json.loads(resp['Body'].read())
+            meta = data.get('meta', {})
+            articles = data.get('articles', [])
+            generate_static_topic_html(tid, meta, articles)
+            return True
+        except Exception as e:
+            print(f'[StaticHTML] 生成失敗 [{tid}]: {e}')
+            return False
+
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        results = list(ex.map(_gen, keys))
+    generated = sum(1 for r in results if r)
+    print(f'[StaticHTML] バッチ生成完了: {generated}/{len(keys)}件')
+    return generated
+
+
 def notify_slack_error(error_msg: str):
     if not SLACK_WEBHOOK:
         return

@@ -23,12 +23,18 @@ from proc_storage import (
     update_topic_s3_files_parallel, generate_ogp_image,
     write_s3, notify_slack_error, generate_and_upload_sitemap,
     generate_and_upload_rss, generate_and_upload_news_sitemap,
+    batch_generate_static_html,
 )
 
 
 def lambda_handler(event, context):
     start_time = time.time()
     print(f'[Processor] 開始: {datetime.now(timezone.utc).isoformat()}')
+
+    # 特殊モード: 既存トピックの静的HTML一括生成
+    if event.get('regenerateStaticHtml'):
+        count = batch_generate_static_html(max_topics=event.get('maxTopics', 500))
+        return {'statusCode': 200, 'body': json.dumps({'generated': count})}
 
     pending = get_pending_topics(max_topics=100)
     print(f'[Processor] pendingAI=True トピック数: {len(pending)}')
