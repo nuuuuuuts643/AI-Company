@@ -518,8 +518,9 @@ def lambda_handler(event, context):
                 raw_vs = float(t.get('velocityScore', 0) or 0)
                 t['velocityScore'] = apply_velocity_decay(raw_vs, t.get('lastUpdated', ''))
 
-        # DynamoDB内部フィールドをpublicなtopics.jsonから除外
-        _INTERNAL = {'SK', 'pendingAI'}
+        # カード表示・検索用フィールドのみ公開。詳細ページ専用フィールドは除外してサイズ削減
+        # spreadReason/forecast/storyTimeline は api/topic/{id}.json から取得するので不要
+        _INTERNAL = {'SK', 'pendingAI', 'spreadReason', 'forecast', 'storyTimeline'}
         topics_public = [{k: v for k, v in t.items() if k not in _INTERNAL} for t in topics_deduped]
 
         write_s3('api/topics.json', {

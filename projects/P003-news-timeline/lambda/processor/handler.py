@@ -123,7 +123,9 @@ def lambda_handler(event, context):
 
         try:
             topics, trending_keywords = get_all_topics_for_s3()
-            _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl'}
+            # topics.json はカード表示・検索用。詳細ページ専用フィールドは除外してサイズ削減
+            # detail page は api/topic/{id}.json（個別ファイル）から取得するので問題なし
+            _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline'}
             for t in topics:
                 upd = ai_updates.get(t.get('topicId', ''))
                 if upd:
