@@ -350,6 +350,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 ### 優先度3: ユーザー体験（Claude実行可能）
 - モバイルUX改善（実ユーザー獲得後に重要度UP）
 - ~~コメント・お気に入り促進UI（現在0件）→ CTAを目立たせる~~ ✅ 2026-04-26 完了（空状態改善・モバイルスティッキーCTAバー）
+- **表示名・ハンドル名分離**（@メンション・固定プロフィールURL実装時に必要）→ コミュニティ機能が育ってから実装でOK
 
 ### 優先度4: 運用・インフラ（Claude実行可能）
 - ~~cf-analytics スケジュール確認~~ ✅ ENABLED確認済み（CF認証情報未設定は別問題）
@@ -357,6 +358,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 - ~~admin ダッシュボード velocity分布・AIパイプライングラフ~~ ✅ 2026-04-25 完了
 
 ### 優先度5: 収益化
+- **モバイル広告表示確認**（git push後にスマホでflotopic.comを開いて広告が見えるか確認。style.css修正済み: scale+translateX センタリング）
 - AdSense 審査通過後の広告設定切り替え（忍者 AdMax → AdSense）→ 審査中・PO待ち
 - **Amazonアソシエイト申請**（PO手動）→ 申請後 `config.js` の `AFFILIATE_AMAZON_TAG` に取得タグを設定するだけで即稼働
 - **楽天アフィリエイト申請**（PO手動）→ 申請後 `AFFILIATE_RAKUTEN_ID` に設定
