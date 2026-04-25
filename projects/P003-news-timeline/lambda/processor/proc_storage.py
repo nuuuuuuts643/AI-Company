@@ -2,6 +2,7 @@
 import json
 import re
 import urllib.request
+from collections import Counter
 from decimal import Decimal
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -9,7 +10,19 @@ from boto3.dynamodb.conditions import Key
 
 from proc_config import S3_BUCKET, SLACK_WEBHOOK, TOPICS_S3_CAP, table, s3
 
-_TICKER_RE = re.compile(r'【\d{3,5}[A-Z]?】|：株価|株式情報\b|株価情報\b')
+_TICKER_RE  = re.compile(r'【\d{3,5}[A-Z]?】|：株価|株式情報\b|株価情報\b')
+_KW_STOP    = {'ニュース', '速報', '最新', '話題', '注目', '動画', '写真', '記事', '中継'}
+_KW_MAX     = 10
+
+
+def _extract_trending_keywords(topics: list) -> list:
+    counter = Counter()
+    for t in topics:
+        title = t.get('generatedTitle') or t.get('title', '')
+        for w in re.findall(r'[ァ-ヶー]{3,}|[一-龯々]{2,}|[A-Za-z]{4,}', title):
+            if w not in _KW_STOP:
+                counter[w] += 1
+    return [{'keyword': w, 'count': c} for w, c in counter.most_common(_KW_MAX * 3) if c >= 2][:_KW_MAX]
 
 
 def needs_ai_processing(item):
@@ -175,14 +188,15 @@ def _cap_topics(items):
 
 def get_all_topics_for_s3():
     """S3のtopics.jsonから読む（DynamoDBフルスキャン不要）。TOPICS_S3_CAP件にキャップ。
-    trendingKeywordsを含む既存のメタデータも返す（processorがwrite時に保持するため）。"""
+    trendingKeywordsはトピックタイトルから毎回新規生成する（staleデータを保持しない）。"""
     if S3_BUCKET:
         try:
             resp = s3.get_object(Bucket=S3_BUCKET, Key='api/topics.json')
             data = json.loads(resp['Body'].read())
             items = data.get('topics', [])
             if items:
-                return _cap_topics(items), data.get('trendingKeywords', [])
+                capped = _cap_topics(items)
+                return capped, _extract_trending_keywords(capped)
         except Exception as e:
             print(f'get_all_topics_for_s3 S3 error: {e}')
     items, kwargs = [], {
@@ -194,7 +208,8 @@ def get_all_topics_for_s3():
         items.extend(r.get('Items', []))
         if not r.get('LastEvaluatedKey'): break
         kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
-    return _cap_topics(items), []
+    capped = _cap_topics(items)
+    return capped, _extract_trending_keywords(capped)
 
 
 def dec_convert(obj):
