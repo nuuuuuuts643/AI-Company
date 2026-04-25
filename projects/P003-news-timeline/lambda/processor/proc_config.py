@@ -12,7 +12,7 @@ dynamodb = boto3.resource('dynamodb', region_name=REGION)
 table    = dynamodb.Table(TABLE_NAME)
 s3       = boto3.client('s3', region_name=REGION)
 
-MAX_API_CALLS          = 30
+MAX_API_CALLS          = 150
 MIN_ARTICLES_FOR_TITLE   = 1
 MIN_ARTICLES_FOR_SUMMARY = 1
 TOPICS_S3_CAP          = 500
