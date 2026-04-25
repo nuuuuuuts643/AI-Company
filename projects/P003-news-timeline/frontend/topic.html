@@ -86,29 +86,46 @@
     /* ===== コメントログインプロンプト ===== */
     .comment-login-prompt {
       display: none;
-      padding: 20px;
-      text-align: center;
-      color: #64748b;
-      border: 1px dashed #cbd5e1;
-      border-radius: 8px;
+      padding: 22px 20px;
+      border-radius: 12px;
       margin-bottom: 16px;
+      background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%);
+      border: 1px solid #e0e7ff;
+      text-align: center;
     }
-    .comment-login-prompt p { margin: 0 0 12px; }
+    .comment-login-prompt .clp-title {
+      font-size: .95rem; font-weight: 700; color: #1e293b; margin: 0 0 6px;
+    }
+    .comment-login-prompt .clp-sub {
+      font-size: .82rem; color: #64748b; margin: 0 0 14px; line-height: 1.6;
+    }
     .comment-login-google-btn {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 10px 20px;
+      padding: 10px 22px;
       background: #fff;
-      border: 1px solid #d1d5db;
-      border-radius: 4px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 999px;
       cursor: pointer;
       font-size: .9rem;
-      font-weight: 600;
+      font-weight: 700;
       color: #374151;
-      transition: box-shadow .2s;
+      transition: all .2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
     }
-    .comment-login-google-btn:hover { box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+    .comment-login-google-btn:hover {
+      box-shadow: 0 3px 12px rgba(0,0,0,.15);
+      border-color: #4285F4;
+      color: #1a1a1a;
+    }
+    [data-theme="dark"] .comment-login-prompt {
+      background: linear-gradient(135deg, #1e2035 0%, #1e1b2e 100%);
+      border-color: rgba(99,102,241,.2);
+    }
+    [data-theme="dark"] .comment-login-prompt .clp-title { color: #eef0f8; }
+    [data-theme="dark"] .comment-login-prompt .clp-sub { color: #9ba3c4; }
+    [data-theme="dark"] .comment-login-google-btn { background: #2a2b3d; border-color: #404260; color: #eef0f8; }
     /* ===== トピックページヘッダー内タイトルヒーロー ===== */
     .topic-hero {
       background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #2d2a7a 100%);
@@ -304,7 +321,8 @@
 
     <!-- 未ログイン時のログイン促進 -->
     <div class="comment-login-prompt" id="comment-login-prompt">
-      <p>コメントするにはGoogleでログインしてください</p>
+      <p class="clp-title">💬 このトピックについて話し合いませんか？</p>
+      <p class="clp-sub">Googleアカウントでログインすると、コメント投稿・お気に入り保存・閲覧履歴の同期が使えます。</p>
       <button class="comment-login-google-btn" onclick="document.getElementById('auth-signin-btn').click()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
