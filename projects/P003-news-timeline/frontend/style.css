@@ -734,14 +734,19 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   .ad-sp-only { display: none; }
 }
 /* 728×90をモバイルでスケールダウン表示 */
-.ad-728-scale-wrapper { margin: 0 auto; overflow: hidden; text-align: left; position: relative; }
+.ad-728-scale-wrapper { margin: 0 auto; text-align: center; position: relative; line-height: 0; }
 @media (max-width: 767px) {
-  /* scale(320/728) ≈ 0.44 → 728×0.44=320px, 90×0.44=40px */
-  .ad-728-scale-wrapper { width: 320px; height: 40px; }
-  .ad-728-scale-wrapper .admax-ads { display: block !important; transform: scale(0.44); transform-origin: top left; }
+  /* 728px → 320px: scale ≈ 0.44, visual height ≈ 40px */
+  .ad-728-scale-wrapper { width: 100%; height: 40px; overflow: hidden; }
+  .ad-728-scale-wrapper .admax-ads {
+    display: inline-block !important;
+    transform: scale(0.44) translateX(-50%);
+    transform-origin: top left;
+    margin-left: 50%;
+  }
 }
 @media (min-width: 768px) {
-  .ad-728-scale-wrapper { max-width: 728px; text-align: center; }
+  .ad-728-scale-wrapper { max-width: 728px; overflow: hidden; }
 }
 .ad-grid-badge {
   position: absolute;

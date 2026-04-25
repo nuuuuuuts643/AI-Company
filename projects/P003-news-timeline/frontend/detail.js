@@ -180,6 +180,14 @@ function renderDetail(data) {
     threadsBtn.style.display = 'inline-flex';
   }
 
+  // LINE シェアボタン
+  const lineBtn = document.getElementById('line-share-btn');
+  if (lineBtn) {
+    const pageUrl = `https://flotopic.com/topic.html?id=${encodeURIComponent(meta.topicId || '')}`;
+    lineBtn.href = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(pageUrl)}`;
+    lineBtn.style.display = 'inline-flex';
+  }
+
   // <time> タグ（最終更新日時）— toUnixSec で秒/ミリ秒/ISO 混在を正規化
   const timeEl = document.getElementById('topic-last-updated');
   if (timeEl) {
@@ -211,8 +219,8 @@ function renderDetail(data) {
     const hasFullAI    = summary && beats.length > 0;
     const hasSummary   = summary && meta.aiGenerated;
 
-    const PHASE_COLOR = { '発端':'#f59e0b','拡散':'#3b82f6','ピーク':'#ef4444','現在地':'#10b981' };
-    const PHASE_ICON  = { '発端':'🌱','拡散':'📡','ピーク':'🔥','現在地':'📍' };
+    const PHASE_COLOR = { '発端':'#f59e0b','拡散':'#3b82f6','ピーク':'#ef4444','現在地':'#10b981','収束':'#64748b' };
+    const PHASE_ICON  = { '発端':'🌱','拡散':'📡','ピーク':'🔥','現在地':'📍','収束':'✅' };
 
     if (hasFullAI || hasSummary) {
       // ① 何が起きたか
