@@ -72,17 +72,28 @@ def fetch_rss(feed):
                 title   = (item.findtext(f'{{{_RSS10_NS}}}title') or '').strip()
                 link    = (item.findtext(f'{{{_RSS10_NS}}}link')  or '').strip()
                 pubdate = (item.findtext(f'{{{_DC_NS}}}date')     or '').strip()
+                raw_desc = (item.findtext(f'{{{_RSS10_NS}}}description') or
+                            item.findtext('description') or '').strip()
             else:
-                title   = (item.findtext('title')   or '').strip()
-                link    = (item.findtext('link')     or '').strip()
-                pubdate = (item.findtext('pubDate')  or '').strip()
+                title    = (item.findtext('title')   or '').strip()
+                link     = (item.findtext('link')     or '').strip()
+                pubdate  = (item.findtext('pubDate')  or '').strip()
+                raw_desc = (item.findtext('description') or '').strip()
+            # HTMLタグ除去・ノイズ除去・200字に切り詰め
+            desc = re.sub(r'<[^>]+>', '', raw_desc).strip()
+            desc = re.sub(r'\s+', ' ', desc)
+            # タイトルと同一 or 「続きを読む」系の無意味な説明は捨てる
+            if desc and (desc == title or len(desc) < 30 or
+                         re.search(r'続きを読|全文表示|もっと見る|記事全文|詳しくは', desc)):
+                desc = ''
+            desc = desc[:200]
             img = extract_rss_image(item)
             if title and link:
                 if any(p.search(title) for p in _DIGEST_SKIP_PATS):
                     continue
                 source_name   = extract_source_name(item, link, url)
                 resolved_tier = SOURCE_TIER_MAP.get(source_name, feed_tier)
-                articles.append({
+                a = {
                     'title':        title, 'url': link,
                     'pubDate':      pubdate, 'genre': genre,
                     'lang':         lang,
@@ -90,7 +101,10 @@ def fetch_rss(feed):
                     'imageUrl':     img,
                     'published_ts': _parse_pubdate_ts(pubdate),
                     'tier':         resolved_tier,
-                })
+                }
+                if desc:
+                    a['description'] = desc
+                articles.append(a)
     except Exception as e:
         print(f'RSS error [{url}]: {e}')
     return articles
