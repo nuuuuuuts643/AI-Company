@@ -500,8 +500,12 @@ def lambda_handler(event, context):
                 raw_vs = float(t.get('velocityScore', 0) or 0)
                 t['velocityScore'] = apply_velocity_decay(raw_vs, t.get('lastUpdated', ''))
 
+        # DynamoDB内部フィールドをpublicなtopics.jsonから除外
+        _INTERNAL = {'SK', 'pendingAI'}
+        topics_public = [{k: v for k, v in t.items() if k not in _INTERNAL} for t in topics_deduped]
+
         write_s3('api/topics.json', {
-            'topics':          topics_deduped,
+            'topics':          topics_public,
             'trendingKeywords': extract_trending_keywords(topics_deduped),
             'updatedAt':       ts_iso,
         })
