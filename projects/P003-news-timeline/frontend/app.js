@@ -925,6 +925,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const showError = () => {
       const titleEl = document.getElementById('topic-title');
       if (titleEl) titleEl.textContent = '読み込みに失敗しました';
+      document.querySelectorAll('.topic-sk').forEach(el => el.remove());
+      const aiEl = document.getElementById('ai-analysis');
+      if (aiEl && !aiEl.querySelector('.ai-analysis-inner')) {
+        aiEl.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;">データを取得できませんでした。再読み込みしてください。</p>';
+      }
     };
     const refresh = async () => {
       // 1. S3静的ファイル（CloudFrontキャッシュ）
