@@ -149,7 +149,7 @@ def generate_story(articles):
         'forecast: 「今後〜が予想される」「〜の可能性がある」で終える。根拠のない予測禁止。\n'
         'timeline: 3〜6件。重要な転換点のみ。\n'
         'phase: 発端（始まったばかり）/ 拡散（広がっている）/ ピーク（最も活発）/ 現在地（落ち着いてきた）/ 収束（話題が終息した）\n\n'
-        f'記事一覧({article_count}件):\n{headlines}'
+        f'記事情報（{article_count}件・見出しと概要）:\n{headlines}'
     )
 
     try:
