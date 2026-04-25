@@ -659,6 +659,13 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   align-items: center;
   justify-content: center;
 }
+/* PC/スマホ広告切替 */
+.ad-pc-only { display: none; }
+.ad-sp-only { display: block; }
+@media (min-width: 768px) {
+  .ad-pc-only { display: block; }
+  .ad-sp-only { display: none; }
+}
 .ad-grid-badge {
   position: absolute;
   top: 8px;
