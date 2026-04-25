@@ -327,17 +327,26 @@ function renderTopics(topics) {
   const pageList = list.slice(0, currentPage * CONFIG.TOPICS_PER_PAGE);
   grid.innerHTML = pageList.reduce((html, t, i) => {
     if ((i + 1) % CONFIG.AD_CARD_INTERVAL !== 0) return html + renderTopicCard(t, i);
-    // 忍者AdMaxをscriptタグで動的注入するためのプレースホルダー
-    const adHtml = `<div class="topic-card-wrapper ad-card-wrapper"><div class="admax-slot" style="min-height:100px;width:100%;text-align:center;"></div></div>`;
+    const adHtml = `<div class="topic-card-wrapper ad-card-wrapper">
+      <div class="ad-grid-card">
+        <span class="ad-grid-badge">広告</span>
+        <div class="admax-iframe-slot"></div>
+      </div>
+    </div>`;
     return html + renderTopicCard(t, i) + adHtml;
   }, '');
 
-  // 忍者AdMax: innerHTML内のscriptは実行されないためcreateElementで注入
-  grid.querySelectorAll('.admax-slot').forEach(slot => {
-    const s = document.createElement('script');
-    s.src = 'https://adm.shinobi.jp/s/570fe6c87677ba7c5417119c60ca979d';
-    s.type = 'text/javascript';
-    slot.appendChild(s);
+  // 忍者AdMax: iframeのsrcdocで同期実行（document.write対応）
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const iframeBg = isDark ? '#1e2035' : '#ffffff';
+  grid.querySelectorAll('.admax-iframe-slot').forEach(slot => {
+    const iframe = document.createElement('iframe');
+    iframe.scrolling = 'no';
+    iframe.setAttribute('frameborder', '0');
+    iframe.style.cssText = 'width:100%;height:160px;border:none;display:block;';
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox');
+    iframe.srcdoc = `<!DOCTYPE html><html><head><style>body{margin:0;padding:4px;overflow:hidden;background:${iframeBg};display:flex;align-items:center;justify-content:center;}</style></head><body><script type="text/javascript" src="https://adm.shinobi.jp/s/570fe6c87677ba7c5417119c60ca979d"><\/script></body></html>`;
+    slot.appendChild(iframe);
   });
 
   if (lmContainer) {
