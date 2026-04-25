@@ -268,7 +268,9 @@ def lambda_handler(event, context):
         st             = calc_status(hist, cnt)
         score, media, hb = calc_score(g)
 
-        last_article_ts = max((a.get('published_ts', 0) for a in g), default=0)
+        last_article_ts  = max((a.get('published_ts', 0) for a in g), default=0)
+        first_article_ts = int(existing.get('firstArticleAt') or
+                               min((a.get('published_ts', 0) for a in g if a.get('published_ts')), default=0))
         score = apply_time_decay(score, last_article_ts)
         score = max(1, int(score * source_diversity_score(g)))
         velocity_score  = calc_velocity_score(g)
@@ -360,6 +362,7 @@ def lambda_handler(event, context):
             'velocityScore':   Decimal(str(velocity_score)),
             'lastUpdated':     ts_iso,
             'lastArticleAt':   last_article_ts,
+            'firstArticleAt':  first_article_ts,
             'lifecycleStatus': lifecycle_status,
             'sources':         list({a['source'] for a in g}),
             'pendingAI':       pending_ai,

@@ -288,7 +288,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 > セッション開始時に必ずここを確認。着手中の作業があればスキップして次の未完了タスクへ。
 > 作業完了したらすぐに「完了済み」セクションへ移動し、このセクションを空にする。
 
-- **コメント・お気に入りCTA強化**（開始: 2026-04-26 JST | 変更予定: frontend/topic.html, frontend/index.html）
+（なし）
 
 ## 次フェーズのタスク（優先度順）
 
@@ -309,7 +309,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 
 ### 優先度3: ユーザー体験（Claude実行可能）
 - モバイルUX改善（実ユーザー獲得後に重要度UP）
-- コメント・お気に入り促進UI（現在0件）→ CTAを目立たせる
+- ~~コメント・お気に入り促進UI（現在0件）→ CTAを目立たせる~~ ✅ 2026-04-26 完了（空状態改善・モバイルスティッキーCTAバー）
 
 ### 優先度4: 運用・インフラ（Claude実行可能）
 - ~~cf-analytics スケジュール確認~~ ✅ ENABLED確認済み（CF認証情報未設定は別問題）
