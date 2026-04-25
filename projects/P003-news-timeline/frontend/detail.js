@@ -208,7 +208,7 @@ function renderDetail(data) {
     if (gs.length) { genreEl.textContent = gs.join(' / '); genreEl.style.display='inline-block'; }
   }
 
-  // ── AI 4セクション分析表示 ───────────────────────────────────
+  // ── AI 分析表示（記事数に応じた段階レンダリング） ───────────────────────────────────
   const aiAnalysisEl = document.getElementById('ai-analysis');
   if (aiAnalysisEl) {
     const summary      = cleanSummary(meta.generatedSummary);
@@ -216,52 +216,92 @@ function renderDetail(data) {
     const forecast     = meta.forecast     || '';
     const beats        = Array.isArray(meta.storyTimeline) ? meta.storyTimeline : [];
     const phase        = meta.storyPhase   || '';
-    const hasFullAI    = summary && beats.length > 0;
+    const summaryMode  = meta.summaryMode  || (beats.length > 0 || spreadReason || forecast ? 'full' : 'minimal');
     const hasSummary   = summary && meta.aiGenerated;
 
     const PHASE_COLOR = { '発端':'#f59e0b','拡散':'#3b82f6','ピーク':'#ef4444','現在地':'#10b981','収束':'#64748b' };
     const PHASE_ICON  = { '発端':'🌱','拡散':'📡','ピーク':'🔥','現在地':'📍','収束':'✅' };
 
-    if (hasFullAI || hasSummary) {
-      // ① 何が起きたか
-      const sect1 = `
-        <div class="ai-section">
-          <div class="ai-section-label">① 何が起きたか</div>
-          <p class="ai-section-body">${esc(summary)}</p>
-        </div>`;
+    if (hasSummary) {
+      // ── minimal: 1〜2件記事 → シンプルな1段落表示（見出しなし）
+      if (summaryMode === 'minimal') {
+        aiAnalysisEl.innerHTML = `
+          <div class="ai-analysis-inner ai-analysis-minimal">
+            <p class="ai-summary-simple">${esc(summary)}</p>
+          </div>`;
 
-      // ② なぜ広がったか
-      const sect2 = spreadReason ? `
-        <div class="ai-section">
-          <div class="ai-section-label">② なぜ広がったか</div>
-          <p class="ai-section-body">${esc(spreadReason)}</p>
-        </div>` : '';
+      // ── standard: 3〜5件記事 → 概要 + なぜ広がったか + 短いタイムライン
+      } else if (summaryMode === 'standard') {
+        const sect1 = `
+          <div class="ai-section">
+            <div class="ai-section-label">何が起きたか</div>
+            <p class="ai-section-body">${esc(summary)}</p>
+          </div>`;
+        const sect2 = spreadReason ? `
+          <div class="ai-section">
+            <div class="ai-section-label">なぜ広がったか</div>
+            <p class="ai-section-body">${esc(spreadReason)}</p>
+          </div>` : '';
+        const phaseChip = phase
+          ? `<span class="ai-phase-chip" style="background:${PHASE_COLOR[phase]||'#6366f1'}">${PHASE_ICON[phase]||'📍'} ${esc(phase)}</span>`
+          : '';
+        const beatsHtml = beats.map((b, i) => {
+          const isLast = i === beats.length - 1;
+          const transition = !isLast && b.transition ? esc(b.transition) : '';
+          return `<div class="ai-beat">
+             <span class="ai-beat-date">${esc(b.date||'')}</span>
+             <span class="ai-beat-event">${esc(b.event||'')}</span>
+           </div>${!isLast ? `<div class="ai-beat-connector">${transition ? `<span class="ai-beat-transition">${transition}</span>` : ''}</div>` : ''}`;
+        }).join('');
+        const sect3 = (phaseChip || beatsHtml) ? `
+          <div class="ai-section">
+            <div class="ai-section-label">今どの段階か</div>
+            ${phaseChip}
+            ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
+          </div>` : '';
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2}${sect3}</div>`;
 
-      // ③ 今どの段階か（フェーズ + タイムライン）
-      const phaseChip = phase
-        ? `<span class="ai-phase-chip" style="background:${PHASE_COLOR[phase]||'#6366f1'}">${PHASE_ICON[phase]||'📍'} ${esc(phase)}</span>`
-        : '';
-      const beatsHtml = beats.map(b =>
-        `<div class="ai-beat">
-           <span class="ai-beat-date">${esc(b.date||'')}</span>
-           <span class="ai-beat-event">${esc(b.event||'')}</span>
-         </div>`
-      ).join('');
-      const sect3 = (phaseChip || beatsHtml) ? `
-        <div class="ai-section">
-          <div class="ai-section-label">③ 今どの段階か</div>
-          ${phaseChip}
-          ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
-        </div>` : '';
+      // ── full: 6件以上 → フル4セクション（従来通り）
+      } else {
+        // ① 何が起きたか
+        const sect1 = `
+          <div class="ai-section">
+            <div class="ai-section-label">① 何が起きたか</div>
+            <p class="ai-section-body">${esc(summary)}</p>
+          </div>`;
+        // ② なぜ広がったか
+        const sect2 = spreadReason ? `
+          <div class="ai-section">
+            <div class="ai-section-label">② なぜ広がったか</div>
+            <p class="ai-section-body">${esc(spreadReason)}</p>
+          </div>` : '';
+        // ③ 今どの段階か（フェーズ + タイムライン）
+        const phaseChip = phase
+          ? `<span class="ai-phase-chip" style="background:${PHASE_COLOR[phase]||'#6366f1'}">${PHASE_ICON[phase]||'📍'} ${esc(phase)}</span>`
+          : '';
+        const beatsHtml = beats.map((b, i) => {
+          const isLast = i === beats.length - 1;
+          const transition = !isLast && b.transition ? esc(b.transition) : '';
+          return `<div class="ai-beat">
+             <span class="ai-beat-date">${esc(b.date||'')}</span>
+             <span class="ai-beat-event">${esc(b.event||'')}</span>
+           </div>${!isLast ? `<div class="ai-beat-connector">${transition ? `<span class="ai-beat-transition">${transition}</span>` : ''}</div>` : ''}`;
+        }).join('');
+        const sect3 = (phaseChip || beatsHtml) ? `
+          <div class="ai-section">
+            <div class="ai-section-label">③ 今どの段階か</div>
+            ${phaseChip}
+            ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
+          </div>` : '';
+        // ④ 今後どうなるか
+        const sect4 = forecast ? `
+          <div class="ai-section ai-section-forecast">
+            <div class="ai-section-label">④ 今後どうなるか <span class="ai-hypothesis-badge">仮説</span></div>
+            <p class="ai-section-body">${esc(forecast)}</p>
+          </div>` : '';
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2}${sect3}${sect4}</div>`;
+      }
 
-      // ④ 今後どうなるか
-      const sect4 = forecast ? `
-        <div class="ai-section ai-section-forecast">
-          <div class="ai-section-label">④ 今後どうなるか <span class="ai-hypothesis-badge">仮説</span></div>
-          <p class="ai-section-body">${esc(forecast)}</p>
-        </div>` : '';
-
-      aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2}${sect3}${sect4}</div>`;
       aiAnalysisEl.style.display = 'block';
     } else {
       // AI処理待ち

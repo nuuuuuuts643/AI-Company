@@ -3,7 +3,8 @@
 
 // ── 設定定数 ──────────────────────────────────────────────────
 const CONFIG = {
-  HOT_STRIP_HOURS: 2,                   // 今急上昇中セクションの対象時間（時間）
+  HOT_STRIP_HOURS: 6,                   // 今急上昇中セクションの対象時間（時間）
+  HOT_STRIP_MIN_VELOCITY: 3,            // 急上昇と判定するvelocityScoreの最低値
   NEW_BADGE_HOURS: 1,                   // NEWバッジを表示する最大経過時間（時間）
   AD_CARD_INTERVAL: 9,                  // 広告を挿入する間隔（3の倍数にすること）
   FRESHNESS_INTERVAL_MS: 60000,         // 鮮度表示テキストの更新間隔（ミリ秒）
@@ -643,8 +644,12 @@ function renderHotStrip(topics) {
   }
   const nowSec = Date.now() / 1000;
   const hot = (topics || [])
-    .filter(t => t.lifecycleStatus !== 'archived' && toUnixSec(t.lastUpdated) >= nowSec - CONFIG.HOT_STRIP_HOURS * 3600)
-    .sort((a, b) => Number(b.velocityScore || b.score || 0) - Number(a.velocityScore || a.score || 0))
+    .filter(t =>
+      t.lifecycleStatus !== 'archived' &&
+      toUnixSec(t.lastUpdated) >= nowSec - CONFIG.HOT_STRIP_HOURS * 3600 &&
+      Number(t.velocityScore || 0) >= CONFIG.HOT_STRIP_MIN_VELOCITY
+    )
+    .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0))
     .slice(0, 5);
   if (!hot.length) { strip.remove(); return; }
   strip.style.display = 'block';
