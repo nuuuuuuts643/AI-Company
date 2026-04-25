@@ -51,7 +51,8 @@ def get_pending_topics(max_topics=100):
                     items.append(item)
             except Exception:
                 pass
-        items.sort(key=lambda x: int(x.get('score', 0) or 0), reverse=True)
+        # velocityScore 優先（急上昇中のホットトピックを先に処理）、同値時は score で補助
+        items.sort(key=lambda x: (float(x.get('velocityScore', 0) or 0), int(x.get('score', 0) or 0)), reverse=True)
         return items[:max_topics]
 
     # フォールバック: DynamoDBスキャン（pending_ai.json未作成時のみ）
