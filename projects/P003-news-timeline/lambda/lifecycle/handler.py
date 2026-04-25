@@ -84,16 +84,19 @@ def delete_snaps(topic_id: str) -> int:
 def delete_old_snaps(topic_id: str, cutoff_sk: str) -> int:
     """30日超のSNAP（TTLなし含む）を削除する。active/coolingトピックの肥大化防止。"""
     deleted = 0
+    # SKはソートキーなのでFilterExpressionではなくKeyConditionExpressionで範囲指定する
+    # 'SNAP#' < SK < cutoff_sk で古いSNAPのみ取得
     kwargs = {
-        'KeyConditionExpression': DKey('topicId').eq(topic_id) & DKey('SK').begins_with('SNAP#'),
+        'KeyConditionExpression': DKey('topicId').eq(topic_id) & DKey('SK').between('SNAP#', cutoff_sk),
         'ProjectionExpression': 'topicId, SK',
-        'FilterExpression': Attr('SK').lt(cutoff_sk),
     }
     while True:
         resp = table.query(**kwargs)
         for item in resp.get('Items', []):
-            table.delete_item(Key={'topicId': item['topicId'], 'SK': item['SK']})
-            deleted += 1
+            sk = item.get('SK', '')
+            if sk.startswith('SNAP#') and sk < cutoff_sk:
+                table.delete_item(Key={'topicId': item['topicId'], 'SK': sk})
+                deleted += 1
         if not resp.get('LastEvaluatedKey'):
             break
         kwargs['ExclusiveStartKey'] = resp['LastEvaluatedKey']
