@@ -8,3 +8,9 @@ const ANALYTICS_URL = _APIGW + '/';
 
 // Google OAuth Client ID
 const GOOGLE_CLIENT_ID = '632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com';
+
+// アフィリエイト設定（申請後にIDを設定する）
+// Amazon: https://affiliate.amazon.co.jp/ でタグIDを取得後に設定
+const AFFILIATE_AMAZON_TAG = '';   // 例: 'flotopic-22'
+// 楽天: https://affiliate.rakuten.co.jp/ でアフィリエイトIDを取得後に設定
+const AFFILIATE_RAKUTEN_ID = '';   // 例: 'xxxxxxxx.xxxxxxxxx.xxxxxxxx.xxxxxxxx'
