@@ -60,9 +60,10 @@ def lambda_handler(event, context):
                        and not (topic.get('aiGenerated') and gen_title))
         if needs_title:
             new_title = generate_title(articles)
+            api_calls += 1
+            time.sleep(1.5)
             if new_title:
                 gen_title    = new_title
-                api_calls   += 1
                 ai_succeeded = True
                 print(f'  [Claude タイトル] {tid[:8]}... → {new_title[:30]}')
 
@@ -71,9 +72,10 @@ def lambda_handler(event, context):
                        and not (topic.get('aiGenerated') and topic.get('storyTimeline')))
         if needs_story and api_calls < MAX_API_CALLS:
             new_story = generate_story(articles)
+            api_calls += 1
+            time.sleep(1.5)
             if new_story:
                 gen_story    = new_story
-                api_calls   += 1
                 ai_succeeded = True
                 print(f'  [Claude ストーリー] {tid[:8]}... phase={new_story.get("phase")} timeline={len(new_story.get("timeline", []))}件')
 
@@ -91,8 +93,6 @@ def lambda_handler(event, context):
 
         update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=ai_succeeded, image_url=ogp_url)
         processed += 1
-        if api_calls > 0:
-            time.sleep(0.5)
         ai_updates[tid] = {
             'generatedTitle':   gen_title,
             'generatedSummary': gen_story['aiSummary']      if gen_story else None,
