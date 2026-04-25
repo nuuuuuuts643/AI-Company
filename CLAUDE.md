@@ -154,7 +154,9 @@ git push || echo "push failed, continuing"
 | 株価ティッカーフィルタ | ✅ 強化 | 2026-04-25 | 英数字コード(325A等)・Yahoo!ファイナンス全般を除外 |
 | CloudFront | ✅ 自動無効化 | 2026-04-25 | push → GH Actions → S3 + CF invalidation |
 | view tracking | ✅ 稼働 | 2026-04-25 | POST /analytics/event → flotopic-analytics Lambda |
-| admin dashboard | ✅ 稼働 | 2026-04-25 | flotopic.com/admin.html（Google 認証・owner643@gmail.com のみ） |
+| admin dashboard | ✅ グラフ強化 | 2026-04-25 | velocity分布・AIパイプライングラフ追加済み |
+| lifecycle Lambda | ✅ ARCHIVE_DAYS=7 | 2026-04-25 | 30→7日に変更。filter-feedbackクリーンアップ追加 |
+| SEO/OGP | ✅ 強化 | 2026-04-25 | Twitter Card全静的ページ・BreadcrumbList JSON-LD・OGPメタ追加 |
 | Bluesky 自動投稿 | ✅ 稼働 | 2026-04-25 | 毎日05:32 JST 投稿確認済み |
 | Claude Code 確認ダイアログ | ✅ 対策済み | 2026-04-25 | ~/.claude/settings.json に Bash/Edit/Write を allow 追加。再起動後有効 |
 
@@ -212,32 +214,32 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 > セッション開始時に必ずここを確認。着手中の作業があればスキップして次の未完了タスクへ。
 > 作業完了したらすぐに「完了済み」セクションへ移動し、このセクションを空にする。
 
-- **全コンポーネント総点検 → 改善実施**（このセッション着手中）
+（なし）
 
 ## 次フェーズのタスク（優先度順）
 
 ### 優先度1: SEO・流入強化（Claude実行可能）
-- **Google Search Console でサイトマップ送信**（PO手動・最優先。sitemap.xml は次processor実行後に復活）
-- トピック別 OGP 画像生成 → Lambda で topic タイトルを canvas に描画してS3保存。SNSシェア時にサムネが付く
-- ~~Google News サイトマップ（news sitemap 形式）追加~~ ✅ 2026-04-25 実装済み
-- 既存 stock ticker トピックをS3 topics.json から直接除去（13件残存中）
+- **Google Search Console でサイトマップ送信**（PO手動・最優先）
+- トピック別 OGP 画像生成 → Lambda で topic タイトルを canvas に描画してS3保存
+- ~~Google News サイトマップ追加~~ ✅ 実装済み
+- ~~株価ティッカートピックS3除去~~ ✅ 0件確認済み
+- ~~Twitter Card/OGPメタタグ全ページ追加~~ ✅ 2026-04-25 完了
+- ~~BreadcrumbList JSON-LD追加~~ ✅ 2026-04-25 完了
 
 ### 優先度2: コンテンツ品質（Claude実行可能）
-- AI要約カバレッジ向上: 334件中59件のみ完備（17.7%）→ processor 自動処理中
-- processor Lambda メモリ 256MB→512MB に増強（deploy.sh 修正）
-- velocity=0 の停滞トピック 201件を lifecycle Lambda でアーカイブ（7日更新なし → archived）
-- ~~Bluesky 自動投稿の品質確認~~ ✅ 2026-04-25 稼働確認済み
-- ~~株価ティッカー系フィルタ強化~~ ✅ 2026-04-25 英数字コード対応済み（新着には適用）
+- AI要約カバレッジ向上: 321件中68件（21%）→ pending_ai.jsonバックログ修正で自動改善中
+- ~~processor Lambda メモリ 512MB~~ ✅ 確認済み（既に512MB）
+- velocity=0 の停滞トピック196件 → lifecycle Lambda(ARCHIVE_DAYS=7)が次週月曜に自動整理
+- ~~Bluesky 自動投稿~~ ✅ 稼働確認済み
 
 ### 優先度3: ユーザー体験（Claude実行可能）
 - モバイルUX改善（現在モバイル4%・デスクトップ96%、実ユーザー獲得後に重要度UP）
-- catchup.html / topic.html のタイムライン表示をより見やすく
-- コメント・お気に入り促進UI（現在0件）→ CTAを目立たせる、ログインフロー短縮
+- コメント・お気に入り促進UI（現在0件）→ CTAを目立たせる
 
 ### 優先度4: 運用・インフラ（Claude実行可能）
-- cf-analytics Lambda の実行スケジュール確認（最終更新2026-04-24で止まっている疑い）
-- DynamoDB 759K件の内訳確認（SNAP TTL 7日が効いているか）
-- admin ダッシュボード: AI要約カバレッジ率・velocity分布のグラフ追加
+- ~~cf-analytics スケジュール確認~~ ✅ ENABLED確認済み（CF認証情報未設定は別問題）
+- DynamoDB 784K件のTTL動作確認（SNAP TTL 7日が正常動作中か）
+- ~~admin ダッシュボード velocity分布・AIパイプライングラフ~~ ✅ 2026-04-25 完了
 
 ### 優先度5: 収益化（待ち）
 - AdSense 審査通過後の広告設定切り替え（忍者 AdMax → AdSense）→ 審査中・PO待ち
