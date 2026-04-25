@@ -344,7 +344,7 @@ function renderTopics(topics) {
     iframe.scrolling = 'no';
     iframe.setAttribute('frameborder', '0');
     iframe.style.cssText = 'width:100%;height:160px;border:none;display:block;';
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox');
+    iframe.setAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox');
     iframe.srcdoc = `<!DOCTYPE html><html><head><style>body{margin:0;padding:4px;overflow:hidden;background:${iframeBg};display:flex;align-items:center;justify-content:center;}</style></head><body><script type="text/javascript" src="https://adm.shinobi.jp/s/570fe6c87677ba7c5417119c60ca979d"><\/script></body></html>`;
     slot.appendChild(iframe);
   });
