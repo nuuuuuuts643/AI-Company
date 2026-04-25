@@ -120,7 +120,7 @@ function renderComments(comments, topicId, myHash) {
     const lc       = Number(c.likeCount)    || 0;
     const dc       = Number(c.dislikeCount) || 0;
     const handleLink = handle
-      ? `<a class="cx-handle" href="profile.html?handle=${esc(handle)}">@${esc(handle)}</a>`
+      ? `<a class="cx-handle" href="${isOwn ? 'mypage.html' : 'profile.html?handle=' + esc(handle)}">@${esc(handle)}</a>`
       : '';
     const quotedBlock = c.quotedHandle ? `
       <div class="cx-quoted-block">
