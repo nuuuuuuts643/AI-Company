@@ -207,26 +207,44 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 - ✅ flotopic.comドメイン自動更新 → 意図的にOFF（手動管理）
 - ✅ Notion自動同期 → GitHub Actions（notion-sync.yml / notion-revenue-daily.yml）が毎日09:00 JSTに自動実行
 
+## 現在着手中（このセクションにある作業は別セッションがやらないこと）
+
+> セッション開始時に必ずここを確認。着手中の作業があればスキップして次の未完了タスクへ。
+> 作業完了したらすぐに「完了済み」セクションへ移動し、このセクションを空にする。
+
+- 課題全方位チェック → 完了、CLAUDE.md 更新済み
+- **S3 topics.json の株価ティッカー13件除去**（このセッション着手中）
+- **processor Lambda メモリ 256MB→512MB 増強**（このセッション着手中）
+- **cf-analytics スケジュール確認・修正**（このセッション着手中）
+
 ## 次フェーズのタスク（優先度順）
 
-### 優先度1: SEO・流入強化
-- **Google Search Console でサイトマップ送信**（ナオヤ手動・最優先）
-- トピック別 OGP 画像生成（現在は全トピック共通の ogp.png）→ シェア時にサムネが付く
-- Google News サイトマップ（news sitemap 形式）追加 → Google News への露出
+### 優先度1: SEO・流入強化（Claude実行可能）
+- **Google Search Console でサイトマップ送信**（ナオヤ手動・最優先。sitemap.xml は次processor実行後に復活）
+- トピック別 OGP 画像生成 → Lambda で topic タイトルを canvas に描画してS3保存。SNSシェア時にサムネが付く
+- ~~Google News サイトマップ（news sitemap 形式）追加~~ ✅ 2026-04-25 実装済み
+- 既存 stock ticker トピックをS3 topics.json から直接除去（13件残存中）
 
-### 優先度2: コンテンツ品質
-- AI要約 4セクションのカバレッジ向上（processor が毎回増やしている・自動）
-- Bluesky 自動投稿の品質確認（実際に投稿されているか・内容が適切か）
-- topics.json の株価ティッカー系トピックを DynamoDB レベルで除外（fetcher のクラスタリング改善）
+### 優先度2: コンテンツ品質（Claude実行可能）
+- AI要約カバレッジ向上: 334件中59件のみ完備（17.7%）→ processor 自動処理中
+- processor Lambda メモリ 256MB→512MB に増強（deploy.sh 修正）
+- velocity=0 の停滞トピック 201件を lifecycle Lambda でアーカイブ（7日更新なし → archived）
+- ~~Bluesky 自動投稿の品質確認~~ ✅ 2026-04-25 稼働確認済み
+- ~~株価ティッカー系フィルタ強化~~ ✅ 2026-04-25 英数字コード対応済み（新着には適用）
 
-### 優先度3: ユーザー体験・分析
-- admin ダッシュボード（flotopic.com/admin.html）の定期確認習慣化
-- ログイン済みユーザーの行動追跡（ジャンル傾向・滞在時間）
-- お気に入り率・離脱率の計測
+### 優先度3: ユーザー体験（Claude実行可能）
+- モバイルUX改善（現在モバイル4%・デスクトップ96%、実ユーザー獲得後に重要度UP）
+- catchup.html / topic.html のタイムライン表示をより見やすく
+- コメント・お気に入り促進UI（現在0件）→ CTAを目立たせる、ログインフロー短縮
 
-### 優先度4: 収益化
-- AdSense 審査通過後の広告設定切り替え（忍者 AdMax → AdSense）
-- X 投稿エージェント再開（X API Basic Plan $100/月が必要）
+### 優先度4: 運用・インフラ（Claude実行可能）
+- cf-analytics Lambda の実行スケジュール確認（最終更新2026-04-24で止まっている疑い）
+- DynamoDB 759K件の内訳確認（SNAP TTL 7日が効いているか）
+- admin ダッシュボード: AI要約カバレッジ率・velocity分布のグラフ追加
+
+### 優先度5: 収益化（待ち）
+- AdSense 審査通過後の広告設定切り替え（忍者 AdMax → AdSense）→ 審査中・ナオヤ待ち
+- X 投稿エージェント再開（X API Basic Plan $100/月が必要）→ 収益化後に判断
 
 ## 承認済み・実行待ちタスク
 
