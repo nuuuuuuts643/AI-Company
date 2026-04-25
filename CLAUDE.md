@@ -37,12 +37,16 @@ cd /Users/OWNER/ai-company
 git pull --rebase origin main
 git log --oneline -5
 grep -A 10 "現在着手中" CLAUDE.md | head -12
+# メモリファイルの更新も確認（別セッションが追加したルールを把握する）
+cat /Users/OWNER/.claude/projects/-Users-OWNER-ai-company/memory/MEMORY.md
 ```
 
 **重複作業を避けるルール：**
-- ファイルを編集する前に settings.json の PreToolUse フックが他セッションの未取り込みコミットを自動検出する（⚠️ が出たら git pull --rebase してから再開）
+- ファイルを編集するたびに PreToolUse フック（~/.claude/settings.json）が自動チェックする
+  - `⚠️ 他セッションの未取り込みコミットが N 件` → 即 `git pull --rebase` してから再開
+  - `📋 CLAUDE.md のルールが更新されています` → pull後に CLAUDE.md 全セクションを再読してから続行
+- フックは警告のみ（ブロックしない）。でも無視せずに必ず対処する
 - `現在着手中` に同じファイルが記載されていたら絶対に触らない
-- 同じコンポーネントを短時間に複数セッションで触らない
 - 他セッションが同じ作業を完了していたら即スキップして次のタスクに移る
 
 **「現在着手中」記入フォーマット：**
