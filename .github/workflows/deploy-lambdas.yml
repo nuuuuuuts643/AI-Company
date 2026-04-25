@@ -92,4 +92,106 @@ jobs:
             --region ap-northeast-1
           echo "[OK] comments デプロイ完了"
 
+      # ----------------------------------------------------------------
+      # analytics Lambda
+      # ----------------------------------------------------------------
+      - name: analytics Lambda をデプロイ
+        id: deploy_analytics
+        run: |
+          cd projects/P003-news-timeline/lambda/analytics
+          zip -q function.zip handler.py
+          aws lambda update-function-code \
+            --function-name flotopic-analytics \
+            --zip-file fileb://function.zip \
+            --region ap-northeast-1
+          aws lambda wait function-updated \
+            --function-name flotopic-analytics \
+            --region ap-northeast-1
+          echo "[OK] analytics デプロイ完了"
+
+      # ----------------------------------------------------------------
+      # auth Lambda
+      # ----------------------------------------------------------------
+      - name: auth Lambda をデプロイ
+        id: deploy_auth
+        run: |
+          cd projects/P003-news-timeline/lambda/auth
+          zip -q function.zip handler.py
+          aws lambda update-function-code \
+            --function-name flotopic-auth \
+            --zip-file fileb://function.zip \
+            --region ap-northeast-1
+          aws lambda wait function-updated \
+            --function-name flotopic-auth \
+            --region ap-northeast-1
+          echo "[OK] auth デプロイ完了"
+
+      # ----------------------------------------------------------------
+      # favorites Lambda
+      # ----------------------------------------------------------------
+      - name: favorites Lambda をデプロイ
+        id: deploy_favorites
+        run: |
+          cd projects/P003-news-timeline/lambda/favorites
+          zip -q function.zip handler.py
+          aws lambda update-function-code \
+            --function-name flotopic-favorites \
+            --zip-file fileb://function.zip \
+            --region ap-northeast-1
+          aws lambda wait function-updated \
+            --function-name flotopic-favorites \
+            --region ap-northeast-1
+          echo "[OK] favorites デプロイ完了"
+
+      # ----------------------------------------------------------------
+      # lifecycle Lambda
+      # ----------------------------------------------------------------
+      - name: lifecycle Lambda をデプロイ
+        id: deploy_lifecycle
+        run: |
+          cd projects/P003-news-timeline/lambda/lifecycle
+          zip -q function.zip handler.py
+          aws lambda update-function-code \
+            --function-name flotopic-lifecycle \
+            --zip-file fileb://function.zip \
+            --region ap-northeast-1
+          aws lambda wait function-updated \
+            --function-name flotopic-lifecycle \
+            --region ap-northeast-1
+          echo "[OK] lifecycle デプロイ完了"
+
+      # ----------------------------------------------------------------
+      # cf-analytics Lambda
+      # ----------------------------------------------------------------
+      - name: cf-analytics Lambda をデプロイ
+        id: deploy_cf_analytics
+        run: |
+          cd projects/P003-news-timeline/lambda/cf-analytics
+          zip -q function.zip handler.py
+          aws lambda update-function-code \
+            --function-name flotopic-cf-analytics \
+            --zip-file fileb://function.zip \
+            --region ap-northeast-1
+          aws lambda wait function-updated \
+            --function-name flotopic-cf-analytics \
+            --region ap-northeast-1
+          echo "[OK] cf-analytics デプロイ完了"
+
+      # ----------------------------------------------------------------
+      # api Lambda
+      # ----------------------------------------------------------------
+      - name: api Lambda をデプロイ
+        id: deploy_api
+        run: |
+          cd projects/P003-news-timeline/lambda/api
+          zip -q function.zip handler.py
+          aws lambda update-function-code \
+            --function-name p003-api \
+            --zip-file fileb://function.zip \
+            --region ap-northeast-1
+          aws lambda wait function-updated \
+            --function-name p003-api \
+            --region ap-northeast-1
+          echo "[OK] api デプロイ完了"
+
       # Slack通知は slack-notify.yml が push 時に一元管理するため不要
