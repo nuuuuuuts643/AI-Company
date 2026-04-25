@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../game/game_state.dart';
 import '../models/card_data.dart';
+import '../models/unit_data.dart';
 import '../constants/element_chart.dart';
 import '../utils/app_transitions.dart';
 import 'stage_select_screen.dart';
@@ -490,86 +491,260 @@ class _DeckTab extends StatelessWidget {
             .whereType<CardData>()
             .toList();
 
-        // 属性ごとに集計
+        final units = cards.where((c) => c.cardType == CardType.unit).toList()
+          ..sort((a, b) => a.element.index - b.element.index);
+        final nonUnits = cards.where((c) => c.cardType != CardType.unit).toList()
+          ..sort((a, b) {
+            final ti = a.cardType.index - b.cardType.index;
+            return ti != 0 ? ti : a.element.index - b.element.index;
+          });
+
         final elemCount = <ElementType, int>{};
         for (final c in cards) {
           elemCount[c.element] = (elemCount[c.element] ?? 0) + 1;
         }
 
-        // ソート: 属性順 → 名前順
-        final sorted = List<CardData>.from(cards)
-          ..sort((a, b) {
-            final ei = a.element.index - b.element.index;
-            return ei != 0 ? ei : a.name.compareTo(b.name);
-          });
-
         return Scaffold(
           backgroundColor: const Color(0xFF0D0D1A),
           body: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ヘッダー
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Row(
+            child: cards.isEmpty
+                ? const Center(
+                    child: Text(
+                      'カードがありません\nステージをクリアすると解放されます',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontFamily: 'DotGothic16',
+                        fontSize: 13,
+                      ),
+                    ),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     children: [
-                      const Text(
-                        '🃏 デッキ',
-                        style: TextStyle(
-                          color: Color(0xFFFFE082),
-                          fontFamily: 'DotGothic16',
-                          fontSize: 20,
+                      // ヘッダー
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+                        child: Row(
+                          children: [
+                            const Text('🃏 デッキ',
+                                style: TextStyle(
+                                    color: Color(0xFFFFE082),
+                                    fontFamily: 'DotGothic16',
+                                    fontSize: 20)),
+                            const Spacer(),
+                            Text('${cards.length}枚',
+                                style: const TextStyle(
+                                    color: Colors.white54,
+                                    fontFamily: 'DotGothic16',
+                                    fontSize: 14)),
+                          ],
                         ),
                       ),
-                      const Spacer(),
-                      Text(
-                        '${cards.length}枚',
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontFamily: 'DotGothic16',
-                          fontSize: 14,
+
+                      // 属性分布バー
+                      if (elemCount.isNotEmpty) ...[
+                        _ElementDistBar(elemCount: elemCount, total: cards.length),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // ユニットセクション（キャラカードグリッド）
+                      if (units.isNotEmpty) ...[
+                        _SectionHeader(icon: '⚔️', title: 'ユニット', count: units.length),
+                        const SizedBox(height: 8),
+                        GridView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          shrinkWrap: true,
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                            childAspectRatio: 1.55,
+                          ),
+                          itemCount: units.length,
+                          itemBuilder: (_, i) => _UnitCharCard(card: units[i]),
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // 魔法・罠セクション
+                      if (nonUnits.isNotEmpty) ...[
+                        _SectionHeader(icon: '📜', title: '魔法・罠', count: nonUnits.length),
+                        const SizedBox(height: 8),
+                        ...nonUnits.map((c) => _DeckCardRow(card: c)),
+                      ],
+
+                      const SizedBox(height: 24),
                     ],
                   ),
-                ),
-
-                // 属性分布バー
-                if (elemCount.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _ElementDistBar(elemCount: elemCount, total: cards.length),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-
-                // カード一覧
-                Expanded(
-                  child: sorted.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'カードがありません\nステージをクリアすると解放されます',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white38,
-                              fontFamily: 'DotGothic16',
-                              fontSize: 13,
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          itemCount: sorted.length,
-                          itemBuilder: (_, i) => _DeckCardRow(card: sorted[i]),
-                        ),
-                ),
-              ],
-            ),
           ),
         );
       },
     );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String icon;
+  final String title;
+  final int count;
+  const _SectionHeader({required this.icon, required this.title, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text('$icon $title',
+            style: const TextStyle(
+                color: Colors.white70, fontFamily: 'DotGothic16', fontSize: 13)),
+        const SizedBox(width: 6),
+        Text('($count)',
+            style: const TextStyle(
+                color: Colors.white38, fontFamily: 'DotGothic16', fontSize: 11)),
+        const Spacer(),
+        Container(height: 1, width: 60, color: const Color(0xFF2A2A4A)),
+      ],
+    );
+  }
+}
+
+class _UnitCharCard extends StatelessWidget {
+  final CardData card;
+  const _UnitCharCard({required this.card});
+
+  @override
+  Widget build(BuildContext context) {
+    final elemColor = Color(card.element.colorValue);
+    final cardEmoji = card.emoji.isNotEmpty ? card.emoji : card.element.emoji;
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF12121E),
+        borderRadius: BorderRadius.circular(8),
+        border: Border(left: BorderSide(color: elemColor, width: 3)),
+        boxShadow: [
+          BoxShadow(
+              color: elemColor.withAlpha(20),
+              blurRadius: 6,
+              offset: const Offset(0, 2))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Text(cardEmoji, style: const TextStyle(fontSize: 22)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  card.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'DotGothic16',
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Text('${card.manaCost}',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'DotGothic16',
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _StatChip('⚔️', '${card.baseAttack}'),
+              const SizedBox(width: 3),
+              _StatChip('❤️', '${card.baseHp}'),
+              const SizedBox(width: 3),
+              _StatChip('⚡', card.attackSpeed.toStringAsFixed(1)),
+            ],
+          ),
+          if (card.cardSkills.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            _SkillBadge(skill: card.cardSkills.first),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final String icon;
+  final String value;
+  const _StatChip(this.icon, this.value);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text('$icon$value',
+          style: const TextStyle(
+              color: Colors.white60, fontFamily: 'DotGothic16', fontSize: 9)),
+    );
+  }
+}
+
+class _SkillBadge extends StatelessWidget {
+  final UnitSkillId skill;
+  const _SkillBadge({required this.skill});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A237E).withAlpha(140),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFF3949AB).withAlpha(100)),
+      ),
+      child: Text(
+        _skillLabel(skill),
+        style: const TextStyle(
+            color: Color(0xFF82B1FF), fontFamily: 'DotGothic16', fontSize: 8),
+      ),
+    );
+  }
+
+  String _skillLabel(UnitSkillId skill) {
+    switch (skill) {
+      case UnitSkillId.burnOnHit:      return '🔥燃焼';
+      case UnitSkillId.explosiveDeath: return '💥死爆発';
+      case UnitSkillId.slowOnHit:      return '🐢鈍足';
+      case UnitSkillId.healAura:       return '💚回復オーラ';
+      case UnitSkillId.doubleShot:     return '×2連射';
+      case UnitSkillId.knockback:      return '↗ノックバック';
+      case UnitSkillId.taunt:          return '🛡挑発';
+      case UnitSkillId.armorBreak:     return '🪓装甲破壊';
+      case UnitSkillId.resurrection:   return '✨復活';
+      case UnitSkillId.blessingAura:   return '⚡速度バフ';
+      case UnitSkillId.lifeSteal:      return '🩸吸血';
+      case UnitSkillId.summonSkeleton: return '☠骨召喚';
+    }
   }
 }
 

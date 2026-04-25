@@ -123,7 +123,7 @@ def get_posted_ids():
             if not resp.get('LastEvaluatedKey'):
                 break
             kwargs['ExclusiveStartKey'] = resp['LastEvaluatedKey']
-        return {item['topicId'] for item in items}
+        return {item['postId'] for item in items}
     except Exception as e:
         print(f'[bluesky_agent] 投稿済みID取得エラー（テーブル未作成の可能性）: {e}')
         return set()
@@ -134,7 +134,7 @@ def mark_as_posted(topic_id: str, mode: str):
     try:
         table = dynamodb.Table(BLUESKY_POSTS_TABLE)
         table.put_item(Item={
-            'topicId':  topic_id,
+            'postId':   topic_id,
             'mode':     mode,
             'postedAt': datetime.now(timezone.utc).isoformat(),
             'ttl':      int((datetime.now(timezone.utc) + timedelta(days=30)).timestamp()),

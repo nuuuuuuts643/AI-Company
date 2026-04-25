@@ -19,7 +19,7 @@ class GameConstants {
   static const double enemyGoalY = 770.0;    // 城壁ダメージライン
 
   // ---- 城壁（画面下部水平ライン） ----
-  static const int initialWallHp = 150;
+  static const int initialWallHp = 250;  // 余裕を持たせる
   static const double wallY = 750.0;         // 城壁Y位置（下方向へ拡張）
   static const double wallX = 0.0;
   static const double wallWidth = 390.0;
@@ -35,23 +35,23 @@ class GameConstants {
   static const double unitBaseY = gridTop + cellHeight * 0.5; // 前列中心
 
   // ---- カードシステム ----
-  static const int maxHandSize = 6;
-  static const int initialHandSize = 4;
+  static const int maxHandSize = 5;
+  static const int initialHandSize = 3;  // 選択肢を減らして判断を明快に
   static const int maxManaCost = 5;
-  static const double manaRegenPerSecond = 0.9;
-  static const double maxMana = 10.0;
+  static const double manaRegenPerSecond = 1.2;  // マナ待ちをなくす
+  static const double maxMana = 12.0;             // 手持ちマナを増やす
   static const double cardPlacementCooldown = 0.3;
 
   // ---- ウェーブ ----
   static const int wavesPerStage = 5;
-  static const double waveIntervalSeconds = 6.0;
-  static const double enemySpawnInterval = 0.8;   // やや短くして密度アップ
+  static const double waveIntervalSeconds = 12.0; // 戦略を考える時間を倍に
+  static const double enemySpawnInterval = 1.2;   // スポーン間隔を広げて余裕を作る
 
   // ---- ユニット戦闘 ----
   static const double unitAttackRange = 80.0;
   static const double projectileSpeed = 320.0;
-  static const double weaknessMultiplier = 1.5;
-  static const double resistMultiplier = 0.6;
+  static const double weaknessMultiplier = 2.0;  // 属性相性の実数値（element_chart.dartと合わせる）
+  static const double resistMultiplier = 0.5;
   static const double chainBonusMultiplier = 2.0;
   static const int chainWindowMs = 1500;
 

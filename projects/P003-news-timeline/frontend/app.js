@@ -5,7 +5,7 @@
 const CONFIG = {
   HOT_STRIP_HOURS: 2,                   // 今急上昇中セクションの対象時間（時間）
   NEW_BADGE_HOURS: 1,                   // NEWバッジを表示する最大経過時間（時間）
-  AD_CARD_INTERVAL: 10,                 // 広告を挿入する間隔（カード枚数）
+  AD_CARD_INTERVAL: 9,                  // 広告を挿入する間隔（3の倍数にすること）
   FRESHNESS_INTERVAL_MS: 60000,         // 鮮度表示テキストの更新間隔（ミリ秒）
   TOPICS_PER_PAGE: 20,                  // 1ページに表示するトピック数
   REFRESH_INTERVAL_MS: 5 * 60 * 1000,  // トピック一覧の自動更新間隔（ミリ秒）
@@ -94,10 +94,55 @@ const _prefs = loadPrefs();
 let allTopics = [], currentStatus = _prefs.status || 'all', currentGenre = _prefs.genre || '総合', currentSearch = '';
 let currentPage = 1;
 let lastFetchTime = null;
+let _nativeAdIdx = -1;
 
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+const SOURCE_DOMAIN_MAP = {
+  'NHK': 'nhk.or.jp',
+  'ITmedia': 'itmedia.co.jp',
+  '読売新聞': 'yomiuri.co.jp',
+  '毎日新聞': 'mainichi.jp',
+  '朝日新聞': 'asahi.com',
+  '日本経済新聞': 'nikkei.com',
+  '東洋経済': 'toyokeizai.net',
+  'ダイヤモンド': 'diamond.jp',
+  '産経新聞': 'sankei.com',
+  'Yahoo!ニュース': 'news.yahoo.co.jp',
+  'PRESIDENT Online': 'president.jp',
+  '文春オンライン': 'bunshun.jp',
+  'Business Insider Japan': 'businessinsider.jp',
+  'Forbes Japan': 'forbesjapan.com',
+  'GIGAZINE': 'gigazine.net',
+  'ASCII.jp': 'ascii.jp',
+  'CNET Japan': 'japan.cnet.com',
+  'PC Watch': 'pc.watch.impress.co.jp',
+  'ケータイWatch': 'k-tai.watch.impress.co.jp',
+  'livedoorニュース': 'livedoor.com',
+  'BuzzFeed Japan': 'buzzfeed.com',
+  'Gizmodo Japan': 'gizmodo.jp',
+  '47NEWS': 'www.47news.jp',
+  '首相官邸': 'kantei.go.jp',
+  'TBS NEWS DIG': 'newsdig.tbs.co.jp',
+  'FNN プライムオンライン': 'fnn.jp',
+  'テレ朝news': 'news.tv-asahi.co.jp',
+  '日テレNEWS': 'news.ntv.co.jp',
+  'NHKニュース': 'nhk.or.jp',
+};
+function srcFaviconUrl(source) {
+  if (!source) return '';
+  const domain = SOURCE_DOMAIN_MAP[source] || (source.includes('.') && !source.includes(' ') ? source : null);
+  if (!domain) return '';
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16`;
+}
+function srcFaviconImg(source) {
+  const url = srcFaviconUrl(source);
+  if (!url) return '';
+  return `<img class="source-favicon" src="${url}" alt="" width="12" height="12" onerror="this.style.display='none'">`;
+}
+
 function genreEmoji(genre) { return GENRE_EMOJI[genre] || '📰'; }
 function fmtDate(s) {
   if (!s) return '';
@@ -205,11 +250,12 @@ function renderTopicCard(t, i) {
   const thumbHtml = t.imageUrl
     ? `<div class="card-thumb"><img class="card-thumb-img" src="${esc(t.imageUrl)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<div class=\\'card-thumb-placeholder ${esc(t.status)}\\'>${genreEmoji(primaryGenre)}</div>'"></div>`
     : `<div class="card-thumb"><div class="card-thumb-placeholder ${esc(t.status)}">${genreEmoji(primaryGenre)}</div></div>`;
-  const isFav = userFavorites.has(t.topicId);
+  const isFav    = userFavorites.has(t.topicId);
+  const isViewed = viewedTopics.has(t.topicId);
   return `
     <div class="topic-card-wrapper" style="position:relative;">
       ${renderBadges(t)}
-      <a class="topic-card ${esc(t.status)}" href="topic.html?id=${esc(t.topicId)}">
+      <a class="topic-card ${esc(t.status)}${isViewed ? ' viewed' : ''}" href="topic.html?id=${esc(t.topicId)}" data-tid="${esc(t.topicId)}">
         ${thumbHtml}
         <div class="card-body">
           <div class="topic-status ${esc(t.status)}">${STATUS_LABEL[t.status] || t.status}</div>
@@ -278,29 +324,41 @@ function renderTopics(topics) {
     return;
   }
 
+  // ネイティブプロモカード用コンテンツ（ローテーション）
+  const NATIVE_ADS = [
+    { icon:'🕰️', title:'しばらくぶりですか？', body:'見逃した話題をまとめてキャッチアップ', url:'catchup.html', cta:'まとめて確認する' },
+    { icon:'⭐', title:'お気に入り機能', body:'気になるトピックを保存してあとで読む', url:'mypage.html', cta:'マイページへ' },
+    { icon:'📱', title:'アプリとして使う', body:'ホーム画面に追加してすぐ起動', url:'#', cta:'インストール', pwa:true },
+  ];
   const pageList = list.slice(0, currentPage * CONFIG.TOPICS_PER_PAGE);
   grid.innerHTML = pageList.reduce((html, t, i) => {
-    const adSlot = ((i + 1) % CONFIG.AD_CARD_INTERVAL === 0)
-      ? '<div class="topic-card-wrapper ad-card-wrapper"><div class="ad-card" data-ad-inject><span class="ad-label">PR</span></div></div>'
-      : '';
-    return html + renderTopicCard(t, i) + adSlot;
+    if ((i + 1) % CONFIG.AD_CARD_INTERVAL !== 0) return html + renderTopicCard(t, i);
+    _nativeAdIdx = (_nativeAdIdx + 1) % NATIVE_ADS.length;
+    const ad = NATIVE_ADS[_nativeAdIdx];
+    const adHtml = `
+      <div class="topic-card-wrapper ad-card-wrapper">
+        <div class="native-ad-card" data-pwa="${ad.pwa||false}">
+          <span class="ad-label">PR</span>
+          <div class="native-ad-inner">
+            <span class="native-ad-icon">${ad.icon}</span>
+            <div class="native-ad-body">
+              <div class="native-ad-title">${esc(ad.title)}</div>
+              <div class="native-ad-desc">${esc(ad.body)}</div>
+            </div>
+            <a href="${esc(ad.url)}" class="native-ad-cta">${esc(ad.cta)} →</a>
+          </div>
+        </div>
+      </div>`;
+    return html + renderTopicCard(t, i) + adHtml;
   }, '');
-  // script はinnerHTMLから実行されないのでDOM操作で注入
-  grid.querySelectorAll('[data-ad-inject]').forEach(el => {
-    el.removeAttribute('data-ad-inject');
-    const wrapper = el.closest('.ad-card-wrapper');
-    const s = document.createElement('script');
-    s.type = 'text/javascript';
-    s.src  = 'https://adm.shinobi.jp/s/229723';
-    // 広告読み込み失敗時 or 3秒後に中身がなければカード非表示
-    s.onerror = () => { if (wrapper) wrapper.style.display = 'none'; };
-    el.appendChild(s);
-    setTimeout(() => {
-      // PR ラベル1要素しかない = 広告が注入されていない
-      if (wrapper && el.children.length <= 2 && !el.querySelector('iframe, img, ins, div:not(.ad-label)')) {
-        wrapper.style.display = 'none';
-      }
-    }, 3000);
+
+  // PWAカードクリック時はインストールプロンプト
+  grid.querySelectorAll('.native-ad-card[data-pwa="true"] .native-ad-cta').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const banner = document.getElementById('pwa-install-banner');
+      if (banner) { banner.style.display = 'flex'; banner.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
+    });
   });
 
   if (lmContainer) {
@@ -313,12 +371,18 @@ function renderTopics(topics) {
     }
   }
 
-  // お気に入りボタン
+  // お気に入りボタン + 既読マーク
   grid.querySelectorAll('.fav-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
       toggleFavorite(btn.dataset.topicId, btn);
+    });
+  });
+  grid.querySelectorAll('.topic-card[data-tid]').forEach(a => {
+    a.addEventListener('click', () => {
+      markViewed(a.dataset.tid);
+      a.classList.add('viewed');
     });
   });
 
@@ -822,12 +886,12 @@ function renderDetail(data) {
                       const isNew = _artMs && (Date.now() - _artMs) < 6 * 3600 * 1000;
                       return `<div class="timeline-article">
                         <a href="${esc(a.url)}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}${isNew ? '<span class="new-badge">NEW</span>' : ''}</a>
-                        <div class="timeline-source"><img class="source-favicon" src="https://www.google.com/s2/favicons?domain=${esc(a.source)}&sz=16" alt="" width="12" height="12">${esc(a.source)}</div>
+                        <div class="timeline-source">${srcFaviconImg(a.source)}${esc(a.source)}</div>
                       </div>`;
                     }).join('')}
                     ${rest.length ? `<details class="day-more-details"><summary class="day-more-btn">他${rest.length}件を表示</summary>${rest.map(a => `<div class="timeline-article">
                         <a href="${esc(a.url)}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
-                        <div class="timeline-source"><img class="source-favicon" src="https://www.google.com/s2/favicons?domain=${esc(a.source)}&sz=16" alt="" width="12" height="12">${esc(a.source)}</div>
+                        <div class="timeline-source">${srcFaviconImg(a.source)}${esc(a.source)}</div>
                       </div>`).join('')}</details>` : ''}
                   </div>
                 </div>
@@ -869,7 +933,7 @@ function renderDetail(data) {
         <div class="article-item">
           <a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
           <div class="article-meta">
-            <img class="source-favicon" src="https://www.google.com/s2/favicons?domain=${esc(a.source)}&sz=16" alt="" width="12" height="12" style="vertical-align:middle;margin-right:3px;">
+            ${srcFaviconImg(a.source)}
             ${esc(a.source)} · ${fmtTl(a._snapTs)}
           </div>
         </div>
@@ -1014,6 +1078,183 @@ function renderDiscovery(meta) {
   });
 }
 
+// ===== 既読管理 =====
+const LS_VIEWED = 'flotopic_viewed';
+let viewedTopics = new Set();
+function loadViewedTopics() {
+  try { viewedTopics = new Set(JSON.parse(localStorage.getItem(LS_VIEWED) || '[]')); } catch {}
+}
+function markViewed(topicId) {
+  viewedTopics.add(topicId);
+  try {
+    const arr = [...viewedTopics].slice(-200);
+    localStorage.setItem(LS_VIEWED, JSON.stringify(arr));
+  } catch {}
+}
+loadViewedTopics();
+
+// ===== ページトップへ戻るボタン =====
+function initBackToTop() {
+  let btn = document.getElementById('back-to-top');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.id = 'back-to-top';
+    btn.className = 'back-to-top-btn';
+    btn.setAttribute('aria-label', 'ページトップへ');
+    btn.innerHTML = '↑';
+    document.body.appendChild(btn);
+  }
+  const onScroll = () => btn.classList.toggle('visible', window.scrollY > 400);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+}
+
+// ===== スクロール位置復元（一覧→詳細→戻る） =====
+function initScrollRestoration() {
+  const key = 'flotopic_scroll_pos';
+  const saved = sessionStorage.getItem(key);
+  if (saved) { requestAnimationFrame(() => { window.scrollTo(0, Number(saved)); sessionStorage.removeItem(key); }); }
+  document.addEventListener('click', e => {
+    const card = e.target.closest('.topic-card');
+    if (card) sessionStorage.setItem(key, String(window.scrollY));
+  });
+}
+
+// ===== 読書進捗バー（詳細ページ） =====
+function initReadingProgress() {
+  const bar = document.createElement('div');
+  bar.id = 'reading-progress';
+  bar.className = 'reading-progress-bar';
+  document.body.prepend(bar);
+  const update = () => {
+    const total = document.documentElement.scrollHeight - window.innerHeight;
+    bar.style.width = total > 0 ? `${Math.min(100, window.scrollY / total * 100)}%` : '0%';
+  };
+  window.addEventListener('scroll', update, { passive: true });
+}
+
+// ===== キーボードショートカット =====
+function initKeyboardShortcuts() {
+  let focusedIdx = -1;
+  const getCards = () => [...document.querySelectorAll('.topic-card-wrapper:not(.ad-card-wrapper)')];
+
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      if (e.key === 'Escape') { e.target.blur(); return; }
+      return;
+    }
+    switch (e.key) {
+      case '/': {
+        e.preventDefault();
+        const inp = document.getElementById('search-input');
+        if (inp) inp.focus();
+        break;
+      }
+      case 'j': case 'ArrowDown': {
+        const cards = getCards();
+        if (!cards.length) break;
+        focusedIdx = Math.min(focusedIdx + 1, cards.length - 1);
+        cards[focusedIdx].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        cards[focusedIdx].querySelector('.topic-card')?.focus();
+        break;
+      }
+      case 'k': case 'ArrowUp': {
+        const cards = getCards();
+        if (!cards.length) break;
+        focusedIdx = Math.max(focusedIdx - 1, 0);
+        cards[focusedIdx].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        cards[focusedIdx].querySelector('.topic-card')?.focus();
+        break;
+      }
+      case 'Enter': {
+        const cards = getCards();
+        if (focusedIdx >= 0 && cards[focusedIdx]) {
+          const a = cards[focusedIdx].querySelector('.topic-card');
+          if (a) a.click();
+        }
+        break;
+      }
+      case 'f': {
+        const btn = document.getElementById('fav-toggle-btn');
+        if (btn) btn.click();
+        break;
+      }
+      case 'Escape': {
+        const modal = document.getElementById('auth-modal');
+        if (modal && modal.style.display !== 'none') { modal.style.display = 'none'; }
+        const inp = document.getElementById('search-input');
+        if (inp && document.activeElement === inp) inp.blur();
+        break;
+      }
+    }
+  });
+}
+
+// ===== オフライン検知 =====
+function initOfflineDetection() {
+  window.addEventListener('offline', () => showToast('オフラインです。一部機能が制限されます。', 5000));
+  window.addEventListener('online',  () => showToast('オンラインに復帰しました'));
+}
+
+// ===== ボトムナビ アクティブ制御 =====
+function initBottomNav() {
+  const nav = document.getElementById('bottom-nav');
+  if (!nav) return;
+  const path = location.pathname;
+  const isIndex   = path.endsWith('index.html') || path === '/' || path.endsWith('/');
+  const isTopic   = path.includes('topic.html');
+  const isMypage  = path.includes('mypage.html');
+
+  const items = {
+    'bn-home':    isIndex,
+    'bn-search':  isIndex && document.getElementById('search-input') !== null,
+    'bn-favs':    false,
+    'bn-mypage':  isMypage,
+  };
+
+  Object.entries(items).forEach(([id, active]) => {
+    const el = document.getElementById(id);
+    if (el && active) el.classList.add('active');
+  });
+
+  const searchEl = document.getElementById('bn-search');
+  if (searchEl) {
+    searchEl.addEventListener('click', () => {
+      const inp = document.getElementById('search-input');
+      if (inp) { inp.focus(); inp.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      else location.href = 'index.html#search-input';
+    });
+  }
+
+  const favsEl = document.getElementById('bn-favs');
+  if (favsEl) {
+    favsEl.addEventListener('click', () => {
+      const btn = document.getElementById('fav-toggle-btn');
+      if (btn) btn.click();
+      else location.href = 'index.html';
+    });
+  }
+}
+
+// ===== スケルトンローダー =====
+function showSkeletonCards(gridId = 'topics-grid', count = 6) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  const skels = Array.from({ length: count }, () => `
+    <div class="topic-card-wrapper skel-wrapper">
+      <div class="topic-card skel-card">
+        <div class="card-thumb skel-thumb skel-pulse"></div>
+        <div class="card-body">
+          <div class="skel-line skel-pulse" style="width:40%;height:12px;margin-bottom:8px;"></div>
+          <div class="skel-line skel-pulse" style="width:90%;height:16px;margin-bottom:6px;"></div>
+          <div class="skel-line skel-pulse" style="width:70%;height:16px;margin-bottom:12px;"></div>
+          <div class="skel-line skel-pulse" style="width:55%;height:11px;"></div>
+        </div>
+      </div>
+    </div>`).join('');
+  grid.innerHTML = skels;
+}
+
 // ===== ページ初期化 =====
 document.addEventListener('DOMContentLoaded', () => {
   if ('serviceWorker' in navigator) {
@@ -1051,9 +1292,14 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   initGoogleAuth();
+  initBackToTop();
+  initKeyboardShortcuts();
+  initOfflineDetection();
+  initBottomNav();
 
   const topicId = new URLSearchParams(location.search).get('id');
   if (topicId) {
+    initReadingProgress();
     trackView(topicId);
     const showError = () => {
       const titleEl = document.getElementById('topic-title');
@@ -1101,6 +1347,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSearch();
     setupFavsToggle();
     loadWeather();
+    initScrollRestoration();
+    showSkeletonCards();
     loadFavorites().finally(() => {
       refreshTopics();
       setInterval(refreshTopics, CONFIG.REFRESH_INTERVAL_MS);

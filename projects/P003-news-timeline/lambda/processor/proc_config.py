@@ -15,6 +15,7 @@ s3       = boto3.client('s3', region_name=REGION)
 MAX_API_CALLS          = 50
 MIN_ARTICLES_FOR_TITLE   = 1
 MIN_ARTICLES_FOR_SUMMARY = 1
+TOPICS_S3_CAP          = 500
 
 STOP_WORDS = {
     'は', 'が', 'を', 'に', 'の', 'と', 'で', 'も', 'や', 'か', 'へ', 'より',
