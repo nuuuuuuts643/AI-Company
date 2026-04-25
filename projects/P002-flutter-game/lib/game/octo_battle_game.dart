@@ -78,6 +78,7 @@ class OctoBattleGame extends FlameGame
   bool _waveClearHandled = false;
   bool _resultHandled = false;
   bool _waveStarted = false; // battle が利用可能になったら最初のウェーブを開始
+  bool _formationPhase = true; // 配備フェーズ中はウェーブを開始しない
 
   // ウェーブ内の城壁到達数（0=PERFECT）
   int _waveBreachCount = 0;
@@ -123,6 +124,17 @@ class OctoBattleGame extends FlameGame
     battleSystem = BattleSystem(
       gameState: gameState,
       onAuraApplied: _onAuraApplied,
+      onAttackVisual: (unit, target, damage, isWeakness) {
+        _onUnitAttackVisual(
+          unit: unit,
+          target: target,
+          damage: damage,
+          isWeakness: isWeakness,
+        );
+      },
+      onSkillProc: (text, color, pos) {
+        _spawnFloatingText(pos, text, color, fontSize: 13);
+      },
     );
     waveSystem = WaveSystem(game: this, gameState: gameState);
     cardSystem = CardSystem(gameState: gameState);
@@ -168,6 +180,29 @@ class OctoBattleGame extends FlameGame
     _wallHpText = TextComponent(text: '');
 
     // 最初のウェーブは battle が初期化されてから update() で開始する
+
+    // ステージ固有の地形をフィールドに配置
+    _spawnStageTerrain();
+  }
+
+  /// ステージデータの地形を永続配置する
+  void _spawnStageTerrain() {
+    final stage = _stageData;
+    if (stage == null) return;
+    for (final entry in stage.terrainLayout) {
+      final laneLeft = GameConstants.laneWidth * entry.laneIndex;
+      final terrain = TerrainEntry(
+        type: entry.type,
+        laneIndex: entry.laneIndex,
+        y: entry.y,
+        permanent: true,
+      );
+      _terrains.add(terrain);
+      world.add(TerrainComponent(
+        terrain: terrain,
+        position: Vector2(laneLeft, entry.y),
+      ));
+    }
   }
 
   @override
@@ -178,7 +213,8 @@ class OctoBattleGame extends FlameGame
     if (battle == null) return;
 
     // battle が初めて利用可能になったら最初のウェーブを開始
-    if (!_waveStarted) {
+    // （配備フェーズが終わるまで待機）
+    if (!_waveStarted && !_formationPhase) {
       _waveStarted = true;
       waveSystem.prepareWave(battle.currentWave);
     }
@@ -495,6 +531,113 @@ class OctoBattleGame extends FlameGame
       fontSize: 26,
     );
     onWallDamaged?.call(dmg);
+  }
+
+  /// BattleSystemからのコールバック: 視覚エフェクトのみ（ダメージは適用済み）
+  void _onUnitAttackVisual({
+    required UnitComponent unit,
+    required EnemyComponent target,
+    required int damage,
+    required bool isWeakness,
+  }) {
+    final attacker = unit.unitInstance;
+    final unitCenter = unit.position + Vector2(17, 21);
+    final targetCenter = target.position + Vector2(18, 22);
+    final elemColor = Color(attacker.element.colorValue);
+    final isMelee = attacker.attackRange <= 90;
+
+    if (isMelee) {
+      final dir = (targetCenter - unitCenter);
+      final angle = dir.angleTo(Vector2(1, 0)) * -1;
+      world.add(SlashEffectComponent(
+        position: unitCenter + Vector2(-25, -25),
+        color: elemColor,
+        angle: angle,
+      ));
+      if (attacker.element == ElementType.earth || attacker.element == ElementType.light) {
+        world.add(MagicCircleEffect(position: unitCenter + Vector2(-25, 10), color: elemColor));
+      }
+    } else {
+      world.add(MagicCircleEffect(position: unitCenter + Vector2(-25, 5), color: elemColor));
+      final vel = (targetCenter - unitCenter).normalized() * 350;
+      world.add(ProjectileComponent(
+        position: unitCenter.clone(),
+        velocity: vel,
+        element: attacker.element,
+        damage: 0,
+        target: target,
+        maxLifespan: 0.5,
+      ));
+    }
+
+    world.add(ImpactEffect(
+      position: targetCenter + Vector2(-24, -24),
+      color: elemColor,
+      style: impactStyleFor(attacker.element),
+    ));
+
+    // チェーン判定（ボーナスダメージも適用）
+    final chainResult = chainSystem.checkChain(
+      attackerElement: attacker.element,
+      damage: damage.toDouble(),
+    );
+
+    if (chainResult != null && chainResult.chainCount >= 2 && target.isAlive) {
+      final bonusDmg = (chainResult.totalDamage - damage).round().clamp(0, 9999);
+      if (bonusDmg > 0) target.takeDamage(bonusDmg);
+    }
+
+    final displayDmg = chainResult?.totalDamage.round() ?? damage;
+
+    if (isWeakness) {
+      _spawnFloatingText(
+        target.position + Vector2(-20, -30),
+        '⚡ $displayDmg',
+        const Color(0xFFFFD700),
+        fontSize: 20,
+      );
+      HapticFeedback.lightImpact();
+    } else if (chainResult != null && chainResult.chainCount >= 2) {
+      _spawnFloatingText(
+        target.position + Vector2(-20, -30),
+        '🔗 $displayDmg',
+        const Color(0xFFCE93D8),
+        fontSize: 20,
+      );
+    } else {
+      _spawnFloatingText(
+        target.position + Vector2(-10, -20),
+        '$damage',
+        const Color(0xFFFFFFFF),
+        fontSize: 16,
+      );
+    }
+
+    if (chainResult != null && chainResult.chainCount >= 2) {
+      _chainEffect.trigger(chainResult.chainCount);
+      _animController.playChainRipple(target.position, chainResult.chainCount);
+      _audio.playSE(AudioSE.chain);
+      gameState.recordChain(ChainRecord(
+        firstElement: chainResult.firstElement,
+        secondElement: attacker.element,
+        chainCount: chainResult.chainCount,
+        damage: chainResult.totalDamage,
+      ));
+      onChainTriggered(chainResult.chainCount, chainResult.totalDamage);
+      if (chainResult.chainCount >= 3) {
+        _shakeController.shake(intensity: 3.0, duration: 0.2);
+      }
+    }
+
+    if (target.isArmorJustBroken) {
+      _spawnFloatingText(
+        target.position + Vector2(0, -50),
+        '🛡 アーマー破壊！',
+        const Color(0xFFFF8F00),
+        fontSize: 14,
+      );
+      HapticFeedback.mediumImpact();
+    }
   }
 
   void _onUnitAttack({
@@ -856,6 +999,18 @@ class OctoBattleGame extends FlameGame
       fontSize: 20,
     );
     _shakeController.shake(intensity: 4.0, duration: 0.4);
+  }
+
+  /// 配備フェーズ終了（バトル開始）
+  void endFormation() {
+    _formationPhase = false;
+  }
+
+  bool get isFormationPhase => _formationPhase;
+
+  /// ドラッグ状態をフィールドオーバーレイに伝える
+  void setDraggingCard(bool isDragging) {
+    _fieldOverlay.setDragging(isDragging);
   }
 
   /// ショップ・抽出画面完了後に呼ぶ（次ウェーブを準備してクリアフラグをリセット）

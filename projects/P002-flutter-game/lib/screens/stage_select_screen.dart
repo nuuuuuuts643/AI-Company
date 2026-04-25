@@ -299,18 +299,24 @@ class _EnemyPreview extends StatelessWidget {
 
   String? _assetPath(EnemyType t) {
     switch (t) {
-      case EnemyType.goblin:        return 'assets/images/enemy_goblin.png';
-      case EnemyType.goblinShaman:  return 'assets/images/enemy_goblin_shaman.png';
-      case EnemyType.orc:           return 'assets/images/enemy_orc.png';
-      case EnemyType.orcBerserker:  return 'assets/images/enemy_orc_berserker.png';
-      case EnemyType.fireDrake:     return 'assets/images/enemy_fire_drake.png';
-      case EnemyType.seaSerpent:    return 'assets/images/enemy_sea_serpent.png';
-      case EnemyType.windWraith:    return 'assets/images/enemy_wind_wraith.png';
-      case EnemyType.stoneGolem:    return 'assets/images/enemy_stone_golem.png';
-      case EnemyType.darkKnight:    return 'assets/images/enemy_dark_knight.png';
-      case EnemyType.shadowBat:     return 'assets/images/enemy_shadow_bat.png';
-      case EnemyType.lichKing:      return 'assets/images/enemy_lich_king.png';
-      case EnemyType.shadowLord:    return 'assets/images/enemy_shadow_lord.png';
+      case EnemyType.goblin:          return 'assets/images/enemy_goblin.png';
+      case EnemyType.goblinShaman:    return 'assets/images/enemy_goblin_shaman.png';
+      case EnemyType.orc:             return 'assets/images/enemy_orc.png';
+      case EnemyType.orcBerserker:    return 'assets/images/enemy_orc_berserker.png';
+      case EnemyType.fireDrake:       return 'assets/images/enemy_fire_drake.png';
+      case EnemyType.seaSerpent:      return 'assets/images/enemy_sea_serpent.png';
+      case EnemyType.windWraith:      return 'assets/images/enemy_wind_wraith.png';
+      case EnemyType.stoneGolem:      return 'assets/images/enemy_stone_golem.png';
+      case EnemyType.darkKnight:      return 'assets/images/enemy_dark_knight.png';
+      case EnemyType.shadowBat:       return 'assets/images/enemy_shadow_bat.png';
+      case EnemyType.crystalGolem:    return 'assets/images/enemy_stone_golem.png';
+      case EnemyType.flameGuardian:   return 'assets/images/enemy_fire_drake.png';
+      case EnemyType.poisonSpore:     return 'assets/images/enemy_wind_wraith.png';
+      case EnemyType.thunderWyvern:   return 'assets/images/enemy_fire_drake.png';
+      case EnemyType.cursedKnight:    return 'assets/images/enemy_dark_knight.png';
+      case EnemyType.shadowAssassin:  return 'assets/images/enemy_shadow_bat.png';
+      case EnemyType.lichKing:        return 'assets/images/enemy_lich_king.png';
+      case EnemyType.shadowLord:      return 'assets/images/enemy_shadow_lord.png';
     }
   }
 }

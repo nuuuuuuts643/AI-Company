@@ -16,57 +16,93 @@ function saveNickname(nickname) {
   try { const u = loadUser(); if (u) { u.nickname = nickname; saveUser(u); if (currentUser) currentUser.nickname = nickname; } } catch {}
 }
 
-// ── ハンドルをサーバーに同期 ──────────────────────────────────
-async function syncHandleToServer(handle) {
-  if (!currentUser || !handle || typeof AUTH_URL === 'undefined') return;
+// ── プロフィールをサーバーに同期 ─────────────────────────────
+async function syncProfileToServer(profileData) {
+  if (!currentUser || typeof AUTH_URL === 'undefined') return;
   try {
+    const body = { idToken: currentUser.token };
+    if (profileData.handle)   body.handle   = profileData.handle;
+    if (profileData.ageGroup) body.ageGroup  = profileData.ageGroup;
+    if (profileData.gender)   body.gender    = profileData.gender;
     await fetch(AUTH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken: currentUser.token, handle }),
+      body: JSON.stringify(body),
     });
-    currentUser.handle = handle;
-    saveUser(currentUser);
+    if (profileData.handle) { currentUser.handle = profileData.handle; saveUser(currentUser); }
   } catch {}
 }
 
-// ── ログイン後にサーバーから返ったハンドルをローカルにマージ ──
-function mergeServerHandle(serverHandle) {
-  if (!serverHandle) return;
+// 後方互換エイリアス
+async function syncHandleToServer(handle) {
+  return syncProfileToServer({ handle });
+}
+
+// ── ログイン後にサーバーのプロフィールをローカルにマージ ────
+function mergeServerProfile(data) {
   try {
     const prof = JSON.parse(localStorage.getItem('flotopic_profile') || '{}');
-    if (!prof.handle) {
-      prof.handle = serverHandle;
-      localStorage.setItem('flotopic_profile', JSON.stringify(prof));
+    let changed = false;
+    // サーバーの値を優先（ローカルに未設定の場合のみ上書き）
+    if (data.handle   && !prof.handle)   { prof.handle   = data.handle;   changed = true; }
+    if (data.ageGroup && !prof.ageGroup) { prof.ageGroup = data.ageGroup; changed = true; }
+    if (data.gender   && !prof.gender)   { prof.gender   = data.gender;   changed = true; }
+    // handleが一致していればageGroup/genderもサーバー値で上書き（クロスデバイス同期）
+    if (data.handle && prof.handle === data.handle) {
+      if (data.ageGroup) { prof.ageGroup = data.ageGroup; changed = true; }
+      if (data.gender)   { prof.gender   = data.gender;   changed = true; }
     }
+    if (changed) localStorage.setItem('flotopic_profile', JSON.stringify(prof));
   } catch {}
 }
+
+// 後方互換エイリアス
+function mergeServerHandle(serverHandle) { mergeServerProfile({ handle: serverHandle }); }
 
 // ── 認証UI更新 ────────────────────────────────────────────────
 function updateAuthUI() {
-  const signInBtn  = document.getElementById('auth-signin-btn');
-  const signOutBtn = document.getElementById('auth-signout-btn');
-  const userAvatar = document.getElementById('auth-user-avatar');
-  const userName   = document.getElementById('auth-user-name');
-  const mypageLink = document.getElementById('mypage-link');
-  const modal      = document.getElementById('auth-modal');
+  const signInBtn    = document.getElementById('auth-signin-btn');
+  const userMenuWrap = document.getElementById('user-menu-wrap');
+  const userAvatar   = document.getElementById('auth-user-avatar');
+  const userInit     = document.getElementById('auth-user-init');
+  const userName     = document.getElementById('auth-user-name');
+  const modal        = document.getElementById('auth-modal');
 
-  if (mypageLink) mypageLink.style.display = 'inline-flex';
+  // 後方互換: 旧要素は常に非表示
+  const legacyLink   = document.getElementById('auth-user-link');
+  const legacySignout = document.getElementById('auth-signout-btn');
+  const mypageLink   = document.getElementById('mypage-link');
+  if (legacyLink)    legacyLink.style.display    = 'none';
+  if (legacySignout) legacySignout.style.display = 'none';
+  if (mypageLink)    mypageLink.style.display    = 'none';
 
   if (currentUser) {
-    if (signInBtn)  signInBtn.style.display  = 'none';
-    if (signOutBtn) signOutBtn.style.display = 'inline-flex';
+    if (signInBtn)    signInBtn.style.display    = 'none';
+    if (userMenuWrap) userMenuWrap.style.display = 'inline-flex';
+    if (modal)        modal.style.display        = 'none';
+
+    // アバター画像 or イニシャル
+    const savedAvatar = (() => { try { return localStorage.getItem('flotopic_avatar') || ''; } catch { return ''; } })();
+    const pic = savedAvatar || currentUser.picture || '';
     if (userAvatar) {
-      userAvatar.src          = currentUser.picture || '';
-      userAvatar.style.display = currentUser.picture ? 'inline-block' : 'none';
+      if (pic) {
+        userAvatar.src = pic;
+        userAvatar.style.display = 'inline-block';
+        if (userInit) userInit.style.display = 'none';
+      } else {
+        userAvatar.style.display = 'none';
+        if (userInit) {
+          const initial = getDisplayName(currentUser).charAt(0).toUpperCase() || '?';
+          userInit.textContent = initial;
+          userInit.style.display = 'inline-flex';
+        }
+      }
     }
     if (userName) userName.textContent = getDisplayName(currentUser);
-    if (modal)    modal.style.display  = 'none';
   } else {
-    if (signInBtn)  signInBtn.style.display  = 'inline-flex';
-    if (signOutBtn) signOutBtn.style.display = 'none';
-    if (userAvatar) userAvatar.style.display = 'none';
-    if (userName)   userName.textContent     = '';
+    if (signInBtn)    signInBtn.style.display    = 'inline-flex';
+    if (userMenuWrap) userMenuWrap.style.display = 'none';
+    if (userName)     userName.textContent       = '';
   }
 }
 
@@ -75,7 +111,6 @@ function openAuthModal() {
   const modal = document.getElementById('auth-modal');
   if (!modal) return;
   modal.style.display = 'flex';
-  // Googleボタンをモーダルのコンテナにレンダリングする
   const wrap = document.getElementById('auth-modal-google-wrap');
   if (wrap && !wrap.hasChildNodes() && window.google && google.accounts && google.accounts.id) {
     google.accounts.id.renderButton(wrap, {
@@ -86,6 +121,31 @@ function openAuthModal() {
 function closeAuthModal() {
   const modal = document.getElementById('auth-modal');
   if (modal) modal.style.display = 'none';
+}
+
+// ── ドロップダウン制御 ─────────────────────────────────────────
+function setupUserDropdown() {
+  const trigger = document.getElementById('user-menu-trigger');
+  const wrap    = document.getElementById('user-menu-wrap');
+  if (!trigger || !wrap) return;
+
+  trigger.addEventListener('click', e => {
+    e.stopPropagation();
+    const isOpen = wrap.classList.toggle('open');
+    trigger.setAttribute('aria-expanded', isOpen);
+  });
+
+  // ドロップダウン外クリックで閉じる
+  document.addEventListener('click', () => {
+    if (wrap) { wrap.classList.remove('open'); trigger.setAttribute('aria-expanded', 'false'); }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && wrap) { wrap.classList.remove('open'); trigger.setAttribute('aria-expanded', 'false'); }
+  });
+
+  // ドロップダウン内クリックは伝播を止める
+  const dropdown = document.getElementById('user-dropdown');
+  if (dropdown) dropdown.addEventListener('click', e => e.stopPropagation());
 }
 
 // ── Google認証コールバック ─────────────────────────────────────
@@ -118,9 +178,9 @@ async function handleGoogleCredentialResponse(response) {
       const data = await r.json();
       currentUser = { ...data, token: idToken };
       saveUser(currentUser);
-      mergeServerHandle(data.handle);  // サーバー上のhandleをローカルにマージ
+      mergeServerProfile(data);  // handle + ageGroup + gender をローカルに反映
       updateAuthUI();
-      if (typeof loadFavorites === 'function') loadFavorites();  // クロスデバイス同期
+      if (typeof loadFavorites === 'function') loadFavorites();
       if (typeof showToast === 'function') showToast(`${getDisplayName(currentUser)} でログインしました`);
       const tid = new URLSearchParams(location.search).get('id');
       if (tid && typeof setupCommentForm === 'function') setupCommentForm(tid);
@@ -145,24 +205,26 @@ function signOut() {
 function initGoogleAuth() {
   currentUser = loadUser();
   updateAuthUI();
+  setupUserDropdown();
 
   const clientId = (typeof GOOGLE_CLIENT_ID !== 'undefined') ? GOOGLE_CLIENT_ID : '';
   if (!clientId) return;
 
   const signInBtn  = document.getElementById('auth-signin-btn');
-  const signOutBtn = document.getElementById('auth-signout-btn');
+  const ddSignout  = document.getElementById('dd-signout-btn');
   const closeBtn   = document.getElementById('auth-modal-close');
 
-  if (signInBtn)  signInBtn.addEventListener('click', openAuthModal);
-  if (signOutBtn) signOutBtn.addEventListener('click', signOut);
-  if (closeBtn)   closeBtn.addEventListener('click', closeAuthModal);
+  if (signInBtn) signInBtn.addEventListener('click', openAuthModal);
+  if (ddSignout) ddSignout.addEventListener('click', signOut);
+  if (closeBtn)  closeBtn.addEventListener('click', closeAuthModal);
 
-  // モーダル外クリックで閉じる
   const modal = document.getElementById('auth-modal');
   if (modal) modal.addEventListener('click', e => { if (e.target === modal) closeAuthModal(); });
 
   function setupGIS() {
+    if (window.__gsiInitialized) return;
     if (!window.google || !google.accounts || !google.accounts.id) return;
+    window.__gsiInitialized = true;
     google.accounts.id.initialize({
       client_id:   clientId,
       callback:    handleGoogleCredentialResponse,
