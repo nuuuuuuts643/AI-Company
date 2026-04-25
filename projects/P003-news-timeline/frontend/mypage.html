@@ -736,6 +736,7 @@
     <a href="legacy.html">アーカイブ</a>
     <a href="terms.html">利用規約</a>
     <a href="privacy.html">プライバシーポリシー</a>
+    <a href="tokushoho.html">特定商取引法</a>
     <a href="contact.html">お問い合わせ</a>
   </div>
   <div class="site-footer-copy">記事の著作権は各報道機関に帰属します。AI要約は自動生成です。© 2024-2026 Flotopic</div>
@@ -1255,6 +1256,7 @@
         <button class="mp-tab active" data-tab="favs">⭐ お気に入り</button>
         <button class="mp-tab" data-tab="comments">💬 コメント</button>
         <button class="mp-tab" data-tab="history">📖 履歴</button>
+        <button class="mp-tab" data-tab="notifs" id="tab-notifs">🔔 通知</button>
         <button class="mp-tab" data-tab="timeline">📡 タイムライン</button>
         <button class="mp-tab" data-tab="account">⚙️ 設定</button>
       </div>
@@ -1281,6 +1283,15 @@
       <!-- 履歴パネル -->
       <div class="mp-panel" id="panel-history">
         <div class="mp-card"><div class="mp-card-inner">${historyHtml}</div></div>
+      </div>
+
+      <!-- 通知パネル -->
+      <div class="mp-panel" id="panel-notifs">
+        <div class="mp-card">
+          <div class="mp-card-inner" id="notifs-list">
+            <div style="text-align:center;padding:24px;color:#94a3b8;font-size:.85rem;">読み込み中...</div>
+          </div>
+        </div>
       </div>
 
       <!-- タイムラインパネル -->

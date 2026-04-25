@@ -297,9 +297,32 @@
     }
 
 
+    /* サムネイル対応 */
+    .catchup-card.has-thumb {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .catchup-thumb {
+      flex-shrink: 0;
+      width: 80px;
+      height: 80px;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 2px;
+    }
+    .catchup-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .catchup-card-body { flex: 1; min-width: 0; }
+
     @media (max-width: 480px) {
       .catchup-hero h1 { font-size: 1.4rem; }
       .period-btn { font-size: 0.85rem; padding: 8px 16px; }
+      .catchup-thumb { width: 64px; height: 64px; }
     }
   </style>
   <script type="application/ld+json">
@@ -541,8 +564,12 @@ function buildCard(topic) {
 
   const timelineText = buildTimelineText(topic);
 
-  return `
-    <a href="${url}" class="catchup-card" data-lc="${lc}">
+  const imgUrl = topic.imageUrl || '';
+  const thumbHtml = imgUrl
+    ? `<div class="catchup-thumb"><img src="${escapeHtml(imgUrl)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></div>`
+    : '';
+  const cardBody = `
+    <div class="${imgUrl ? 'catchup-card-body' : ''}">
       ${badges}
       <h2>${escapeHtml(title)}</h2>
       <div class="catchup-timeline">${escapeHtml(timelineText)}</div>
@@ -553,6 +580,10 @@ function buildCard(topic) {
         <span>🕐 ${relativeTime(updated)}</span>
         ${buildVelocityBar(velocity)}
       </div>
+    </div>`;
+  return `
+    <a href="${url}" class="catchup-card${imgUrl ? ' has-thumb' : ''}" data-lc="${lc}">
+      ${thumbHtml}${cardBody}
     </a>`;
 }
 
@@ -652,6 +683,7 @@ document.getElementById('loadMoreBtn').addEventListener('click', () => {
     <a href="legacy.html">アーカイブ</a>
     <a href="terms.html">利用規約</a>
     <a href="privacy.html">プライバシーポリシー</a>
+    <a href="tokushoho.html">特定商取引法</a>
     <a href="contact.html">お問い合わせ</a>
   </div>
   <div class="site-footer-copy">記事の著作権は各報道機関に帰属します。AI要約は自動生成です。© 2024-2026 Flotopic</div>
