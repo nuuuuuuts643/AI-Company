@@ -17,6 +17,7 @@
   <meta name="twitter:description" content="ニュースの流れをAIで追う、個人運営のキュレーションサービス。トピックの始まりから推移・終息まで全体像を可視化します。">
   <meta name="twitter:image" content="https://flotopic.com/ogp.png">
   <link rel="canonical" href="https://flotopic.com/about.html">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"ログインしなくても使えますか？","acceptedAnswer":{"@type":"Answer","text":"はい、ニュースの閲覧・検索・フィルタリングなど基本機能はログイン不要で利用できます。お気に入りの保存とコメント投稿にはGoogleログインが必要です。"}},{"@type":"Question","name":"どのくらいの頻度で更新されますか？","acceptedAnswer":{"@type":"Answer","text":"RSSフィードを30分ごとに取得しています。AIによるトピックまとめは1日4回（JST 7時・12時・18時・23時）生成されます。"}},{"@type":"Question","name":"AI要約の情報は正確ですか？","acceptedAnswer":{"@type":"Answer","text":"AI要約は複数の記事を参照して自動生成されるため、内容の正確性を保証するものではありません。重要な情報は元記事のリンクからご確認ください。"}},{"@type":"Question","name":"掲載された記事やトピックの削除を依頼できますか？","acceptedAnswer":{"@type":"Answer","text":"はい。お問い合わせページから削除依頼をお送りください。原則2営業日以内に対応します。"}},{"@type":"Question","name":"掲載メディアを除外してもらえますか？","acceptedAnswer":{"@type":"Answer","text":"はい。報道機関・メディアの担当者様から申請を受け付けています。お問い合わせページの「メディア掲載除外申請」よりご連絡ください。"}}]}</script>
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="style.css">
   <link rel="icon" type="image/svg+xml" href="/icon-flotopic.svg">
@@ -57,6 +58,15 @@
     [data-theme="dark"] .about-container ul { color: #9ba3c4; }
     [data-theme="dark"] .feature-card { background: #1e2035; border-color: rgba(99,102,241,0.15); }
     [data-theme="dark"] .feature-card h3 { color: #eef0f8; }
+    .faq-list { margin: 12px 0 24px; }
+    .faq-item { border: 1px solid var(--border, #e8eaf0); border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+    .faq-item summary { padding: 14px 18px; font-size: .93rem; font-weight: 600; cursor: pointer; list-style: none; color: var(--text-primary, #1e293b); display: flex; justify-content: space-between; align-items: center; }
+    .faq-item summary::after { content: '+'; font-size: 1.2rem; color: #6366f1; flex-shrink: 0; transition: transform .2s; }
+    .faq-item[open] summary::after { transform: rotate(45deg); }
+    .faq-item p { padding: 0 18px 14px; font-size: .88rem; color: var(--text-secondary, #374151); line-height: 1.75; margin: 0; }
+    [data-theme="dark"] .faq-item { border-color: rgba(99,102,241,0.2); }
+    [data-theme="dark"] .faq-item summary { color: #eef0f8; }
+    [data-theme="dark"] .faq-item p { color: #9ba3c4; }
   </style>
 </head>
 <body>
@@ -160,6 +170,30 @@
 
   <h2>運営情報</h2>
   <p>本サービスは個人が運営するメディアサービスです。ご意見・削除依頼は<a href="contact.html" style="color:#6366f1;">お問い合わせページ</a>よりご連絡ください。</p>
+
+  <h2>よくある質問</h2>
+  <div class="faq-list">
+    <details class="faq-item">
+      <summary>ログインしなくても使えますか？</summary>
+      <p>はい、ニュースの閲覧・検索・フィルタリングなど基本機能はログイン不要で利用できます。お気に入りの保存とコメント投稿にはGoogleログインが必要です。</p>
+    </details>
+    <details class="faq-item">
+      <summary>どのくらいの頻度で更新されますか？</summary>
+      <p>RSSフィードを30分ごとに取得しています。AIによるトピックまとめは1日4回（JST 7時・12時・18時・23時）生成されます。</p>
+    </details>
+    <details class="faq-item">
+      <summary>AI要約の情報は正確ですか？</summary>
+      <p>AI要約は複数の記事を参照して自動生成されるため、内容の正確性を保証するものではありません。重要な情報は元記事のリンクからご確認ください。</p>
+    </details>
+    <details class="faq-item">
+      <summary>掲載された記事やトピックの削除を依頼できますか？</summary>
+      <p>はい。<a href="contact.html" style="color:#6366f1;">お問い合わせページ</a>から削除依頼をお送りください。原則2営業日以内に対応します。</p>
+    </details>
+    <details class="faq-item">
+      <summary>掲載メディアを除外してもらえますか？</summary>
+      <p>はい。報道機関・メディアの担当者様から申請を受け付けています。<a href="contact.html" style="color:#6366f1;">お問い合わせページ</a>の「メディア掲載除外申請」よりご連絡ください。</p>
+    </details>
+  </div>
 
 </div>
 
