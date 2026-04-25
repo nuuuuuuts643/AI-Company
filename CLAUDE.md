@@ -108,15 +108,33 @@ git push || echo "push failed, continuing"
 - **CEO**: Claude（自律的に会社を動かす）
 - **方針**: 指示を待たず毎日前進する。空報告禁止。実行した証拠がないものは完了扱いしない。
 
-## 現在のプロジェクト状態（最終更新: 2026-04-25）
+## 現在のプロジェクト状態（最終更新: 2026-04-25 夜）
 
 | プロジェクト | 状態 | 備考 |
 |---|---|---|
 | P001 AI-Company自走システム | **保留** ⏸ | エージェント群のスケジュール停止中（API費用削減のため）。インフラは存在。ユーザー・収益が生まれたら再開。 |
 | P002 Flutterゲーム | **開発中** 🔧 | Flutter+Flameで実装済み（50+ファイル）。動作確認未実施。コンセプト: オートバトル×HD-2Dドット絵×ローグライト抽出。 |
-| P003 Flotopic | **本番稼働中** ✅ | flotopic.com。HTTPS・AI要約・Bluesky自動投稿・コメントUI・信頼性シグナル・PWAアイコン全て稼働中。AdSense審査待ち。 |
+| P003 Flotopic | **本番稼働中** ✅ | flotopic.com。7日間240PV(JP92%)。AI要約4セクション形式。sitemap 202URL自動更新。CI全テスト通過。AdSense審査待ち。 |
 | P004 Slackボット | **保留** ⏸ | Lambdaデプロイ済みだがSlash Command未設定のため誰も使えない。優先度低。 |
 | P005 メモリDB | **保留** ⏸ | DynamoDB稼働中だがエージェント停止中で実質未使用。インフラは残存。 |
+
+## P003 技術状態スナップショット（セッション開始時に必ず確認）
+
+> このテーブルはセッションをまたいで整合性を保つための機械的な記録。
+> 作業完了のたびに更新すること。更新しないまま「完了」と言わない。
+
+| コンポーネント | 状態 | 最終更新 | 備考 |
+|---|---|---|---|
+| CI (.github/workflows/ci.yml) | ✅ 全テスト通過 | 2026-04-25 | YAML バグ修正済み（2022-04-22以来初めて通過） |
+| sw.js バージョン管理 | ✅ 自動 | 2026-04-25 | git SHA 自動注入。ソースは `flotopic-dev` のまま触るな |
+| deploy-p003.yml | ✅ CloudFront invalidation付き | 2026-04-25 | sw.js SHA注入ステップあり |
+| processor AI要約 | ✅ 稼働中 | 2026-04-25 | 4セクション形式・**velocityScore優先**・4回/日・MAX 150件/回 |
+| sitemap.xml | ✅ 202 URL | 2026-04-25 | processor が topics.json 更新のたびに自動再生成 |
+| rss.xml | ✅ 品質フィルタ済み | 2026-04-25 | AI タイトルあり・active/cooling・株価ticker除外 |
+| CloudFront | ✅ 自動無効化 | 2026-04-25 | push → GH Actions → S3 + CF invalidation |
+| view tracking | ✅ 稼働 | 2026-04-25 | POST /analytics/event → flotopic-analytics Lambda |
+| admin dashboard | ✅ 稼働 | 2026-04-25 | flotopic.com/admin.html（Google 認証・mrkm.naoya643@gmail.com のみ） |
+| topics.json AI カバレッジ | 🔄 進行中 | 2026-04-25 | 330件中67件 aiGenerated・28件 4セクション完備。毎回増加中 |
 
 ## 専門AI稼働状況
 
@@ -149,9 +167,11 @@ git push || echo "push failed, continuing"
 
 ## 残タスク（ナオヤ手動作業が必要なもの）
 
-
 ```bash
-# P002動作確認（まだ未実施）
+# ① Google Search Console: サイトマップ送信（最優先・SEOに直結）
+# → Search Console > サイトマップ > https://flotopic.com/sitemap.xml を入力して送信
+
+# ② P002動作確認（まだ未実施）
 cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 ```
 
@@ -167,13 +187,24 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 
 ## 次フェーズのタスク（優先度順）
 
-### P003 ユーザー行動分析 + 管理ダッシュボード
-- トピックごとのPV記録（DynamoDB）
+### 優先度1: SEO・流入強化
+- **Google Search Console でサイトマップ送信**（ナオヤ手動・最優先）
+- トピック別 OGP 画像生成（現在は全トピック共通の ogp.png）→ シェア時にサムネが付く
+- Google News サイトマップ（news sitemap 形式）追加 → Google News への露出
+
+### 優先度2: コンテンツ品質
+- AI要約 4セクションのカバレッジ向上（processor が毎回増やしている・自動）
+- Bluesky 自動投稿の品質確認（実際に投稿されているか・内容が適切か）
+- topics.json の株価ティッカー系トピックを DynamoDB レベルで除外（fetcher のクラスタリング改善）
+
+### 優先度3: ユーザー体験・分析
+- admin ダッシュボード（flotopic.com/admin.html）の定期確認習慣化
 - ログイン済みユーザーの行動追跡（ジャンル傾向・滞在時間）
 - お気に入り率・離脱率の計測
-- 管理者用ダッシュボードページ（今週のトップトピック・ジャンル別PV・ユーザー数推移）
-- Googleログインと組み合わせて「どんなユーザーが何を読んでるか」を可視化
-- 閲覧履歴のDynamoDB保存確認（mypage.htmlで表示してるが記録されてるか未確認）
+
+### 優先度4: 収益化
+- AdSense 審査通過後の広告設定切り替え（忍者 AdMax → AdSense）
+- X 投稿エージェント再開（X API Basic Plan $100/月が必要）
 
 ## 承認済み・実行待ちタスク
 
