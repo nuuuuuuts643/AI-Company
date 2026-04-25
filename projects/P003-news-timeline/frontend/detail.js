@@ -413,39 +413,61 @@ function renderDetail(data) {
 
     renderTimeline();
 
+    // タイムラインに既出のURLを収集（表示済み記事を関連記事から除外するため）
+    const shownInTimeline = new Set();
+    {
+      const _dm = {};
+      allArticles.forEach(a => {
+        const _ms = a.publishedAt ? a.publishedAt * 1000 : (a.pubDate ? new Date(a.pubDate).getTime() : 0);
+        const _ts = _ms || new Date(a._snapTs).getTime();
+        const key = fmtDay(new Date(_ts));
+        if (!_dm[key]) _dm[key] = [];
+        _dm[key].push({ url: a.url, _ts });
+      });
+      Object.values(_dm).forEach(g => {
+        g.sort((a, b) => b._ts - a._ts).slice(0, ARTICLES_PER_DAY).forEach(a => shownInTimeline.add(a.url));
+      });
+    }
+
     const relatedEl = document.getElementById('related-articles');
-    if (relatedEl && allArticles.length) {
-      const picked = [];
-      const usedSources = new Set();
-      const sorted = [...allArticles].sort((a, b) => new Date(a._snapTs) - new Date(b._snapTs));
-      if (sorted.length) { picked.push(sorted[0]); usedSources.add(sorted[0].source); }
-      const latest = allArticles[0];
-      if (latest && latest.url !== (picked[0] && picked[0].url)) { picked.push(latest); usedSources.add(latest.source); }
-      for (const a of allArticles) {
-        if (picked.length >= 3) break;
-        if (!usedSources.has(a.source) && a.url !== picked[0].url && a.url !== (picked[1] && picked[1].url)) {
-          picked.push(a); usedSources.add(a.source);
+    if (relatedEl) {
+      const relatedCard = relatedEl.closest('.card');
+      const candidates = allArticles.filter(a => !shownInTimeline.has(a.url));
+      if (!candidates.length) {
+        if (relatedCard) relatedCard.style.display = 'none';
+      } else {
+        const picked = [];
+        const usedSources = new Set();
+        const sorted = [...candidates].sort((a, b) => new Date(a._snapTs) - new Date(b._snapTs));
+        if (sorted.length) { picked.push(sorted[0]); usedSources.add(sorted[0].source); }
+        const latest = candidates[0];
+        if (latest && latest.url !== (picked[0] && picked[0].url)) { picked.push(latest); usedSources.add(latest.source); }
+        for (const a of candidates) {
+          if (picked.length >= 3) break;
+          if (!usedSources.has(a.source) && !picked.some(p => p.url === a.url)) {
+            picked.push(a); usedSources.add(a.source);
+          }
         }
-      }
-      if (picked.length === 0) picked.push(allArticles[0]);
-      relatedEl.innerHTML = picked.map(a => `
-        <div class="article-item">
-          <a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
-          <div class="article-meta">
-            ${srcFaviconImg(a.source)}
-            ${esc(a.source)} · ${fmtTl(a._snapTs)}
+        relatedEl.innerHTML = picked.map(a => `
+          <div class="article-item">
+            <a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
+            <div class="article-meta">
+              ${srcFaviconImg(a.source)}
+              ${esc(a.source)} · ${fmtTl(a._snapTs)}
+            </div>
           </div>
-        </div>
-      `).join('');
+        `).join('');
+      }
     }
 
   }
 
-  // timeline=0 の場合は related-articles にも空状態メッセージを表示
+  // timeline=0 の場合は関連記事枠ごと非表示
   if (!timeline.length) {
     const relatedFallback = document.getElementById('related-articles');
-    if (relatedFallback && !relatedFallback.innerHTML.trim()) {
-      relatedFallback.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;padding:8px 0;">関連記事はデータが蓄積されると表示されます。</p>';
+    if (relatedFallback) {
+      const card = relatedFallback.closest('.card');
+      if (card) card.style.display = 'none';
     }
   }
 
