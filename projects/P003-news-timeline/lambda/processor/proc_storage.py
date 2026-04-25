@@ -1,5 +1,7 @@
 """DynamoDB / S3 アクセス層と Slack 通知。"""
+import io
 import json
+import os
 import re
 import urllib.request
 from collections import Counter
@@ -9,6 +11,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from boto3.dynamodb.conditions import Key, Attr
 
 from proc_config import S3_BUCKET, SLACK_WEBHOOK, TOPICS_S3_CAP, table, s3
+
+# OGP画像生成設定
+_OGP_W, _OGP_H = 1200, 630
+_OGP_BG     = (15, 23, 42)        # #0f172a (Flotopicダークブルー)
+_OGP_ACCENT = (99, 102, 241)      # #6366f1 (インジゴ)
+_OGP_TEXT   = (248, 250, 252)     # #f8fafc (ほぼ白)
+_OGP_SUB    = (148, 163, 184)     # #94a3b8 (スレート)
+_OGP_CARD   = (30, 41, 59)        # #1e293b (カード背景)
+_FONT_PATH  = '/var/task/NotoSansJP-Regular.ttf'  # Lambda zip内に同梱
 
 _TICKER_RE  = re.compile(r'【\d{3,5}[A-Z]?】|：株価|株式情報\b|株価情報\b')
 _KW_STOP    = {'ニュース', '速報', '最新', '話題', '注目', '動画', '写真', '記事', '中継'}
@@ -155,7 +166,7 @@ def get_latest_articles_for_topic(tid):
     return []
 
 
-def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False):
+def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_url=None):
     """Claude 生成タイトル・ストーリーで DynamoDB META を更新。
 
     Args:
@@ -163,6 +174,7 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False):
         gen_title:    str | None — 生成タイトル
         gen_story:    dict | None — {aiSummary, spreadReason, forecast, timeline, phase}
         ai_succeeded: bool — Claude が実際に成功したか（False なら aiGenerated は立てない）
+        image_url:    str | None — 生成したOGP画像URL（既にimageUrlがあれば上書きしない）
     """
     try:
         # aiGenerated は Claude が実際に成功した時だけ True にする
@@ -191,6 +203,9 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False):
             if gen_story.get('phase'):
                 update_expr += ', storyPhase = :phase'
                 expr_values[':phase'] = gen_story['phase']
+        if image_url:
+            update_expr += ', imageUrl = :img'
+            expr_values[':img'] = image_url
         table.update_item(
             Key={'topicId': tid, 'SK': 'META'},
             UpdateExpression=update_expr,
@@ -279,6 +294,8 @@ def update_topic_s3_file(tid, upd):
             meta['forecast'] = upd['forecast']
         if upd.get('aiGenerated'):
             meta['aiGenerated'] = True
+        if upd.get('imageUrl') and not meta.get('imageUrl'):
+            meta['imageUrl'] = upd['imageUrl']
         data['meta'] = meta
         write_s3(key, data)
     except Exception:
@@ -506,6 +523,100 @@ def generate_and_upload_sitemap(topics):
         print(f'[Processor] sitemap.xml 更新完了 ({len(top)+6}件)')
     except Exception as e:
         print(f'[Processor] sitemap.xml 更新エラー: {e}')
+
+
+def _wrap_text_pil(draw, text, font, max_width: int) -> list:
+    """Pillowのfontでテキストをmax_widthに折り返す（文字単位）。"""
+    lines, current = [], ''
+    for ch in text:
+        test = current + ch
+        bbox = draw.textbbox((0, 0), test, font=font)
+        if bbox[2] > max_width and current:
+            lines.append(current)
+            current = ch
+        else:
+            current = test
+    if current:
+        lines.append(current)
+    return lines
+
+
+def generate_ogp_image(tid: str, title: str, genre: str = '') -> 'str | None':
+    """トピック用OGP画像(1200x630)を生成してS3にアップロード。CloudFront URLを返す。
+    Pillowが未インストールの場合はNoneを返す（graceful degradation）。
+    """
+    if not S3_BUCKET or not title:
+        return None
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError:
+        return None
+
+    img  = Image.new('RGB', (_OGP_W, _OGP_H), _OGP_BG)
+    draw = ImageDraw.Draw(img)
+
+    # 右上のアクセント円
+    draw.ellipse([900, -100, 1350, 350], fill=(20, 30, 60))
+    draw.ellipse([950, -60, 1300, 290], fill=(25, 35, 70))
+
+    # フォントロード（失敗時はデフォルトフォント）
+    font_path = _FONT_PATH if os.path.exists(_FONT_PATH) else None
+    def _font(size):
+        if font_path:
+            try:
+                return ImageFont.truetype(font_path, size)
+            except Exception:
+                pass
+        return ImageFont.load_default()
+
+    # Flotopicロゴ
+    draw.text((60, 52), 'Flotopic', font=_font(38), fill=_OGP_ACCENT)
+
+    # 区切り線
+    draw.rectangle([60, 112, 1140, 114], fill=(40, 55, 80))
+
+    # ジャンルタグ
+    tag_y = 140
+    if genre:
+        tag_font = _font(26)
+        tag_text = f'  #{genre}  '
+        bbox = draw.textbbox((0, 0), tag_text, font=tag_font)
+        tag_w = bbox[2] - bbox[0] + 20
+        draw.rounded_rectangle([58, tag_y, 58 + tag_w, tag_y + 40], radius=8, fill=(40, 52, 80))
+        draw.text((68, tag_y + 4), f'#{genre}', font=tag_font, fill=_OGP_ACCENT)
+        tag_y += 52
+
+    # トピックタイトル（折り返しあり・最大3行）
+    title_font = _font(58)
+    title_y = tag_y + 10
+    lines = _wrap_text_pil(draw, title, title_font, _OGP_W - 120)
+    for i, line in enumerate(lines[:3]):
+        if i == 2 and len(lines) > 3:
+            # 3行目は省略記号付き
+            while line and draw.textbbox((0, 0), line + '…', font=title_font)[2] > _OGP_W - 120:
+                line = line[:-1]
+            line += '…'
+        draw.text((60, title_y), line, font=title_font, fill=_OGP_TEXT)
+        title_y += 72
+
+    # フッター
+    draw.rectangle([60, _OGP_H - 70, 1140, _OGP_H - 68], fill=(40, 55, 80))
+    draw.text((60, _OGP_H - 56), 'flotopic.com  —  話題の盛り上がりをAIで追う', font=_font(24), fill=_OGP_SUB)
+
+    # PNG → S3
+    buf = io.BytesIO()
+    img.save(buf, format='PNG', optimize=True)
+    buf.seek(0)
+    key = f'api/ogp/{tid}.png'
+    try:
+        s3.put_object(
+            Bucket=S3_BUCKET, Key=key, Body=buf.getvalue(),
+            ContentType='image/png', CacheControl='max-age=86400',
+        )
+        return f'https://flotopic.com/{key}'
+    except Exception as e:
+        print(f'[OGP] S3アップロード失敗 [{tid}]: {e}')
+        return None
 
 
 def notify_slack_error(error_msg: str):
