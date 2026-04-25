@@ -331,8 +331,10 @@ def lambda_handler(event, context):
 
         velocity = calc_velocity(hist, cnt, ts_iso)
 
-        if existing.get('lifecycleStatus') == 'legacy':
-            lifecycle_status = 'legacy'
+        prev_lifecycle = existing.get('lifecycleStatus', 'active')
+        if prev_lifecycle in ('legacy', 'archived'):
+            # lifecycle Lambda が確定した状態を fetcher が上書きしない
+            lifecycle_status = prev_lifecycle
         else:
             lifecycle_status = compute_lifecycle_status(score, last_article_ts, velocity_score, cnt)
 
