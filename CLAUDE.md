@@ -229,6 +229,9 @@ cat /Users/murakaminaoya/.claude/projects/-Users-murakaminaoya-ai-company/memory
 | DynamoDB SNAP肥大化 | ✅ 改善中 | 2026-04-26 | 784K→742K件。TTL ENABLED。lifecycle週次で30日超SNAP削除中 |
 | Bluesky 自動投稿 | ✅ 稼働 | 2026-04-25 | 毎日05:32 JST 投稿確認済み |
 | Claude Code 確認ダイアログ | ✅ 対策済み | 2026-04-25 | ~/.claude/settings.json に Bash/Edit/Write を allow 追加。再起動後有効 |
+| topics.json 内部フィールド除去 | ✅ 完了 | 2026-04-26 | SK/pendingAI/ttlをfetcher・processor両方でpublicJSONから除去 |
+| lifecycle S3孤立ファイル削除 | ✅ 実装済み | 2026-04-26 | 削除トピックのapi/topic/{id}.jsonを同時削除。週次sweep=~4600件の孤立ファイルを次回月曜に自動クリア |
+| processor タイトル再生成スキップ | ✅ 最適化 | 2026-04-26 | aiGenerated=True+title既存→タイトルAPI省略。backlog処理効率向上 |
 
 ## 専門AI稼働状況
 
