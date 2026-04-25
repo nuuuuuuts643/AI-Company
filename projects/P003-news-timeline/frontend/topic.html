@@ -280,14 +280,33 @@
 
   <div class="card summary-card">
     <h2>AI分析</h2>
-    <div id="ai-analysis" style="display:none;"></div>
+    <div id="ai-analysis">
+      <div class="topic-sk" id="ai-analysis-sk">
+        <div class="sk-line sk-title"></div>
+        <div class="sk-line sk-mid"></div>
+        <div class="sk-line sk-mid"></div>
+        <div class="sk-line sk-short" style="margin-bottom:18px;"></div>
+        <div class="sk-line sk-mid"></div>
+        <div class="sk-line sk-short"></div>
+        <div class="sk-line sk-tiny"></div>
+      </div>
+    </div>
     <p style="margin-top:12px;font-size:.75rem;color:#94a3b8;">⚠️ AI自動生成。情報の正確性は各元記事をご確認ください。<a href="contact.html" style="color:#94a3b8;text-decoration:underline;margin-left:4px;">誤情報のご指摘</a></p>
     <p style="margin-top:4px;font-size:.73rem;color:#94a3b8;">最終更新: <time id="topic-last-updated" datetime=""></time></p>
   </div>
 
   <div class="card">
     <h2>記事の流れ</h2>
-    <div id="story-timeline"></div>
+    <div id="story-timeline">
+      <div class="topic-sk" id="story-timeline-sk">
+        <div class="sk-line sk-title"></div>
+        <div class="sk-line sk-mid"></div>
+        <div class="sk-line sk-short" style="margin-bottom:16px;"></div>
+        <div class="sk-line sk-title"></div>
+        <div class="sk-line sk-mid"></div>
+        <div class="sk-line sk-tiny"></div>
+      </div>
+    </div>
   </div>
 
   <!-- 広告: 記事流れの直後（728×90、モバイルはCSSスケールダウン） -->
@@ -341,6 +360,15 @@
     </div>
   </div>
 
+
+  <!-- ===== アフィリエイトウィジェット ===== -->
+  <div class="card affiliate-card" id="affiliate-section" style="display:none;">
+    <div class="affiliate-header">
+      <span class="affiliate-label">PR</span>
+      <h2>この話題をもっと知る</h2>
+    </div>
+    <div id="affiliate-links" class="affiliate-links"></div>
+  </div>
 
   <!-- ===== コメント掲示板 ===== -->
   <div class="card comments-card" id="comments-section">
