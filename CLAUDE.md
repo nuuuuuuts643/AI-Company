@@ -179,7 +179,7 @@ cat /Users/OWNER/.claude/projects/-Users-OWNER-ai-company/memory/MEMORY.md
 | admin dashboard | ✅ グラフ強化 | 2026-04-25 | velocity分布・AIパイプライングラフ追加済み |
 | lifecycle Lambda | ✅ SNAP自動クリーン | 2026-04-25夜 | ARCHIVE_DAYS=7・filter-feedback・30日超SNAP削除（TTLなし含む）を実装 |
 | lifecycle archived保護 | ✅ 修正済み | 2026-04-25夜 | fetcher が archived を上書きしないよう修正（velocity>0なら再active可） |
-| DynamoDB SNAP肥大化 | ⚠️ 対策中 | 2026-04-25夜 | 784K件中SNAPの大半はTTLなし。lifecycle Lambda(週次)が30日超SNAPを削除。新SNAPはTTL=7日付き |
+| DynamoDB SNAP肥大化 | ⚠️ 対策中 | 2026-04-25夜 | 784K件・366MB。TTL属性 `ttl` はENABLED済み。旧SNAP(TTLなし)はlifecycle Lambda(週次)が30日超を削除中。新SNAPはTTL=7日付きで自動消滅 |
 | 検索機能 | ✅ 強化 | 2026-04-25夜 | タイトル→タイトル+AI要約+ジャンルに拡張 |
 | SEO/OGP | ✅ 全ページ完備 | 2026-04-25夜 | Twitter Card全静的ページ・BreadcrumbList JSON-LD・privacy/terms OGP追加 |
 | Bluesky 自動投稿 | ✅ 稼働 | 2026-04-25 | 毎日05:32 JST 投稿確認済み |
@@ -264,7 +264,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 
 ### 優先度4: 運用・インフラ（Claude実行可能）
 - ~~cf-analytics スケジュール確認~~ ✅ ENABLED確認済み（CF認証情報未設定は別問題）
-- DynamoDB 784K件のTTL動作確認（SNAP TTL 7日が正常動作中か）
+- ~~DynamoDB 784K件のTTL動作確認~~ ✅ 2026-04-25 確認済み（TTL ENABLED・属性名 `ttl`）
 - ~~admin ダッシュボード velocity分布・AIパイプライングラフ~~ ✅ 2026-04-25 完了
 
 ### 優先度5: 収益化（待ち）
