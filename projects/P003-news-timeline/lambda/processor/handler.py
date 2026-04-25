@@ -44,39 +44,41 @@ def lambda_handler(event, context):
         tid = topic['topicId']
         cnt = int(topic.get('articleCount', 0) or 0)
 
-        if topic.get('aiGenerated') and topic.get('generatedSummary'):
-            update_topic_with_ai(tid, None, None)
-            continue
-
         articles = get_latest_articles_for_topic(tid)
         if not articles:
             raw_title = topic.get('title', '')
             articles  = [{'title': raw_title}] if raw_title else []
 
-        gen_title = topic.get('generatedTitle')
+        gen_title    = topic.get('generatedTitle')
+        ai_succeeded = False
+
         if cnt >= MIN_ARTICLES_FOR_TITLE:
             new_title = generate_title(articles)
             if new_title:
-                gen_title = new_title
-                api_calls += 1
+                gen_title    = new_title
+                api_calls   += 1
+                ai_succeeded = True
                 print(f'  [Claude タイトル] {tid[:8]}... → {new_title[:30]}')
 
         gen_story = None
         if cnt >= MIN_ARTICLES_FOR_SUMMARY and api_calls < MAX_API_CALLS:
             new_story = generate_story(articles)
             if new_story:
-                gen_story  = new_story
-                api_calls += 1
+                gen_story    = new_story
+                api_calls   += 1
+                ai_succeeded = True
                 print(f'  [Claude ストーリー] {tid[:8]}... phase={new_story.get("phase")} timeline={len(new_story.get("timeline", []))}件')
 
-        update_topic_with_ai(tid, gen_title, gen_story)
+        update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=ai_succeeded)
         processed += 1
         ai_updates[tid] = {
             'generatedTitle':   gen_title,
-            'generatedSummary': gen_story['aiSummary'] if gen_story else None,
-            'storyTimeline':    gen_story['timeline']  if gen_story else None,
-            'storyPhase':       gen_story['phase']     if gen_story else None,
-            'aiGenerated':      True,
+            'generatedSummary': gen_story['aiSummary']      if gen_story else None,
+            'spreadReason':     gen_story['spreadReason']   if gen_story else None,
+            'forecast':         gen_story['forecast']       if gen_story else None,
+            'storyTimeline':    gen_story['timeline']       if gen_story else None,
+            'storyPhase':       gen_story['phase']          if gen_story else None,
+            'aiGenerated':      ai_succeeded,
         }
 
     elapsed = time.time() - start_time
@@ -90,9 +92,11 @@ def lambda_handler(event, context):
                 if upd:
                     if upd.get('generatedTitle'):            t['generatedTitle']   = upd['generatedTitle']
                     if upd.get('generatedSummary'):          t['generatedSummary'] = upd['generatedSummary']
+                    if upd.get('spreadReason'):              t['spreadReason']     = upd['spreadReason']
+                    if upd.get('forecast'):                  t['forecast']         = upd['forecast']
                     if upd.get('storyTimeline') is not None: t['storyTimeline']    = upd['storyTimeline']
                     if upd.get('storyPhase'):                t['storyPhase']       = upd['storyPhase']
-                    t['aiGenerated'] = True
+                    if upd.get('aiGenerated'):               t['aiGenerated']      = True
             ts_iso = datetime.now(timezone.utc).isoformat()
             write_s3('api/topics.json', {
                 'topics':        topics,
