@@ -49,12 +49,19 @@ def extract_source_name(item, article_link: str, feed_url: str) -> str:
     except Exception:
         pass
 
-    # 3. Google News の場合: タイトル末尾の " - メディア名" を抽出
+    # 3. Google News の場合: タイトル末尾の " - メディア名" や「（メディア名）」を抽出
+    is_google = False
     try:
         domain = urllib.parse.urlparse(article_link).netloc.lower()
-        if 'google' in domain or 'google' in feed_url:
+        is_google = 'google' in domain or 'google' in feed_url
+        if is_google:
             title = (item.findtext('title') or '').strip()
-            for pat in [r'\s[-–―]\s([^-–―｜|]+)$', r'[｜|]([^｜|]+)$']:
+            for pat in [
+                r'\s[-–―]\s([^-–―｜|]+)$',
+                r'[｜|]([^｜|]+)$',
+                r'（([^）]{1,20})）$',
+                r'\(([^)]{1,20})\)$',
+            ]:
                 match = re.search(pat, title)
                 if match:
                     candidate = match.group(1).strip()
@@ -73,6 +80,9 @@ def extract_source_name(item, article_link: str, feed_url: str) -> str:
     except Exception:
         pass
 
+    # Google フィード由来でソース名が特定できなかった場合
+    if is_google:
+        return 'Google News'
     return 'Unknown'
 
 
