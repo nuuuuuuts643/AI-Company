@@ -230,12 +230,25 @@ function renderCardMeta(t) {
     ? `<span class="hatena-count" title="はてなブックマーク数">🔖 ${hatena}</span>`
     : '';
 
+  // 分岐トピック（この話から派生した話題がある）
+  const childCount = Array.isArray(t.childTopics) ? t.childTopics.length : 0;
+  const branchLabel = childCount > 0
+    ? `<a href="storymap.html?id=${esc(t.topicId)}" class="branch-link" title="この話題の分岐を見る">🌿 ${childCount}件の分岐</a>`
+    : '';
+
+  // 親トピックがある場合（この話は大きな流れの一部）
+  const parentLabel = t.parentTopicId
+    ? `<span class="parent-indicator" title="大きなトピックから派生">↳ 派生</span>`
+    : '';
+
   const genres = t.genres || [t.genre || '総合'];
   return `
     <div class="topic-meta">
       <span class="article-count">📄 ${t.articleCount}件 · 約${readMins}分</span>
       ${srcLabel}
       ${hatenaLabel}
+      ${branchLabel}
+      ${parentLabel}
       ${genres.map(g => `<span class="genre-tag">${esc(g)}</span>`).join('')}
       <span>${fmtDate(t.lastUpdated)}</span>
     </div>`;
