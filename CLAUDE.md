@@ -146,17 +146,20 @@ git push || echo "push failed, continuing"
 | CI (.github/workflows/ci.yml) | ✅ 全テスト通過 | 2026-04-25 | YAML バグ修正済み（2022-04-22以来初めて通過） |
 | sw.js バージョン管理 | ✅ 自動 | 2026-04-25 | git SHA 自動注入。ソースは `flotopic-dev` のまま触るな |
 | deploy-p003.yml | ✅ CloudFront invalidation付き | 2026-04-25 | sw.js SHA注入ステップあり |
-| processor AI要約 | ✅ 稼働中 | 2026-04-25 | 4セクション形式・velocityScore優先・4回/日。321件中68件 aiGenerated。pending_ai.jsonバックログ修正済み |
+| processor AI要約 | ✅ 稼働中（proc_config修正済み） | 2026-04-25夜 | 4セクション形式・4回/日。proc_config.pyモジュールエラー修正・再デプロイ済み |
 | sitemap.xml | ✅ 動的自動生成 | 2026-04-25 | 最新生成確認済み（2026-04-25 19:42）。202URL |
 | news-sitemap.xml | ✅ 実装済み | 2026-04-25 | Google News Sitemap。processor実行時に自動生成。robots.txtに記載済み |
 | rss.xml | ✅ 品質フィルタ済み | 2026-04-25 | 同一イベント重複抑制あり（最大2件/イベント）・株価ticker除外 |
 | クラスタリング | ✅ 改善 | 2026-04-25 | 【中継】【速報】等のプレフィックスを除去してからJaccard比較 |
 | 株価ティッカーフィルタ | ✅ 強化 | 2026-04-25 | 英数字コード(325A等)・Yahoo!ファイナンス全般を除外 |
+| fetcher Float型エラー | ✅ 修正済み | 2026-04-25夜 | 旧Lambda(633行)がfloatをDynamoDBに書いていた。最新コード（Decimal変換済み）を再デプロイ |
+| deploy-lambdas.yml | ✅ 全Lambda対象 | 2026-04-25夜 | analytics/auth/favorites/lifecycle/cf-analytics/api を追加（6関数が自動デプロイ対象外だった） |
 | CloudFront | ✅ 自動無効化 | 2026-04-25 | push → GH Actions → S3 + CF invalidation |
 | view tracking | ✅ 稼働 | 2026-04-25 | POST /analytics/event → flotopic-analytics Lambda |
 | admin dashboard | ✅ グラフ強化 | 2026-04-25 | velocity分布・AIパイプライングラフ追加済み |
 | lifecycle Lambda | ✅ ARCHIVE_DAYS=7 | 2026-04-25 | 30→7日に変更。filter-feedbackクリーンアップ追加 |
-| SEO/OGP | ✅ 強化 | 2026-04-25 | Twitter Card全静的ページ・BreadcrumbList JSON-LD・OGPメタ追加 |
+| lifecycle archived保護 | ✅ 修正済み | 2026-04-25夜 | fetcher が archived を上書きしないよう修正（velocity>0なら再active可） |
+| SEO/OGP | ✅ 全ページ完備 | 2026-04-25夜 | Twitter Card全静的ページ・BreadcrumbList JSON-LD・privacy/terms OGP追加 |
 | Bluesky 自動投稿 | ✅ 稼働 | 2026-04-25 | 毎日05:32 JST 投稿確認済み |
 | Claude Code 確認ダイアログ | ✅ 対策済み | 2026-04-25 | ~/.claude/settings.json に Bash/Edit/Write を allow 追加。再起動後有効 |
 
