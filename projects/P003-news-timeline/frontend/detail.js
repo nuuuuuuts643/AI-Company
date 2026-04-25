@@ -67,6 +67,10 @@ function updateOGP(meta) {
       'url': url,
       'datePublished': datePublished,
       'dateModified':  dateModified,
+      'image': ogImage !== 'https://flotopic.com/ogp.png'
+        ? [{ '@type': 'ImageObject', 'url': ogImage, 'width': 1200, 'height': 630 }]
+        : [{ '@type': 'ImageObject', 'url': 'https://flotopic.com/ogp.png', 'width': 1200, 'height': 630 }],
+      'author': { '@type': 'Organization', 'name': 'Flotopic', 'url': 'https://flotopic.com' },
       'publisher': {
         '@type': 'Organization',
         'name': 'Flotopic',
