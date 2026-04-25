@@ -246,7 +246,29 @@ def generate_and_upload_rss(topics):
 
     active = [t for t in topics if t.get('lifecycleStatus') in ('active', 'cooling', '')]
     active.sort(key=lambda x: float(x.get('velocityScore', 0) or 0), reverse=True)
-    top = active[:40]
+
+    # 同一イベント重複抑制: キーワード3つ以上共通するトピックは最大2件のみ
+    _STOP = {'ニュース', '速報', '情報', '中継', '会見', '更新'}
+    def _kw(t):
+        import re as _re
+        title = _re.sub(r'[【】「」（）！？\[\]\s　・]+', ' ', t.get('generatedTitle', '') + ' ' + t.get('title', ''))
+        return {w for w in title.split() if len(w) >= 3 and w not in _STOP}
+    deduped, event_counts = [], {}
+    for t in active:
+        kw = _kw(t)
+        matched = None
+        for ev, ev_kw in event_counts.items():
+            if len(kw & ev_kw) >= 3:
+                matched = ev
+                break
+        if matched is None:
+            ev_id = t.get('topicId', '')
+            event_counts[ev_id] = kw
+            deduped.append((ev_id, t))
+        else:
+            if sum(1 for eid, _ in deduped if eid == matched) < 2:
+                deduped.append((matched, t))
+    top = [t for _, t in deduped][:40]
 
     def to_rfc822(ts):
         try:

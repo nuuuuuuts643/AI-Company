@@ -221,11 +221,35 @@ def generate_rss(topics, updated_at):
         and t.get('generatedTitle')
         and not TICKER_RE.search(t.get('generatedTitle', '') + t.get('title', ''))
     ]
-    sorted_topics = sorted(
+    sorted_by_vel = sorted(
         filtered,
         key=lambda x: float(x.get('velocityScore', 0) or 0),
         reverse=True,
-    )[:20]
+    )
+
+    # 同一イベント重複抑制: タイトルのキーワード(3文字以上の単語)が3つ以上共通するトピックは最大2件のみ残す
+    _STOP = {'ニュース', '速報', '情報', '中継', '会見', '更新', '記者', '関連'}
+    def _key_words(t):
+        title = re.sub(r'[【】「」（）！？\[\]\s　・]+', ' ', t.get('generatedTitle', '') + ' ' + t.get('title', ''))
+        return {w for w in title.split() if len(w) >= 3 and w not in _STOP}
+
+    deduped, event_counts = [], {}
+    for t in sorted_by_vel:
+        kw = _key_words(t)
+        matched_event = None
+        for ev_key, ev_kw in event_counts.items():
+            if len(kw & ev_kw) >= 3:
+                matched_event = ev_key
+                break
+        if matched_event is None:
+            ev_id = t.get('topicId', '')
+            event_counts[ev_id] = kw
+            deduped.append((ev_id, t))
+        else:
+            count = sum(1 for eid, _ in deduped if eid == matched_event)
+            if count < 2:
+                deduped.append((matched_event, t))
+    sorted_topics = [t for _, t in deduped][:20]
 
     def esc(text):
         if not text:
