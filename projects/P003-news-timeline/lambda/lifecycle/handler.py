@@ -208,12 +208,16 @@ def lambda_handler(event, context):
             print(f"[legacy]   topicId={topic_id} score={score}")
 
         elif score < DEAD_SCORE_THRESHOLD:
-            # 低スコアで完全停止 → 全アイテム削除
+            # 低スコアで完全停止 → 全アイテム削除 + S3個別ファイル削除
             topic_items = table.query(
                 KeyConditionExpression=DKey('topicId').eq(topic_id)
             ).get('Items', [])
             for ti in topic_items:
                 table.delete_item(Key={'topicId': ti['topicId'], 'SK': ti['SK']})
+            try:
+                s3.delete_object(Bucket=S3_BUCKET, Key=f'api/topic/{topic_id}.json')
+            except Exception:
+                pass
             deleted_count += 1
             print(f"[deleted]  topicId={topic_id} score={score} items={len(topic_items)}")
 
@@ -227,6 +231,44 @@ def lambda_handler(event, context):
             snaps_deleted = delete_snaps(topic_id)
             archived_count += 1
             print(f"[archived] topicId={topic_id} score={score} snaps_deleted={snaps_deleted}")
+
+    # ---- 孤立S3トピックファイルのクリーンアップ ----
+    # DynamoDB に対応するMETAがないapi/topic/*.jsonを削除する
+    s3_topic_deleted = 0
+    try:
+        all_s3_tids = []
+        paginator = s3.get_paginator('list_objects_v2')
+        for page in paginator.paginate(Bucket=S3_BUCKET, Prefix='api/topic/'):
+            for obj in page.get('Contents', []):
+                key = obj['Key']
+                # api/topic/{topicId}.json
+                parts = key.rstrip('.json').rsplit('/', 1)
+                if len(parts) == 2 and parts[1]:
+                    all_s3_tids.append((parts[1], key))
+        # DynamoDB batch_get_item で存在確認
+        existing_tids = set()
+        for i in range(0, len(all_s3_tids), 100):
+            chunk = all_s3_tids[i:i+100]
+            keys = [{'topicId': tid, 'SK': 'META'} for tid, _ in chunk]
+            try:
+                resp = dynamodb.batch_get_item(
+                    RequestItems={TABLE: {'Keys': keys, 'ProjectionExpression': 'topicId'}}
+                )
+                for it in resp.get('Responses', {}).get(TABLE, []):
+                    existing_tids.add(it['topicId'])
+            except Exception:
+                for tid, _ in chunk:
+                    existing_tids.add(tid)  # エラー時は削除しない
+        for tid, key in all_s3_tids:
+            if tid not in existing_tids:
+                try:
+                    s3.delete_object(Bucket=S3_BUCKET, Key=key)
+                    s3_topic_deleted += 1
+                except Exception:
+                    pass
+        print(f"[s3-topic-cleanup] orphan files deleted: {s3_topic_deleted} / {len(all_s3_tids)}")
+    except Exception as e:
+        print(f"[s3-topic-cleanup] error: {e}")
 
     # ---- filter-feedback S3 クリーンアップ ----
     try:
