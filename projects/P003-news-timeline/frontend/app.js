@@ -55,6 +55,7 @@ function showErrorBanner(message) {
 }
 
 const STATUS_LABEL = { rising:'🔥 急上昇', peak:'⚡ 注目中', declining:'📉 落ち着き', cooling:'📉 落ち着き' };
+const PHASE_BADGE  = { '発端':'🌱 発端', '拡散':'📡 拡散', 'ピーク':'🔥 ピーク', '現在地':'📍 現在地', '収束':'✅ 収束' };
 
 function cleanSummary(s) {
   if (!s) return s;
@@ -307,6 +308,9 @@ function renderTopicCard(t, i) {
   const summaryHtml = t.generatedSummary
     ? `<p class="card-summary">${esc(cleanSummary(t.generatedSummary))}</p>`
     : '';
+  const phaseHtml = t.storyPhase && PHASE_BADGE[t.storyPhase]
+    ? `<span class="card-phase-badge">${PHASE_BADGE[t.storyPhase]}</span>`
+    : '';
 
   return `
     <div class="topic-card-wrapper" style="position:relative;">
@@ -314,7 +318,7 @@ function renderTopicCard(t, i) {
       <a class="topic-card ${displayStatus}${isViewed ? ' viewed' : ''}" href="topic.html?id=${esc(t.topicId)}" data-tid="${esc(t.topicId)}">
         ${thumbHtml}
         <div class="card-body">
-          <div class="topic-status ${displayStatus}">${STATUS_LABEL[displayStatus] || displayStatus}${coolingAgeHtml}</div>
+          <div class="topic-status ${displayStatus}">${STATUS_LABEL[displayStatus] || displayStatus}${coolingAgeHtml}${phaseHtml}</div>
           <h3>${esc(t.generatedTitle || t.title)}</h3>
           ${summaryHtml}
           ${renderCardMeta(t)}

@@ -408,6 +408,7 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
 .topic-status.peak      { color: #b45309; background: #fffbeb; }
 .topic-status.new       { color: #1d4ed8; background: #eff6ff; }
 .topic-status.declining { color: var(--text-muted); background: #f3f4f6; }
+.card-phase-badge { display: inline-block; margin-left: 6px; font-size: .65rem; font-weight: 600; color: #6366f1; background: #eef2ff; border-radius: 999px; padding: 1px 7px; vertical-align: middle; }
 
 .topic-card h3 {
   font-size: .9rem;
