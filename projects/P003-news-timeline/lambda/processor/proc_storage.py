@@ -174,14 +174,15 @@ def _cap_topics(items):
 
 
 def get_all_topics_for_s3():
-    """S3のtopics.jsonから読む（DynamoDBフルスキャン不要）。TOPICS_S3_CAP件にキャップ。"""
+    """S3のtopics.jsonから読む（DynamoDBフルスキャン不要）。TOPICS_S3_CAP件にキャップ。
+    trendingKeywordsを含む既存のメタデータも返す（processorがwrite時に保持するため）。"""
     if S3_BUCKET:
         try:
             resp = s3.get_object(Bucket=S3_BUCKET, Key='api/topics.json')
             data = json.loads(resp['Body'].read())
             items = data.get('topics', [])
             if items:
-                return _cap_topics(items)
+                return _cap_topics(items), data.get('trendingKeywords', [])
         except Exception as e:
             print(f'get_all_topics_for_s3 S3 error: {e}')
     items, kwargs = [], {
@@ -193,7 +194,7 @@ def get_all_topics_for_s3():
         items.extend(r.get('Items', []))
         if not r.get('LastEvaluatedKey'): break
         kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
-    return _cap_topics(items)
+    return _cap_topics(items), []
 
 
 def dec_convert(obj):
