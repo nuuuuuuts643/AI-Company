@@ -227,6 +227,78 @@ def update_topic_s3_files_parallel(ai_updates, max_workers=5):
     print(f'[Processor] 個別S3ファイル更新完了 ({len(ai_updates)}件)')
 
 
+def generate_and_upload_rss(topics):
+    """上位トピックからRSS 2.0 フィードを生成してS3にアップロード。"""
+    if not S3_BUCKET:
+        return
+    from datetime import datetime
+    from email.utils import formatdate
+    import time as _time
+
+    active = [t for t in topics if t.get('lifecycleStatus') in ('active', 'cooling', '')]
+    active.sort(key=lambda x: float(x.get('velocityScore', 0) or 0), reverse=True)
+    top = active[:40]
+
+    def to_rfc822(ts):
+        try:
+            if not ts:
+                return formatdate()
+            if isinstance(ts, (int, float)):
+                return formatdate(_time.mktime(datetime.utcfromtimestamp(ts).timetuple()))
+            return formatdate(_time.mktime(datetime.fromisoformat(str(ts).replace('Z', '+00:00')).timetuple()))
+        except Exception:
+            return formatdate()
+
+    def xml_escape(s):
+        return str(s or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+
+    items = []
+    for t in top:
+        tid = t.get('topicId', '')
+        title = xml_escape(t.get('generatedTitle') or t.get('title') or 'Flotopic')
+        desc  = xml_escape((t.get('generatedSummary') or '')[:200])
+        link  = f'https://flotopic.com/topic.html?id={tid}'
+        pub   = to_rfc822(t.get('lastArticleAt') or t.get('lastUpdated'))
+        genre = xml_escape((t.get('genres') or [t.get('genre', '総合')])[0])
+        items.append(
+            f'  <item>\n'
+            f'    <title>{title}</title>\n'
+            f'    <link>{link}</link>\n'
+            f'    <description>{desc}</description>\n'
+            f'    <pubDate>{pub}</pubDate>\n'
+            f'    <guid isPermaLink="true">{link}</guid>\n'
+            f'    <category>{genre}</category>\n'
+            f'  </item>'
+        )
+
+    rss = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n'
+        '<channel>\n'
+        '  <title>Flotopic — 話題の盛り上がりをAIで追う</title>\n'
+        '  <link>https://flotopic.com/</link>\n'
+        '  <description>AIがまとめた注目トピックの最新フィード</description>\n'
+        '  <language>ja</language>\n'
+        '  <ttl>30</ttl>\n'
+        f'  <atom:link href="https://flotopic.com/rss.xml" rel="self" type="application/rss+xml"/>\n'
+        + '\n'.join(items) + '\n'
+        '</channel>\n'
+        '</rss>\n'
+    )
+
+    try:
+        s3.put_object(
+            Bucket=S3_BUCKET,
+            Key='rss.xml',
+            Body=rss.encode('utf-8'),
+            ContentType='application/rss+xml',
+            CacheControl='max-age=1800',
+        )
+        print(f'[Processor] rss.xml 更新完了 ({len(top)}件)')
+    except Exception as e:
+        print(f'[Processor] rss.xml 更新エラー: {e}')
+
+
 def generate_and_upload_sitemap(topics):
     """topics リストから sitemap.xml を生成して S3 にアップロード。"""
     if not S3_BUCKET:
