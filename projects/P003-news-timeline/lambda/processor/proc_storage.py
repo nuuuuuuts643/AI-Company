@@ -8,6 +8,24 @@ from boto3.dynamodb.conditions import Key
 from proc_config import S3_BUCKET, SLACK_WEBHOOK, TOPICS_S3_CAP, table, s3
 
 
+def needs_ai_processing(item):
+    """このトピックがAI処理を必要とするかを判定。
+
+    以下のいずれかに該当する場合は処理が必要:
+    - aiGenerated=False または未設定
+    - storyTimeline が空または未設定（4セクション形式未生成）
+    - pendingAI=True（fetcher が新記事を検知してフラグを立てた）
+    """
+    if item.get('pendingAI'):
+        return True
+    if not item.get('aiGenerated'):
+        return True
+    timeline = item.get('storyTimeline')
+    if not timeline or (isinstance(timeline, list) and len(timeline) == 0):
+        return True
+    return False
+
+
 def get_pending_topics(max_topics=100):
     """S3のpending_ai.jsonからトピックIDを取得し、DynamoDBで個別に取得。"""
     pending_ids = []
@@ -25,10 +43,10 @@ def get_pending_topics(max_topics=100):
             try:
                 r = table.get_item(
                     Key={'topicId': tid, 'SK': 'META'},
-                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,generatedTitle,generatedSummary,aiGenerated',
+                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI',
                 )
                 item = r.get('Item')
-                if item and not item.get('aiGenerated'):
+                if item and needs_ai_processing(item):
                     items.append(item)
             except Exception:
                 pass
@@ -40,7 +58,7 @@ def get_pending_topics(max_topics=100):
     items, kwargs = [], {
         'FilterExpression':        'SK = :m AND pendingAI = :t',
         'ExpressionAttributeValues': {':m': 'META', ':t': True},
-        'ProjectionExpression':    'topicId,title,articleCount,score,velocityScore,generatedTitle,generatedSummary,aiGenerated',
+        'ProjectionExpression':    'topicId,title,articleCount,score,velocityScore,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI',
     }
     while True:
         r = table.scan(**kwargs)
@@ -75,17 +93,23 @@ def get_latest_articles_for_topic(tid):
     return []
 
 
-def update_topic_with_ai(tid, gen_title, gen_story):
-    """Claude 生成タイトル・ストーリーで DynamoDB META を更新し、pendingAI をクリア。
+def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False):
+    """Claude 生成タイトル・ストーリーで DynamoDB META を更新。
 
     Args:
-        tid:       トピックID
-        gen_title: str | None — 生成タイトル
-        gen_story: dict | None — {"aiSummary": str, "timeline": list, "phase": str}
+        tid:          トピックID
+        gen_title:    str | None — 生成タイトル
+        gen_story:    dict | None — {aiSummary, spreadReason, forecast, timeline, phase}
+        ai_succeeded: bool — Claude が実際に成功したか（False なら aiGenerated は立てない）
     """
     try:
-        update_expr = 'SET aiGenerated = :t, pendingAI = :f'
-        expr_values = {':t': True, ':f': False}
+        # aiGenerated は Claude が実際に成功した時だけ True にする
+        # 失敗時に True にしてしまうと次回実行でスキップされてしまう（再発防止）
+        update_expr = 'SET pendingAI = :f'
+        expr_values = {':f': False}
+        if ai_succeeded:
+            update_expr += ', aiGenerated = :t'
+            expr_values[':t'] = True
         if gen_title:
             update_expr += ', generatedTitle = :title'
             expr_values[':title'] = gen_title
@@ -93,6 +117,12 @@ def update_topic_with_ai(tid, gen_title, gen_story):
             if gen_story.get('aiSummary'):
                 update_expr += ', generatedSummary = :summary'
                 expr_values[':summary'] = gen_story['aiSummary']
+            if gen_story.get('spreadReason'):
+                update_expr += ', spreadReason = :sr'
+                expr_values[':sr'] = gen_story['spreadReason']
+            if gen_story.get('forecast'):
+                update_expr += ', forecast = :fc'
+                expr_values[':fc'] = gen_story['forecast']
             if gen_story.get('timeline') is not None:
                 update_expr += ', storyTimeline = :timeline'
                 expr_values[':timeline'] = gen_story['timeline']

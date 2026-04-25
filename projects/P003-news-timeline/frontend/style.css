@@ -921,6 +921,22 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .story-empty { font-size: .8rem; color: #d1d5db; }
 .summary-placeholder { font-size: .86rem; color: var(--text-muted); padding: 8px 0; }
 
+/* ===== AI 4セクション分析 ===== */
+.ai-analysis-inner { display: flex; flex-direction: column; gap: 16px; }
+.ai-section { padding: 12px 14px; border-radius: 8px; background: var(--surface2, rgba(255,255,255,.04)); border-left: 3px solid var(--primary, #6366f1); }
+.ai-section-forecast { border-left-color: #10b981; }
+.ai-section-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--primary, #6366f1); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.ai-section-forecast .ai-section-label { color: #10b981; }
+.ai-section-body { font-size: .88rem; line-height: 1.75; color: var(--text-secondary); margin: 0; }
+.ai-phase-chip { display: inline-block; font-size: .72rem; font-weight: 700; color: #fff; padding: 3px 10px; border-radius: 999px; margin-bottom: 10px; }
+.ai-beats { display: flex; flex-direction: column; gap: 6px; }
+.ai-beat { display: flex; gap: 8px; align-items: flex-start; }
+.ai-beat-date { flex-shrink: 0; font-size: .72rem; color: var(--text-muted); min-width: 34px; margin-top: 1px; }
+.ai-beat-event { font-size: .82rem; color: var(--text-secondary); line-height: 1.5; }
+.ai-hypothesis-badge { font-size: .65rem; font-weight: 600; background: rgba(16,185,129,.15); color: #10b981; padding: 1px 6px; border-radius: 4px; vertical-align: middle; }
+.ai-pending { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--text-muted); padding: 10px 0; }
+.ai-pending-icon { font-size: 1.1rem; }
+
 .headline-item {
   padding: 6px 0; border-bottom: 1px solid var(--surface2);
   display: flex; gap: 8px; align-items: flex-start;
