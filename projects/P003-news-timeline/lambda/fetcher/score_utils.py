@@ -106,8 +106,14 @@ def source_diversity_score(articles: list) -> float:
         return 1.0
     sources = [a.get('source', '') for a in articles]
     counts = Counter(sources)
-    top_source_ratio = counts.most_common(1)[0][1] / len(sources)
-    return 0.8 if top_source_ratio > 0.6 else 1.0
+    top_source, top_count = counts.most_common(1)[0]
+    top_source_ratio = top_count / len(sources)
+    # NHKは権威性は高いが単独支配は減点（多様な視点がないトピックを下げる）
+    if top_source_ratio > 0.7:
+        return 0.65
+    elif top_source_ratio > 0.5:
+        return 0.80
+    return 1.0
 
 
 def calc_score(articles):
@@ -123,7 +129,10 @@ def calc_score(articles):
                 except Exception:
                     pass
 
-    base = media * 10 + hb
+    # はてなブックマークは上限30点・対数スケールで加算（テック偏重を防止）
+    import math
+    hb_score = min(int(math.log1p(hb) * 6), 30) if hb > 0 else 0
+    base = media * 10 + hb_score
 
     now_ts = datetime.now(timezone.utc).timestamp()
     recency_bonus = False
