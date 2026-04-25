@@ -436,19 +436,14 @@ function getFilteredTopics() {
 
   return allTopics
     .filter(t => {
+      // 1件記事のスタブは非表示
+      if (parseInt(t.articleCount || 0) < 2) return false;
       // lifecycleStatusフィルタ
       const lc = t.lifecycleStatus || 'active';
       if (!activeLCSet.has(lc)) return false;
-
-      // 期間フィルタ: lastUpdated（ISO文字列）を使用
-      // topics.jsonは createdAt を持たず lastUpdated のみ存在する
+      // 期間フィルタ
       const lastUp = t.lastUpdated ? new Date(t.lastUpdated).getTime() : 0;
-      const velocity = parseInt(t.velocityScore || 0);
-
-      // 期間内に更新されたトピックを全表示（velocity制限なし）
-      if (lastUp >= cutoff) return true;
-
-      return false;
+      return lastUp >= cutoff;
     })
     .sort((a, b) => {
       // velocity降順、同率なら最終更新が新しい順
@@ -620,6 +615,12 @@ document.getElementById('loadMoreBtn').addEventListener('click', () => {
   render();
 })();
 </script>
+<nav class="bottom-nav" aria-label="ナビゲーション">
+  <a href="index.html" class="bn-item"><span class="bn-icon">🏠</span><span>ホーム</span></a>
+  <a href="catchup.html" class="bn-item active"><span class="bn-icon">🕰️</span><span>ふりかえり</span></a>
+  <a href="legacy.html" class="bn-item"><span class="bn-icon">📚</span><span>アーカイブ</span></a>
+  <a href="mypage.html" class="bn-item"><span class="bn-icon">👤</span><span>マイページ</span></a>
+</nav>
 <script src="js/theme.js"></script>
 <script src="js/auth.js"></script>
 </body>
