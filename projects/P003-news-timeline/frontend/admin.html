@@ -351,6 +351,8 @@ function computeMetrics(topics) {
   // AI詳細
   const aiGenerated = topics.filter(t => t.aiGenerated).length;
   const hasTimeline = topics.filter(t => t.storyTimeline && t.storyTimeline.length > 0).length;
+  const hasImageUrl = topics.filter(t => t.imageUrl).length;
+  const hasCustomOgp = topics.filter(t => (t.imageUrl||'').startsWith('https://flotopic.com')).length;
 
   // velocity分布
   const velBuckets = { zero: 0, low: 0, mid: 0, high: 0 };
@@ -364,7 +366,7 @@ function computeMetrics(topics) {
 
   return { total, totalArticles, aiDone, totalHatena, maxHatena, updatedToday, lifecycle, genre,
            avgArticles: total > 0 ? (totalArticles/total).toFixed(1) : '0',
-           aiGenerated, hasTimeline, velBuckets };
+           aiGenerated, hasTimeline, hasImageUrl, hasCustomOgp, velBuckets };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
