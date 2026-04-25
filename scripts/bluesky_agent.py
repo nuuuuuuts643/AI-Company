@@ -235,93 +235,83 @@ def genre_tag(topic) -> str:
     return GENRE_HASHTAGS.get(genre, '#ニュース')
 
 
-# ── 日次投稿: 今日の急上昇トップ3 ───────────────────────────────────────────
+# ── 時間帯ラベル ─────────────────────────────────────────────────────────────
+
+def time_label() -> str:
+    """現在のJST時刻から「朝」「昼」「夕」を返す"""
+    jst_hour = (datetime.now(timezone.utc) + timedelta(hours=9)).hour
+    if 5 <= jst_hour < 11:
+        return '朝'
+    elif 11 <= jst_hour < 16:
+        return '昼'
+    else:
+        return '夕'
+
+
+# ── 日次投稿: 1回の実行で1トピックを単発投稿 ────────────────────────────────
 
 def post_daily(client, dry_run=False):
     """
-    velocityScore 降順で上位 3 件をスレッド形式で投稿。
-    1投稿目: 「今日の急上昇トップ3 🔥」見出し（リンクカードなし）
-    2〜4投稿目: 各トピックの詳細（タイトル・概要） + flotopic.com リンクカード
+    1回の実行でvocityScore最上位の未投稿トピックを1件だけ単発投稿する。
+    1日3回スケジュール（JST 8:00 / 12:00 / 18:00）から呼ばれることを想定。
+    各回で異なるトピックが選ばれる（投稿済みIDをDynamoDBで管理）。
 
-    BlueSky の 300 文字制限に合わせて各パート設計:
-    - 見出し: タイトルプレビュー3件 + ハッシュタグ
-    - 各詳細: 番号・タイトル・概要3行程度 + リンク
+    投稿フォーマット（300文字以内）:
+      🔥 [朝/昼/夕]の急上昇トピック
+
+      [タイトル]
+
+      [要約 ~110文字]
+
+      📄 N件の記事
+      [ジャンルハッシュタグ] #Flotopic
     """
     print('[bluesky_agent] 日次投稿 開始')
     topics     = get_topics_from_dynamodb(limit=50, sort_by='velocity')
     posted_ids = get_posted_ids()
 
-    # active トピックかつ未投稿のものに絞る
-    top3 = [
+    # active かつ未投稿のトップ1件
+    candidates = [
         t for t in topics
         if t.get('lifecycleStatus', 'active') == 'active'
         and t.get('topicId') not in posted_ids
-    ][:3]
+    ]
 
-    if not top3:
+    if not candidates:
         print('[bluesky_agent] 投稿対象トピックなし（全件投稿済みまたはトピック不足）')
         return
 
-    jst_now  = datetime.now(timezone.utc) + timedelta(hours=9)
-    date_str = jst_now.strftime('%Y年%m月%d日')
+    topic   = candidates[0]
+    title   = topic.get('generatedTitle') or topic.get('title', '')
+    summary = topic.get('generatedSummary') or topic.get('extractiveSummary', '')
+    tid     = topic.get('topicId', '')
+    cnt     = int(topic.get('articleCount', 0) or 0)
+    tag     = genre_tag(topic)
+    url     = f'{SITE_URL}/topic.html?id={tid}'
+    label   = time_label()
 
-    # ── 1投稿目（見出し）────────────────────────────────────────────────────
-    titles_preview = ' / '.join(
-        truncate(t.get('generatedTitle') or t.get('title', ''), 20) for t in top3
+    summary_line = f'{truncate(summary, 110)}\n\n' if summary else ''
+    post_text = (
+        f'🔥 {label}の急上昇トピック\n\n'
+        f'{truncate(title, 40)}\n\n'
+        f'{summary_line}'
+        f'📄 {cnt}件の記事\n'
+        f'{tag} #Flotopic'
     )
-    header_text = (
-        f'📈 {date_str} 急上昇トップ3\n\n'
-        f'{titles_preview}\n\n'
-        f'#Flotopic #ニュースまとめ'
+    post_text = post_text[:BSKY_MAX_CHARS]
+
+    embed = make_link_embed(
+        uri=url,
+        title=truncate(title, 80),
+        description=truncate(summary, 150),
     )
-    # 300文字に収める（念のためトリム）
-    header_text = header_text[:BSKY_MAX_CHARS]
 
     if dry_run:
-        print(f'[DRY-RUN] 1投稿目 ({len(header_text)}文字):\n{header_text}\n')
-        thread_ref = None
+        print(f'[DRY-RUN] ({len(post_text)}文字):\n{post_text}\n  → リンクカード: {url}\n')
     else:
-        resp       = send_post(client, header_text)
-        thread_ref = make_reply_ref(resp)
-        print(f'[bluesky_agent] 見出し投稿完了: {resp.uri}')
-
-    # ── 2〜4投稿目（各トピック詳細）────────────────────────────────────────
-    for i, topic in enumerate(top3, 1):
-        title   = topic.get('generatedTitle') or topic.get('title', '')
-        summary = topic.get('generatedSummary') or topic.get('extractiveSummary', '')
-        tid     = topic.get('topicId', '')
-        cnt     = int(topic.get('articleCount', 0) or 0)
-        tag     = genre_tag(topic)
-        url     = f'{SITE_URL}/topic.html?id={tid}'
-
-        # 本文: タイトル30文字 + 概要90文字 + 記事数 + タグ → 概ね 200 文字以内
-        post_text = (
-            f'【{i}/3】{truncate(title, 30)}\n\n'
-            f'{truncate(summary, 90)}\n\n'
-            f'📄 {cnt}件の記事\n'
-            f'{tag} #Flotopic'
-        )
-        post_text = post_text[:BSKY_MAX_CHARS]
-
-        # リンクカード embed（トピックページ）
-        embed = make_link_embed(
-            uri=url,
-            title=truncate(title, 80),
-            description=truncate(summary, 150),
-        )
-
-        if dry_run:
-            print(f'[DRY-RUN] 投稿 {i}/3 ({len(post_text)}文字):\n{post_text}\n  → リンクカード: {url}\n')
-        else:
-            resp       = send_post(client, post_text, reply_to=thread_ref, embed=embed)
-            # 次の返信先を更新（スレッドチェーン）
-            root_ref   = models.create_strong_ref(resp)
-            thread_ref = models.AppBskyFeedPost.ReplyRef(
-                root=thread_ref.root if thread_ref else root_ref,
-                parent=root_ref,
-            )
-            mark_as_posted(tid, 'daily')
-            print(f'[bluesky_agent] トピック {i}/3 投稿完了: {resp.uri}')
+        resp = send_post(client, post_text, embed=embed)
+        mark_as_posted(tid, 'daily')
+        print(f'[bluesky_agent] 投稿完了: {resp.uri}')
 
     print('[bluesky_agent] 日次投稿 完了')
 
@@ -340,7 +330,7 @@ def post_weekly(client, dry_run=False):
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     recent = []
     for t in topics:
-        updated_at = t.get('updatedAt') or t.get('createdAt', '')
+        updated_at = t.get('lastUpdated') or t.get('updatedAt') or t.get('createdAt', '')
         try:
             dt = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
             if dt >= cutoff:
@@ -401,7 +391,7 @@ def post_monthly(client, dry_run=False):
     cutoff = datetime.now(timezone.utc) - timedelta(days=30)
     recent = []
     for t in topics:
-        updated_at = t.get('updatedAt') or t.get('createdAt', '')
+        updated_at = t.get('lastUpdated') or t.get('updatedAt') or t.get('createdAt', '')
         try:
             dt = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
             if dt >= cutoff:
