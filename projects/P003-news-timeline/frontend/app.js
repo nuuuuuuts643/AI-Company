@@ -291,7 +291,7 @@ function renderTopicCard(t, i) {
   const displayStatus = isCooling ? 'declining' : (t.status || 'rising');
 
   const thumbHtml = t.imageUrl
-    ? `<div class="card-thumb"><img class="card-thumb-img" src="${esc(safeImgUrl(t.imageUrl))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.innerHTML='<div class=\\'card-thumb-placeholder ${displayStatus}\\'>${genreEmoji(primaryGenre)}</div>'"></div>`
+    ? `<div class="card-thumb"><img class="card-thumb-img" src="${esc(safeImgUrl(t.imageUrl))}" alt="" loading="lazy" referrerpolicy="origin-when-cross-origin" onerror="this.parentNode.innerHTML='<div class=\\'card-thumb-placeholder ${displayStatus}\\'>${genreEmoji(primaryGenre)}</div>'"></div>`
     : `<div class="card-thumb"><div class="card-thumb-placeholder ${displayStatus}">${genreEmoji(primaryGenre)}</div></div>`;
   const isFav    = userFavorites.has(t.topicId);
   const isViewed = viewedTopics.has(t.topicId);
