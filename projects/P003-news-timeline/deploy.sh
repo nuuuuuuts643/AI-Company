@@ -166,8 +166,7 @@ ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE}"
 # ---- 4. Fetcher Lambda ----
 echo "[4/8] Fetcher Lambda デプロイ..."
 cd lambda/fetcher
-# feedparser等の依存パッケージも含める（*.pyだけでは動かない）
-zip -q -r function.zip *.py feedparser requests certifi charset_normalizer idna urllib3 sgmllib.py sgmllib3k-1.0.0.dist-info 2>/dev/null || zip -q function.zip *.py
+zip -q function.zip *.py
 aws lambda create-function \
   --function-name "$FETCHER" \
   --runtime python3.12 \
