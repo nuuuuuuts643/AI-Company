@@ -229,8 +229,6 @@ def lambda_handler(event, context):
         _, existing = prefetched.get(tid, ([], {}))
         if existing.get('imageUrl') or any(a.get('imageUrl') for a in g):
             continue
-        if len(g) < 2:
-            continue
         jp_urls    = [a['url'] for a in g if '.jp' in a.get('url', '')]
         check_urls = jp_urls[:2] + [a['url'] for a in g[:3] if a['url'] not in jp_urls]
         if check_urls:
