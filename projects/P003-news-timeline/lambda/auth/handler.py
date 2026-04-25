@@ -60,13 +60,15 @@ def verify_google_token(id_token: str) -> dict | None:
 
 
 def get_or_create_user(payload: dict, new_handle: str = '',
-                       new_age: str = '', new_gender: str = '') -> dict:
+                       new_age: str = '', new_gender: str = '',
+                       new_nickname: str = '') -> dict:
     """DynamoDB からユーザーを取得 or 作成。プロフィールが渡されたら更新する。"""
     user_id = payload['sub']
     now_iso = datetime.now(timezone.utc).isoformat()
-    valid_handle = new_handle if (new_handle and HANDLE_RE.match(new_handle)) else ''
-    valid_age    = new_age    if new_age    in VALID_AGE_GROUPS else ''
-    valid_gender = new_gender if new_gender in VALID_GENDERS    else ''
+    valid_handle   = new_handle   if (new_handle and HANDLE_RE.match(new_handle)) else ''
+    valid_age      = new_age      if new_age    in VALID_AGE_GROUPS else ''
+    valid_gender   = new_gender   if new_gender in VALID_GENDERS    else ''
+    valid_nickname = new_nickname[:30] if new_nickname else ''
 
     try:
         result = table.get_item(Key={'userId': user_id})
@@ -88,6 +90,9 @@ def get_or_create_user(payload: dict, new_handle: str = '',
             if valid_gender:
                 expr += ', gender = :gd'
                 vals[':gd'] = valid_gender
+            if valid_nickname:
+                expr += ', nickname = :nk'
+                vals[':nk'] = valid_nickname
             table.update_item(
                 Key={'userId': user_id},
                 UpdateExpression=expr,
@@ -96,9 +101,10 @@ def get_or_create_user(payload: dict, new_handle: str = '',
             )
             existing['name']    = payload.get('name', existing.get('name', ''))
             existing['picture'] = payload.get('picture', existing.get('picture', ''))
-            if valid_handle: existing['handle']   = valid_handle
-            if valid_age:    existing['ageGroup'] = valid_age
-            if valid_gender: existing['gender']   = valid_gender
+            if valid_handle:   existing['handle']   = valid_handle
+            if valid_age:      existing['ageGroup'] = valid_age
+            if valid_gender:   existing['gender']   = valid_gender
+            if valid_nickname: existing['nickname'] = valid_nickname
             return existing
     except ClientError:
         pass
@@ -110,9 +116,10 @@ def get_or_create_user(payload: dict, new_handle: str = '',
         'picture':   payload.get('picture', ''),
         'createdAt': now_iso,
     }
-    if valid_handle: item['handle']   = valid_handle
-    if valid_age:    item['ageGroup'] = valid_age
-    if valid_gender: item['gender']   = valid_gender
+    if valid_handle:   item['handle']   = valid_handle
+    if valid_age:      item['ageGroup'] = valid_age
+    if valid_gender:   item['gender']   = valid_gender
+    if valid_nickname: item['nickname'] = valid_nickname
     table.put_item(Item=item)
     return item
 
@@ -144,11 +151,12 @@ def lambda_handler(event, context):
     if not payload:
         return resp(401, {'error': 'トークンの検証に失敗しました'})
 
-    new_handle = (data.get('handle')   or '').strip()
-    new_age    = (data.get('ageGroup') or '').strip()
-    new_gender = (data.get('gender')   or '').strip()
+    new_handle   = (data.get('handle')   or '').strip()
+    new_age      = (data.get('ageGroup') or '').strip()
+    new_gender   = (data.get('gender')   or '').strip()
+    new_nickname = (data.get('nickname') or '').strip()
     try:
-        user = get_or_create_user(payload, new_handle, new_age, new_gender)
+        user = get_or_create_user(payload, new_handle, new_age, new_gender, new_nickname)
     except Exception as e:
         return resp(500, {'error': 'ユーザーの処理に失敗しました', 'detail': str(e)})
 
@@ -159,5 +167,6 @@ def lambda_handler(event, context):
         'handle':   user.get('handle', ''),
         'ageGroup': user.get('ageGroup', ''),
         'gender':   user.get('gender', ''),
+        'nickname': user.get('nickname', ''),
         'token':    id_token,
     })

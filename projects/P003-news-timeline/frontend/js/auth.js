@@ -26,15 +26,17 @@ async function syncProfileToServer(profileData) {
       if (p.exp * 1000 < Date.now()) return;
     } catch {}
     const body = { idToken: currentUser.token };
-    if (profileData.handle)   body.handle   = profileData.handle;
-    if (profileData.ageGroup) body.ageGroup  = profileData.ageGroup;
-    if (profileData.gender)   body.gender    = profileData.gender;
+    if (profileData.handle)    body.handle    = profileData.handle;
+    if (profileData.ageGroup)  body.ageGroup  = profileData.ageGroup;
+    if (profileData.gender)    body.gender    = profileData.gender;
+    if (profileData.nickname)  body.nickname  = profileData.nickname;
     await fetch(AUTH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (profileData.handle) { currentUser.handle = profileData.handle; saveUser(currentUser); }
+    if (profileData.handle)   { currentUser.handle   = profileData.handle;   saveUser(currentUser); }
+    if (profileData.nickname) { currentUser.nickname = profileData.nickname; saveUser(currentUser); }
   } catch {}
 }
 
@@ -52,10 +54,12 @@ function mergeServerProfile(data) {
     if (data.handle   && !prof.handle)   { prof.handle   = data.handle;   changed = true; }
     if (data.ageGroup && !prof.ageGroup) { prof.ageGroup = data.ageGroup; changed = true; }
     if (data.gender   && !prof.gender)   { prof.gender   = data.gender;   changed = true; }
-    // handleが一致していればageGroup/genderもサーバー値で上書き（クロスデバイス同期）
+    if (data.nickname && !prof.nickname) { prof.nickname = data.nickname; changed = true; }
+    // handleが一致していればageGroup/gender/nicknameもサーバー値で上書き（クロスデバイス同期）
     if (data.handle && prof.handle === data.handle) {
       if (data.ageGroup) { prof.ageGroup = data.ageGroup; changed = true; }
       if (data.gender)   { prof.gender   = data.gender;   changed = true; }
+      if (data.nickname) { prof.nickname = data.nickname; changed = true; }
     }
     if (changed) localStorage.setItem('flotopic_profile', JSON.stringify(prof));
   } catch {}

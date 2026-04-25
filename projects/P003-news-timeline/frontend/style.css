@@ -223,15 +223,21 @@ header p { color: var(--text-muted); font-size: .75rem; margin-top: 1px; font-we
 .search-row .search-bar { flex: 1; margin-bottom: 0; }
 .catchup-icon-btn {
   flex-shrink: 0;
-  font-size: 1.25rem;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
   text-decoration: none;
-  opacity: 0.7;
-  padding: 6px;
-  border-radius: 50%;
-  transition: opacity .15s, background .15s;
+  color: var(--text2);
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  white-space: nowrap;
+  transition: border-color .15s, color .15s, background .15s;
 }
-.catchup-icon-btn:hover { opacity: 1; background: var(--surface2); }
+.catchup-icon-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--surface2); }
+.catchup-btn-label { font-size: 0.8rem; }
 
 /* ===== SEARCH ===== */
 .search-bar { margin-bottom: 12px; }
