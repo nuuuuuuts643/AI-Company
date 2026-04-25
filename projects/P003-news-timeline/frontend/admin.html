@@ -754,6 +754,8 @@ function renderCharts(m) {
     { label: '全トピック',          val: m.total,         color: '#58a6ff' },
     { label: 'aiGenerated',        val: m.aiGenerated,   color: '#3fb950' },
     { label: 'storyTimeline 有',   val: m.hasTimeline,   color: '#39d3aa' },
+    { label: 'imageUrl 有',         val: m.hasImageUrl,   color: '#f78166' },
+    { label: 'カスタムOGP生成済',   val: m.hasCustomOgp,  color: '#d2a8ff' },
   ];
   const pmx = pipelineSteps[0].val;
   document.getElementById('chart-ai-pipeline').innerHTML =
