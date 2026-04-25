@@ -220,7 +220,7 @@ cat /Users/murakaminaoya/.claude/projects/-Users-murakaminaoya-ai-company/memory
 | CI (.github/workflows/ci.yml) | ✅ 全テスト通過 | 2026-04-25 | YAML バグ修正済み（2022-04-22以来初めて通過） |
 | sw.js バージョン管理 | ✅ 自動 | 2026-04-25 | git SHA 自動注入。ソースは `flotopic-dev` のまま触るな |
 | deploy-p003.yml | ✅ CloudFront invalidation付き | 2026-04-25 | sw.js SHA注入ステップあり |
-| processor AI要約 | ✅ 稼働中（カバレッジ改善中） | 2026-04-26 | storyTimeline: 41.4%（48→123件）・generatedSummary: 56.2%（112→167件）。DynamoDB全スキャンで欠如トピック再生成中 |
+| processor AI要約 | ✅ 稼働中（カバレッジ改善中） | 2026-04-26 | storyTimeline: 65.1%（188/289件）・generatedSummary: 74.0%（214件）・imageUrl: 55.7%。3回目手動トリガー中（154件残り）|
 | sitemap.xml | ✅ 動的自動生成 | 2026-04-25 | 最新生成確認済み（2026-04-25 19:42）。202URL |
 | news-sitemap.xml | ✅ 実装済み | 2026-04-25 | Google News Sitemap。processor実行時に自動生成。robots.txtに記載済み |
 | rss.xml | ✅ 品質フィルタ済み | 2026-04-25 | 同一イベント重複抑制あり（最大2件/イベント）・株価ticker除外 |
@@ -253,7 +253,7 @@ cat /Users/murakaminaoya/.claude/projects/-Users-murakaminaoya-ai-company/memory
 | processor _dedup_topics | ✅ 完了 | 2026-04-26 | topics.json再生成時のAIタイトル生成後重複表示を防止 |
 | fetcher orphan storyTimeline欠如 | ✅ 完了 | 2026-04-26 | generatedSummary+aiGeneratedあり但しstoryTimeline欠如のトピックをorphan追加対象に修正 |
 | モバイル広告ラッパー | ✅ 強化 | 2026-04-26 | position:relative追加でiframeクリッピング確実化 |
-| AI要約カバレッジ | ✅ 59% | 2026-04-26 | 21.8%→59%に改善（アクティブは67%）。pending_ai.json空→次回フルスキャン予定 |
+| AI要約カバレッジ | ✅ 65.1% | 2026-04-26 | 16.2%→65.1%まで急改善。processor手動トリガー×3で加速。154件処理中 |
 | flotopic-notifications テーブル | ✅ 作成済み | 2026-04-26 | PK=handle/SK=SK/TTL=30日。IAMポリシー(flotopic-least-privilege)に権限追加済み |
 | p003-comments 通知権限 | ✅ 修正済み | 2026-04-26 | AccessDeniedException解消（flotopic-notificationsテーブル+IAM権限追加） |
 
@@ -324,7 +324,7 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 - ~~about.html FAQ + FAQPage JSON-LD~~ ✅ 2026-04-25 完了
 
 ### 優先度2: コンテンツ品質（Claude実行可能）
-- AI要約カバレッジ向上（41.4%まで回復、251件残りpending。processor手動トリガー×2で処理加速中）
+- AI要約カバレッジ向上（65.1%。154件処理中。スケジュール実行で自動改善継続）
 - ~~processor Lambda メモリ 512MB~~ ✅ 確認済み（既に512MB）
 - velocity=0 の停滞トピック → lifecycle Lambda(ARCHIVE_DAYS=7)が次週月曜に自動整理
 - ~~Bluesky 自動投稿~~ ✅ 稼働確認済み
