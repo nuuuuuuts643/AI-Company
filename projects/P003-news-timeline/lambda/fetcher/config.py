@@ -8,9 +8,11 @@ ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 SLACK_WEBHOOK     = os.environ.get('SLACK_WEBHOOK', '')
 SITE_URL          = os.environ.get('SITE_URL', 'https://flotopic.com')
 
-dynamodb = boto3.resource('dynamodb', region_name=REGION)
+from botocore.config import Config as BotocoreConfig
+_boto_cfg = BotocoreConfig(max_pool_connections=50)
+dynamodb = boto3.resource('dynamodb', region_name=REGION, config=_boto_cfg)
 table    = dynamodb.Table(TABLE_NAME)
-s3       = boto3.client('s3', region_name=REGION)
+s3       = boto3.client('s3', region_name=REGION, config=_boto_cfg)
 
 RSS_FEEDS = [
     # ===== Google News（日本語・カテゴリ別）=====

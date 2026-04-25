@@ -14,7 +14,8 @@ from score_utils import apply_time_decay
 
 
 def dec_convert(obj):
-    if isinstance(obj, Decimal): return int(obj)
+    if isinstance(obj, Decimal):
+        return int(obj) if obj == obj.to_integral_value() else float(obj)
     raise TypeError
 
 
