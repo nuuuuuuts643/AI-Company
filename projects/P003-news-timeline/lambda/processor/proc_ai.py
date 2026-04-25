@@ -54,14 +54,22 @@ def generate_title(articles):
         return None
 
 
-def _format_pub_date(raw_date: str) -> str:
-    """pubDate文字列を 'M/D' 形式に変換。パース失敗時は空文字を返す。"""
+def _format_pub_date(raw_date) -> str:
+    """pubDate（文字列またはUnix秒整数）を 'M/D' 形式に変換。パース失敗時は空文字を返す。"""
     if not raw_date:
         return ''
+    # Unix timestamp（整数または数値文字列）
+    try:
+        ts = int(raw_date)
+        if ts > 1_000_000_000:
+            dt = datetime.utcfromtimestamp(ts if ts < 1e11 else ts / 1000)
+            return f'{dt.month}/{dt.day}'
+    except (TypeError, ValueError):
+        pass
     for fmt in ('%Y-%m-%dT%H:%M:%S%z', '%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%dT%H:%M:%S',
                 '%Y-%m-%d', '%a, %d %b %Y %H:%M:%S %z', '%a, %d %b %Y %H:%M:%S GMT'):
         try:
-            dt = datetime.strptime(raw_date[:len(fmt)], fmt)
+            dt = datetime.strptime(str(raw_date)[:len(fmt)], fmt)
             return f'{dt.month}/{dt.day}'
         except ValueError:
             continue
