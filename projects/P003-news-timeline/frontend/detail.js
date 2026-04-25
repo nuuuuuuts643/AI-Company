@@ -159,15 +159,42 @@ function renderDetail(data) {
     }
   }
 
+  // ── storyTimeline / storyPhase 表示 ───────────────────────────
+  const aiStoryEl = document.getElementById('ai-story-timeline');
+  if (aiStoryEl) {
+    const beats = Array.isArray(meta.storyTimeline) ? meta.storyTimeline : [];
+    const phase = meta.storyPhase || '';
+    const PHASE_COLOR = { '発端':'#f59e0b','拡散':'#3b82f6','ピーク':'#ef4444','現在地':'#10b981' };
+    if (beats.length) {
+      const phaseHtml = phase
+        ? `<span style="display:inline-block;background:${PHASE_COLOR[phase]||'#6366f1'};color:#fff;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;margin-bottom:10px;">📍 現在のフェーズ：${esc(phase)}</span>`
+        : '';
+      const beatsHtml = beats.map(b =>
+        `<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;">
+           <span style="flex-shrink:0;font-size:.72rem;color:var(--text-muted);min-width:36px;margin-top:1px;">${esc(b.date||'')}</span>
+           <span style="font-size:.82rem;color:var(--text-secondary);line-height:1.5;">${esc(b.event||'')}</span>
+         </div>`
+      ).join('');
+      aiStoryEl.innerHTML = `<div style="border-left:3px solid var(--primary,#6366f1);padding-left:12px;">${phaseHtml}${beatsHtml}</div>`;
+      aiStoryEl.style.display = 'block';
+    } else {
+      aiStoryEl.style.display = 'none';
+    }
+  }
+
   const canvas = document.getElementById('score-chart');
   const vCanvas = document.getElementById('views-chart');
   const noData = document.getElementById('no-data');
   if (canvas) {
+    const chartCard = canvas.closest('.card');
     if (timeline.length < 2) {
-      const chartCard = canvas.closest('.card');
       if (chartCard) {
-        chartCard.querySelector('.chart-header') && (chartCard.querySelector('.chart-header').style.display = 'none');
+        const header = chartCard.querySelector('.chart-header');
+        if (header) header.style.display = 'none';
+        // 既存プレースホルダーを削除してから追加（重複防止）
+        chartCard.querySelectorAll('.chart-placeholder').forEach(el => el.remove());
         const ph = document.createElement('div');
+        ph.className = 'chart-placeholder';
         ph.style.cssText = 'padding:20px;text-align:center;color:var(--text-muted);font-size:.85rem;';
         ph.textContent = '⏳ グラフデータを蓄積中です（30分ごとに更新）';
         chartCard.appendChild(ph);
@@ -175,6 +202,12 @@ function renderDetail(data) {
         if (vCanvas) vCanvas.style.display = 'none';
       }
     } else {
+      if (chartCard) {
+        // プレースホルダー削除 & chart-header 復元
+        chartCard.querySelectorAll('.chart-placeholder').forEach(el => el.remove());
+        const header = chartCard.querySelector('.chart-header');
+        if (header) header.style.display = '';
+      }
       canvas.style.display='block'; if(vCanvas) vCanvas.style.display='block'; if(noData) noData.style.display='none';
 
       const buildCharts = (rangeHours) => {

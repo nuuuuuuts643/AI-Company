@@ -455,7 +455,8 @@ function updatePostAvatar() {
   if (!col) return;
   if (currentUser && currentUser.picture) {
     col.innerHTML = `<img class="cx-post-avatar" src="${esc(currentUser.picture)}" alt=""
-      onerror="this.innerHTML='<div class=cx-post-avatar-init>${esc(initials(currentUser.name || '?'))}</div>'">`;
+      onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` +
+      `<div class="cx-post-avatar-init" style="display:none">${esc(initials(currentUser.name || '?'))}</div>`;
   } else if (currentUser) {
     col.innerHTML = `<div class="cx-post-avatar-init">${esc(initials(currentUser.name || '?'))}</div>`;
   }
