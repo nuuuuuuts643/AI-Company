@@ -133,9 +133,15 @@ const SOURCE_DOMAIN_MAP = {
 };
 function srcFaviconUrl(source) {
   if (!source) return '';
-  const domain = SOURCE_DOMAIN_MAP[source] || (source.includes('.') && !source.includes(' ') ? source : null);
-  if (!domain) return '';
+  const raw = SOURCE_DOMAIN_MAP[source] || (source.includes('.') && !source.includes(' ') ? source : null);
+  if (!raw) return '';
+  const domain = raw.replace(/^https?:\/\//, '').split('/')[0];
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16`;
+}
+
+function safeImgUrl(url) {
+  if (!url) return '';
+  return url.replace(/^http:\/\//i, 'https://');
 }
 function srcFaviconImg(source) {
   const url = srcFaviconUrl(source);
@@ -285,7 +291,7 @@ function renderTopicCard(t, i) {
   const displayStatus = isCooling ? 'declining' : (t.status || 'rising');
 
   const thumbHtml = t.imageUrl
-    ? `<div class="card-thumb"><img class="card-thumb-img" src="${esc(t.imageUrl)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<div class=\\'card-thumb-placeholder ${displayStatus}\\'>${genreEmoji(primaryGenre)}</div>'"></div>`
+    ? `<div class="card-thumb"><img class="card-thumb-img" src="${esc(safeImgUrl(t.imageUrl))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.innerHTML='<div class=\\'card-thumb-placeholder ${displayStatus}\\'>${genreEmoji(primaryGenre)}</div>'"></div>`
     : `<div class="card-thumb"><div class="card-thumb-placeholder ${displayStatus}">${genreEmoji(primaryGenre)}</div></div>`;
   const isFav    = userFavorites.has(t.topicId);
   const isViewed = viewedTopics.has(t.topicId);
@@ -491,14 +497,35 @@ const WMO = {
 async function loadWeather() {
   const el = document.getElementById('weather-widget');
   if (!el) return;
-  try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=35.68&longitude=139.69&current=temperature_2m,weather_code&timezone=Asia%2FTokyo&forecast_days=1`;
+
+  async function fetchWeather(lat, lon, cityName) {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Tokyo';
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=${encodeURIComponent(tz)}&forecast_days=1`;
     const r = await fetch(url);
     const d = await r.json();
     const temp = Math.round(d.current.temperature_2m);
     const desc = WMO[d.current.weather_code] || '―';
-    el.innerHTML = `<span class="weather-city">東京</span><span class="weather-desc">${desc}</span><span class="weather-temp">${temp}°C</span>`;
-  } catch { el.textContent = ''; }
+    el.innerHTML = `<span class="weather-city">${cityName}</span><span class="weather-desc">${desc}</span><span class="weather-temp">${temp}°C</span>`;
+  }
+
+  try {
+    if (!navigator.geolocation) throw new Error('no geolocation');
+    const pos = await new Promise((resolve, reject) =>
+      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 })
+    );
+    const { latitude: lat, longitude: lon } = pos.coords;
+    // Nominatim で都市名を逆ジオコーディング
+    let cityName = '';
+    try {
+      const gr = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ja`, { headers: { 'Accept-Language': 'ja' } });
+      const gd = await gr.json();
+      cityName = gd.address?.city || gd.address?.town || gd.address?.county || gd.address?.state || '';
+    } catch {}
+    await fetchWeather(lat, lon, cityName || '現在地');
+  } catch {
+    // 位置情報が取れない場合は東京にフォールバック
+    try { await fetchWeather(35.68, 139.69, '東京'); } catch { el.textContent = ''; }
+  }
 }
 
 function setupSearch() {
