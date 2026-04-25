@@ -9,6 +9,7 @@ Disallow: /admin.html
 Disallow: /js/auth.js
 Crawl-delay: 10
 Sitemap: https://flotopic.com/sitemap.xml
+Sitemap: https://flotopic.com/news-sitemap.xml
 
 # スクレイピング・SEO分析系bot（過剰クロール防止）
 User-agent: Baiduspider
