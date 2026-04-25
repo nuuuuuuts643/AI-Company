@@ -712,37 +712,45 @@ function renderAffiliate(meta) {
   const linksEl = document.getElementById('affiliate-links');
   if (!section || !linksEl) return;
 
-  const amazonTag   = (typeof AFFILIATE_AMAZON_TAG  !== 'undefined') ? AFFILIATE_AMAZON_TAG  : '';
-  const rakutenId   = (typeof AFFILIATE_RAKUTEN_ID  !== 'undefined') ? AFFILIATE_RAKUTEN_ID  : '';
+  const moshimoId = (typeof AFFILIATE_MOSHIMO_A_ID !== 'undefined') ? AFFILIATE_MOSHIMO_A_ID : '';
+  const amazonTag = (typeof AFFILIATE_AMAZON_TAG   !== 'undefined') ? AFFILIATE_AMAZON_TAG   : '';
+  const rakutenId = (typeof AFFILIATE_RAKUTEN_ID   !== 'undefined') ? AFFILIATE_RAKUTEN_ID   : '';
 
-  if (!amazonTag && !rakutenId) return;
+  if (!moshimoId && !amazonTag && !rakutenId) return;
 
   const rawTitle = meta.generatedTitle || meta.title || '';
   const keyword  = rawTitle.replace(/[【】「」『』（）()【】\[\]]/g, '').trim().slice(0, 40);
   if (!keyword) return;
 
+  const q    = encodeURIComponent(keyword);
   const items = [];
 
-  if (amazonTag) {
-    const q = encodeURIComponent(keyword);
-    items.push({
-      href:      `https://www.amazon.co.jp/s?k=${q}&tag=${encodeURIComponent(amazonTag)}`,
-      logoClass: 'amazon',
-      logoText:  '🛒',
-      shop:      'Amazon.co.jp',
-      label:     `「${keyword}」をAmazonで探す`,
-    });
-  }
-
-  if (rakutenId) {
-    const q = encodeURIComponent(keyword);
-    items.push({
-      href:      `https://hb.afl.rakuten.co.jp/hgc/${encodeURIComponent(rakutenId)}/?pc=https://search.rakuten.co.jp/search/mall/${q}/`,
-      logoClass: 'rakuten',
-      logoText:  '楽天',
-      shop:      '楽天市場',
-      label:     `「${keyword}」を楽天市場で探す`,
-    });
+  if (moshimoId) {
+    const aid = encodeURIComponent(moshimoId);
+    const amzUrl = encodeURIComponent(`https://www.amazon.co.jp/s?k=${q}`);
+    const rktUrl = encodeURIComponent(`https://search.rakuten.co.jp/search/mall/${q}/`);
+    const yhsUrl = encodeURIComponent(`https://shopping.yahoo.co.jp/search?p=${q}`);
+    items.push(
+      { href: `https://af.moshimo.com/af/c/click?a_id=${aid}&p_id=170&pc_id=185&pl_id=4062&url=${amzUrl}`,
+        logoClass: 'amazon', logoText: '🛒', shop: 'Amazon.co.jp', label: `「${keyword}」をAmazonで探す` },
+      { href: `https://af.moshimo.com/af/c/click?a_id=${aid}&p_id=54&pc_id=53&pl_id=616&url=${rktUrl}`,
+        logoClass: 'rakuten', logoText: '楽天', shop: '楽天市場', label: `「${keyword}」を楽天市場で探す` },
+      { href: `https://af.moshimo.com/af/c/click?a_id=${aid}&p_id=1225&pc_id=2254&pl_id=7610&url=${yhsUrl}`,
+        logoClass: 'yahoo', logoText: 'Y!', shop: 'Yahoo!ショッピング', label: `「${keyword}」をYahoo!ショッピングで探す` },
+    );
+  } else {
+    if (amazonTag) {
+      items.push({
+        href: `https://www.amazon.co.jp/s?k=${q}&tag=${encodeURIComponent(amazonTag)}`,
+        logoClass: 'amazon', logoText: '🛒', shop: 'Amazon.co.jp', label: `「${keyword}」をAmazonで探す`,
+      });
+    }
+    if (rakutenId) {
+      items.push({
+        href: `https://hb.afl.rakuten.co.jp/hgc/${encodeURIComponent(rakutenId)}/?pc=https://search.rakuten.co.jp/search/mall/${q}/`,
+        logoClass: 'rakuten', logoText: '楽天', shop: '楽天市場', label: `「${keyword}」を楽天市場で探す`,
+      });
+    }
   }
 
   if (!items.length) return;
