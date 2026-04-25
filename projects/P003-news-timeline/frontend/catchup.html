@@ -185,6 +185,7 @@
     .badge-lc.active   { background: rgba(34,197,94,0.15); color: #22c55e; }
     .badge-lc.cooling  { background: rgba(245,158,11,0.15); color: #f59e0b; }
     .badge-lc.archived { background: rgba(107,114,128,0.15); color: #9ca3af; }
+    .badge-phase { font-size: .7rem; font-weight: 600; color: #6366f1; background: #eef2ff; border-radius: 999px; padding: 2px 8px; }
 
     .catchup-card h2 {
       font-size: 1.05rem;
@@ -526,11 +527,16 @@ function buildCard(topic) {
   const lcLabels = { active: 'active', cooling: 'cooling', archived: 'archived' };
   const lcTexts  = { active: '進行中', cooling: '沈静化中', archived: '終息' };
 
+  const PHASE_BADGE = { '発端':'🌱 発端', '拡散':'📡 拡散', 'ピーク':'🔥 ピーク', '現在地':'📍 現在地', '収束':'✅ 収束' };
+  const phaseBadge = topic.storyPhase && PHASE_BADGE[topic.storyPhase]
+    ? `<span class="badge-phase">${PHASE_BADGE[topic.storyPhase]}</span>` : '';
+
   const badges = `
     <div class="badge-row">
       ${isNew ? '<span class="badge-new">NEW</span>' : ''}
       ${isHot && !isNew ? '<span class="badge-hot">🔥 急上昇</span>' : ''}
       <span class="badge-lc ${lcLabels[lc] || 'active'}">${lcTexts[lc] || '進行中'}</span>
+      ${phaseBadge}
     </div>`;
 
   const timelineText = buildTimelineText(topic);
