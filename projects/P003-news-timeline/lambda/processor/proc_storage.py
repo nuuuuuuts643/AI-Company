@@ -44,11 +44,9 @@ def get_pending_topics(max_topics=100):
     if pending_ids:
         items = []
         still_pending = []
-        # 全IDを走査し、未処理のものを収集しながら処理済みIDも整理する
+        # 全IDを走査。削除済み・処理済みIDを取り除く（上限なし）。
+        # 収集アイテム数がmax_topics*3を超えても走査を続け、削除済みIDの清掃は常に行う。
         for tid in pending_ids:
-            if len(items) >= max_topics * 3:
-                still_pending.append(tid)
-                continue
             try:
                 r = table.get_item(
                     Key={'topicId': tid, 'SK': 'META'},
@@ -56,8 +54,9 @@ def get_pending_topics(max_topics=100):
                 )
                 item = r.get('Item')
                 if item and needs_ai_processing(item):
-                    items.append(item)
                     still_pending.append(tid)
+                    if len(items) < max_topics * 3:
+                        items.append(item)
                 # 存在しないIDまたは処理済みIDはstill_pendingに追加しない（自動クリーンアップ）
             except Exception:
                 still_pending.append(tid)
