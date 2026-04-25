@@ -558,11 +558,11 @@ def lambda_handler(event, context):
 
         write_s3('api/pending_ai.json', {'topicIds': pending_ids, 'updatedAt': ts_iso})
         generate_rss(topics, ts_iso)
-        generate_sitemap(topics)
+        generate_sitemap(topics_deduped)  # 公開対象のみsitemapに含める
 
         _TOPIC_INTERNAL = {'SK', 'pendingAI', 'ttl'}
         s3_written = 0
-        for tid in saved_ids:
+        for tid in (tid for tid in saved_ids if tid in deduped_tids):
             meta, snaps, views = get_topic_detail(tid)
             if meta:
                 s3_written += 1
