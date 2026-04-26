@@ -56,7 +56,7 @@ function showErrorBanner(message) {
 }
 
 const STATUS_LABEL = { rising:'🔥 急上昇', peak:'⚡ 注目中', declining:'📉 落ち着き', cooling:'📉 落ち着き' };
-const PHASE_BADGE  = { '発端':'🌱 発端', '拡散':'📡 拡散', 'ピーク':'🔥 ピーク', '現在地':'📍 現在地', '収束':'✅ 収束' };
+const PHASE_BADGE  = { '発端':'🌱 始まり', '拡散':'📡 広まってる', 'ピーク':'🔥 急上昇', '現在地':'📍 進行中', '収束':'✅ ひと段落' };
 const PHASE_CLASS  = { '発端':'phase-start', '拡散':'phase-spread', 'ピーク':'phase-peak', '現在地':'phase-now', '収束':'phase-end' };
 
 function cleanSummary(s) {
@@ -100,6 +100,7 @@ let allTopics = [], currentStatus = _urlFilter || _prefs.status || 'all', curren
 let currentPage = 1;
 let lastFetchTime = null;
 let _nativeAdIdx = -1;
+let _pendingHeroHighlight = false;
 
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -687,7 +688,7 @@ function renderHeroStoryPreview(topics) {
     .filter(t => t.storyPhase && t.lifecycleStatus !== 'archived')
     .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0))[0];
   if (!candidate) { el.style.display = 'none'; return; }
-  const _PHASE_BADGE = { '発端':'🌱 発端', '拡散':'📡 拡散', 'ピーク':'🔥 ピーク', '現在地':'📍 現在地', '収束':'✅ 収束' };
+  const _PHASE_BADGE = { '発端':'🌱 始まり', '拡散':'📡 広まってる', 'ピーク':'🔥 急上昇', '現在地':'📍 進行中', '収束':'✅ ひと段落' };
   const phaseLabel = _PHASE_BADGE[candidate.storyPhase] || candidate.storyPhase;
   const title = esc(candidate.generatedTitle || candidate.title);
   el.innerHTML = `
@@ -708,6 +709,7 @@ function showOnboardingTip() {
 }
 
 window.flotopicDismissOnboarding = function() {
+  _pendingHeroHighlight = true;
   localStorage.setItem('flotopic_onboarded', '1');
   const el = document.getElementById('onboarding-tip');
   if (el) el.style.display = 'none';
@@ -750,6 +752,15 @@ function dismissGenreOnboarding() {
     const s = document.getElementById('go-sheet');
     if (o) o.remove();
     if (s) s.remove();
+    if (_pendingHeroHighlight) {
+      _pendingHeroHighlight = false;
+      const hero = document.getElementById('hero-story-preview');
+      if (hero && hero.style.display !== 'none') {
+        hero.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        hero.classList.add('hero-story-pulse');
+        setTimeout(() => hero.classList.remove('hero-story-pulse'), 3500);
+      }
+    }
   }, 300);
 }
 
