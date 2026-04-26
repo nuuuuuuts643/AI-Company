@@ -25,39 +25,18 @@ cat WORKING.md
 - エラーが出ても止まらず最後まで実行する
 - 完了後に「✅ 起動チェック完了」と報告してからユーザーの指示を待つ。
 
-## ⚡ セッション自動ロール判定（2026-04-26 制定）
-
-`cat WORKING.md` の結果を見て、**POが何も言わなくても** 自動的にロールを決定する：
-
-| WORKING.md の状態 | 判定ロール | 動き方 |
-|---|---|---|
-| 「現在着手中」テーブルが空 | **finder** | コード・ログ読み取り → TASKS.md 未着手テーブルに問題を追記（コードは触らない） |
-| 他セッションが着手中 + TASKS.md に未着手あり | **implementer** | 未着手から1件取得 → WORKING.md に宣言 → 実装 → 完了後 HISTORY.md に移動 |
-| 他セッションが着手中 + TASKS.md 未着手なし | **finder** | 新しい改善点を探して TASKS.md に追記する |
-
-> POがロールを指定した場合はその指示を優先する。
-
 ## ⚡ セッションロール（2026-04-26 制定）
 
-複数セッションを並走させる場合、各セッションに役割を割り当てて事故を防ぐ。
+`cat WORKING.md` の結果を見て自動ロール判定（PO指定が最優先）：
 
-| ロール | できること | できないこと |
+| WORKING.md状態 | ロール | 動き方 |
 |---|---|---|
-| **finder** | コード読み取り・TASKS.md 追記・CloudWatch/DynamoDB 確認 | コードファイルの編集 |
-| **implementer** | TASKS.md からタスク取得・コード編集・WORKING.md 管理 | TASKS.md への新規タスク追加 |
+| 着手中テーブルが空 | **finder** | コード読み取り→TASKS.md未着手に問題追記（コード編集禁止） |
+| 他セッション着手中+未着手あり | **implementer** | 未着手取得→WORKING.md宣言→実装→`bash done.sh T000`→HISTORY.md |
+| 他セッション着手中+未着手なし | **finder** | 新改善点を探してTASKS.md追記 |
 
-**finder セッションの動き方：**
-1. コードを読んで問題・改善点を探す
-2. `TASKS.md` の「未着手」テーブルに追記する（**コードファイルは一切触らない**）
-3. 30分ごとに `git pull --rebase && cat TASKS.md` で他セッションの進捗を確認
-
-**implementer セッションの動き方：**
-1. `cat TASKS.md` で未着手タスクを確認
-2. WORKING.md に宣言 → 実装
-3. 完了後は **必ず `bash done.sh T000` を実行**（WORKING.md・TASKS.md削除＋commit＋pushを一括処理）
-4. その後 HISTORY.md に詳細を追記する
-
-> **done.sh を使う理由**: 手動でWORKING.md・TASKS.md・commitを個別にやるとクラッシュで途中止まる。done.shは冪等（何度実行しても同じ結果）なので再実行で確実に完了できる。
+- **finder**: コード読み取り・TASKS.md追記・CloudWatch確認のみ（コード編集禁止）
+- **implementer**: `done.sh` は冪等（何度実行しても同じ結果）。クラッシュ後も再実行で完了できる
 
 ---
 
