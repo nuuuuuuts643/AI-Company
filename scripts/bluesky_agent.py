@@ -342,6 +342,8 @@ def post_daily(client, dry_run=False):
         hook = f'📢 注目: {_t}\nなぜこれほど広がっているのか、背景と経緯'
     elif phase == 'ピーク':
         hook = f'🔥 急上昇中: {_t}\nなぜ今これほど話題になっているのか'
+    elif phase == '現在地':
+        hook = f'📍 進行中: {_t}\n今どの段階まで進んでいるのか、経緯を追う'
     elif phase == '収束':
         hook = f'📋 まとめ: {_t}\n何が起きたのか、全容を振り返る'
     else:
