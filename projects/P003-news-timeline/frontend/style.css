@@ -1620,6 +1620,9 @@ details[open] .day-more-btn::before { content: '▼ '; }
   font-weight: 600;
 }
 .trending-banner a { color: white; text-decoration: underline; }
+@media (max-width: 768px) {
+  .trending-banner { display: none; }
+}
 
 /* ===== GENRE BORDER COLORS ===== */
 .topic-card.genre-politics::before      { background: #3b82f6; }
