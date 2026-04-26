@@ -39,3 +39,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
 | T047 リワインド統一+legacy廃止 | catchup.html,legacy.html,index.html,全ナビ,sw.js | 2026-04-26 |
+| T048 ジャンル表記揺れ修正 | DynamoDB p003-topics + processor | 2026-04-26 15:40 |
+| T049 processor 4x/day | EventBridge p003-processor-schedule | 2026-04-26 15:40 |
