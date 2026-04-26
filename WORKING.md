@@ -39,4 +39,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
 | T029 mypage.htmlに広告追加（残作業） | frontend/mypage.html | 2026-04-26 14:20 |
-| T027 モバイル専用広告枠追加 | frontend/index.html, frontend/topic.html, frontend/style.css | 2026-04-26 14:30 |

@@ -12,7 +12,6 @@
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
 | T019 | 中 | **SES本番アクセス申請後のLambda環境変数設定**。AWSコンソール → Lambda `p003-contact` → 環境変数 → `TO_EMAIL` に受信メールアドレスを設定。SES本番承認後に実施（PO手動） | — | 2026-04-26 |
-| T027 | 高 | **モバイル専用広告枠追加（320×50）**。admax-id=`570fe6c87677ba7c5417119c60ca979d`取得済み。index.html・topic.htmlにモバイル専用スロット追加、既存728×90は`@media(min-width:768px)`のみ表示に変更。shinobiスクリプトはページ1回のみ読み込む点に注意 | frontend/index.html, topic.html, style.css | 2026-04-26 |
 | T029 | 高 | **mypage.htmlに広告追加（残作業）**。legacy.html・catchup.htmlは実装済み。mypage.htmlのみ未対応。shinobiスクリプトとad-728-scale-wrapper（728×90 PC用 + 320×50 SP用）を追加 | frontend/mypage.html | 2026-04-26 |
 | T030 | 中 | **トレンド可視化強化**。「どれが流行か分かりにくい」課題。velocityスコアをカードに視覚表示（バー・色・サイズ差）し一目でトレンドが分かるUIに改善。既存の🔥ストリップを補完する形で実装 | frontend/app.js, style.css | 2026-04-26 |
 | T031 | 低 | **ファイル分割・保守性向上**。app.js(大)・detail.js(大)が肥大化。広告・アフィリエイト・通知・履歴など機能別にjsファイルを分割し、将来の拡張・テストを容易にする。実装時に段階的に分割 | frontend/app.js, detail.js | 2026-04-26 |
