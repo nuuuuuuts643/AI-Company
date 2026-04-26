@@ -609,10 +609,12 @@ async function refreshTopics() {
     const raw = await loadTopics();
     // velocityScore に時間減衰を適用してソート（古いトピックを下に送る）
     const nowSec2 = Date.now() / 1000;
+    // AI要約済みは1.0、未要約は0.80（同スコア帯で要約済みを上位に）
+    const aiMult = t => t.generatedSummary ? 1.0 : 0.80;
     const decayedVS = t => {
       const vs  = Number(t.velocityScore || 0);
       const age = nowSec2 - toUnixSec(t.lastUpdated); // 秒
-      if (age <= 0 || !toUnixSec(t.lastUpdated)) return vs;
+      if (age <= 0 || !toUnixSec(t.lastUpdated)) return vs * aiMult(t);
       const h = age / 3600;
       // 6h未満: 100% / 12h: 85% / 24h: 65% / 48h: 40% / 72h以上: 20%
       const decay = h < 6  ? 1.0
@@ -620,12 +622,12 @@ async function refreshTopics() {
                   : h < 24 ? 0.65
                   : h < 48 ? 0.40
                   :          0.20;
-      return vs * decay;
+      return vs * decay * aiMult(t);
     };
     allTopics = raw.sort((a, b) => {
       const vs = decayedVS(b) - decayedVS(a);
       if (Math.abs(vs) > 0.5) return vs;
-      const sc = Number(b.score || 0) - Number(a.score || 0);
+      const sc = Number(b.score || 0) * aiMult(b) - Number(a.score || 0) * aiMult(a);
       if (sc !== 0) return sc;
       return (b.lastUpdated || '').localeCompare(a.lastUpdated || '');
     });
