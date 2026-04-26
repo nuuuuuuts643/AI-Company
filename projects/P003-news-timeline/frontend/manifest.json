@@ -22,9 +22,9 @@
       "description": "急上昇中のトピックを見る"
     },
     {
-      "name": "クロニクル",
+      "name": "リワインド",
       "url": "/catchup.html",
-      "description": "過去の注目トピックを振り返る"
+      "description": "離れていた間のニュースをまとめて確認"
     },
     {
       "name": "お気に入り",

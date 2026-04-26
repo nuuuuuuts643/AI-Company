@@ -357,7 +357,6 @@ def generate_sitemap(topics):
     static_pages = [
         ('/', '1.0', 'hourly'),
         ('/catchup.html', '0.8', 'daily'),
-        ('/legacy.html',  '0.6', 'daily'),
         ('/about.html',   '0.5', 'monthly'),
         ('/terms.html',   '0.3', 'monthly'),
         ('/privacy.html', '0.3', 'monthly'),
