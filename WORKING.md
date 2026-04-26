@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T077 JSON-LD datePublished/author追加 | lambda/processor/proc_storage.py | 2026-04-26 19:00 |
