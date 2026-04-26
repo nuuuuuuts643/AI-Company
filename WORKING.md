@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T078 コメント削除UX修正 | frontend/js/comments.js, frontend/js/auth.js | 2026-04-26 18:30 |
