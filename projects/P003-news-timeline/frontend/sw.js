@@ -11,7 +11,6 @@ const NETWORK_FIRST_ASSETS = [
   '/mypage.html',
   '/profile.html',
   '/catchup.html',
-  '/legacy.html',
   '/storymap.html',
   '/about.html',
   '/terms.html',
