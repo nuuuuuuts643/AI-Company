@@ -242,14 +242,32 @@ def _jaccard(a: set, b: set) -> float:
 
 
 def find_related_topics(topics: list, max_related: int = 5) -> dict:
-    topic_entities = {}
-    topic_kw = {}
-    topic_bigrams = {}
+    topic_entities: dict = {}
+    topic_kw: dict = {}
+    topic_bigrams: dict = {}
+
+    # 転置インデックス: トークン → topicId集合
+    entity_idx: dict = {}
+    kw_idx: dict = {}
+    bigram_idx: dict = {}
+
+    topic_by_id = {t['topicId']: t for t in topics}
+
     for t in topics:
         title = t.get('generatedTitle') or t.get('title', '')
-        topic_entities[t['topicId']] = extract_entities(title)
-        topic_kw[t['topicId']] = _extract_kw_tokens(title)
-        topic_bigrams[t['topicId']] = _title_bigrams(title)
+        tid = t['topicId']
+        ents = extract_entities(title)
+        kws = _extract_kw_tokens(title)
+        bgs = _title_bigrams(title)
+        topic_entities[tid] = ents
+        topic_kw[tid] = kws
+        topic_bigrams[tid] = bgs
+        for e in ents:
+            entity_idx.setdefault(e, set()).add(tid)
+        for kw in kws:
+            kw_idx.setdefault(kw, set()).add(tid)
+        for bg in bgs:
+            bigram_idx.setdefault(bg, set()).add(tid)
 
     GENERIC = {'ai', 'it', 'ec', 'pc', 'sns', 'dx'}
     related = {}
@@ -260,39 +278,40 @@ def find_related_topics(topics: list, max_related: int = 5) -> dict:
         my_bigrams  = topic_bigrams.get(tid, set())
         my_genre    = t.get('genre', '')
 
+        # 転置インデックスで候補を絞る（O(n)→O(k)、k=共有トークンを持つトピック数）
+        cand_ids: set = set()
+        for e in my_entities:
+            cand_ids |= entity_idx.get(e, set())
+        for kw in my_kw:
+            cand_ids |= kw_idx.get(kw, set())
+        for bg in my_bigrams:
+            cand_ids |= bigram_idx.get(bg, set())
+        cand_ids.discard(tid)
+
         candidates = []
-        for other in topics:
-            oid = other['topicId']
-            if oid == tid:
+        for oid in cand_ids:
+            other = topic_by_id.get(oid)
+            if not other:
                 continue
             other_entities = topic_entities.get(oid, set())
             other_kw       = topic_kw.get(oid, set())
             other_bigrams  = topic_bigrams.get(oid, set())
 
-            # ① 定義済みエンティティの重複
             shared_ent = my_entities & other_entities
             meaningful_ent = {e for e in shared_ent if len(e) > 1 and e.lower() not in GENERIC}
-
-            # ② カタカナ/漢字キーワードの重複（エンティティでカバーできない固有名詞）
             shared_kw = my_kw & other_kw
-
-            # ③ タイトルバイグラムJaccard類似度（エンティティ/KWが弱い場合の補完）
             jac = _jaccard(my_bigrams, other_bigrams)
             same_genre = my_genre and my_genre == other.get('genre', '')
 
             score = len(meaningful_ent) * 3 + len(shared_ent) + len(shared_kw)
-
             entity_match = len(meaningful_ent) >= 2 or (len(meaningful_ent) == 1 and len(shared_ent) >= 2)
             kw_match     = len(shared_kw) >= 2 and len(shared_kw & my_kw) / max(len(my_kw), 1) >= 0.3
-            # Jaccard補完: 類似度0.25以上かつ同ジャンル、または0.35以上
             jaccard_match = (jac >= 0.35) or (jac >= 0.25 and same_genre)
 
             if not entity_match and not kw_match and not jaccard_match:
                 continue
-
-            # Jaccard由来のスコア加算（エンティティ/KW由来より弱めに）
             if jaccard_match and not entity_match and not kw_match:
-                score = int(jac * 10)  # 0.25→2, 0.35→3 程度
+                score = int(jac * 10)
 
             shared_labels = list(meaningful_ent or shared_kw)[:3]
             candidates.append({

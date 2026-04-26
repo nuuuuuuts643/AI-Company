@@ -370,3 +370,4 @@ bash projects/P003-news-timeline/deploy.sh
 ### 完了済み（2026-04-26）
 → T012 S3差分書き込み最適化（13:30 JST）
 - `proc_storage.py`: `update_topic_s3_file` に ETag(MD5)比較を追加。`get_object` の ETag と新コンテンツの MD5 が一致する場合は `put_object` をスキップ。AI処理済みトピックの再書き込みを省略し月 $1.98 のS3書き込みコスト削減
+- ✅ **T014 processor 4x/day → 2x/day** — EventBridge `cron(0 22,10 * * ? *)` (JST 7:00/19:00) が既に設定済み確認。別セッションで適用済み。Claude API 月$1.2節約。
