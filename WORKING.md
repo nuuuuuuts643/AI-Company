@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T057 admin収益データ表示 | frontend/admin.html | 2026-04-27 00:30 |
