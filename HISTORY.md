@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T168 about.html FAQ時刻修正）
+- ✅ **T168 about.html FAQのAI処理時刻を実際スケジュールに修正** — 根本原因: FAQ（JSON-LD・表示テキスト両方）に「JST 0時・7時・12時・18時」と記載されていたが、実際のprocessor実行スケジュールはJST 01:00/07:00/13:00/19:00。修正: `0時→1時`・`12時→13時`・`18時→19時` の2箇所（line21 JSON-LD + line228 表示テキスト）を修正。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T167 静的SEO HTML マークダウン混入修正）
 - ✅ **T167 proc_storage.py _strip_md() 追加** — 根本原因: `generate_static_topic_html()` が `generatedSummary`/`spreadReason`/`forecast` を `_html_esc` のみ適用（マークダウン除去なし）していたため、AI生成サマリーに含まれる `## 見出し`・`- 箇条書き` が静的HTML `<p>` タグおよび `<meta name="description">` にそのまま混入。Googleの検索スニペットにも `## ` 等が表示されていた。修正: `_strip_md(s)` ヘルパーを追加し `_html_esc` 適用前にマークダウン記号を除去して1行プレーンテキスト化。`summary`/`spread`/`forecast` の3フィールドに適用。Python構文チェック・npm test 42件全パス。
 
