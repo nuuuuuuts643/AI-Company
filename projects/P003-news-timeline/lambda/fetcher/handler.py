@@ -608,6 +608,7 @@ def lambda_handler(event, context):
                           and (t.get('storyTimeline')                       # full/standard: timeline必須
                                or t.get('summaryMode') == 'minimal'         # minimal: timeline不要
                                or int(t.get('articleCount', 0) or 0) <= 2)  # 2件以下: timeline不要
+                          and t.get('imageUrl')                              # imageUrl未生成なら再処理
                           )),
                 key=lambda t: float(t.get('velocityScore', 0) or 0),
                 reverse=True,
