@@ -871,15 +871,22 @@ def batch_generate_static_html(max_topics: int = 500) -> int:
             meta = data.get('meta', {})
             articles = data.get('articles', [])
             generate_static_topic_html(tid, meta, articles)
-            return True
+            return 'ok'
+        except s3.exceptions.NoSuchKey:
+            return 'skip'
         except Exception as e:
             print(f'[StaticHTML] 生成失敗 [{tid}]: {e}')
-            return False
+            return 'fail'
 
     with ThreadPoolExecutor(max_workers=10) as ex:
         results = list(ex.map(_gen, keys))
-    generated = sum(1 for r in results if r)
-    print(f'[StaticHTML] バッチ生成完了: {generated}/{len(keys)}件')
+    generated = sum(1 for r in results if r == 'ok')
+    skipped   = sum(1 for r in results if r == 'skip')
+    failed    = sum(1 for r in results if r == 'fail')
+    if failed:
+        print(f'[StaticHTML] バッチ生成完了: {generated}件生成 / {skipped}件スキップ / {failed}件失敗')
+    else:
+        print(f'[StaticHTML] バッチ生成完了: {generated}件生成 / {skipped}件スキップ（detail未作成）')
     return generated
 
 
