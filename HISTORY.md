@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T182 CLAUDE.md 根本原因分析ルール追記）
+- ✅ **T182 CLAUDE.md ステップ2に「原因仮説3つ列挙」ルールを追記** — T162→T178のバグ再発ループの教訓（症状対処だけで根本原因を見落とした）をCLAUDE.mdに反映。「実際のユーザー環境（モバイル・低速回線・CDN遅延等）を想定した原因仮説を3つ以上列挙し、最も可能性の高いものを選んでから修正に入る」をステップ2に追加。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T178 chart.js CDN async化）
 - ✅ **T178 topic.html chart.js/hammer.js/chartjs-plugin-zoom を async 読み込みに変更** — 根本原因: CDN スクリプトを同期ロードしていたため、モバイルで CDN が遅い場合に detail.js（renderAffiliate 呼び出し元）がブロックされアフィリエイトリンクが表示されなかった。T162 の try-catch 修正は CDN が「失敗」した場合のみ有効で「遅い」場合は無効だった。修正: 3つの CDN script タグに `async` を追加。detail.js は CDN 完了を待たず即実行されるため renderAffiliate が常に動く。Chart が未定義の場合は buildCharts の try-catch がグラフのみ非表示にして継続。npm test 42件全パス。
 
@@ -1108,3 +1111,7 @@ bash projects/P003-news-timeline/deploy.sh
 - ✅ **T100** — `analytics/handler.py:25` の `S3_BUCKET` デフォルトを `'flotopic-data'`（存在しないバケット）→ `'p003-news-946554699567'` に修正。Lambda環境変数未設定時にキャッシュ書き込みが全件失敗してDynamoDBフルスキャンが毎回走っていた。
 - ✅ **T101** — `auth/handler.py`・`comments/handler.py`・`favorites/handler.py` の `verify_google_token()` に `aud == GOOGLE_CLIENT_ID` チェックを追加。他アプリ向けGoogleトークンでもログインできるセキュリティ問題を修正。
 - ✅ **T102** — `comments/handler.py:get_user_comments()` の `table.scan(Limit=500)` を削除し `ExclusiveStartKey` ページネーションで全件スキャンに変更。Limitはスキャン上限であり500件目以降のコメントがヒットしない問題を修正。
+
+### 完了済み（2026-04-27 T177/T181 ジャンル修正・Lambda検証強化）
+- ✅ **T177** — `admin.html:379,833,857` で `t.genre` → `(t.genres && t.genres[0]) || t.genre || '総合'` に修正。ジャンル別集計・表が旧legacyフィールドを参照しており、グルメ/ファッション等の新ジャンルが集計に反映されていなかった。
+- ✅ **T181** — `comments/handler.py` の `topic_id = parts[1]` 直後に `re.match(r'^[0-9a-f]{16}$', topic_id)` バリデーションを追加。`increment_topic_comment_count()` に `ConditionExpression='attribute_exists(topicId)'` を追加して幽霊METAレコード生成を防止。`favorites/handler.py` に `import re` を追加し、POST/DELETE /favorites の topic_id 抽出後に同形式バリデーションを追加。`update_topic_fav_count()` の delta > 0 パスにも `ConditionExpression='attribute_exists(topicId)'` を追加。任意文字列topicIdへの書き込みによるコンテンツインジェクションとDynamoDB幽霊レコード生成を修正。
