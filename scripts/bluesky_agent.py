@@ -214,7 +214,7 @@ def fetch_image_blob(client: Client, image_url: str):
 def make_link_embed(client: Client, uri: str, title: str, description: str, image_url: str = None) -> 'models.AppBskyEmbedExternal.Main':
     """flotopic.com へのリンクカード embed を生成（サムネ画像付き）"""
     thumb = None
-    if image_url:
+    if image_url and client is not None:
         thumb = fetch_image_blob(client, image_url)
     external_kwargs = {
         'uri': uri,

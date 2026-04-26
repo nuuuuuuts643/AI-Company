@@ -1,6 +1,7 @@
 // API経由（API Gateway HTTPS）
 const API_BASE      = 'https://flotopic.com/api/';
 const _APIGW        = 'https://x73mzc0v06.execute-api.ap-northeast-1.amazonaws.com';
+const _GW           = _APIGW;
 const COMMENTS_URL  = _APIGW;
 const AUTH_URL      = _APIGW + '/auth';
 const FAVORITES_URL = _APIGW;

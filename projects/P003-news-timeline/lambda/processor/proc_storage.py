@@ -872,9 +872,9 @@ def batch_generate_static_html(max_topics: int = 500) -> int:
             articles = data.get('articles', [])
             generate_static_topic_html(tid, meta, articles)
             return 'ok'
-        except s3.exceptions.NoSuchKey:
-            return 'skip'
         except Exception as e:
+            if hasattr(e, 'response') and e.response.get('Error', {}).get('Code') == 'NoSuchKey':
+                return 'skip'
             print(f'[StaticHTML] 生成失敗 [{tid}]: {e}')
             return 'fail'
 
