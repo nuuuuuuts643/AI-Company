@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 catchup.htmlバグ修正）
+- ✅ **catchup.html createdAt/updatedAt フィールドバグ修正** — `topic.createdAt`/`topic.updatedAt`はtopics.jsonに存在しないフィールド。`topic.firstArticleAt`(Unix秒→ISOString)/`topic.lastUpdated`(ISO)に修正。NEWバッジ・更新時刻・期間テキストが正しく表示されるようになった。
+
 ### 完了済み（2026-04-27 T063/T064）
 - ✅ **T063 CLAUDE.md肥大化対策** — 「次フェーズのタスク」の~~完了済み~~13件・解決済み未解決1件を削除。約40行削減。
 - ✅ **T064 config.js コメント修正** — `// 例: 'flotopic-22'` など設定済みなのに「例：」と書いてある誤解コメントを削除。
