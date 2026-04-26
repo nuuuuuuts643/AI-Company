@@ -888,3 +888,9 @@ bash projects/P003-news-timeline/deploy.sh
 
 ### 完了済み（2026-04-26 cf-analytics favorites バグ修正）
 - ✅ **cf-analytics favorites stats 修正** — `cf-analytics/handler.py:fetch_favorites_stats()` がフルスキャンで `HISTORY#*` / `PREFS#genre` アイテムをお気に入りとしてカウントしていた問題を修正。post-scan filter を追加して実際のお気に入りのみを集計するようにした。
+
+### 完了済み（2026-04-26 T099/T100/T101/T102 バグ修正4件）
+- ✅ **T099** — `contact/handler.py:save_to_dynamodb()` に `'name': data['name']` を追加。お問い合わせ送信者名がDynamoDBに保存されず管理画面で確認できなかった問題を修正。
+- ✅ **T100** — `analytics/handler.py:25` の `S3_BUCKET` デフォルトを `'flotopic-data'`（存在しないバケット）→ `'p003-news-946554699567'` に修正。Lambda環境変数未設定時にキャッシュ書き込みが全件失敗してDynamoDBフルスキャンが毎回走っていた。
+- ✅ **T101** — `auth/handler.py`・`comments/handler.py`・`favorites/handler.py` の `verify_google_token()` に `aud == GOOGLE_CLIENT_ID` チェックを追加。他アプリ向けGoogleトークンでもログインできるセキュリティ問題を修正。
+- ✅ **T102** — `comments/handler.py:get_user_comments()` の `table.scan(Limit=500)` を削除し `ExclusiveStartKey` ページネーションで全件スキャンに変更。Limitはスキャン上限であり500件目以降のコメントがヒットしない問題を修正。
