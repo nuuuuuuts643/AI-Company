@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import time
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
@@ -187,7 +188,6 @@ def generate_rss(topics, updated_at):
     site_url = SITE_URL
 
     # 品質フィルタ: active/cooling・記事3件以上・AI生成タイトルあり・株価ティッカー除外
-    import re
     TICKER_RE = re.compile(r'【\d+[A-Z]?】|：株価|株式情報')
     filtered = [
         t for t in topics
@@ -337,8 +337,7 @@ def generate_sitemap(topics):
             '  </url>\n'
         )
 
-    import re as _re
-    _TICKER = _re.compile(r'【\d+[A-Z]?】|：株価|株式情報')
+    _TICKER = re.compile(r'【\d+[A-Z]?】|：株価|株式情報')
     for t in topics:
         tid = t.get('topicId', '')
         if not tid:
