@@ -36,8 +36,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 ## 現在着手中
 
-| タスク名 | 変更予定ファイル | 開始 JST |
-|---|---|---|
-| T022 モバイル広告調査修正 | frontend/topic.html, frontend/style.css | 2026-04-26 14:05 |
-| T023+T025 UIコピー改善+privacy.htmlアフィリエイト記載 | frontend/contact.html, frontend/legacy.html, frontend/privacy.html, frontend/catchup.html | 2026-04-26 14:05 |
-| T024 閲覧履歴クラウド同期 | lambda/favorites/handler.py, frontend/app.js, frontend/mypage.html | 2026-04-26 14:10 |
+（なし）
