@@ -787,3 +787,21 @@ bash projects/P003-news-timeline/deploy.sh
 - `SLACK_WEBHOOK_URL` → `SLACK_WEBHOOK` に変更（env 参照はそのまま `SLACK_WEBHOOK_URL` で問題なし）
 - `continue-on-error: true` を追加して Webhook 設定なし環境でも CI がブロックされないように改善
 - 全 push で HTTP 404 失敗していた問題を解消
+
+### 完了済み（2026-04-26 T082 開発ファイル公開除去）
+- ✅ **T082** — S3バケットから ICONS-NEEDED.md を削除 + 今後の混入防止
+- `aws s3 rm s3://p003-news-946554699567/ICONS-NEEDED.md` で即時削除
+- `deploy-p003.yml` の画像・その他同期ステップに `--exclude "*.md"` を追加
+- flotopic.com/ICONS-NEEDED.md が 404 になることを確認（CF invalidation は次回 push 時に自動実行）
+
+### 完了済み（2026-04-26 T082・T083）
+→ HISTORY.mdに記録
+
+#### T082 S3バケット開発ファイル公開除去
+- `aws s3 rm s3://p003-news-946554699567/ICONS-NEEDED.md` で即時削除
+- `deploy-p003.yml` の画像その他同期ステップに `--exclude "*.md"` を追加、今後の再混入を防止
+
+#### T083 filter-weights.json 初期ファイル配置
+- `api/filter-weights.json` を S3 にアップロード（28パターン全て初期値1.0）
+- fetcher が毎回出していた「filter-weights.json 未作成 → デフォルト値使用」ログを解消
+- lifecycle Lambda が週次で最適化する設計は維持（ファイルが存在すれば上書き読み込みされる）
