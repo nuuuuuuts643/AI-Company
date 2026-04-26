@@ -228,11 +228,12 @@ function renderDetail(data) {
 
     const PHASE_COLOR = { '発端':'#f59e0b','拡散':'#3b82f6','ピーク':'#ef4444','現在地':'#10b981','収束':'#64748b' };
     const PHASE_ICON  = { '発端':'🌱','拡散':'📡','ピーク':'🔥','現在地':'📍','収束':'✅' };
+    const PHASE_TEXT  = { '発端':'始まり','拡散':'広まってる','ピーク':'急上昇','現在地':'進行中','収束':'ひと段落' };
     const ALL_PHASES  = ['発端','拡散','ピーク','現在地','収束'];
     const currentIdx  = phase ? ALL_PHASES.indexOf(phase) : -1;
     const phaseBarHtml = phase ? `<div class="ai-phase-bar">${ALL_PHASES.map((p,i)=>{
       const cls = i===currentIdx ? 'active' : i<currentIdx ? 'past' : '';
-      return `<div class="ai-phase-step ${cls}" style="background:${PHASE_COLOR[p]||'#6366f1'}"><span class="ai-phase-step-icon">${PHASE_ICON[p]||'📍'}</span><span class="ai-phase-step-label">${p}</span></div>`;
+      return `<div class="ai-phase-step ${cls}" style="background:${PHASE_COLOR[p]||'#6366f1'}"><span class="ai-phase-step-icon">${PHASE_ICON[p]||'📍'}</span><span class="ai-phase-step-label">${PHASE_TEXT[p]||p}</span></div>`;
     }).join('')}</div>` : '';
     const originHtml = (beats.length >= 2 && beats[0] && beats[0].event) ? `
       <div class="story-origin-highlight">
