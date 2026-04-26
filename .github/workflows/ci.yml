@@ -5,6 +5,10 @@ on:
     branches: [main]
   push:
     branches: [main, staging]
+    paths:
+      - 'projects/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
 
 jobs:
   lint-frontend:
