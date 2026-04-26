@@ -878,3 +878,6 @@ bash projects/P003-news-timeline/deploy.sh
 
 ### 完了済み（2026-04-26 T098 imageUrl欠損修正）
 - ✅ **T098** — `fetcher/handler.py:orphan_candidates` の除外条件に `and t.get('imageUrl')` を追加。aiGenerated=True+全AI要素済みでも imageUrl が空のトピックを orphan_candidates に含め、次回 processor 実行時に OGP 画像を自動生成させるようにした。imageUrl coverage 68% 改善に向けた修正。
+
+### 完了済み（2026-04-26 cf-analytics favorites バグ修正）
+- ✅ **cf-analytics favorites stats 修正** — `cf-analytics/handler.py:fetch_favorites_stats()` がフルスキャンで `HISTORY#*` / `PREFS#genre` アイテムをお気に入りとしてカウントしていた問題を修正。post-scan filter を追加して実際のお気に入りのみを集計するようにした。
