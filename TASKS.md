@@ -13,7 +13,6 @@
 |---|---|---|---|---|
 | T019 | 中 | **SES本番アクセス申請後のLambda環境変数設定**（PO手動） | — | 2026-04-26 |
 | T076 | 高 | **SLACK_WEBHOOK 設定でエラー通知を有効化**（PO手動） — ①GitHub Secrets に `SLACK_WEBHOOK` を追加（Bluesky・weekly-digest等のGH Actions通知） ②p003-fetcher/processor/lifecycle の Lambda環境変数に `SLACK_WEBHOOK` を追加（スパイク通知・エラー通知）。設定しないとどのコンポーネントが壊れても無音。Slack Incomingウェブフック URL は https://api.slack.com/messaging/webhooks で取得 | — (PO手動) | 2026-04-26 |
-| T077 | 低 | **静的HTMLのJSON-LDに `datePublished`・`author` 追加** — `batch_generate_static_html()` の jsonld生成（proc_storage.py L763-774）に `"datePublished": lastArticleAt のISO文字列` と `"author": {"@type": "Organization", "name": "Flotopic"}` を追加。Article構造化データの補完。Google Search Consoleのリッチリザルト対応に必要 | `lambda/processor/proc_storage.py` | 2026-04-26 |
 | T056 | 低 | **フォロー/フォロワー機能**（将来・ユーザー増えてから） | — | 2026-04-26 |
 
 ## 進行中
