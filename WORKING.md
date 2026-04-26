@@ -38,6 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T172 renderDiscovery imageUrl esc() | frontend/detail.js | 2026-04-27 04:00 |
-| T173 utils.js CONFIG値同期 | frontend/js/utils.js, tests/utils.test.js | 2026-04-27 04:00 |
-| T174 tracker topicId検証 | lambda/tracker/handler.py | 2026-04-27 04:00 |
