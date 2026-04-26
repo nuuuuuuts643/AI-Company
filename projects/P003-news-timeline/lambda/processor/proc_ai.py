@@ -69,7 +69,7 @@ def generate_title(articles):
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 30,
+            'max_tokens': 60,
             'messages': [{'role': 'user', 'content': prompt}],
         }, timeout=12)
         title = data['content'][0]['text'].strip()
@@ -111,7 +111,8 @@ _WORD_RULES = (
     '- 感情語禁止: 「炎上」「衝撃」→「批判的な反応があった」「注目が集まった」\n'
     '- 主語を具体的に: 「世論が」→「○○党が」「○○社が」\n'
     '- 個人の発言・行動: 「〜と述べた」等の引用形式\n'
-    '- 事件容疑者: 「〜の疑いで逮捕」「容疑を否認」等、司法手続きの状態を正確に\n\n'
+    '- 事件容疑者: 「〜の疑いで逮捕」「容疑を否認」等、司法手続きの状態を正確に\n'
+    '- 固有名詞・企業名・サービス名は初出時に括弧で1語説明を加える（例: スターリンク（SpaceXの衛星インターネット）が〜）\n\n'
 )
 
 
