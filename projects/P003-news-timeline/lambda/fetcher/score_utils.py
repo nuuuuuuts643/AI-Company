@@ -141,13 +141,10 @@ def calc_score(articles):
     now_ts = datetime.now(timezone.utc).timestamp()
     recency_bonus = False
     for a in articles:
-        try:
-            tpl = parsedate_tz(a.get('pubDate', ''))
-            if tpl and (now_ts - mktime_tz(tpl)) <= 21600:
-                recency_bonus = True
-                break
-        except Exception:
-            pass
+        ts = a.get('published_ts', 0)
+        if ts and (now_ts - ts) <= 21600:
+            recency_bonus = True
+            break
 
     diversity_bonus = media >= 3
     all_titles = ' '.join(a['title'] for a in articles)
@@ -167,11 +164,7 @@ def calc_score(articles):
 
 def sort_by_pubdate(articles):
     def get_ts(a):
-        try:
-            tpl = parsedate_tz(a.get('pubDate', ''))
-            return mktime_tz(tpl) if tpl else 0
-        except Exception:
-            return 0
+        return a.get('published_ts') or a.get('publishedAt') or 0
     return sorted(articles, key=get_ts, reverse=True)
 
 
