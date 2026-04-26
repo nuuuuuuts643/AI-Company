@@ -143,7 +143,7 @@ def _centroid_verify(groups):
         word_lists = []
         freq = Counter()
         for a in group:
-            ws = {w for w in (normalize(a['title']) - STOP_WORDS) if len(w) > 2}
+            ws = normalize(a['title']) - STOP_WORDS
             word_lists.append(ws)
             freq.update(ws)
         # 半数超（ceiling）の記事に出現する語を重心とする
