@@ -385,6 +385,12 @@ function renderDetail(data) {
           mediaCnts = src.map(s => Number(s.articleCount||0));
         }
 
+        // SNAPのarticleCountはスナップショット値。topics.jsonの値（meta.articleCount）が正。
+        // グラフ最終点を現在の記事数で補正して不一致を解消する。
+        if (mediaCnts.length && meta.articleCount) {
+          mediaCnts[mediaCnts.length - 1] = meta.articleCount;
+        }
+
         const viewsSorted = [...(views||[])].sort((a,b) => a.date.localeCompare(b.date));
         const vLabels   = viewsSorted.map(v => `${parseInt(v.date.slice(4,6))}/${parseInt(v.date.slice(6,8))}`);
         const vAbsolute = viewsSorted.map(v => v.count);
