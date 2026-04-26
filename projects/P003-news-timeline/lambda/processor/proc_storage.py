@@ -4,10 +4,13 @@ import io
 import json
 import os
 import re
+import time
 import urllib.request
 from collections import Counter
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from email.utils import formatdate
 
 from boto3.dynamodb.conditions import Key, Attr
 
@@ -376,18 +379,13 @@ def generate_and_upload_rss(topics):
     """上位トピックからRSS 2.0 フィードを生成してS3にアップロード。"""
     if not S3_BUCKET:
         return
-    from datetime import datetime
-    from email.utils import formatdate
-    import time as _time
-
     active = [t for t in topics if t.get('lifecycleStatus') in ('active', 'cooling', '')]
     active.sort(key=lambda x: float(x.get('velocityScore', 0) or 0), reverse=True)
 
     # 同一イベント重複抑制: キーワード3つ以上共通するトピックは最大2件のみ
     _STOP = {'ニュース', '速報', '情報', '中継', '会見', '更新'}
     def _kw(t):
-        import re as _re
-        title = _re.sub(r'[【】「」（）！？\[\]\s　・]+', ' ', t.get('generatedTitle', '') + ' ' + t.get('title', ''))
+        title = re.sub(r'[【】「」（）！？\[\]\s　・]+', ' ', t.get('generatedTitle', '') + ' ' + t.get('title', ''))
         return {w for w in title.split() if len(w) >= 3 and w not in _STOP}
     deduped, event_counts = [], {}
     for t in active:
@@ -411,8 +409,8 @@ def generate_and_upload_rss(topics):
             if not ts:
                 return formatdate()
             if isinstance(ts, (int, float)):
-                return formatdate(_time.mktime(datetime.utcfromtimestamp(ts).timetuple()))
-            return formatdate(_time.mktime(datetime.fromisoformat(str(ts).replace('Z', '+00:00')).timetuple()))
+                return formatdate(time.mktime(datetime.utcfromtimestamp(ts).timetuple()))
+            return formatdate(time.mktime(datetime.fromisoformat(str(ts).replace('Z', '+00:00')).timetuple()))
         except Exception:
             return formatdate()
 
@@ -472,8 +470,6 @@ def generate_and_upload_news_sitemap(topics):
     """
     if not S3_BUCKET:
         return
-    from datetime import datetime, timezone, timedelta
-
     cutoff = datetime.now(timezone.utc) - timedelta(days=2)
     news_topics = []
     for t in topics:
@@ -545,8 +541,7 @@ def generate_and_upload_sitemap(topics):
     """topics リストから sitemap.xml を生成して S3 にアップロード。"""
     if not S3_BUCKET:
         return
-    from datetime import datetime
-    today = datetime.utcnow().strftime('%Y-%m-%d')
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
     active = [t for t in topics if t.get('lifecycleStatus') in ('active', 'cooling', '')]
     active.sort(key=lambda x: float(x.get('velocityScore', 0) or 0), reverse=True)
