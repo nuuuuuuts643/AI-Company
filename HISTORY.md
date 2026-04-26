@@ -406,3 +406,11 @@ bash projects/P003-news-timeline/deploy.sh
 - 未ログインユーザーが index.html を開いたときにブラウザの位置情報許可ダイアログが出る問題を修正
 - ログイン済みユーザーは従来通り天気ウィジェットが動作する
 - テスト: `npm test` 42件全パス
+
+→ T030 トレンド可視化強化（14:50 JST）
+- `app.js` `renderTopicCard()` に velocityScore を視覚化する velocity バーを追加
+- `rising`/`peak` ステータスのカードにのみ表示。幅は `min(100, velocity*5)%`（velocity=20→100%）
+- `rising` = 赤グラデーション、`peak` = 琥珀グラデーション
+- `style.css` に `.velocity-bar-wrap` / `.velocity-bar` 追加。ダークモード対応済み
+- declining/cooling カードには表示しない（トレンドでないトピックをクリーンに維持）
+- テスト: `npm test` 42件全パス
