@@ -7,12 +7,15 @@ P003 お気に入り + 閲覧履歴 Lambda
 - POST   /history              → 閲覧履歴追加 {userId, idToken, topicId, title, viewedAt}
 - DELETE /history              → 閲覧履歴削除 {userId, idToken, topicId?} topicId省略=全削除
 - DELETE /user                 → アカウント全データ削除 {userId, idToken}
+- GET    /prefs/{userId}       → ジャンル設定取得
+- PUT    /prefs                → ジャンル設定保存 {userId, idToken, genre}
 
 書き込み操作は Google idToken を検証してから実行する。
 
 DynamoDB テーブル: flotopic-favorites
   favorites: PK=userId / SK=topicId          fields: createdAt
   history:   PK=userId / SK=HISTORY#{topicId} fields: title, viewedAt, ttl
+  prefs:     PK=userId / SK=PREFS#genre       fields: genre
 """
 
 import base64
@@ -32,6 +35,7 @@ REGION       = os.environ.get('REGION', 'ap-northeast-1')
 GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token='
 HISTORY_SK_PREFIX = 'HISTORY#'
 HISTORY_TTL_DAYS  = 30
+PREFS_SK_GENRE    = 'PREFS#genre'
 
 dynamodb     = boto3.resource('dynamodb', region_name=REGION)
 table        = dynamodb.Table(TABLE_NAME)
@@ -186,6 +190,16 @@ def clear_history(user_id: str):
             batch.delete_item(Key={'userId': user_id, 'topicId': HISTORY_SK_PREFIX + item['topicId']})
 
 
+def get_prefs(user_id: str) -> dict:
+    r = table.get_item(Key={'userId': user_id, 'topicId': PREFS_SK_GENRE})
+    item = r.get('Item', {})
+    return {'genre': item.get('genre')} if item else {}
+
+
+def save_prefs(user_id: str, genre: str):
+    table.put_item(Item={'userId': user_id, 'topicId': PREFS_SK_GENRE, 'genre': genre})
+
+
 # ── エントリポイント ──────────────────────────────────────────────
 
 def lambda_handler(event, context):
@@ -200,7 +214,7 @@ def lambda_handler(event, context):
 
     parts = [p for p in path.split('/') if p]
 
-    # ── GET /favorites/{userId} or GET /history/{userId} ─────────
+    # ── GET /favorites/{userId} or GET /history/{userId} or GET /prefs/{userId} ──
     if method == 'GET':
         if len(parts) < 2:
             return resp(400, {'error': 'userId が必要です'})
@@ -212,6 +226,9 @@ def lambda_handler(event, context):
             elif resource == 'favorites':
                 items = get_favorites(user_id)
                 return resp(200, {'userId': user_id, 'favorites': items})
+            elif resource == 'prefs':
+                prefs = get_prefs(user_id)
+                return resp(200, {'userId': user_id, **prefs})
             else:
                 return resp(404, {'error': 'not found'})
         except Exception as e:
@@ -272,6 +289,23 @@ def lambda_handler(event, context):
                 return resp(200, {'status': 'cleared', 'userId': user_id})
         except Exception as e:
             return resp(500, {'error': '履歴削除に失敗しました', 'detail': str(e)})
+
+    # ── PUT /prefs: ジャンル設定保存 ─────────────────────────────
+    if method == 'PUT' and len(parts) >= 1 and parts[0] == 'prefs':
+        data = parse_body(event)
+        user_id  = (data.get('userId')  or '').strip()
+        id_token = (data.get('idToken') or '').strip()
+        genre    = (data.get('genre')   or '').strip()
+        if not user_id or not id_token or not genre:
+            return resp(400, {'error': 'userId, idToken, genre は必須です'})
+        payload = verify_google_token(id_token)
+        if not payload or payload.get('sub') != user_id:
+            return resp(401, {'error': 'トークンの検証に失敗しました'})
+        try:
+            save_prefs(user_id, genre)
+            return resp(200, {'status': 'saved', 'genre': genre})
+        except Exception as e:
+            return resp(500, {'error': '設定保存に失敗しました', 'detail': str(e)})
 
     # ── POST / DELETE /favorites: 認証付き書き込み ───────────────
     if method in ('POST', 'DELETE'):
