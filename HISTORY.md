@@ -4,6 +4,10 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T123+T124）
+- ✅ **T123 コメントいいね取消DynamoDB反映** — Lambda `handle_like()` に `unlike`/`undislike` type追加（ADD count -1, DELETE from Set, condition: contains）。frontend `toggleLike()`・`toggleDislike()` でもundo時にAPIを呼ぶよう修正（楽観的UI維持）。リロードでカウントが戻るバグ修正。
+- ✅ **T124 terms/privacy/contact ダークモード未適用修正** — 3ページの`style.css`の直後に`<script src="js/theme.js"></script>`を追加。`data-theme`属性が設定されるようになりダークモード対応。
+
 ### 完了済み（2026-04-26 T122+T121 広告ラベル修正・catchupテーマ対応）
 - ✅ **T122 affiliate.js 広告ラベル2重表示修正** — `linksEl.innerHTML`冒頭の`<p class="affiliate-label">広告</p>`を削除。topic.htmlの`.affiliate-header`にすでに`<span class="affiliate-label">広告</span>`があるため重複していた。
 - ✅ **T121 catchup.html ダークテーマ固定修正** — ハードコードの暗色（`#1a1f3a`, `#0f1629`, `#1e2540`等）をCSS変数（`var(--text-primary)`, `var(--text-secondary)`, `var(--text-muted)`, `var(--bg-card)`, `var(--bg-page)`, `var(--border)`）に置換。ダーク専用色は`[data-theme="dark"]`セレクタで上書き。ライトモードでの表示が崩れないよう対応。
