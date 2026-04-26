@@ -18,7 +18,6 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| T176 | 高 | **モバイルUI崩れ調査・修正** — ユーザー報告: z-index修正(f9777be)後もスマホUIが壊れている。根本原因: 未特定。調査ポイント: hero-story-preview/onboarding-card/keyword-stripなど直近追加要素がモバイルレイアウトに与える影響・overflow-x漏れによる横スクロール・実機スクショ取得して具体的崩れ箇所を特定。修正方法: 崩れ箇所特定後に最小限CSS修正。 | `frontend/style.css`, `frontend/index.html` | 2026-04-27 |
 | T179 | 中 | **グラフと記事数の不一致** — ユーザー報告URL: topic.html?id=4eecff3f2245992b。根本原因: グラフはDynamoDB SNAPの articleCount（スナップショット）を使い、カード表示はtopics.jsonの articleCount（最新）を使う。lifecycle整理で両者がずれる。修正方法: グラフ最終点をtopics.jsonの値で補正、またはラベルに「現在N件」を別表示。 | `frontend/detail.js` | 2026-04-27 |
 
 ### 🎯 使いたくなるUX（「また来たい」動線）
