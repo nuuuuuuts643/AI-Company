@@ -4,6 +4,11 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T172/T173/T174 セキュリティ・一貫性修正）
+- ✅ **T172 detail.js renderDiscovery imageUrl esc()適用** — 根本原因: `renderDiscovery()` の `safeThumb` が `src="${safeThumb}"` に `esc()` 未適用。app.jsの `renderTopicCard` は `esc(safeImgUrl())` と正しくエスケープしており不整合。S3 URLなので実害なしだが、一貫性とXSS防止のため修正。npm test 42件全パス。
+- ✅ **T173 utils.js CONFIG値をapp.jsと同期** — 根本原因: utils.js の `HOT_STRIP_HOURS:2`(app.jsは6)・`AD_CARD_INTERVAL:10`(app.jsは9) が乖離し、テストが本番と異なる閾値で通過していた。修正: utils.js の定数を6・9に変更し、utils.test.js のisHotTopic境界テストを6時間境界に更新。npm test 42件全パス。
+- ✅ **T174 tracker Lambda topicId検証追加** — 根本原因: POST /tracker が `topicId` を無検証でDynamoDB `VIEW#{date}` SKに書き込み、任意文字列でのファントムVIEWレコード生成やビュー数水増しが可能だった。修正: `re.match(r'^[0-9a-f]{16}$', tid)` でフォーマット検証し不正値は400を返す（`import re` も追加）。
+
 ### 完了済み（2026-04-27 T170 キーワードチップgenre上書きバグ修正）
 - ✅ **T170 app.js renderKeywordStrip: savePrefs削除** — 根本原因: キーワードチップクリック時に `savePrefs({genre:'総合'})` を呼んでいたため、ジャンル設定が恒久的に「総合」に上書きされていた（233f3ee のテキスト検索修正と不整合）。修正: `savePrefs` 呼び出しを削除し、コメントを「一時的に総合にする（prefs保存しない）」に変更。検索クリア時は既存の `setupSearch` の restore ロジックが適用される。npm test 42件全パス。
 
