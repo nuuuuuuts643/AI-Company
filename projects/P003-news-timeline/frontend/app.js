@@ -742,8 +742,14 @@ function showGenreOnboarding() {
 function dismissGenreOnboarding() {
   const overlay = document.getElementById('go-overlay');
   const sheet = document.getElementById('go-sheet');
-  if (overlay) overlay.remove();
-  if (sheet) sheet.remove();
+  if (overlay) overlay.classList.remove('go-visible');
+  if (sheet) sheet.classList.remove('go-visible');
+  setTimeout(() => {
+    const o = document.getElementById('go-overlay');
+    const s = document.getElementById('go-sheet');
+    if (o) o.remove();
+    if (s) s.remove();
+  }, 300);
 }
 
 window.flotopicSelectGenre = function(genre) {
