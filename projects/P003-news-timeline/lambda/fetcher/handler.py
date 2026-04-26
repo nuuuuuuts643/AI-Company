@@ -28,7 +28,7 @@ from score_utils import (
     sort_by_pubdate, _parse_pubdate_ts,
 )
 from text_utils import (
-    dominant_genres, dominant_lang,
+    dominant_genres, dominant_lang, override_genre_by_title,
     extract_source_name, extract_rss_image,
     extract_trending_keywords,
     extract_entities, find_related_topics, detect_topic_hierarchy,
@@ -282,6 +282,12 @@ def lambda_handler(event, context):
         cnt    = len(g)
         genres = dominant_genres(g)
         genre  = genres[0]
+        combined_titles = ' '.join(a['title'] for a in g)
+        forced_genre = override_genre_by_title(combined_titles)
+        if forced_genre and forced_genre != genre:
+            print(f'ジャンル上書き: {genre}→{forced_genre} ({g[0]["title"][:30]})')
+            genre  = forced_genre
+            genres = [forced_genre] + [x for x in genres if x != forced_genre][:1]
         lang   = dominant_lang(g)
         hist, existing = prefetched.get(tid, ([], {}))
 
