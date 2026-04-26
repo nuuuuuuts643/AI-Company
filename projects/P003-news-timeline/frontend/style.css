@@ -409,6 +409,11 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
 .topic-status.new       { color: #1d4ed8; background: #eff6ff; }
 .topic-status.declining { color: var(--text-muted); background: #f3f4f6; }
 .card-phase-badge { display: inline-block; margin-left: 6px; font-size: .65rem; font-weight: 600; color: #6366f1; background: #eef2ff; border-radius: 999px; padding: 1px 7px; vertical-align: middle; }
+.velocity-bar-wrap { height: 3px; background: rgba(0,0,0,0.06); border-radius: 2px; margin: 5px 0 7px; overflow: hidden; }
+.velocity-bar { height: 100%; border-radius: 2px; transition: width .3s; }
+.velocity-bar-wrap.rising .velocity-bar { background: linear-gradient(90deg, #fca5a5, #ef4444); }
+.velocity-bar-wrap.peak   .velocity-bar { background: linear-gradient(90deg, #fcd34d, #f59e0b); }
+[data-theme="dark"] .velocity-bar-wrap { background: rgba(255,255,255,0.08); }
 
 .topic-card h3 {
   font-size: .9rem;
