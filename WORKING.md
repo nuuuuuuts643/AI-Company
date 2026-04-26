@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T186 カードが「続きが気になる」設計 | projects/P003-news-timeline/frontend/app.js, style.css | 2026-04-27 |
