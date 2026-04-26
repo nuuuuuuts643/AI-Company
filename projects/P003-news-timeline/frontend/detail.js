@@ -216,7 +216,8 @@ function renderDetail(data) {
     const beats        = Array.isArray(meta.storyTimeline) ? meta.storyTimeline : [];
     const phase        = meta.storyPhase   || '';
     const summaryMode  = meta.summaryMode  || (beats.length > 0 || spreadReason || forecast ? 'full' : 'minimal');
-    const hasSummary   = summary && meta.aiGenerated;
+    const hasSummary   = !!summary;
+    const isFullAI     = summary && meta.aiGenerated;
 
     const PHASE_COLOR = { '発端':'#f59e0b','拡散':'#3b82f6','ピーク':'#ef4444','現在地':'#10b981','収束':'#64748b' };
     const PHASE_ICON  = { '発端':'🌱','拡散':'📡','ピーク':'🔥','現在地':'📍','収束':'✅' };
