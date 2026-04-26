@@ -22,7 +22,7 @@ from botocore.exceptions import ClientError
 
 REGION          = os.environ.get('REGION', 'ap-northeast-1')
 ANALYTICS_TABLE = os.environ.get('ANALYTICS_TABLE', 'flotopic-analytics')
-S3_BUCKET       = os.environ.get('S3_BUCKET', 'flotopic-data')
+S3_BUCKET       = os.environ.get('S3_BUCKET', 'p003-news-946554699567')
 CACHE_KEY       = 'api/analytics.json'
 CACHE_TTL_SEC   = 3600  # 1時間
 
