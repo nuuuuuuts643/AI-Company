@@ -13,9 +13,21 @@
 |---|---|---|---|---|
 | T149 | 高 | **AI要約なし新着トピックがカードに「処理中」バッジなしで上位表示されUX低下** — 根本原因: `renderTopicCard()` が `pendingAI=true` または `aiGenerated=false && !generatedSummary` のトピックに対して特別なUI表示をしない。影響: 速報トピックが要約なしのまま上位に来てユーザーが内容を読めず「壊れている」と感じる。修正方法: `app.js` の `renderTopicCard()` でカードに「🤖 AI分析中...」バッジを追加（`pendingAI=true` または `!meta.aiGenerated && !meta.generatedSummary` の場合）。詳細ページでは T146 が修正対応。ランキング変更は行わない（速報を隠すと本末転倒）。 | `frontend/app.js`, `frontend/style.css` | 2026-04-26 |
 | T150 | 高 | **初回訪問時のonboardingがなくサービスの価値が1秒で伝わらない** — 根本原因: index.html の hero テキストが `「今話題になっていること、まるごとわかる。」` のみで、AIがニュースを分析して何が面白いのかが不明。初回ユーザーはトピックカードの意味（記事N件・スコア・ストーリーフェーズ）が分からないまま離脱する可能性が高い。修正方法: (1) ページ上部に「AIがニュースをまとめ・トレンドを可視化」などの副見出しを追加 (2) トピックカードの「スコア」「記事N件」「フェーズバッジ」に初回のみ表示するツールチップ or 簡易説明テキストを追加。localStorage で「説明表示済み」フラグを管理。 | `frontend/index.html`, `frontend/app.js`, `frontend/style.css` | 2026-04-26 |
-| T146 | 高 | **旧summaryトピック103件がdetailページで「AI分析を生成中」を誤表示** — 根本原因: `detail.js:219` の `const hasSummary = summary && meta.aiGenerated` が `aiGenerated=None/False` のトピック（旧extractive summary保有）をブロック。影響: カードでsummaryが見えるのにdetailページでは「⏳ AI分析を生成中」が表示される（21%のトピックで発生、特にarticleCount平均6.4件の活発トピック）。修正方法: `hasSummary` 条件を `!!summary` に変更し、`isFullAI = summary && meta.aiGenerated` を別変数にして summaryMode 分岐を調整。`aiGenerated=False` でも `generatedSummary` があれば summaryMode='minimal' で表示する。バグ再発防止ルール確認: フォールバックではなくDynamoDB既存データの表示改善。違反なし。 | `frontend/detail.js` | 2026-04-26 |
 | T056 | 低 | **フォロー/フォロワー機能**（将来・ユーザー増えてから） | — | 2026-04-26 |
 | T109 | 低 | **アフィリエイト: トピック内容に合わせた関連商品表示（将来）** — 現状はジャンル固定キーワードで検索。AI要約生成時に商品検索クエリも同時生成してDynamoDBに保存し、トピックページに関連商品として表示できれば収益性向下。AI処理コスト増になるため収益化フェーズで検討 | `lambda/processor/proc_ai.py`, `frontend/js/affiliate.js` | 2026-04-26 |
+
+### 🎯 使いたくなるUX（「また来たい」動線）
+
+> 安定性改善と並行して進める。Flotopicの差別化はストーリー追跡体験にある。それが伝わる動線を作る。
+
+| ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
+|---|---|---|---|---|
+| T151 | 高 | **ストーリーマップ（storymap.html）への動線を強化** — 根本原因: Flotopicの最大の差別化機能（ニュースの経緯をタイムラインで追う）がトップから辿りにくい。Yahoo/Google Newsにない機能なのに初見ユーザーが気づかない。修正方法: ①トップのボトムナビかヘッダーに「ストーリー」タブを追加 ②トピックカードに「📖 経緯を読む」リンクを追加 ③detail.htmlの上部に「ストーリーで全体を把握する →」バナー（storymap.htmlへ遷移）を追加。 | `frontend/index.html`, `frontend/app.js`, `frontend/detail.js`, `frontend/style.css` | 2026-04-26 |
+| T152 | 高 | **「昨日から何が変わったか」を毎日トップに表示** — 根本原因: 毎日訪問する理由が薄い。「また来ても同じかも」という印象が離脱につながる。修正方法: hot-stripとは別に「⚡ 過去24時間の急展開」セクションをトップに追加。velocityScore上位3件＋各トピックの最新記事タイトル1行を表示。「昨日から動きのあった話」として日次の変化を可視化する。 | `frontend/app.js`, `frontend/index.html`, `frontend/style.css` | 2026-04-26 |
+| T153 | 中 | **初回訪問時のジャンル選択（パーソナライズ起点）** — 根本原因: 全ジャンル混在のトップを初見で見ても「自分向けか？」判断できず離脱しやすい。修正方法: 初回訪問時（localStorageフラグなし）にボトムシートで「興味あるジャンルを選んでください」→ 選択をlocalStorageに保存 → 次回以降のデフォルトフィルターに反映。スキップ可能。T150のオンボーディングと合わせて実装。 | `frontend/app.js`, `frontend/index.html`, `frontend/style.css` | 2026-04-26 |
+| T155 | 中 | **detail.htmlに「この話の発端」ハイライト** — 根本原因: ユーザーは最新記事から入るので文脈が掴めない。storyTimelineの最古イベントを見れば発端がわかるがスクロールしないと見えない。修正方法: detail.htmlのstoryTimelineセクション先頭に「📅 この話の始まり（〇月〇日）」として最古イベントを常時展開で表示。最新イベントと発端の2点を押さえれば「流れ」がわかる。 | `frontend/detail.js`, `frontend/style.css` | 2026-04-26 |
+| T154 | 中 | **お気に入りトピックへの新展開をWeb Push通知** — 根本原因: お気に入り登録しても次の展開を見に戻る動機がない。修正方法: ServiceWorkerにWeb Push受信を追加。fetcherが既存お気に入りtidへの新記事を検知→DynamoDB notification_queueに積む→Lambda(notifier)が1日2回処理。ユーザー増加後の優先施策。 | `frontend/sw.js`, `frontend/mypage.html`, 新Lambda | 2026-04-26 |
+| T156 | 低 | **about.htmlを読み物として充実（AdSense審査＋初見ユーザー向け）** — 現状はFAQのみで薄い。修正方法: ①「なぜFlotopicを作ったか」（ニュース断片消費への問題意識） ②「他サービスとの違い」（Yahoo Newsはリアルタイム・Flotopicはストーリーを追う） ③「AIはどう使っているか」 ④「今後やりたいこと」を読み物形式1500〜2000字で書く。 | `frontend/about.html` | 2026-04-26 |
 
 ## 進行中
 → WORKING.md で管理（実装セッションが記入）
