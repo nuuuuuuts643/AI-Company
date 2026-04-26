@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T169 detail.js spreadReason/forecast マークダウン除去）
+- ✅ **T169 detail.js cleanSummary をspreadReason/forecastに適用** — 根本原因: `detail.js` の `spreadReason` と `forecast` が `esc()` のみ適用され `cleanSummary()` が未適用だったため、AIが生成したマークダウン記号（`## 見出し`・`- 箇条書き`等）がトピック詳細ページのUI上に生テキストとして表示されることがあった。静的SEO HTMLは T167 で修正済みだったが動的フロントエンドが未対応。修正: `const spreadReason = cleanSummary(meta.spreadReason || '')` / `const forecast = cleanSummary(meta.forecast || '')` に変更。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T168 about.html FAQ時刻修正）
 - ✅ **T168 about.html FAQのAI処理時刻を実際スケジュールに修正** — 根本原因: FAQ（JSON-LD・表示テキスト両方）に「JST 0時・7時・12時・18時」と記載されていたが、実際のprocessor実行スケジュールはJST 01:00/07:00/13:00/19:00。修正: `0時→1時`・`12時→13時`・`18時→19時` の2箇所（line21 JSON-LD + line228 表示テキスト）を修正。npm test 42件全パス。
 
