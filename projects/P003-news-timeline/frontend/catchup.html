@@ -612,7 +612,7 @@ function buildCard(topic) {
 
   const timelineText = buildTimelineText(topic);
 
-  const imgUrl = topic.imageUrl || '';
+  const imgUrl = (topic.imageUrl || '').replace(/^http:\/\//i, 'https://');
   const thumbHtml = imgUrl
     ? `<div class="catchup-thumb"><img src="${escapeHtml(imgUrl)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></div>`
     : '';
