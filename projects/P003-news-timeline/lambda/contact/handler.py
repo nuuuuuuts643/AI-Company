@@ -1,6 +1,8 @@
 """
 Flotopic お問い合わせフォーム Lambda
-- POST /contact → DynamoDB保存 + SES通知（設定済みの場合のみ）
+- POST /contact           → DynamoDB保存 + SES通知（設定済みの場合のみ）
+- GET  /contacts          → 管理者用一覧取得（Google IDトークン認証必須）
+- POST /contacts/resolve  → 管理者用 archived化（Google IDトークン認証必須）
 - 同一トピックへの削除依頼が3件以上 → トピックを自動archived化
 
 入力:
@@ -11,6 +13,7 @@ import json
 import os
 import re
 import time
+import urllib.request
 import uuid
 
 import boto3
@@ -22,6 +25,8 @@ TO_EMAIL      = os.environ.get('TO_EMAIL', '')
 CONTACTS_TABLE = os.environ.get('CONTACTS_TABLE', 'flotopic-contacts')
 TOPICS_TABLE   = os.environ.get('TOPICS_TABLE', 'p003-topics')
 AUTO_ARCHIVE_THRESHOLD = int(os.environ.get('AUTO_ARCHIVE_THRESHOLD', '3'))
+ADMIN_EMAIL    = os.environ.get('ADMIN_EMAIL', 'mrkm.naoya643@gmail.com')
+GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token='
 
 dynamodb = boto3.resource('dynamodb', region_name='ap-northeast-1')
 contacts = dynamodb.Table(CONTACTS_TABLE)
@@ -38,13 +43,32 @@ CATEGORIES = {
 DELETION_CATEGORIES = {'copyright', 'privacy', 'media'}
 
 
+def verify_admin_token(event) -> bool:
+    """Authorization ヘッダーの Google ID トークンを検証し admin メールか確認する。"""
+    headers = event.get('headers') or {}
+    auth = headers.get('authorization') or headers.get('Authorization') or ''
+    if not auth.startswith('Bearer '):
+        return False
+    id_token = auth[7:].strip()
+    if not id_token:
+        return False
+    try:
+        url = GOOGLE_TOKENINFO_URL + urllib.request.quote(id_token, safe='')
+        with urllib.request.urlopen(url, timeout=5) as r:
+            payload = json.loads(r.read())
+        return payload.get('email') == ADMIN_EMAIL and payload.get('email_verified') in ('true', True)
+    except Exception as e:
+        print(f'verify_admin_token error: {e}')
+        return False
+
+
 def resp(code, msg):
     return {
         'statusCode': code,
         'headers': {
             'Content-Type': 'application/json; charset=utf-8',
             'Access-Control-Allow-Origin': 'https://flotopic.com',
-            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
         },
         'body': json.dumps({'message': msg}, ensure_ascii=False),
     }
@@ -153,12 +177,94 @@ def send_ses_notification(data, contact_id):
         print(f'SES通知スキップ: {e}')
 
 
+def list_contacts(limit=100) -> list:
+    """flotopic-contacts テーブルから最新件を取得して返す。"""
+    items = []
+    kwargs = {
+        'IndexName': 'category-createdAt-index',
+        'KeyConditionExpression': Key('category').eq('other'),
+        'Limit': limit,
+        'ScanIndexForward': False,
+    }
+    # 全カテゴリをスキャン（件数が少ないのでスキャンが現実的）
+    result = contacts.scan(
+        Limit=limit,
+        FilterExpression=boto3.dynamodb.conditions.Attr('status').exists(),
+    )
+    items = result.get('Items', [])
+    items.sort(key=lambda x: x.get('createdAt', 0), reverse=True)
+    return items[:limit]
+
+
+def resolve_contact(contact_id: str, topic_id: str, action: str) -> bool:
+    """問い合わせを resolved にし、必要に応じてトピックをarchived化する。"""
+    if action == 'archive' and topic_id:
+        try:
+            topics.update_item(
+                Key={'topicId': topic_id, 'SK': 'META'},
+                UpdateExpression='SET lifecycleStatus = :s, archivedReason = :r, archivedAt = :t',
+                ExpressionAttributeValues={
+                    ':s': 'archived',
+                    ':r': 'admin:manual',
+                    ':t': int(time.time()),
+                },
+                ConditionExpression=boto3.dynamodb.conditions.Attr('topicId').exists(),
+            )
+        except Exception as e:
+            print(f'resolve_contact archive失敗: {e}')
+    if contact_id:
+        try:
+            contacts.update_item(
+                Key={'contactId': contact_id},
+                UpdateExpression='SET #s = :r',
+                ExpressionAttributeNames={'#s': 'status'},
+                ExpressionAttributeValues={':r': 'resolved'},
+            )
+        except Exception as e:
+            print(f'resolve_contact status更新失敗: {e}')
+    return True
+
+
+def resp_json(code, body_dict):
+    return {
+        'statusCode': code,
+        'headers': {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Access-Control-Allow-Origin': 'https://flotopic.com',
+            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+        },
+        'body': json.dumps(body_dict, ensure_ascii=False, default=str),
+    }
+
+
 def lambda_handler(event, context):
     method = event.get('requestContext', {}).get('http', {}).get('method', '')
+    raw_path = event.get('rawPath', '') or event.get('path', '')
 
     if method == 'OPTIONS':
         return resp(200, 'ok')
 
+    # ── 管理者向けエンドポイント ──────────────────────────────────────
+    if raw_path in ('/contacts', '/contacts/') and method == 'GET':
+        if not verify_admin_token(event):
+            return resp(403, '認証が必要です')
+        items = list_contacts()
+        return resp_json(200, {'contacts': items})
+
+    if raw_path in ('/contacts/resolve',) and method == 'POST':
+        if not verify_admin_token(event):
+            return resp(403, '認証が必要です')
+        try:
+            body = json.loads(event.get('body') or '{}')
+        except json.JSONDecodeError:
+            return resp(400, 'リクエストが不正です')
+        contact_id = (body.get('contactId') or '').strip()
+        topic_id   = (body.get('topicId')   or '').strip()
+        action     = (body.get('action')    or 'resolve').strip()
+        resolve_contact(contact_id, topic_id, action)
+        return resp(200, '完了しました')
+
+    # ── 公開エンドポイント: POST /contact ─────────────────────────────
     if method != 'POST':
         return resp(405, 'Method Not Allowed')
 
