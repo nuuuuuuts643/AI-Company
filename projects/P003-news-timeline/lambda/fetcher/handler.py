@@ -17,7 +17,7 @@ from filters import (
     _apply_secondary_penalty,
 )
 from scoring import (
-    detect_uncertainty, calc_topic_reliability, detect_numeric_conflict,
+    calc_topic_reliability, detect_numeric_conflict,
     apply_tier_and_diversity_scoring, apply_tech_audience_filter,
     record_filter_feedback,
 )
