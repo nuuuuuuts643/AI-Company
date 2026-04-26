@@ -70,12 +70,13 @@ jobs:
             --content-type "application/javascript" \
             --cache-control "no-store, no-cache, must-revalidate"
 
-          # 画像・その他: 長期キャッシュ
+          # 画像・その他: 長期キャッシュ（.md等の開発ファイルは除外）
           aws s3 sync "${FRONTEND}/" "s3://${BUCKET}/" \
             --region "${REGION}" \
             --exclude "*.html" \
             --exclude "*.js" \
             --exclude "*.css" \
+            --exclude "*.md" \
             --cache-control "public, max-age=604800"
 
           echo "✅ S3同期完了"
