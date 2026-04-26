@@ -2382,6 +2382,8 @@ details[open] .day-more-btn::before { content: '▼ '; }
 [data-theme="dark"] .auth-modal-inner { background: #1e2035; }
 [data-theme="dark"] .fav-btn     { background: rgba(19,20,31,.85); }
 [data-theme="dark"] .cx-quoted-block { background: #252840; border-left-color: rgba(99,102,241,.3); }
+[data-theme="dark"] .cx-mention { color: #6366f1; }
+[data-theme="dark"] .cx-save-btn.saved { color: #38bdf8; }
 [data-theme="dark"] .comment-textarea { background: #252840; color: #eef0f8; }
 [data-theme="dark"] .search-wrapper-sticky { background: rgba(19,20,31,.9); }
 [data-theme="dark"] .entity-tag { background: rgba(99,102,241,.15); color: #a5b4fc; }
