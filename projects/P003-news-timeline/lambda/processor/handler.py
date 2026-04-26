@@ -36,6 +36,24 @@ def lambda_handler(event, context):
         count = batch_generate_static_html(max_topics=event.get('maxTopics', 500))
         return {'statusCode': 200, 'body': json.dumps({'generated': count})}
 
+    # 特殊モード: サイトマップ・RSS・静的JSON再生成のみ（AI呼び出しなし）
+    if event.get('regenerateSitemap'):
+        try:
+            topics, trending_keywords = get_all_topics_for_s3()
+            _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline'}
+            ts_iso = datetime.now(timezone.utc).isoformat()
+            topics_pub = [{k: v for k, v in t.items() if k not in _PROC_INTERNAL} for t in topics]
+            write_s3('api/topics.json', {
+                'topics': topics_pub, 'trendingKeywords': trending_keywords,
+                'updatedAt': ts_iso, 'processedByAI': 0, 'aiCallsUsed': 0,
+            })
+            generate_and_upload_sitemap(topics)
+            generate_and_upload_rss(topics)
+            generate_and_upload_news_sitemap(topics)
+            return {'statusCode': 200, 'body': json.dumps({'topics': len(topics)})}
+        except Exception as e:
+            return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+
     pending = get_pending_topics(max_topics=100)
     print(f'[Processor] pendingAI=True トピック数: {len(pending)}')
 
