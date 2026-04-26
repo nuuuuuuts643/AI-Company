@@ -111,11 +111,19 @@ def parse_body(event: dict) -> dict:
 # ── お気に入り一覧取得 ────────────────────────────────────────────
 
 def get_favorites(user_id: str) -> list:
-    r = table.query(
-        KeyConditionExpression=Key('userId').eq(user_id),
-        ProjectionExpression='topicId, createdAt',
-    )
-    return r.get('Items', [])
+    items = []
+    kwargs = {
+        'KeyConditionExpression': Key('userId').eq(user_id),
+        'ProjectionExpression': 'topicId, createdAt',
+    }
+    while True:
+        r = table.query(**kwargs)
+        items.extend(r.get('Items', []))
+        last = r.get('LastEvaluatedKey')
+        if not last:
+            break
+        kwargs['ExclusiveStartKey'] = last
+    return items
 
 
 # ── お気に入り追加 ────────────────────────────────────────────────
