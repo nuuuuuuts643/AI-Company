@@ -39,6 +39,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
 | T186 カードが「続きが気になる」設計 | projects/P003-news-timeline/frontend/app.js, style.css | 2026-04-27 |
-| T190 信頼性表示（N件の記事を分析・ソース一覧） | projects/P003-news-timeline/frontend/detail.js | 2026-04-27 10:30 |
 | T188 初回体験CTA強化（_pendingHeroHighlight改良） | projects/P003-news-timeline/frontend/app.js | 2026-04-27 10:30 |
 | T189 シェアURL体験設計 | projects/P003-news-timeline/frontend/detail.js | 2026-04-27 10:35 |
