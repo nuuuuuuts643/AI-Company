@@ -220,6 +220,14 @@
     @media (max-width: 360px) {
       .sm-branch-grid { grid-template-columns: 1fr; }
     }
+    /* ===== 読了後の導線 ===== */
+    .sm-next-cards { display: flex; flex-direction: column; gap: 8px; }
+    .sm-next-card { display: block; padding: 10px 12px; border-radius: 8px; background: var(--bg-card, #fff); border: 1px solid var(--border, rgba(0,0,0,.08)); text-decoration: none; transition: box-shadow .15s; }
+    .sm-next-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+    .sm-next-card-title { font-size: .86rem; font-weight: 600; color: var(--text, #1e293b); line-height: 1.4; margin-bottom: 4px; }
+    .sm-next-card-meta { font-size: .72rem; color: var(--text-muted, #94a3b8); }
+    .sm-see-all { display: inline-block; margin-top: 12px; font-size: .8rem; color: var(--primary, #6366f1); text-decoration: none; font-weight: 600; }
+    .sm-see-all:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -517,6 +525,39 @@ function renderStorymap(parent, allTopics) {
       </div>`;
   }
 
+  // ---- 同ジャンルで今動いているストーリー（読了後の導線）----
+  const parentGenres = new Set(parent.genres || (parent.genre ? [parent.genre] : []));
+  const excludeIds   = new Set([parent.topicId, ...children.map(c => c.topicId)]);
+  const activeGenreTopics = allTopics
+    .filter(t =>
+      !excludeIds.has(t.topicId) &&
+      parseInt(t.articleCount || 0) >= 2 &&
+      (t.genres || (t.genre ? [t.genre] : [])).some(g => parentGenres.has(g))
+    )
+    .sort((a, b) => Number(b.velocityScore || b.score || 0) - Number(a.velocityScore || a.score || 0))
+    .slice(0, 3);
+  let activeGenreHtml = '';
+  if (activeGenreTopics.length > 0) {
+    const genreLabel = [...parentGenres][0] || 'このジャンル';
+    const nextCards = activeGenreTopics.map(t => {
+      const tTitle = t.generatedTitle || t.title || '';
+      const tCnt   = t.articleCount || 0;
+      const tPhase = t.storyPhase || '';
+      return `<a href="topic.html?id=${esc(t.topicId)}" class="sm-next-card">
+        <div class="sm-next-card-title">${esc(tTitle.length > 48 ? tTitle.slice(0,48)+'…' : tTitle)}</div>
+        <div class="sm-next-card-meta">📄 ${tCnt}件${tPhase ? ' · '+esc(tPhase) : ''}</div>
+      </a>`;
+    }).join('');
+    activeGenreHtml = `
+      <div class="sm-section">
+        <div class="sm-section-header">
+          <span class="sm-section-title">📡 ${esc(genreLabel)}で今動いているストーリー</span>
+        </div>
+        <div class="sm-next-cards">${nextCards}</div>
+        <a href="index.html" class="sm-see-all">すべてのストーリーを見る →</a>
+      </div>`;
+  }
+
   // ---- Active child count ----
   const activeCount  = children.filter(c => c.lifecycleStatus === 'active').length;
   const totalArticles = children.reduce((s, c) => s + (c.articleCount || 0), 0);
@@ -555,6 +596,7 @@ function renderStorymap(parent, allTopics) {
     </div>
 
     ${relatedHtml}
+    ${activeGenreHtml}
   `;
 }
 
