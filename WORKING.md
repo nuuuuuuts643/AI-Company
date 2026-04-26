@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T127+T128 contact/terms/privacy ダークモード修正 | frontend/contact.html, terms.html, privacy.html | 2026-04-26 |
