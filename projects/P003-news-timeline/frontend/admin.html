@@ -269,6 +269,14 @@ section h2{font-size:.9rem;font-weight:600;color:#8b949e;text-transform:uppercas
       </div>
     </section>
 
+    <!-- 収益管理 -->
+    <section>
+      <h2>収益管理</h2>
+      <div class="panel">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px" id="revenue-cards"></div>
+      </div>
+    </section>
+
   </div><!-- /#dashboard -->
 </main>
 
@@ -896,6 +904,50 @@ async function archiveTopic(topicId, contactId) {
   } catch(e) { alert('エラー: ' + e.message); }
 }
 
+// ─── 収益管理カード ────────────────────────────────────────────────────
+function renderRevenue() {
+  const PLATFORMS = [
+    {
+      name:   '忍者 AdMax',
+      status: 'active',
+      note:   '掲載中（AdSense審査通過後に切り替え予定）',
+      url:    'https://admax.ninja//',
+      color:  '#3fb950',
+    },
+    {
+      name:   'Google AdSense',
+      status: 'pending',
+      note:   '審査中 — 通過後に忍者AdMaxから切り替え',
+      url:    'https://www.google.com/adsense/',
+      color:  '#d29922',
+    },
+    {
+      name:   'Amazon アソシエイト',
+      status: 'setup',
+      note:   '申請後 config.js の AFFILIATE_AMAZON_TAG を設定',
+      url:    'https://affiliate.amazon.co.jp/',
+      color:  '#8b949e',
+    },
+    {
+      name:   '楽天アフィリエイト',
+      status: 'setup',
+      note:   '申請後 config.js の AFFILIATE_RAKUTEN_ID を設定',
+      url:    'https://affiliate.rakuten.co.jp/',
+      color:  '#8b949e',
+    },
+  ];
+  const STATUS_LABEL = { active: '稼働中', pending: '審査中', setup: '未申請' };
+  const STATUS_COLOR = { active: '#3fb950', pending: '#d29922', setup: '#8b949e' };
+  document.getElementById('revenue-cards').innerHTML = PLATFORMS.map(p => `
+    <a href="${p.url}" target="_blank" rel="noopener noreferrer" style="display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px 16px;text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#30363d'">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-weight:600;font-size:.9rem;color:#e6edf3">${p.name}</span>
+        <span style="font-size:.72rem;padding:2px 8px;border-radius:10px;background:${STATUS_COLOR[p.status]}22;color:${STATUS_COLOR[p.status]};border:1px solid ${STATUS_COLOR[p.status]}44">${STATUS_LABEL[p.status]}</span>
+      </div>
+      <p style="font-size:.78rem;color:#8b949e;margin:0;line-height:1.5">${p.note}</p>
+    </a>`).join('');
+}
+
 // ─── セクション登録（新セクション追加はここに関数を追記） ─────────────────
 // 引数: (metrics, topics, analyticsMap, analyticsData, cfData)
 const SECTIONS = [
@@ -944,6 +996,7 @@ const Dashboard = {
 
       SECTIONS.forEach(fn => fn(m, topics, analyticsMap, analyticsData, cfData));
       renderContacts();
+      renderRevenue();
       U.setText('last-fetch', '更新: ' + new Date().toLocaleTimeString('ja-JP'));
       document.getElementById('loading').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
