@@ -11,9 +11,7 @@ function renderAffiliate(meta) {
 
   if (!moshimoId && !amazonTag && !rakutenId) return;
 
-  const AFFILIATE_GENRES = ['テクノロジー','グルメ','ファッション','スポーツ','エンタメ','健康','ビジネス','科学','くらし'];
   const topicGenres = meta.genres || (meta.genre ? [meta.genre] : []);
-  if (!topicGenres.some(g => AFFILIATE_GENRES.includes(g))) return;
 
   const GENRE_KEYWORD = {
     'テクノロジー': 'ガジェット 最新',
@@ -25,10 +23,14 @@ function renderAffiliate(meta) {
     'ビジネス': 'ビジネス 書籍',
     '科学': '科学 本',
     'くらし': 'くらし 雑貨',
+    '総合': 'おすすめ 人気',
+    '社会': 'くらし 便利グッズ',
+    '国際': '旅行 グッズ',
+    '株・金融': '投資 書籍',
+    '政治': 'ビジネス 書籍',
   };
 
-  const keyword = GENRE_KEYWORD[topicGenres[0]] || '';
-  if (!keyword) return;
+  const keyword = GENRE_KEYWORD[topicGenres[0]] || 'おすすめ 人気';
 
   const q    = encodeURIComponent(keyword);
   const items = [];
