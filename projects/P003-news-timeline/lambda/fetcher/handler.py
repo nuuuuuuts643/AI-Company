@@ -430,8 +430,8 @@ def lambda_handler(event, context):
             print(f'幽霊エントリ除去: {pre_count - len(topics)}件削除')
 
         topics_active = [t for t in topics if t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES]
-        topics_active = sorted(topics_active, key=lambda x: int(x.get('score', 0) or 0), reverse=True)[:1000]
-        print(f'O(n²)処理対象: {len(topics_active)}件 / 全{len(topics)}件')
+        topics_active = sorted(topics_active, key=lambda x: int(x.get('score', 0) or 0), reverse=True)[:500]
+        print(f'O(n·k)処理対象: {len(topics_active)}件 / 全{len(topics)}件')
 
         related_map = find_related_topics(topics_active)
         for t in topics:
