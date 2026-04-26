@@ -18,6 +18,7 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
+| T202 | 中 | **app.js:104 `_prevSnap` JSON.parseがトップレベルでtry/catch未適用** — 根本原因: T186で追加した `const _prevSnap = JSON.parse(localStorage.getItem('ftpc_snap') \|\| '{}')` がモジュールトップレベルにtry/catchなし。localStorage値が破損している場合（ストレージ容量逼迫時）SyntaxError uncaughtでapp.js全体が実行されない。他のJSON.parseはすべてtry/catch済みなのでこの1箇所のみ漏れ。修正方法: IIFE化: `const _prevSnap = (() => { try { return JSON.parse(localStorage.getItem('ftpc_snap') \|\| '{}'); } catch { return {}; } })();` | `frontend/app.js` | 2026-04-27 |
 
 ### 🎯 使いたくなるUX（「また来たい」動線）
 
