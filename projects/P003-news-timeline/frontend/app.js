@@ -637,6 +637,7 @@ async function refreshTopics() {
     updateFreshnessDisplay();
     renderHotStrip(allTopics);
     renderFavStrip(allTopics);
+    renderQuickNews(allTopics);
     updateMypageBadge(allTopics);
     renderTopics(allTopics);
     renderTrendingGenres();
@@ -720,6 +721,43 @@ function renderFavStrip(topics) {
         return `<a href="topic.html?id=${esc(t.topicId)}" class="hot-chip${hasUpdate ? ' fav-chip-updated' : ''}">${esc(t.generatedTitle || t.title)}${hasUpdate ? ' <span class="fav-new-dot">●</span>' : ''}</a>`;
       }).join('')}
     </div>`;
+  grid.parentNode.insertBefore(strip, grid);
+}
+
+function renderQuickNews(topics) {
+  const existing = document.getElementById('quick-news-strip');
+  if (existing) existing.remove();
+  const grid = document.getElementById('topics-grid');
+  if (!grid) return;
+
+  const nowSec = Date.now() / 1000;
+  const candidates = (topics || [])
+    .filter(t =>
+      t.lifecycleStatus !== 'archived' &&
+      toUnixSec(t.lastArticleAt || t.lastUpdated) >= nowSec - 86400 &&
+      Number(t.velocityScore || 0) >= CONFIG.HOT_STRIP_MIN_VELOCITY &&
+      t.generatedSummary
+    )
+    .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0))
+    .slice(0, 3);
+  if (!candidates.length) return;
+
+  const strip = document.createElement('section');
+  strip.id = 'quick-news-strip';
+  strip.className = 'quick-news-strip';
+  strip.innerHTML = `
+    <div class="hot-strip-header">⚡ 過去24時間の急展開</div>
+    ${candidates.map(t => {
+      const h = Math.floor((nowSec - toUnixSec(t.lastArticleAt || t.lastUpdated)) / 3600);
+      const timeLabel = h < 1 ? '1時間以内' : `${h}時間前`;
+      const snippet = cleanSummary(t.generatedSummary || '').slice(0, 55);
+      const cnt = t.articleCount || 0;
+      return `<a href="topic.html?id=${esc(t.topicId)}" class="qn-item">
+        <div class="qn-meta">${cnt ? `📄 ${cnt}件` : ''} · ${timeLabel}更新</div>
+        <div class="qn-title">${esc(t.generatedTitle || t.title)}</div>
+        ${snippet ? `<div class="qn-snippet">${esc(snippet)}…</div>` : ''}
+      </a>`;
+    }).join('')}`;
   grid.parentNode.insertBefore(strip, grid);
 }
 
