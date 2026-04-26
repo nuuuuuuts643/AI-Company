@@ -219,13 +219,16 @@ def lambda_handler(event, context):
 
     print(f'新規記事: {len(new_urls)}件 / 既知: {len(seen_urls)}件')
 
+    _t_cluster = time.time()
     groups = cluster(all_articles)
+    print(f'[TIMING] cluster: {time.time()-_t_cluster:.1f}s')
     print(f'トピック数: {len(groups)}')
 
     groups_sorted = sorted(groups, key=lambda g: len({a['source'] for a in g}) * 10, reverse=True)
     group_tids    = [(g, topic_fingerprint(g)) for g in groups_sorted]
 
     # Step 4: DynamoDB（hist + META）を全グループ並列プリフェッチ
+    _t_pre = time.time()
     prefetched = {}
     with ThreadPoolExecutor(max_workers=20) as ex:
         fs = {ex.submit(_prefetch_group, tid): tid for _, tid in group_tids}
@@ -235,6 +238,7 @@ def lambda_handler(event, context):
                 prefetched[tid] = f.result()
             except Exception:
                 prefetched[tid] = ([], {})
+    print(f'[TIMING] prefetch {len(group_tids)}groups: {time.time()-_t_pre:.1f}s')
 
     # Step 5: OGP 画像が必要なグループを特定して並列取得（最大 20 件）
     ogp_candidates = []
@@ -266,8 +270,10 @@ def lambda_handler(event, context):
     current_run_metas = {}  # {tid: item} 今回のrunで書いたMETAアイテム
     groups_meta_list  = []
     all_filter_feedback: list = []  # フィルター判定ログ（実行終了後にS3へ書く）
+    _dynamo_puts: list = []  # META+SNAPをバッファに溜めて後でバッチ並列書き込み
 
-    # Step 6: メインループ（外部 I/O なし・DynamoDB 書き込みのみ）
+    # Step 6: メインループ（外部 I/O なし・DynamoDB はバッファに蓄積）
+    _t_loop = time.time()
     for g, tid in group_tids:
         cnt    = len(g)
         genres = dominant_genres(g)
@@ -388,9 +394,9 @@ def lambda_handler(event, context):
         if gen_summary:                 item['generatedSummary'] = gen_summary
         if image_url:                   item['imageUrl']         = image_url
         if existing.get('aiGenerated'): item['aiGenerated']      = True
-        table.put_item(Item=item)
         current_run_metas[tid] = item
-        table.put_item(Item={
+        _dynamo_puts.append(item)
+        _dynamo_puts.append({
             'topicId':      tid,
             'SK':           f'SNAP#{ts_key}',
             'articleCount': cnt,
@@ -408,6 +414,22 @@ def lambda_handler(event, context):
             }.values()))[:20],
         })
         saved_ids.append(tid)
+
+    print(f'[TIMING] main-loop {len(group_tids)}iter: {time.time()-_t_loop:.1f}s')
+
+    # Step 6b: DynamoDB バッチ並列書き込み（逐次put_item→batch_writer並列化）
+    _t_db = time.time()
+    _CHUNK = 25
+    _db_chunks = [_dynamo_puts[i:i+_CHUNK] for i in range(0, len(_dynamo_puts), _CHUNK)]
+
+    def _write_dynamo_chunk(chunk):
+        with table.batch_writer() as bw:
+            for it in chunk:
+                bw.put_item(Item=it)
+
+    with ThreadPoolExecutor(max_workers=20) as ex:
+        list(as_completed([ex.submit(_write_dynamo_chunk, c) for c in _db_chunks]))
+    print(f'[TIMING] dynamo-batch {len(_dynamo_puts)}items/{len(_db_chunks)}chunks: {time.time()-_t_db:.1f}s')
 
     if S3_BUCKET:
         topics = get_all_topics()
@@ -586,30 +608,44 @@ def lambda_handler(event, context):
         generate_sitemap(topics_deduped)  # 公開対象のみsitemapに含める
 
         _TOPIC_INTERNAL = {'SK', 'pendingAI', 'ttl'}
-        s3_written = 0
-        for tid in (tid for tid in saved_ids if tid in deduped_tids):
+        _tids_to_write  = [tid for tid in saved_ids if tid in deduped_tids]
+
+        def _write_topic_s3(tid):
             meta, snaps, views = get_topic_detail(tid)
-            if meta:
-                s3_written += 1
-                meta['relatedTopics'] = related_map.get(tid, [])
-                if tid in child_to_parent:   meta['parentTopicId'] = child_to_parent[tid]
-                if tid in parent_to_children: meta['childTopics']   = parent_to_children[tid]
-                meta_public = {k: v for k, v in meta.items() if k not in _TOPIC_INTERNAL}
-                write_s3(f'api/topic/{tid}.json', {
-                    'meta': meta_public,
-                    'timeline': [
-                        {'timestamp':    s['timestamp'],
-                         'articleCount': s['articleCount'],
-                         'score':        s.get('score', 0),
-                         'hatenaCount':  s.get('hatenaCount', 0),
-                         'articles':     s.get('articles', [])}
-                        for s in snaps
-                    ],
-                    'views': [
-                        {'date': v['date'], 'count': int(v.get('count', 0))}
-                        for v in views
-                    ],
-                })
+            if not meta:
+                return False
+            meta['relatedTopics'] = related_map.get(tid, [])
+            if tid in child_to_parent:    meta['parentTopicId'] = child_to_parent[tid]
+            if tid in parent_to_children: meta['childTopics']   = parent_to_children[tid]
+            meta_public = {k: v for k, v in meta.items() if k not in _TOPIC_INTERNAL}
+            write_s3(f'api/topic/{tid}.json', {
+                'meta': meta_public,
+                'timeline': [
+                    {'timestamp':    s['timestamp'],
+                     'articleCount': s['articleCount'],
+                     'score':        s.get('score', 0),
+                     'hatenaCount':  s.get('hatenaCount', 0),
+                     'articles':     s.get('articles', [])}
+                    for s in snaps
+                ],
+                'views': [
+                    {'date': v['date'], 'count': int(v.get('count', 0))}
+                    for v in views
+                ],
+            })
+            return True
+
+        _t_s3 = time.time()
+        s3_written = 0
+        with ThreadPoolExecutor(max_workers=20) as ex:
+            futures = [ex.submit(_write_topic_s3, tid) for tid in _tids_to_write]
+            for f in as_completed(futures):
+                try:
+                    if f.result():
+                        s3_written += 1
+                except Exception as e:
+                    print(f'write_topic error: {e}')
+        print(f'[TIMING] S3 topic write {s3_written}件: {time.time()-_t_s3:.1f}s')
         print(f'S3書き出し完了: {s3_written}件')
 
     # フィルター判定ログをS3に保存（lifecycle Lambda が週次で集計して重みを調整）
