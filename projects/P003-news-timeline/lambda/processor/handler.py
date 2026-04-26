@@ -26,7 +26,7 @@ from proc_storage import (
     batch_generate_static_html, backfill_missing_detail_json,
 )
 
-_PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline'}
+_PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext'}
 
 
 def lambda_handler(event, context):
