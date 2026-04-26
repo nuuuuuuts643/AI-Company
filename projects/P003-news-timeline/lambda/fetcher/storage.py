@@ -374,9 +374,10 @@ def generate_sitemap(topics):
         if _TICKER.search(t.get('generatedTitle', '') + t.get('title', '')):
             continue
         lastmod  = to_date(t.get('lastUpdated', today))
+        # 静的SEO用HTML（Googlebotが直接読める）を使う
         urls_xml += (
             '  <url>\n'
-            f'    <loc>{site_url}/topic.html?id={tid}</loc>\n'
+            f'    <loc>{site_url}/topics/{tid}.html</loc>\n'
             f'    <lastmod>{lastmod}</lastmod>\n'
             '    <changefreq>hourly</changefreq>\n'
             '    <priority>0.8</priority>\n'
