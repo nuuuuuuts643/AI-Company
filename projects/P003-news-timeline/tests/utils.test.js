@@ -11,9 +11,9 @@ const { CONFIG, LS_KEYS, relativeTime, isNewTopic, isHotTopic } =
 // CONFIG
 // ─────────────────────────────────────────────
 describe('CONFIG', () => {
-  it('HOT_STRIP_HOURS is 2', () => assert.equal(CONFIG.HOT_STRIP_HOURS, 2));
+  it('HOT_STRIP_HOURS is 6', () => assert.equal(CONFIG.HOT_STRIP_HOURS, 6));
   it('NEW_BADGE_HOURS is 1', () => assert.equal(CONFIG.NEW_BADGE_HOURS, 1));
-  it('AD_CARD_INTERVAL is 10', () => assert.equal(CONFIG.AD_CARD_INTERVAL, 10));
+  it('AD_CARD_INTERVAL is 9', () => assert.equal(CONFIG.AD_CARD_INTERVAL, 9));
   it('TOPICS_PER_PAGE is 20', () => assert.equal(CONFIG.TOPICS_PER_PAGE, 20));
   it('FRESHNESS_INTERVAL_MS is 60000', () =>
     assert.equal(CONFIG.FRESHNESS_INTERVAL_MS, 60000));
@@ -98,16 +98,16 @@ describe('isHotTopic', () => {
     assert.equal(isHotTopic({ lastUpdated: nowSec() - 1 * 3600 }), true);
   });
 
-  it('returns true for topic updated 119 minutes ago (boundary)', () => {
-    assert.equal(isHotTopic({ lastUpdated: nowSec() - 119 * 60 }), true);
+  it('returns true for topic updated 359 minutes ago (boundary)', () => {
+    assert.equal(isHotTopic({ lastUpdated: nowSec() - 359 * 60 }), true);
   });
 
-  it('returns false for topic updated exactly 2 hours ago', () => {
-    assert.equal(isHotTopic({ lastUpdated: nowSec() - 2 * 3600 }), false);
+  it('returns false for topic updated exactly 6 hours ago', () => {
+    assert.equal(isHotTopic({ lastUpdated: nowSec() - 6 * 3600 }), false);
   });
 
-  it('returns false for topic updated 3 hours ago', () => {
-    assert.equal(isHotTopic({ lastUpdated: nowSec() - 3 * 3600 }), false);
+  it('returns false for topic updated 7 hours ago', () => {
+    assert.equal(isHotTopic({ lastUpdated: nowSec() - 7 * 3600 }), false);
   });
 
   it('returns false when lastUpdated is null', () => {
@@ -123,7 +123,7 @@ describe('isHotTopic', () => {
   });
 
   it('isHotTopic true implies isNewTopic may be false (different thresholds)', () => {
-    // 90分前のトピック: hot=true (2h以内), new=false (1h超)
+    // 90分前のトピック: hot=true (6h以内), new=false (1h超)
     const t = { lastUpdated: nowSec() - 90 * 60 };
     assert.equal(isHotTopic(t), true);
     assert.equal(isNewTopic(t), false);
