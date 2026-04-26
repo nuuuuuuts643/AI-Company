@@ -212,7 +212,7 @@ def _generate_story_minimal(articles: list) -> dict | None:
             'spreadReason': '',
             'forecast':     '',
             'timeline':     [],
-            'phase':        '',
+            'phase':        '発端',
             'summaryMode':  'minimal',
         }
     except Exception as e:
