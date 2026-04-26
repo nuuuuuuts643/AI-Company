@@ -20,9 +20,10 @@ from urllib.error import URLError, HTTPError
 import boto3
 from botocore.exceptions import ClientError
 
-TABLE_NAME   = os.environ.get('USERS_TABLE', 'flotopic-users')
-REGION       = os.environ.get('REGION', 'ap-northeast-1')
-TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token='
+TABLE_NAME        = os.environ.get('USERS_TABLE', 'flotopic-users')
+REGION            = os.environ.get('REGION', 'ap-northeast-1')
+TOKENINFO_URL     = 'https://oauth2.googleapis.com/tokeninfo?id_token='
+GOOGLE_CLIENT_ID  = os.environ.get('GOOGLE_CLIENT_ID', '')
 HANDLE_RE    = re.compile(r'^[A-Za-z0-9_]{1,20}$')
 VALID_AGE_GROUPS = {'10代未満', '10代', '20代', '30代', '40代', '50代', '60代以上', ''}
 VALID_GENDERS    = {'male', 'female', 'other', 'prefer_not', ''}
@@ -53,6 +54,8 @@ def verify_google_token(id_token: str) -> dict | None:
         with urlopen(TOKENINFO_URL + id_token, timeout=5) as response:
             payload = json.loads(response.read().decode('utf-8'))
         if 'sub' not in payload or 'email' not in payload:
+            return None
+        if GOOGLE_CLIENT_ID and payload.get('aud') != GOOGLE_CLIENT_ID:
             return None
         return payload
     except (HTTPError, URLError, json.JSONDecodeError):
