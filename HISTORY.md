@@ -7,6 +7,9 @@
 ### 完了済み（2026-04-26 admin.html contacts表示修正）
 - ✅ **admin.html contacts table 送信者列追加・topicIdリンク修正** — contacts APIがDB保存するようになったnameフィールドをテーブルに表示するため「送信者」列を追加（5→6列）。topicIdリンクを`/topics/{tid}`→`/topics/{tid}.html`のcanonical URLに修正。全colspanを6に更新。
 
+### 完了済み（2026-04-26 T110 profile.htmlアバター表示バグ修正）
+- ✅ **T110 profile.html 他ユーザーページでの自アバター表示バグ修正** — `profile.html?handle=他人のハンドル` を開いたとき、localStorageのアバター画像が自プロフィールチェックなしで表示されていた。アバター表示と編集ボタン表示の2つのtry/catchを統合し、`prof.handle === handle` チェックを通過した場合のみアバター画像をlocalStorageから表示するよう修正。
+
 ### 完了済み（2026-04-26 T103 get_all_topics二重減衰修正）
 - ✅ **T103 get_all_topics() スコア二重減衰修正** — `lambda/fetcher/storage.py:get_all_topics()` がS3のtopics.jsonから読んだスコアに `apply_time_decay` を再適用していた。fetcherがすでに `apply_time_decay` 済みのスコアを書いているため24h古いトピックは0.30倍のはずが0.09倍になっていた。S3パスとDynamoDBフォールバックパス両方の `apply_time_decay` 呼び出し（4行）を削除し、読んだスコアをそのままソートに使うよう修正。
 
