@@ -11,6 +11,10 @@ function renderAffiliate(meta) {
 
   if (!moshimoId && !amazonTag && !rakutenId) return;
 
+  const AFFILIATE_GENRES = ['テクノロジー','グルメ','ファッション','スポーツ','エンタメ','健康','ビジネス','科学','くらし'];
+  const topicGenres = meta.genres || (meta.genre ? [meta.genre] : []);
+  if (!topicGenres.some(g => AFFILIATE_GENRES.includes(g))) return;
+
   const rawTitle = meta.generatedTitle || meta.title || '';
   const keyword  = rawTitle.replace(/[【】「」『』（）()【】\[\]]/g, '').trim().slice(0, 40);
   if (!keyword) return;
