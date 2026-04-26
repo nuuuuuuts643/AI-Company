@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T142 静的HTML storyPhaseバッジ + 記事数表示追加）
+- ✅ **T142 proc_storage.py 静的HTMLに storyPhase バッジ + 記事数表示** — 静的SEO HTMLにstoryPhaseバッジ（`.phase-rising/peak/declining`）と記事数テキスト（「N件の記事」）を追加。ページがより情報豊富になりクリック率向上期待。CSS: `.phase-badge`クラス + `.phase-rising`(赤系) / `.phase-peak`(アンバー系) / `.phase-declining`(グレー系)。
+
 ### 完了済み（2026-04-26 T140/T141 mypage通知dark mode + SEOメタ改善）
 - ✅ **T140 mypage.html 通知エリア・履歴削除ボタン dark mode 修正** — JSテンプレート内のinline style `background:#fafafa`（未読通知行）・`background:#f8fafc`（引用抜粋）・`border:1px solid #e2e8f0`（履歴削除ボタン）をCSSクラス化。`.notif-item`・`.notif-excerpt`・`.clear-history-btn` クラスに移動し、`[data-theme="dark"]` オーバーライドを追加。ダークモードで白ボックスが突出する問題を解消。
 - ✅ **T141 静的HTML SEOメタdescription拡張** — `proc_storage.py` の `summary[:120]` を `summary[:155]` に変更。Googleが表示するSERP snippetは最大155文字なので、120文字は35文字分の機会損失だった。JSON-LD keywords を `genres_raw[0]` 単体から `', '.join(genres_raw)` に変更し複数ジャンル情報を含めるよう改善。

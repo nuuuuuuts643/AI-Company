@@ -697,6 +697,11 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
     canonical  = f'https://flotopic.com/topics/{tid}.html'
     interactive = f'https://flotopic.com/topic.html?id={tid}'
     timeline   = meta.get('storyTimeline') or []
+    story_phase = meta.get('storyPhase', '')
+    article_count = int(meta.get('articleCount', 0) or 0)
+    _PHASE_LABEL = {'rising': '🔥 急上昇中', 'peak': '📈 最高潮', 'declining': '📉 落ち着き'}
+    phase_badge = (f'<span class="phase-badge phase-{story_phase}">{_PHASE_LABEL[story_phase]}</span>'
+                   if story_phase in _PHASE_LABEL else '')
     last_upd   = (meta.get('lastUpdated') or '')[:10] or ''
     _lat = int(meta.get('lastArticleAt') or 0)
     date_published = (datetime.utcfromtimestamp(_lat).strftime('%Y-%m-%dT%H:%M:%SZ') if _lat else last_upd)
@@ -800,6 +805,10 @@ h1{{font-size:1.6rem;margin-bottom:.5rem}}
 h2{{font-size:1.1rem;border-left:4px solid #6366f1;padding-left:.6rem;margin-top:2rem}}
 h3{{font-size:1rem;color:#475569;margin-top:1.2rem}}
 .genre{{display:inline-block;background:#e0e7ff;color:#4338ca;border-radius:4px;padding:2px 8px;font-size:.8rem;margin-bottom:.5rem}}
+.phase-badge{{display:inline-block;font-size:.78rem;font-weight:700;border-radius:4px;padding:2px 8px;margin-left:6px;margin-bottom:.5rem}}
+.phase-rising{{background:#fef2f2;color:#dc2626}}
+.phase-peak{{background:#fffbeb;color:#b45309}}
+.phase-declining{{background:#f1f5f9;color:#64748b}}
 .ev{{border-left:2px solid #c7d2fe;margin:.8rem 0;padding:.4rem .8rem}}
 .ev-date{{font-size:.8rem;color:#64748b;display:block}}
 .tr{{font-style:italic;color:#6366f1;margin:.3rem 0 0}}
@@ -815,8 +824,9 @@ header a{{color:#6366f1;font-weight:bold;font-size:1.1rem;text-decoration:none}}
 </head>
 <body>
 <header><a href="https://flotopic.com">Flotopic</a><span style="color:#94a3b8;font-size:.85rem">— 話題の盛り上がりをAIで追う</span></header>
-<span class="genre">#{genre}</span>
+<span class="genre">#{genre}</span>{phase_badge}
 <h1>{title}</h1>
+<p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0 1.5rem;">{article_count}件の記事</p>
 {ai_html}
 {timeline_html}
 {articles_html}
