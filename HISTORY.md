@@ -11,8 +11,8 @@
 - ✅ **T131 storymap.html 二重フッター削除** — Line 252-254 の旧フッター（プライバシーリンク1本のみ）を削除。site-footer 追加時の取り残し。ユーザーにフッターが2回表示されていた。
 - ✅ **T132 storymap.html エンティティタグ dark mode 対応** — `renderBranchCard()` の entity タグを inline style から CSS クラス `.sm-entity-tag` に変更。`[data-theme="dark"]` オーバーライド追加（`#eff6ff` → `rgba(37,99,235,.18)` / `#2563eb` → `#93c5fd`）。
 
-### 完了済み（2026-04-26 T135 card-thumb-placeholder ダークモード修正）
-- ✅ **T135 style.css card-thumb-placeholder に [data-theme="dark"] オーバーライド追加** — `.card-thumb-placeholder.rising/peak/declining` のダークモード背景グラデーションが `@media (prefers-color-scheme: dark)` ブロック内にしかなく、ユーザーが手動でダークモードを切り替えた場合（OS設定がライト）に明るい背景（#fef2f2等）がダークカード上に表示されるバグを修正。`[data-theme="dark"] .card-thumb-placeholder.*` セレクタを追加。
+### 完了済み（2026-04-26 T135 style.css ダークモード欠落セレクタ補完）
+- ✅ **T135 style.css [data-theme="dark"] オーバーライド追加（7セレクタ）** — `@media (prefers-color-scheme: dark)` ブロックにのみ存在し `[data-theme="dark"]` セレクタが欠落していた要素を全修正。①`.card-thumb-placeholder.rising/peak/declining`: 手動ダークモード切替時に明るい背景(#fef2f2等)がダークカード上に表示されるバグ。②`.topic-status.rising/peak/new/declining`: ピンク/アンバー/水色のlight背景がダークカードに浮く問題。③`.card-phase-badge`: `#eef2ff` ライト背景のみ → `rgba(99,102,241,.2)` + `#a5b4fc` に。④`.fav-toggle-btn.icon-only`(非active): `color: #5c6080` を明示追加。
 
 ### 完了済み（2026-04-26 T134 fetcher orphan条件にstoryPhase追加）
 - ✅ **T134 fetcher handler.py orphan候補条件にstoryPhase欠損チェック追加** — orphan_candidates の条件に`and (t.get('storyPhase') or t.get('summaryMode') == 'minimal' or articleCount <= 2)`を追加。storyPhaseが欠落したトピックが定期的にpending_ai.jsonに追加され、次回のprocessor実行でstoryPhase再生成が実行される。T130(proc_storage)との相乗効果でstoryPhaseカバレッジ50%→改善期待。
