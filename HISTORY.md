@@ -484,3 +484,10 @@ bash projects/P003-news-timeline/deploy.sh
 - これによりflotopic_historyにデータがあるユーザーのカードも正しくopacity:0.65のグレー表示になる
 - `.topic-card.viewed` CSSは既存のまま（opacity:0.65/muted title/hover:0.85）
 - テスト: `npm test` 42件全パス
+
+→ T035 天気ウィジェット→急上昇ジャンル表示（15:20 JST）
+- 天気取得コード（WMO定数・loadWeather関数・geolocation/Nominatim API呼び出し）を完全削除
+- `renderTrendingGenres()` を追加: allTopicsのrising/peakトピックからジャンル別最大velocityを集計し、「🔥 今日は〇〇が急上昇 +N件」を1行表示
+- `refreshTopics()` 内で毎回呼び出すため未ログインでも表示
+- CSS: `.weather-widget` をrow方向flex・`.trend-genre-label/.count` 追加
+- テスト: `npm test` 42件全パス
