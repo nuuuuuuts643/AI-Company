@@ -865,3 +865,9 @@ bash projects/P003-news-timeline/deploy.sh
 
 ### 完了済み（2026-04-26 T087 detail JSON欠損自動補完）
 - ✅ **T087** — `processor/handler.py` の通常フローに `backfill_missing_detail_json()` 呼び出しを追加。この関数は既に `proc_storage.py` に実装済みだったが `event.get('backfillDetailJson')` の手動トリガーのみで自動実行されていなかった。processor 4x/day の各実行末尾で topics.json に存在するが S3 に `api/topic/{tid}.json` が無いトピックを DynamoDB から自動補完するようになった。`head_object` で存在確認 → なければ DynamoDB から META + SNAP を読んで S3 に書く。
+
+### 完了済み（2026-04-26 T093/T094/T095/T096 バグ修正4件）
+- ✅ **T093** — `fetcher/handler.py` メインループ冒頭に `if not any(a['url'] in new_urls for a in g): continue` を追加。Union-Find推移性でseen_urls記事が別トピックに混入し続ける根本バグを修正。古い記事のみのクラスターはMETA/SNAP書き込みをスキップするようになり、cross-contamination停止。
+- ✅ **T094** — `processor/handler.py:102` の `_is_minimal = (topic.get('summaryMode') == 'minimal' or cnt <= 2)` を `_is_minimal = cnt <= 2` に変更。DynamoDBの古いsummaryModeフィールドに引きずられてcnt=3+のトピックが永遠にstoryTimeline未生成になる永続ループを修正。storyPhaseカバレッジ40%→改善見込み。
+- ✅ **T095** — `fetcher/config.py` の `GENRE_PRIORITY` で '科学' を 'エンタメ' より前（index 8）に移動。スコア同点時にグルメがサイエンス記事に勝つ誤分類を修正。
+- ✅ **T096** — `fetcher/score_utils.py` の `_parse_pubdate_ts()` に ISO 8601 フォールバックを追加。`parsedate_tz`（RFC 2822専用）がNHK/Livedoorの`"2026-04-26T12:00:00+09:00"`形式をNoneと返す → `published_ts=0` → `lifecycle='archived'` → トピック非表示になる問題を修正。`datetime.fromisoformat()`でパース成功するようになった。
