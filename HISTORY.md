@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T175 processor 1件記事skip）
+- ✅ **T175 proc_config.py MIN_ARTICLES定数を1→2・handler.py 早期skip追加** — 根本原因: `MIN_ARTICLES_FOR_TITLE=1`/`MIN_ARTICLES_FOR_SUMMARY=1` が articleCount=1 の非表示トピック（占星術・1件記事等 206件）へのAI呼び出しを許容。176件分のAPI呼び出しが浪費され、ユーザー可視トピック(articleCount≥2・294件)のカバレッジが43%止まりだった。修正: ①両定数を2に変更 ②`handler.py` ループ冒頭に `if cnt < MIN_ARTICLES_FOR_TITLE: skipped+=1; continue` を追加（max_topics=100ループ枠の節約も兼ねる）。効果: 全API呼び出しが可視トピックに集中し、カバレッジが短期間で大幅改善見込み。Python構文チェック・npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T172/T173/T174 セキュリティ・一貫性修正）
 - ✅ **T172 detail.js renderDiscovery imageUrl esc()適用** — 根本原因: `renderDiscovery()` の `safeThumb` が `src="${safeThumb}"` に `esc()` 未適用。app.jsの `renderTopicCard` は `esc(safeImgUrl())` と正しくエスケープしており不整合。S3 URLなので実害なしだが、一貫性とXSS防止のため修正。npm test 42件全パス。
 - ✅ **T173 utils.js CONFIG値をapp.jsと同期** — 根本原因: utils.js の `HOT_STRIP_HOURS:2`(app.jsは6)・`AD_CARD_INTERVAL:10`(app.jsは9) が乖離し、テストが本番と異なる閾値で通過していた。修正: utils.js の定数を6・9に変更し、utils.test.js のisHotTopic境界テストを6時間境界に更新。npm test 42件全パス。

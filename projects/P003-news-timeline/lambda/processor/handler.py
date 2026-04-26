@@ -77,6 +77,11 @@ def lambda_handler(event, context):
         tid = topic['topicId']
         cnt = int(topic.get('articleCount', 0) or 0)
 
+        # 1件記事トピックはユーザーに表示されないためスキップ（API節約）
+        if cnt < MIN_ARTICLES_FOR_TITLE:
+            skipped += 1
+            continue
+
         articles = get_latest_articles_for_topic(tid)
         if not articles:
             raw_title = topic.get('title', '')
