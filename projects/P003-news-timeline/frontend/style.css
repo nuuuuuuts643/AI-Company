@@ -404,7 +404,7 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
 .card-thumb-placeholder.peak      { background: #fffbeb; }
 .card-thumb-placeholder.declining { background: #f8fafc; }
 
-.card-body { flex: 1; min-width: 0; }
+.card-body { flex: 1; min-width: 0; overflow: hidden; }
 
 .topic-status {
   display: inline-block;
