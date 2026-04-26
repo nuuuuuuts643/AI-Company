@@ -12,12 +12,10 @@
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
 | T019 | 中 | **SES本番アクセス申請後のLambda環境変数設定**。AWSコンソール → Lambda `p003-contact` → 環境変数 → `TO_EMAIL` に受信メールアドレスを設定。SES本番承認後に実施（ナオヤ手動） | — | 2026-04-26 |
-| T021 | 高 | **fetcher実行時間削減（384秒→目標60秒）**。T017のO(n²)修正後も384秒かかっている。RSSフェッチの並列化（asyncio/concurrent.futures）またはDynamoDBバッチ書き込み最適化が必要。CloudWatchで各フェーズのタイムスタンプを追加して真のボトルネックを特定すること | lambda/fetcher/handler.py | 2026-04-26 |
 | T022 | 中 | **モバイル広告（忍者AdMax）表示調査・修正**。スマホでtopic.htmlを開いても728×90広告が見えない。CSS scale(0.44)は正しいが広告スクリプト自体がモバイルで未配信の可能性あり。320×50のモバイル用広告枠を別途追加することを検討 | frontend/topic.html, frontend/style.css | 2026-04-26 |
 | T023 | 中 | **UIコピー改善**。ボトムナビの「ふりかえり」など平凡な言葉をよりクールな表現に変更。対象ファイル: contact.html・legacy.html・privacy.html・catchup.html（「ふりかえり」→「クロニクル」「軌跡」「経緯」等を検討）。catchup.htmlのヒーロー文言も含めて全体的に見直す | frontend/contact.html, legacy.html, privacy.html, catchup.html | 2026-04-26 |
 | T024 | 中 | **閲覧履歴クラウド同期**。現在はlocalStorage（20件上限）のみで端末をまたいで消える。Googleログイン済みユーザーはDynamoDB（flotopic-favorites と同テーブルまたは専用テーブル）に保存・復元する。favorites Lambdaと同様の実装パターンで対応可能 | lambda/favorites/handler.py, frontend/app.js, frontend/mypage.html | 2026-04-26 |
 | T025 | 高 | **【リーガル】privacy.html アフィリエイト記載更新**。今日もしもアフィリエイト（Yahoo!ショッピング含む）を追加したが、privacy.htmlの「広告・アフィリエイト」セクションにもしもアフィリエイト・Yahoo!ショッピングの記載がない。薬機法・景表法上のリスク回避のため即対応 | frontend/privacy.html | 2026-04-26 |
-| T026 | 低 | **MAX_API_CALLS 35→適正値の検討**。commit 3d0894aで150に増量したが f3f25eaで35に戻った。現在pending=100件程度なら35×4回/日=140calls/dayで十分。Anthropicコスト試算: ~$9-12/月。AI要約カバレッジが80%以下に落ちたら150に戻す判断基準にする | lambda/processor/proc_config.py | 2026-04-26 |
 
 ## 進行中
 → WORKING.md で管理（実装セッションが記入）
