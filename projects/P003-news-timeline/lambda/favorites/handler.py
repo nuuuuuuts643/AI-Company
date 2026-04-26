@@ -26,7 +26,7 @@ from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
 
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
 TABLE_NAME   = os.environ.get('FAVORITES_TABLE', 'flotopic-favorites')
@@ -114,6 +114,7 @@ def get_favorites(user_id: str) -> list:
     items = []
     kwargs = {
         'KeyConditionExpression': Key('userId').eq(user_id),
+        'FilterExpression': ~(Attr('topicId').begins_with('HISTORY#') | Attr('topicId').begins_with('PREFS#')),
         'ProjectionExpression': 'topicId, createdAt',
     }
     while True:
@@ -155,6 +156,7 @@ def delete_all_user_data(user_id: str):
             batch.delete_item(Key={'userId': user_id, 'topicId': item['topicId']})
         for item in history_items:
             batch.delete_item(Key={'userId': user_id, 'topicId': HISTORY_SK_PREFIX + item['topicId']})
+        batch.delete_item(Key={'userId': user_id, 'topicId': PREFS_SK_GENRE})
 
 
 # ── 閲覧履歴 ─────────────────────────────────────────────────────
