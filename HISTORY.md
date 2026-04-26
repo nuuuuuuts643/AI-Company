@@ -4,6 +4,10 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T150/T158 初回onboarding・hero差別化）
+- ✅ **T150 index.html/app.js/style.css 初回訪問onboarding追加** — `flotopic_onboarded` localStorageフラグなし＝初回訪問時、heroエリア下にカード見かたガイドを表示。スコア=トレンド強度、記事N件=記事本数、フェーズバッジ=ストーリー段階の3点を説明。「わかった！」ボタンでlocalStorageに記録して非表示化。`showOnboardingTip()` / `flotopicDismissOnboarding()` 追加。style.cssに `.ob-body/.ob-title/.ob-items/.ob-item/.ob-icon/.ob-dismiss` 追加。
+- ✅ **T158(index.html) heroタグライン確定** — heroタグラインを「ニュースの"流れ"を、AIがストーリーにする」に変更（app.js/style.cssは前コミット済み）。`#hero-story-preview` div追加。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T163 catchup.htmlジャンル&summaryバグ修正）
 - ✅ **T163 catchup.html genres[]使用・cleanSummary適用** — `buildCard()` で `topic.genre`（旧単一フィールド）のみ参照していたため、`genres[]`配列のみ持つトピックのジャンル表示が常に「総合」になっていた。`(topic.genres && topic.genres[0]) || topic.genre || '総合'` に修正。また AI 生成サマリーにマークダウン記法（`##`見出し・`- `箇条書き）が含まれる場合に文字通りに表示されていたため `cleanSummary()` 関数を追加して適用。npm test 42件全パス。
 
