@@ -581,9 +581,9 @@ function buildVelocityBar(velocityScore) {
 function buildCard(topic) {
   const lc      = topic.lifecycleStatus || 'active';
   const title   = topic.generatedTitle || topic.title || '（タイトルなし）';
-  const summary = topic.generatedSummary || topic.extractiveSummary || '';
+  const summary = cleanSummary(topic.generatedSummary || topic.extractiveSummary || '');
   const cnt     = parseInt(topic.articleCount || 0);
-  const genre   = topic.genre || '総合';
+  const genre   = (topic.genres && topic.genres[0]) || topic.genre || '総合';
   const tid     = topic.topicId || '';
   const updated = topic.lastUpdated || '';
   const created = topic.firstArticleAt ? new Date(topic.firstArticleAt * 1000).toISOString() : '';
@@ -641,6 +641,11 @@ function escapeHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function cleanSummary(s) {
+  if (!s) return '';
+  return s.replace(/^#{1,3}\s+.+?\n+/gm,'').replace(/^[-*]\s+/gm,'').replace(/^\d+\.\s+/gm,'').replace(/\n{2,}/g,' ').replace(/\n/g,' ').trim();
 }
 
 // ── レンダリング ──────────────────────────────────────────────────────────────
