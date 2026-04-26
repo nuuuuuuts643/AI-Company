@@ -94,7 +94,8 @@ function savePrefs(prefs) {
 
 // ===== 共通ユーティリティ =====
 const _prefs = loadPrefs();
-let allTopics = [], currentStatus = _prefs.status || 'all', currentGenre = _prefs.genre || '総合', currentSearch = '';
+const _urlFilter = new URLSearchParams(location.search).get('filter');
+let allTopics = [], currentStatus = _urlFilter || _prefs.status || 'all', currentGenre = _prefs.genre || '総合', currentSearch = '';
 let currentPage = 1;
 let lastFetchTime = null;
 let _nativeAdIdx = -1;
