@@ -160,8 +160,7 @@ def delete_all_user_data(user_id: str):
 # ── 閲覧履歴 ─────────────────────────────────────────────────────
 
 def _history_ttl() -> int:
-    import calendar
-    return calendar.timegm(datetime.now(timezone.utc).timetuple()) + HISTORY_TTL_DAYS * 86400
+    return int(datetime.now(timezone.utc).timestamp()) + HISTORY_TTL_DAYS * 86400
 
 
 def get_history(user_id: str) -> list:
