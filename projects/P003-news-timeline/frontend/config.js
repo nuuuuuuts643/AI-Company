@@ -15,7 +15,7 @@ const GOOGLE_CLIENT_ID = '632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.goo
 const AFFILIATE_MOSHIMO_A_ID = '';  // 例: '1234567'
 // ② Amazonアソシエイト直接（もしもIDがない場合のフォールバック）
 //   https://affiliate.amazon.co.jp/ でタグIDを取得後に設定
-const AFFILIATE_AMAZON_TAG = '';    // 例: 'flotopic-22'
+const AFFILIATE_AMAZON_TAG = 'flotopic-22';    // 例: 'flotopic-22'
 // ③ 楽天アフィリエイト直接（もしもIDがない場合のフォールバック）
 //   https://affiliate.rakuten.co.jp/ でアフィリエイトIDを取得後に設定
 const AFFILIATE_RAKUTEN_ID = '';    // 例: 'xxxxxxxx.xxxxxxxxx.xxxxxxxx.xxxxxxxx'
