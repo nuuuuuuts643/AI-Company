@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T179 グラフ/記事数不一致修正）
+- ✅ **T179 detail.js グラフ最終点をmeta.articleCountで補正** — 根本原因: グラフはDynamoDB SNAPのarticleCount（スナップショット時点の値）を使い、カード表示はtopics.jsonのarticleCount（最新ライブ値）を使うため、lifecycle整理後に両者がずれて不一致が生じていた。修正: buildCharts()内でmediaCnts配列の最終要素をmeta.articleCount（topics.jsonの権威ある現在値）で上書き補正。既存の全レンジ（24h/7d/全期間/集計モード）に対応。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T180 AI要約 原因深掘りセクション追加）
 - ✅ **T180 proc_ai.py + detail.js: backgroundContext（なぜ起きたか）セクション追加** — 根本原因: 既存4セクション（概要・拡散理由・フェーズ・今後）は「何が起きているか」に偏り「なぜ起きたか・背景にある構造的原因」が欠けていた。修正: ①proc_ai.py の standard/full モードプロンプトに `backgroundContext`（構造的・社会的・経済的・政治的背景を1〜2文で分析）フィールドを追加。同一APIコールへの追加のためコスト増はほぼなし。max_tokens を standard: 700→900、full: 1000→1200 に増加 ②detail.js で standard/full 両モードに「なぜ起きたか（背景・構造的原因）」セクションを表示。full mode は ①何が起きたか②なぜ起きたか③なぜ広がったか④今どの段階か⑤今後どうなるか の5セクション構成に。既存レコード（backgroundContext未設定）は背景セクションを非表示にして4セクション従来表示を継続。Python構文チェック・npm test 42件全パス。
 
@@ -1124,3 +1127,8 @@ bash projects/P003-news-timeline/deploy.sh
 
 ### 完了済み（2026-04-27 T186 needs_ai_processing 1件記事修正）
 - ✅ **T186** — `proc_storage.py:needs_ai_processing()`冒頭に`if int(item.get('articleCount', 0) or 0) < 2: return False`を追加。T175でprocessor handlerにcnt<2早期skipを追加したが`needs_ai_processing()`は1件記事トピックにTrueを返し続けていた。これによりpending_ai.jsonに1件記事トピックが永遠に残留し、毎実行でDynamoDBを個別lookupするパフォーマンス劣化が発生。2件目の記事が来た際はfetcherがpendingAI=Trueをセットし直すため機能は維持される。
+
+### 完了済み（2026-04-27 T183/T187/T188 Bluesky確認・フェーズバッジ改善・初回CTA強化）
+- ✅ **T183** — GitHub Actions `bluesky-agent.yml`の直近10件全てsuccess確認。1日3回(JST 08:00/12:00/18:00)スケジュール稼働中。CLAUDE.mdスナップショット更新。
+- ✅ **T187** — `app.js:59,690` と `catchup.html:599` の `PHASE_BADGE` 表示文言を直感的な言葉に変更: 発端→🌱始まり、拡散→📡広まってる、ピーク→🔥急上昇、現在地→📍進行中、収束→✅ひと段落。内輪用語から一般ユーザーに伝わる文言へ。
+- ✅ **T188** — `app.js:dismissGenreOnboarding()` に onboarding完了後のhero-story-preview ハイライト処理を追加。`style.css` に `@keyframes hero-pulse` アニメーション追加。ジャンル選択/スキップ後300ms後にhero-story-cardが3回パルス発光しFlotopicの独自価値（ストーリー追跡）へ誘導。
