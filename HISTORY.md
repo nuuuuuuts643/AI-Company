@@ -4,6 +4,10 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T122+T121 広告ラベル修正・catchupテーマ対応）
+- ✅ **T122 affiliate.js 広告ラベル2重表示修正** — `linksEl.innerHTML`冒頭の`<p class="affiliate-label">広告</p>`を削除。topic.htmlの`.affiliate-header`にすでに`<span class="affiliate-label">広告</span>`があるため重複していた。
+- ✅ **T121 catchup.html ダークテーマ固定修正** — ハードコードの暗色（`#1a1f3a`, `#0f1629`, `#1e2540`等）をCSS変数（`var(--text-primary)`, `var(--text-secondary)`, `var(--text-muted)`, `var(--bg-card)`, `var(--bg-page)`, `var(--border)`）に置換。ダーク専用色は`[data-theme="dark"]`セレクタで上書き。ライトモードでの表示が崩れないよう対応。
+
 ### 完了済み（2026-04-26 T120 マイページ未実装UI非表示）
 - ✅ **T120 mypage.html フォロー/フォロワーカウンター・タイムラインタブ非表示** — フォロー0/フォロワー0カウンターに`display:none`追加（T056実装まで）。タイムラインタブとパネルも`display:none`で非表示。要素削除ではなく属性追加で将来の復活を考慮。
 
