@@ -695,6 +695,8 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
     interactive = f'https://flotopic.com/topic.html?id={tid}'
     timeline   = meta.get('storyTimeline') or []
     last_upd   = (meta.get('lastUpdated') or '')[:10] or ''
+    _lat = int(meta.get('lastArticleAt') or 0)
+    date_published = (datetime.utcfromtimestamp(_lat).strftime('%Y-%m-%dT%H:%M:%SZ') if _lat else last_upd)
 
     # ロングテールSEO用 <title>: ジャンル別サフィックスを付与
     _GENRE_SUFFIX = {
@@ -766,7 +768,9 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
         'headline': meta.get('generatedTitle') or meta.get('title', ''),
         'description': meta.get('generatedSummary', '')[:200],
         'image': meta.get('imageUrl') or 'https://flotopic.com/icons/icon-512.png',
+        'datePublished': date_published,
         'dateModified': last_upd,
+        'author': {'@type': 'Organization', 'name': 'Flotopic', 'url': 'https://flotopic.com'},
         'publisher': {'@type': 'Organization', 'name': 'Flotopic', 'url': 'https://flotopic.com'},
         'url': canonical,
         'keywords': genre,
