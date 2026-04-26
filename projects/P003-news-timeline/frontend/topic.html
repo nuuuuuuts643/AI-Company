@@ -309,10 +309,16 @@
     </div>
   </div>
 
-  <!-- 広告: 記事流れの直後（728×90、モバイルはCSSスケールダウン） -->
+  <!-- 広告: 記事流れの直後 -->
   <div class="ad-slot" style="margin:4px 0 8px;">
-    <div class="ad-728-scale-wrapper">
+    <!-- PC: 728×90 -->
+    <div class="ad-728-scale-wrapper ad-pc-only">
       <div class="admax-ads" data-admax-id="6b65a9c9ba3c1c898e167bbf103830d7" style="display:inline-block;width:728px;height:90px;"></div>
+      <script>admaxads.push({admax_id:"6b65a9c9ba3c1c898e167bbf103830d7",type:"banner"});</script>
+    </div>
+    <!-- SP: 320×50 -->
+    <div class="ad-sp-only" style="text-align:center;">
+      <div class="admax-ads" data-admax-id="6b65a9c9ba3c1c898e167bbf103830d7" style="display:inline-block;width:320px;height:50px;"></div>
       <script>admaxads.push({admax_id:"6b65a9c9ba3c1c898e167bbf103830d7",type:"banner"});</script>
     </div>
   </div>
@@ -325,10 +331,16 @@
   <!-- Discovery (関連トピック・親子関係) -->
   <div id="discovery-section"></div>
 
-  <!-- 広告: グラフの直前（728×90、モバイルはCSSスケールダウン） -->
+  <!-- 広告: グラフの直前 -->
   <div class="ad-slot" style="margin:12px 0;">
-    <div class="ad-728-scale-wrapper">
+    <!-- PC: 728×90 -->
+    <div class="ad-728-scale-wrapper ad-pc-only">
       <div class="admax-ads" data-admax-id="6b65a9c9ba3c1c898e167bbf103830d7" style="display:inline-block;width:728px;height:90px;"></div>
+      <script>admaxads.push({admax_id:"6b65a9c9ba3c1c898e167bbf103830d7",type:"banner"});</script>
+    </div>
+    <!-- SP: 320×50 -->
+    <div class="ad-sp-only" style="text-align:center;">
+      <div class="admax-ads" data-admax-id="6b65a9c9ba3c1c898e167bbf103830d7" style="display:inline-block;width:320px;height:50px;"></div>
       <script>admaxads.push({admax_id:"6b65a9c9ba3c1c898e167bbf103830d7",type:"banner"});</script>
     </div>
   </div>
@@ -450,7 +462,7 @@
     <span class="bn-icon">🔍</span><span>検索</span>
   </button>
   <a href="catchup.html" class="bn-item" id="bn-catchup">
-    <span class="bn-icon">🕰️</span><span>ふりかえり</span>
+    <span class="bn-icon">🕰️</span><span>クロニクル</span>
   </a>
   <a href="mypage.html" class="bn-item" id="bn-mypage" style="position:relative;">
     <span class="bn-icon">👤</span><span>マイページ</span>

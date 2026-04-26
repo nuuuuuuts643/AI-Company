@@ -22,7 +22,7 @@
       "description": "急上昇中のトピックを見る"
     },
     {
-      "name": "ふりかえり",
+      "name": "クロニクル",
       "url": "/catchup.html",
       "description": "過去の注目トピックを振り返る"
     },
