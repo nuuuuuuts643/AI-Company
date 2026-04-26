@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T108 性別・年齢プロフィール保存バグ修正）
+- ✅ **T108 gender/ageGroup フロント-バックエンド値不一致修正** — frontend が `男性`/`女性`/`その他` を送信していたが backend の `VALID_GENDERS={'male','female','other','prefer_not',''}` に不一致で全ユーザーの性別保存が失敗していた。mypage.html の設定モーダル・編集モーダル両方で `value="male"/"female"/"other"` に変更（表示テキストは日本語のまま）。年齢も `50代以上` → `50代` に変更し `10代未満`・`60代以上` を追加。バックエンドの VALID_AGE_GROUPS/VALID_GENDERS は既に正しいため変更不要。
+
 ### 完了済み（2026-04-26 T107 app.js/catchup.html シェアURL canonical化）
 - ✅ **T107 app.js/catchup.html シェアURLをcanonical URLに統一** — `app.js` のカードシェアボタンURL（topic.html?id=→topics/{tid}.html）と `catchup.html` のトピックリンク（topic.html?id=→topics/{tid}.html）をcanonical静的URLに変更。T106の続き。
 
