@@ -37,6 +37,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T001+T002+T003+SEO静的titleロングテール | lambda/processor/proc_storage.py, lambda/fetcher/handler.py, lambda/processor/handler.py, lambda/processor/proc_config.py | 2026-04-26 JST |
-| タイトル生成SEO改善+refusal修正 | lambda/processor/proc_ai.py | 2026-04-26 JST |
-| CLAUDE.mdスナップショット更新 | CLAUDE.md | 2026-04-26 JST |
+| T005 モバイル広告CSS修正 | frontend/style.css | 2026-04-26 12:10 |
+| T006 クラスタリング重複改善 | lambda/fetcher/cluster_utils.py | 2026-04-26 12:10 |
+| T007 AIサマリー文脈説明追加 | lambda/processor/proc_ai.py | 2026-04-26 12:10 |
+| T009 広告記事フィルタ強化 | lambda/fetcher/filters.py | 2026-04-26 12:10 |
