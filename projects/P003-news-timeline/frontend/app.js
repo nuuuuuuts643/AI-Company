@@ -83,6 +83,7 @@ function recordTopicView(topic) {
     if (history.length > 20) history = history.slice(0, 20);
     localStorage.setItem(LS_KEYS.HISTORY, JSON.stringify(history));
   } catch {}
+  if (typeof syncHistoryItemToCloud === 'function') syncHistoryItemToCloud(topic);
 }
 function loadPrefs() {
   try { return JSON.parse(localStorage.getItem(LS_KEYS.PREFS) || '{}'); } catch { return {}; }
@@ -988,6 +989,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initScrollRestoration();
     showSkeletonCards();
     loadFavorites().finally(() => {
+      if (typeof loadCloudHistory === 'function') loadCloudHistory();
       refreshTopics();
       setInterval(refreshTopics, CONFIG.REFRESH_INTERVAL_MS);
       setInterval(updateFreshnessDisplay, CONFIG.FRESHNESS_INTERVAL_MS);
