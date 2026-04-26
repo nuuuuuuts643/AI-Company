@@ -503,3 +503,8 @@ bash projects/P003-news-timeline/deploy.sh
 - `topic.html` に `<script src="js/affiliate.js">` を追加（app.js の後、detail.js の前）
 - detail.js は 867→806行に削減
 - テスト: `npm test` 42件全パス・構文チェックOK
+
+→ T042 モバイルキーボード表示時のレイアウト崩れ修正（16:10 JST）
+- `style.css` body の `min-height: 100vh` の直後に `min-height: 100dvh` を追加
+- `100dvh`（dynamic viewport height）はモバイル仮想キーボード表示時に動的に変動し、bottom-navやスティッキーCTAバーが隠れる問題を防ぐ
+- `100vh` は古いブラウザ向けフォールバックとして残存
