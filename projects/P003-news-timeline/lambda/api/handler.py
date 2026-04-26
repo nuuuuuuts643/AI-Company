@@ -49,8 +49,15 @@ def all_topics():
 
 
 def topic_detail(topic_id):
-    r     = table.query(KeyConditionExpression=Key('topicId').eq(topic_id))
-    items = r.get('Items', [])
+    items = []
+    kwargs = {'KeyConditionExpression': Key('topicId').eq(topic_id)}
+    while True:
+        r = table.query(**kwargs)
+        items.extend(r.get('Items', []))
+        last = r.get('LastEvaluatedKey')
+        if not last:
+            break
+        kwargs['ExclusiveStartKey'] = last
     meta  = next((i for i in items if i['SK'] == 'META'), None)
     snaps = sorted([i for i in items if i['SK'].startswith('SNAP#')], key=lambda x: x['SK'])
     return meta, snaps

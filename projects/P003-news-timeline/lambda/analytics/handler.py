@@ -182,10 +182,15 @@ def compute_user_summary(user_id: str) -> dict:
     """
     table = dynamodb.Table(ANALYTICS_TABLE)
 
-    result = table.query(
-        KeyConditionExpression=Key('userId').eq(user_id),
-    )
-    items = result.get('Items', [])
+    items = []
+    query_kwargs = {'KeyConditionExpression': Key('userId').eq(user_id)}
+    while True:
+        result = table.query(**query_kwargs)
+        items.extend(result.get('Items', []))
+        last = result.get('LastEvaluatedKey')
+        if not last:
+            break
+        query_kwargs['ExclusiveStartKey'] = last
 
     # 集計
     total_views      = 0
