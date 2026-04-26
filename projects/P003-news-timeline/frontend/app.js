@@ -1233,11 +1233,19 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(() => loadComments(topicId), 3 * 60 * 1000);
   } else if (document.getElementById('topics-grid')) {
     // URLパラメータ ?q= からの検索クエリを初期値として設定（Google SearchAction対応）
-    const urlQ = new URLSearchParams(location.search).get('q');
+    const _urlParams = new URLSearchParams(location.search);
+    const urlQ = _urlParams.get('q');
     if (urlQ) {
       currentSearch = urlQ.trim();
       const si = document.getElementById('search-input');
       if (si) si.value = currentSearch;
+    }
+    // ?focus=search — 他ページの検索ナビから遷移時に検索欄をフォーカス
+    if (_urlParams.get('focus') === 'search') {
+      setTimeout(() => {
+        const si = document.getElementById('search-input');
+        if (si) { si.scrollIntoView({ behavior: 'smooth', block: 'center' }); si.focus(); }
+      }, 600);
     }
     buildFilters();
     setupSearch();
