@@ -4,6 +4,12 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T022/T023/T024/T025）
+- ✅ **T022 モバイル広告320×50追加** — topic.html・index.htmlの728×90をPC専用（ad-pc-only）に変更し、モバイル用320×50スロット（ad-sp-only）を追加。同admax-idで320×50を試みる。効果確認後にPOがAdMaxで専用ID発行（T027）。
+- ✅ **T023 UIコピー「ふりかえり→クロニクル」** — 12ファイル（mypage.html除く）でボトムナビ・JSON-LD・タイトルを一括変更。catchup.htmlのヒーロー: 「しばらくぶりですね👋」→「クロニクル ✦」・title/OGP/descも更新。manifest.jsonのショートカット名も変更。
+- ✅ **T024 閲覧履歴クラウド同期** — favorites/handler.pyにGET/POST/DELETE /history/{userId}を追加（flotopic-favoritesテーブルPK=userId/SK=HISTORY#{topicId}・TTL30日）。frontend/js/history.jsを新規作成（ローカルとクラウドのマージ・topic.html/mypage.htmlで読み込み）。
+- ✅ **T025 privacy.htmlアフィリエイト記載更新** — 「Amazonアソシエイト・プログラムおよび楽天アフィリエイト等」→「Amazonアソシエイト・プログラム、楽天アフィリエイト、もしもアフィリエイト（Amazon・楽天市場・Yahoo!ショッピング対応）等」に更新。景表法対応。
+
 ### 完了済み（2026-04-26 T021/T026）
 - ✅ **T021 fetcher 384s→高速化** — cluster()でnormalize()/regex呼び出しをO(n²)→O(n)に削減（4.3M回→2070回）。_chunk_sim用チャンクも事前計算。DynamoDB書き込みを2970件逐次→batch_writer並列(20workers)に変更。S3 topic書き込み218件を並列化。各フェーズに[TIMING]ログ追加。
 - ✅ **T026 MAX_API_CALLS設定根拠コメント** — proc_config.py に「35×4=140calls/day。カバレッジ80%未満になったら150に戻す」コメント追加。設定値35は変更なし。
