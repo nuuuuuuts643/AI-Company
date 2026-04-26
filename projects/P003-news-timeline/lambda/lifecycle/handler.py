@@ -163,9 +163,9 @@ def cleanup_filter_feedback(now: int) -> int:
 def lambda_handler(event, context):
     now = int(time.time())
 
-    # 30日前のSNAP SKカットオフ（SNAP#YYYYMMDDTHHMMSSZ 形式）
+    # SNAP_TTL_DAYS(7日)と合わせて7日超SNAPを削除。fetcher の ttl 属性未設定の古いアイテムも除去できる。
     import datetime
-    cutoff_dt  = datetime.datetime.utcfromtimestamp(now - 30 * 86400)
+    cutoff_dt  = datetime.datetime.utcfromtimestamp(now - 7 * 86400)
     cutoff_sk  = f"SNAP#{cutoff_dt.strftime('%Y%m%dT%H%M%SZ')}"
 
     # ---- DynamoDB 全 META アイテムをスキャン ----
@@ -195,7 +195,7 @@ def lambda_handler(event, context):
             legacy_count += 1
             continue
 
-        # 活動停止していないトピックは30日超SNAPだけ削除してスキップ
+        # 活動停止していないトピックは7日超SNAPだけ削除してスキップ
         if not is_truly_inactive(item, now):
             old_snap_deleted += delete_old_snaps(topic_id, cutoff_sk)
             skipped_count += 1
