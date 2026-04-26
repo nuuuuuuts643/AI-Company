@@ -780,3 +780,10 @@ bash projects/P003-news-timeline/deploy.sh
 - toast: 「セッションが切れました。再ログイン後に削除を自動実行します」（5秒表示）
 - `auth.js::handleGoogleCredentialResponse` に `_retryPendingDelete()` ヘルパーを追加
 - 再ログイン成功後に `deleteComment()` を自動呼び出し → ユーザーが削除ボタンを再クリック不要
+
+### 完了済み（2026-04-26 T081 Slack通知修正）
+- ✅ **T081** — slack-notify.yml のシークレット名ミスマッチ修正
+- workflow が `secrets.SLACK_WEBHOOK_URL` を参照していたが設定済みシークレット名は `SLACK_WEBHOOK`
+- `SLACK_WEBHOOK_URL` → `SLACK_WEBHOOK` に変更（env 参照はそのまま `SLACK_WEBHOOK_URL` で問題なし）
+- `continue-on-error: true` を追加して Webhook 設定なし環境でも CI がブロックされないように改善
+- 全 push で HTTP 404 失敗していた問題を解消
