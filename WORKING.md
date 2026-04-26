@@ -38,5 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T123 コメントいいね取消DynamoDB反映 | lambda/comments/handler.py, frontend/js/comments.js | 2026-04-26 |
-| T124 terms/privacy/contact ダークモード未適用 | frontend/terms.html, privacy.html, contact.html | 2026-04-26 |
