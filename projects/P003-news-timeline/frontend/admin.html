@@ -296,6 +296,7 @@ const CONFIG = {
   allowedEmail:    'owner643@gmail.com',
   googleClientId:  '632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com',
   apiBase:         'https://flotopic.com/api/',
+  contactsApiBase: 'https://x73mzc0v06.execute-api.ap-northeast-1.amazonaws.com',
   analyticsUrl:    'https://2svmxx7aou6w5ekdruw5maqnfu0aplju.lambda-url.ap-northeast-1.on.aws/',
   cfAnalyticsUrl:  'https://flotopic.com/api/cf-analytics.json',  // S3キャッシュ
   topTopicsN:      20,
@@ -869,7 +870,10 @@ async function renderContacts() {
     media: 'メディア', other: 'その他',
   };
   try {
-    const res = await fetch(CONFIG.apiBase + '../contacts?_=' + Date.now());
+    const token = sessionStorage.getItem('admin_token') || '';
+    const res = await fetch(CONFIG.contactsApiBase + '/contacts?_=' + Date.now(), {
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+    });
     if (!res.ok) { document.getElementById('table-contacts').innerHTML = '<tr><td colspan="5" style="color:#8b949e">取得できません（API未実装）</td></tr>'; return; }
     const data = await res.json();
     const list = data.contacts || [];
@@ -902,9 +906,13 @@ async function archiveTopic(topicId, contactId) {
   if (!topicId) { alert('トピックIDなし'); return; }
   if (!confirm(`トピック ${topicId} をarchived化しますか？`)) return;
   try {
-    const res = await fetch(CONFIG.apiBase + '../contacts/resolve', {
+    const token2 = sessionStorage.getItem('admin_token') || '';
+    const res = await fetch(CONFIG.contactsApiBase + '/contacts/resolve', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token2 ? { 'Authorization': 'Bearer ' + token2 } : {}),
+      },
       body: JSON.stringify({ contactId, topicId, action: 'archive' }),
     });
     if (res.ok) { alert('完了'); renderContacts(); }
