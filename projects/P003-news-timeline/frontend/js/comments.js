@@ -215,7 +215,6 @@ async function toggleLike(btn, topicId) {
     iconEl.textContent = '♥';
     countEl.textContent = curCount + 1;
   } else {
-    // unlike: DynamoDB側でのデクリメントは今フェーズでは省略（フロントのみ）
     likedSet[cid] = false;
     btn.classList.remove('liked');
     iconEl.textContent = '♡';
@@ -223,23 +222,21 @@ async function toggleLike(btn, topicId) {
   }
   localStorage.setItem(LIKES_KEY, JSON.stringify(likedSet));
 
-  // いいね時のみDynamoDB更新
-  if (!isLiked) {
-    const myHash = await getMyCommentHash();
-    if (!myHash) return;
-    const url = commentsLikeUrl(topicId, cid, myHash);
-    if (!url) return;
-    try {
-      const r = await fetch(url, { method: 'PUT' });
-      if (r.ok) {
-        const data = await r.json();
-        if (typeof data.likeCount === 'number') {
-          countEl.textContent = data.likeCount > 0 ? data.likeCount : '';
-        }
+  const myHash = await getMyCommentHash();
+  if (!myHash) return;
+  const baseUrl = commentsLikeUrl(topicId, cid, myHash);
+  if (!baseUrl) return;
+  const url = isLiked ? baseUrl + '&type=unlike' : baseUrl;
+  try {
+    const r = await fetch(url, { method: 'PUT' });
+    if (r.ok) {
+      const data = await r.json();
+      if (typeof data.likeCount === 'number') {
+        countEl.textContent = data.likeCount > 0 ? data.likeCount : '';
       }
-    } catch (e) {
-      console.warn('like fetch error', e);
     }
+  } catch (e) {
+    console.warn('like fetch error', e);
   }
 }
 
@@ -262,22 +259,21 @@ async function toggleDislike(btn, topicId) {
   }
   localStorage.setItem(DISLIKES_KEY, JSON.stringify(dislikedSet));
 
-  if (!isDisliked) {
-    const myHash = await getMyCommentHash();
-    if (!myHash) return;
-    const base = typeof COMMENTS_URL !== 'undefined' ? COMMENTS_URL.replace(/\/$/, '') : null;
-    if (!base) return;
-    const url = `${base}/comments/like?topicId=${encodeURIComponent(topicId)}&commentId=${encodeURIComponent(cid)}&userHash=${encodeURIComponent(myHash)}&type=dislike`;
-    try {
-      const r = await fetch(url, { method: 'PUT' });
-      if (r.ok) {
-        const data = await r.json();
-        if (countEl && typeof data.dislikeCount === 'number') {
-          countEl.textContent = data.dislikeCount > 0 ? data.dislikeCount : '';
-        }
+  const myHash = await getMyCommentHash();
+  if (!myHash) return;
+  const base = typeof COMMENTS_URL !== 'undefined' ? COMMENTS_URL.replace(/\/$/, '') : null;
+  if (!base) return;
+  const type = isDisliked ? 'undislike' : 'dislike';
+  const url = `${base}/comments/like?topicId=${encodeURIComponent(topicId)}&commentId=${encodeURIComponent(cid)}&userHash=${encodeURIComponent(myHash)}&type=${type}`;
+  try {
+    const r = await fetch(url, { method: 'PUT' });
+    if (r.ok) {
+      const data = await r.json();
+      if (countEl && typeof data.dislikeCount === 'number') {
+        countEl.textContent = data.dislikeCount > 0 ? data.dislikeCount : '';
       }
-    } catch (e) { console.warn('dislike fetch error', e); }
-  }
+    }
+  } catch (e) { console.warn('dislike fetch error', e); }
 }
 
 // ── 引用コメント状態 ──────────────────────────────────────────────
