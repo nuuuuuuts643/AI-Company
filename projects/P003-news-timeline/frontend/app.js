@@ -520,6 +520,7 @@ function buildFilters() {
       gbar.querySelectorAll('.genre-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active'); currentGenre = btn.dataset.genre;
       savePrefs({...loadPrefs(), genre: currentGenre});
+      if (typeof syncGenreToCloud === 'function') syncGenreToCloud(currentGenre);
       currentPage = 1; renderTopics(allTopics);
     }));
   }
@@ -978,6 +979,17 @@ document.addEventListener('DOMContentLoaded', () => {
     showSkeletonCards();
     loadFavorites().finally(() => {
       if (typeof loadCloudHistory === 'function') loadCloudHistory();
+      // クラウドから保存ジャンルを復元（非同期・先にローカル設定でリフレッシュ後に適用）
+      if (typeof loadGenreFromCloud === 'function' && currentUser) {
+        loadGenreFromCloud().then(savedGenre => {
+          if (savedGenre && typeof GENRES !== 'undefined' && GENRES.includes(savedGenre) && savedGenre !== currentGenre) {
+            currentGenre = savedGenre;
+            savePrefs({...loadPrefs(), genre: currentGenre});
+            buildFilters();
+            renderTopics(allTopics);
+          }
+        }).catch(() => {});
+      }
       refreshTopics();
       setInterval(refreshTopics, CONFIG.REFRESH_INTERVAL_MS);
       setInterval(updateFreshnessDisplay, CONFIG.FRESHNESS_INTERVAL_MS);

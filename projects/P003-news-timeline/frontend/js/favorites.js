@@ -112,6 +112,34 @@ async function toggleFavorite(topicId, heartBtn) {
   heartBtn.disabled = false;
 }
 
+// ジャンル設定クラウド同期
+async function syncGenreToCloud(genre) {
+  if (!currentUser) return;
+  const base = favApiUrl();
+  if (!base) return;
+  try {
+    await fetch(`${base}/prefs`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: currentUser.userId, idToken: currentUser.token, genre }),
+    });
+  } catch {}
+}
+
+async function loadGenreFromCloud() {
+  if (!currentUser) return null;
+  const base = favApiUrl();
+  if (!base) return null;
+  try {
+    const r = await fetch(`${base}/prefs/${currentUser.userId}`);
+    if (r.ok) {
+      const data = await r.json();
+      return data.genre || null;
+    }
+  } catch {}
+  return null;
+}
+
 function setupFavsToggle() {
   const btn = document.getElementById('fav-toggle-btn');
   if (!btn) return;
