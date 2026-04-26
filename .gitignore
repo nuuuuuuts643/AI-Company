@@ -30,6 +30,7 @@ runner/
 # Lambda ビルド成果物（deploy.sh が毎回生成するので git 管理不要）
 **/function.zip
 **/function_backup.zip
+**/lambda/**/*.zip
 lambda/fetcher/handler.py.bak
 
 # Python キャッシュ
