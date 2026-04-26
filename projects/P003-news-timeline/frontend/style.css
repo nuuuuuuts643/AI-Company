@@ -447,6 +447,15 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.card-snippet {
+  font-size: .76rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .card-summary-pending {
   font-size: .72rem;
   color: var(--text-muted);
