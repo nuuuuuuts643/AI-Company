@@ -985,7 +985,7 @@ document.addEventListener('DOMContentLoaded', () => {
     buildFilters();
     setupSearch();
     setupFavsToggle();
-    loadWeather();
+    if (typeof currentUser !== 'undefined' && currentUser) loadWeather();
     initScrollRestoration();
     showSkeletonCards();
     loadFavorites().finally(() => {
