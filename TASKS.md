@@ -18,7 +18,6 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| T202 | 中 | **app.js:104 `_prevSnap` JSON.parseがトップレベルでtry/catch未適用** — 根本原因: T186で追加した `const _prevSnap = JSON.parse(localStorage.getItem('ftpc_snap') \|\| '{}')` がモジュールトップレベルにtry/catchなし。localStorage値が破損している場合（ストレージ容量逼迫時）SyntaxError uncaughtでapp.js全体が実行されない。他のJSON.parseはすべてtry/catch済みなのでこの1箇所のみ漏れ。修正方法: IIFE化: `const _prevSnap = (() => { try { return JSON.parse(localStorage.getItem('ftpc_snap') \|\| '{}'); } catch { return {}; } })();` | `frontend/app.js` | 2026-04-27 |
 
 ### 🎯 使いたくなるUX（「また来たい」動線）
 
@@ -26,9 +25,6 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| T195 | 高 | **モバイルトップページの情報過多 — カード一覧が見えるまでスクロール過多** — 根本原因: 各機能が独立して「あれば表示」設計で追加された結果、初訪問ユーザーがトップを開くとhero-story-preview・onboarding-tip・hot-strip・quick-news-strip・fav-stripが積み重なりカードリスト前に表示される。hot-strip（🔥今急上昇中・チップ5件）とquick-news-strip（⚡過去24時間の急展開・詳細3件）は実質同じ「急上昇」を2種類の形式で重複表示している。モバイルでは本来のコンテンツ（カード一覧）に到達するまでのスクロール量が多く、離脱率を高める。影響: 全ユーザーのトップページ初期体験（特にスマホ初訪問）。修正方法: hot-stripとquick-news-stripを統合するか、初訪問時（onboardingが未完了）はhot-stripのみ表示し、再訪問時のみquick-news-stripを追加表示するユーザー状態ベースの制御に切り替える。 | `frontend/app.js` | 2026-04-27 |
-| T199 | 中 | **お気に入り登録後のログイン誘導が欠如 — データ消失体験につながる** — 根本原因: お気に入りボタン（fav-btn）はログインなしで押せてlocalStorageに保存されるが、その場でログイン促進の案内が一切出ない。ユーザーが別デバイスで開いたり、ブラウザのデータをクリアしたりするとお気に入りが消える。ログイン誘導があるのは topic.htmlのコメント欄（comment-login-prompt）のみで、お気に入りボタンのフロー上にはない。影響: お気に入り登録したが同期されないと感じたユーザーの離脱。修正方法: ログイン未済でfav-btnを初めてタップした時に「お気に入りはログインでどのデバイスでも同期できます」トースト+ログインボタンを表示する（showToast系で実装、モーダル不要）。 | `frontend/app.js`, `frontend/index.html` | 2026-04-27 |
-| T200 | 中 | **ジャンルフィルタータブの横スクロール可能性が視覚的に伝わらない** — 根本原因: 14ジャンルが横スクロール（overflow-x: auto）のfilter-tabsに並んでいるが、スクロール可能性を示すグラデーション・影・矢印等のUIヒントがない。`scrollbar-width: none`でスクロールバーも非表示。初訪問ユーザーは「総合」「政治」「ビジネス」しか見えない状態で、ジャンル切り替え機能に気づかない可能性が高い。影響: ジャンルフィルターのタップ率・ジャンル切り替えによる再訪問率。修正方法: genre-tabsの右端に `::after` 疑似要素でフェードアウトグラデーションを追加し「まだ続きがある」ことを視覚的に示す。実装コスト低（CSSのみ）。 | `frontend/style.css` | 2026-04-27 |
 | T201 | 低 | **bottom-navの「リワインド」ラベルが初訪問ユーザーに意味不明** — 根本原因: bottom-navのラベルが「🕰️ リワインド」のみで、初訪問ユーザーは「リワインド」が何をする機能か分からずタップ動機が生まれない。catchup.htmlのheroには「あなたが離れていた間のニュースを時系列でお届け」と説明があるが、そこに到達するまで機能の価値が不明。競合（SmartNews等）では「おかえり」「まとめ読み」等の直感的なラベルを使う。影響: bottom-navのリワインドタップ率が低い可能性。修正方法: 「リワインド」→「まとめ読み」または「振り返り」に変更、もしくはhero内のsubラベルだけでも変更（コスト最小）。要ナオヤ判断（ブランド用語の変更）。 | `frontend/catchup.html`, `frontend/index.html`, `frontend/storymap.html`, `frontend/topic.html`, `frontend/mypage.html` | 2026-04-27 |
 | T154 | 中 | **お気に入りトピックへの新展開をWeb Push通知** — 根本原因: お気に入り登録しても次の展開を見に戻る動機がない。修正方法: ServiceWorkerにWeb Push受信を追加。fetcherが既存お気に入りtidへの新記事を検知→DynamoDB notification_queueに積む→Lambda(notifier)が1日2回処理。ユーザー増加後の優先施策。 | `frontend/sw.js`, `frontend/mypage.html`, 新Lambda | 2026-04-26 |
 
