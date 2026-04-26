@@ -16,7 +16,7 @@ import boto3
 
 SES_REGION  = os.environ.get('SES_REGION', 'us-east-1')
 FROM_EMAIL  = os.environ.get('FROM_EMAIL', 'contact@flotopic.com')
-TO_EMAIL    = os.environ.get('TO_EMAIL', 'owner643@gmail.com')
+TO_EMAIL    = os.environ.get('TO_EMAIL', '')
 
 ses = boto3.client('ses', region_name=SES_REGION)
 
@@ -95,6 +95,10 @@ def lambda_handler(event, context):
 ---
 返信先: {data['email']}
 """
+
+    if not TO_EMAIL:
+        print("TO_EMAIL env var not set")
+        return resp(500, '送信に失敗しました。しばらく後にお試しください。')
 
     try:
         ses.send_email(
