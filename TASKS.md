@@ -12,8 +12,6 @@
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
 | T019 | 中 | **SES本番アクセス申請後のLambda環境変数設定**（PO手動） | — | 2026-04-26 |
-| T047 | 高 | **「クロニクル/しばらくぶり」→「リワインド」統一 + legacy.html廃止統合**。①catchup.htmlのタイトル・h1・OGP・JSON-LDをすべて「リワインド」に変更 ②index.htmlのボタン「しばらくぶり？」→「リワインド」 ③legacy.htmlをnoindex+catchup.htmlへリダイレクト ④全ページナビの「クロニクル」「アーカイブ」→「リワインド」に統一 ⑤about.html・sw.js更新。完了条件: ナビに「リワインド」1本のみ、legacy.htmlがcatchup.htmlに飛ぶ | `frontend/catchup.html`, `frontend/legacy.html`, `frontend/index.html`, 全ナビHTML, `frontend/sw.js`, `frontend/about.html` | 2026-04-26 |
-| T048 | 中 | **ジャンル表記揺れ修正**。DynamoDB内「ファッション・美容」→「ファッション」に一括更新。完了条件: topics.jsonに「ファッション・美容」が出なくなる | `lambda/processor/` or `lambda/lifecycle/` | 2026-04-26 |
 | T050 | 中 | **ノイズトピックフィルタリング強化**。livedoor経由でゲーム攻略wiki・レシピ系記事が混入（例:「ぽこあポケモン料理一覧」「鶏ささみレシピ」）。fetcherのNGキーワードリストに「攻略」「レシピ」「料理一覧」「wiki」等を追加してクラスタリング前にフィルタ。完了条件: topics.jsonにレシピ・ゲーム攻略系トピックが出なくなる | `lambda/fetcher/config.py` or `lambda/fetcher/handler.py` | 2026-04-26 |
 | T051 | 低 | **storyTimelineのdetail画面表示確認と実装**。AI生成の時系列ナラティブ（storyTimeline）はDynamoDB・個別topic JSONに保存済みだが、フロントのdetail画面で表示されているか確認。未表示なら「話題の経緯」セクションとして追加。データは揃っているので表示するだけ | `frontend/detail.js` or `frontend/topic.html` | 2026-04-26 |
 | T052 | 低 | **フォロー/フォロワー機能**（将来実装）。ユーザーが増えてから。DynamoDB新テーブル+Lambda+フロント全部必要。今は設計メモのみ | — | 2026-04-26 |
