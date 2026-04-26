@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T036 閲覧済みカードの視覚化 | frontend/app.js, frontend/style.css | 2026-04-26 15:10 |
