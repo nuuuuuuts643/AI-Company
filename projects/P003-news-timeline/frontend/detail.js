@@ -211,8 +211,8 @@ function renderDetail(data) {
   const aiAnalysisEl = document.getElementById('ai-analysis');
   if (aiAnalysisEl) {
     const summary      = cleanSummary(meta.generatedSummary);
-    const spreadReason = meta.spreadReason || '';
-    const forecast     = meta.forecast     || '';
+    const spreadReason = cleanSummary(meta.spreadReason || '');
+    const forecast     = cleanSummary(meta.forecast     || '');
     const beats        = Array.isArray(meta.storyTimeline) ? meta.storyTimeline : [];
     const phase        = meta.storyPhase   || '';
     const summaryMode  = meta.summaryMode  || (beats.length > 0 || spreadReason || forecast ? 'full' : 'minimal');
