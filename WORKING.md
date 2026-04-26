@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T090 admin GET /contacts API | lambda/contact/handler.py, frontend/admin.html | 2026-04-26 19:25 |
