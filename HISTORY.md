@@ -543,3 +543,39 @@ bash projects/P003-news-timeline/deploy.sh
 - `app.js` に `document.addEventListener('visibilitychange', ...)` を追加
 - タブから離れて5分以上経過後に戻ってきた場合、即 `refreshTopics()` を呼んで古いデータを更新
 - これにより長時間別タブを見た後にFlotopicに戻ったときに自動で最新情報が表示される
+
+### 完了済み（2026-04-26 finder→implementer追加分）
+
+→ 全fetchにr.okチェック追加（包括修正）（16:30 JST）
+- `storymap.html` の topics.json/per-topic JSON fetch 2箇所に r.ok チェック追加
+- `legacy.html` の topics.json fetch に r.ok チェック追加
+- `mypage.html` の topics.json(×2) / notifications fetch に r.ok チェック追加
+- `admin.html` の topics.json (allSettled内) に !topicsRes.value.ok チェック追加
+- `comments.js` の loadComments fetch に r.ok チェック追加
+- 統一的なエラーハンドリング: 全主要fetchでHTTPエラーが適切に通知されるように
+
+→ ジャンル名ミスマッチ修正（16:35 JST）
+- `lambda/fetcher/config.py` の RSS_FEEDS にて「ファッション・美容」→「ファッション」に修正（2件）
+- フロントエンドの GENRES リスト（app.js）と一致していなかったため、ファッションフィルターが無効だったバグを修正
+
+→ キーワードチップクリック時のジャンルリセット（16:40 JST）
+- `app.js` の kw-chip クリックハンドラに `currentGenre = '総合'; buildFilters();` を追加
+- キーワードストリップはサイト全体の急上昇ワードなので、ジャンルフィルターをリセットして全ジャンルから検索する動作に改善
+
+→ URLパラメータ?qからの検索クエリ初期化（16:45 JST）
+- `app.js` のindex.html初期化ブロックに `new URLSearchParams(location.search).get('q')` を追加
+- SearchAction JSON-LDの `?q={search_term_string}` が実際に動作するように実装
+- Google検索結果からサイト内検索を直接実行できるようになった
+
+→ sw.js に affiliate.js を追加（16:50 JST）
+- `sw.js` の NETWORK_FIRST_ASSETS リストに `/js/affiliate.js` を追加
+- 前セッションで作成したファイルがSWキャッシュ対象外だったため、オフライン時にaffiliate機能が壊れるバグを修正
+
+→ タブ復帰時自動更新（visibilitychange）（16:55 JST）
+- `app.js` に `document.addEventListener('visibilitychange', ...)` を追加
+- タブ非表示後5分以上経過して復帰した場合に `refreshTopics()` を自動実行
+- 別タブで作業中に戻ってきたとき、古いデータが表示されたままにならない
+
+→ favorites Lambda CORS PUT追加（17:00 JST）
+- `lambda/favorites/handler.py` の cors_headers() `Access-Control-Allow-Methods` に `PUT` を追加
+- T038で追加した `PUT /prefs` エンドポイントのCORSプリフライトが通らなかったバグを修正
