@@ -601,3 +601,8 @@ bash projects/P003-news-timeline/deploy.sh
 
 #### profile.html r.ok チェック追加
 - `loadTopicTitleMap()` 内の topics.json fetch に `if (!r.ok) throw new Error(...)` を追加
+
+#### T046 検索時ジャンルフィルター自動リセット
+- `frontend/app.js` `setupSearch()` inputハンドラに `currentGenre !== '総合'` チェックを追加
+- 検索テキスト入力時にジャンルを総合にリセット → buildFilters() でUI更新 → クラウド同期
+- ジャンルを選択した状態で検索すると結果ゼロになるバグを修正
