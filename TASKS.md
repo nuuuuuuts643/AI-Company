@@ -18,6 +18,7 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
+| T186 | 中 | **needs_ai_processing: 1件記事トピックがpending_ai.jsonに永久残留する** — 根本原因: T175でcnt<2早期skipを追加したが`needs_ai_processing()`は`aiGenerated=False`の1件記事トピックにTrueを返し続ける。毎回スキップされながらpending_ai.jsonに永遠に残留しパフォーマンス劣化。修正方法: `needs_ai_processing()`冒頭に`if int(item.get('articleCount', 0) or 0) < 2: return False`を追加。2件目の記事が来た際はfetcherがpendingAI=Trueをセットし直すので機能は維持される。 | `lambda/processor/proc_storage.py` | 2026-04-27 |
 | T176 | 高 | **モバイルUI崩れ調査・修正** — ユーザー報告: z-index修正(f9777be)後もスマホUIが壊れている。根本原因: 未特定。調査ポイント: hero-story-preview/onboarding-card/keyword-stripなど直近追加要素がモバイルレイアウトに与える影響・overflow-x漏れによる横スクロール・実機スクショ取得して具体的崩れ箇所を特定。修正方法: 崩れ箇所特定後に最小限CSS修正。 | `frontend/style.css`, `frontend/index.html` | 2026-04-27 |
 | T179 | 中 | **グラフと記事数の不一致** — ユーザー報告URL: topic.html?id=4eecff3f2245992b。根本原因: グラフはDynamoDB SNAPの articleCount（スナップショット）を使い、カード表示はtopics.jsonの articleCount（最新）を使う。lifecycle整理で両者がずれる。修正方法: グラフ最終点をtopics.jsonの値で補正、またはラベルに「現在N件」を別表示。 | `frontend/detail.js` | 2026-04-27 |
 
@@ -34,20 +35,17 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| T182 | 高 | **Claudeセッション自体の根本原因分析が浅い — 症状対処ループに陥っている** — 問題: バグ報告を受けたセッションが「症状への対処」で完了扱いにする。例: アフィリエイト未表示→try-catch追加(T162)→根本原因(CDN同期ブロック)を見落としてT178で再発。Claude自身の運用品質の問題。修正方法: CLAUDE.mdの「品質改善の進め方 ステップ2」に「実際のユーザー環境（モバイル・低速回線・CDN遅延）を想定した原因仮説を3つ以上列挙し、最も可能性の高いものを選んでから修正に入る」を追記する。 | `CLAUDE.md` | 2026-04-27 |
 | T183 | 高 | **Bluesky自動投稿の稼働継続確認** — CLAUDE.mdでは2026-04-26 JST 09:13に初投稿確認済みとあるが、その後のスケジュール実行（JST 08:00/12:00/18:00 の日次3回）が継続できているか未確認。確認方法: GitHub Actions → bluesky-agent.yml の直近実行ログを確認。成功していれば CLAUDE.md の「Bluesky自動投稿」ステータスを最終確認日時で更新。失敗していれば原因（Secrets未設定・atprotoエラー等）を特定してTASKS.mdに追記。 | `CLAUDE.md`（確認後更新） | 2026-04-27 |
+
+### 📈 成長・SEO施策
+
+| ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
+|---|---|---|---|---|
+| T184 | 高 | **Google Search Console: topics/{tid}.html のインデックス申請確認** — 静的HTML生成・sitemap更新は完了したが、Googlebotが実際に新URLパターン（`/topics/{tid}.html`）をクロール・インデックスしているかSearch Consoleで未確認。確認方法: Search Console → サイトマップ → sitemap.xml の送信状況・インデックス数を確認。未インデックスなら「URL検査」ツールでサンプルURLをリクエスト。 | — （Search Console操作のみ） | 2026-04-27 |
+| T185 | 高 | **外部発信: Qiita/noteにFlotopic紹介記事を書いて被リンク獲得** — 根本原因: 被リンクがほぼゼロのためGoogleの権威性評価が低く、良質なコンテンツがあっても検索流入が伸びない。修正方法: 「日本語ニュースをAIがストーリー化するサービスを個人開発した」記事をQiitaとnoteに投稿（flotopic.comへのリンクを含む）。Qiitaは技術側面（Lambda+DynamoDB+Claude API構成）、noteはサービス側面（なぜストーリー型なのか）で切り口を変える。 | — （コード変更なし、コンテンツ作成） | 2026-04-27 |
 
 ## 進行中
 → WORKING.md で管理（実装セッションが記入）
 
 ## 完了
 → HISTORY.md に移動済み
-
----
-
-### 📈 成長・SEO施策
-
-| ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
-|---|---|---|---|---|
-| T184 | 高 | **Google Search Console: topics/{tid}.html のインデックス申請確認** — 静的HTML生成・sitemap更新は完了したが、Googlebotが実際に新URLパターン（`/topics/{tid}.html`）をクロール・インデックスしているかSearch Consoleで未確認。確認方法: Search Console → サイトマップ → sitemap.xml の送信状況・インデックス数を確認。未インデックスなら「URL検査」ツールでサンプルURLをリクエスト。旧URL(`/topic.html?id=`)が残っていれば301リダイレクトまたはcanonical設定が正しいか合わせて確認。 | — （Search Console操作・必要なら `frontend/topic.html`） | 2026-04-27 |
-| T185 | 高 | **外部発信: Qiita/noteにFlotopic紹介記事を書いて被リンク獲得** — 根本原因: 被リンクがほぼゼロのためGoogleの権威性評価が低く、良質なコンテンツがあっても検索流入が伸びない。修正方法: 「日本語ニュースをAIがストーリー化するサービスを個人開発した」記事をQiitaとnoteに投稿（flotopic.comへのリンクを含む）。Qiitaは技術側面（Lambda+DynamoDB+Claude API構成）、noteはサービス側面（なぜストーリー型なのか）で切り口を変える。これが現状のSEOボトルネックへの最速の打ち手。 | — （コード変更なし、コンテンツ作成） | 2026-04-27 |
