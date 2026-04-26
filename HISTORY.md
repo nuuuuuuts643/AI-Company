@@ -715,3 +715,8 @@ bash projects/P003-news-timeline/deploy.sh
 - AI要約カバレッジ行は既に最新値(summary69%/phase43%/imageUrl62%)確認済み
 - T065/T066/T057の完了をスナップショットテーブルに追記
 - _sanitize_timeline event[:30]→[:40] バグ修正（T066プロンプトと不一致だった）を同時修正
+
+### 完了済み（2026-04-26）api Lambda バグ修正2件
+→ HISTORY.mdに記録 15:25 JST
+- dec()関数: Decimal→int変換がfloat値(velocityScore等)を切り捨てていたバグ修正（int(f) if f==int(f) else f）
+- topic_detail応答: SK/pendingAI/ttlの内部フィールドをpub_metaフィルタで除去（S3プライマリパスと同様の動作に統一）
