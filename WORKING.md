@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
 | T008 長期停滞トピックarchived化 | lambda/fetcher/score_utils.py または lambda/lifecycle/handler.py | 2026-04-26 12:25 |
+| T010 tokushoho.html再リダイレクト化 | frontend/tokushoho.html, CLAUDE.md | 2026-04-26 13:10 |
