@@ -62,7 +62,9 @@ def needs_ai_processing(item):
     if not item.get('aiGenerated'):
         return True
     timeline = item.get('storyTimeline')
-    if not timeline or (isinstance(timeline, list) and len(timeline) == 0):
+    is_minimal = (item.get('summaryMode') == 'minimal'
+                  or int(item.get('articleCount', 0) or 0) <= 2)
+    if not is_minimal and (not timeline or (isinstance(timeline, list) and len(timeline) == 0)):
         return True
     if not item.get('imageUrl'):
         return True
