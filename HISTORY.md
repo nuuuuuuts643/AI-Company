@@ -362,3 +362,7 @@ bash projects/P003-news-timeline/deploy.sh
 - ✅ **IAMポリシー更新** — `p003-lambda-role` の `flotopic-least-privilege` に `flotopic-notifications` テーブルへのDynamoDB権限を追加
 - ✅ **lifecycle SK FilterExpression バグ修正確認** — 最新デプロイ後（2026-04-26）の手動実行でValidationExceptionなし。修正が適用されていることを確認
 - ✅ **スナップショット更新** — CLAUDE.mdのP003技術状態スナップショットに通知テーブル・IAM修正を記録
+
+### 完了済み（2026-04-26）
+→ T012 S3差分書き込み最適化（13:30 JST）
+- `proc_storage.py`: `update_topic_s3_file` に ETag(MD5)比較を追加。`get_object` の ETag と新コンテンツの MD5 が一致する場合は `put_object` をスキップ。AI処理済みトピックの再書き込みを省略し月 $1.98 のS3書き込みコスト削減
