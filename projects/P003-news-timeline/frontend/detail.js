@@ -478,6 +478,7 @@ function renderDetail(data) {
   }
 
   const storyEl = document.getElementById('story-timeline');
+  try {
   if (storyEl && !timeline.length) {
     storyEl.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;padding:8px 0;">記事データを収集中です。ストーリーはデータが蓄積されると表示されます。</p>';
   }
@@ -645,9 +646,10 @@ function renderDetail(data) {
       if (card) card.style.display = 'none';
     }
   }
+  } catch(e) { console.error('storyEl/related rendering error:', e); }
 
   renderDiscovery(meta);
-  renderAffiliate(meta);
+  try { renderAffiliate(meta); } catch(e) { console.error('renderAffiliate error:', e); }
 }
 
 // ===== Discovery: 深掘り & 拡張 =====

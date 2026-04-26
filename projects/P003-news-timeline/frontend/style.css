@@ -473,9 +473,9 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
 .ob-icon { font-size: 1rem; flex-shrink: 0; }
 .ob-dismiss { display: block; margin: 0 auto; background: var(--accent); color: #fff; border: none; border-radius: 20px; padding: 7px 24px; font-size: .85rem; font-weight: 600; cursor: pointer; }
 .ob-dismiss:hover { opacity: .85; }
-.go-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 900; opacity: 0; transition: opacity .25s; pointer-events: none; }
+.go-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 990; opacity: 0; transition: opacity .25s; pointer-events: none; }
 .go-overlay.go-visible { opacity: 1; pointer-events: auto; }
-.go-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-radius: 16px 16px 0 0; padding: 20px 16px calc(32px + env(safe-area-inset-bottom, 0px)); z-index: 901; transform: translateY(100%); transition: transform .3s ease; max-width: 640px; margin: 0 auto; }
+.go-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-radius: 16px 16px 0 0; padding: 20px 16px calc(32px + env(safe-area-inset-bottom, 0px)); z-index: 991; transform: translateY(100%); transition: transform .3s ease; max-width: 640px; margin: 0 auto; }
 [data-theme="dark"] .go-sheet { background: #1e2035; }
 .go-sheet.go-visible { transform: translateY(0); }
 .go-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0 0 4px; }
