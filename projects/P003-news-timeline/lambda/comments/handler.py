@@ -217,6 +217,8 @@ def verify_google_token(id_token: str) -> dict | None:
         # 有効期限チェック
         if int(payload.get('exp', 0)) < time.time():
             return None
+        if GOOGLE_CLIENT_ID and payload.get('aud') != GOOGLE_CLIENT_ID:
+            return None
         return payload
     except (HTTPError, URLError, json.JSONDecodeError):
         return None
@@ -440,18 +442,24 @@ def notify_mentions(body_text: str, from_handle: str, from_nick: str,
 # ── ユーザーコメント履歴（プロフィール用） ────────────────────────
 
 def get_user_comments(handle: str) -> list:
-    """handle のコメント履歴を返す（scan + filter）。"""
+    """handle のコメント履歴を返す（scan + filter、全件ページネーション）。"""
     try:
-        result = table.scan(
-            FilterExpression=Attr('handle').eq(handle),
-            ProjectionExpression=(
+        kwargs = {
+            'FilterExpression': Attr('handle').eq(handle),
+            'ProjectionExpression': (
                 'topicId, SK, #bd, createdAt, likeCount, dislikeCount, '
                 '#nick, quotedHandle, quotedText'
             ),
-            ExpressionAttributeNames={'#bd': 'body', '#nick': 'nickname'},
-            Limit=500,
-        )
-        items = result.get('Items', [])
+            'ExpressionAttributeNames': {'#bd': 'body', '#nick': 'nickname'},
+        }
+        items = []
+        while True:
+            result = table.scan(**kwargs)
+            items.extend(result.get('Items', []))
+            last = result.get('LastEvaluatedKey')
+            if not last:
+                break
+            kwargs['ExclusiveStartKey'] = last
         items.sort(key=lambda x: x.get('createdAt', ''), reverse=True)
         for item in items:
             item['commentId'] = item.pop('SK', '')

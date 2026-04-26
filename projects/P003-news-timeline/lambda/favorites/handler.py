@@ -29,10 +29,11 @@ import boto3
 from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
-TABLE_NAME   = os.environ.get('FAVORITES_TABLE', 'flotopic-favorites')
-TOPICS_TABLE = os.environ.get('TABLE_NAME', 'p003-topics')
-REGION       = os.environ.get('REGION', 'ap-northeast-1')
+TABLE_NAME        = os.environ.get('FAVORITES_TABLE', 'flotopic-favorites')
+TOPICS_TABLE      = os.environ.get('TABLE_NAME', 'p003-topics')
+REGION            = os.environ.get('REGION', 'ap-northeast-1')
 GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token='
+GOOGLE_CLIENT_ID  = os.environ.get('GOOGLE_CLIENT_ID', '')
 HISTORY_SK_PREFIX = 'HISTORY#'
 HISTORY_TTL_DAYS  = 30
 PREFS_SK_GENRE    = 'PREFS#genre'
@@ -92,6 +93,8 @@ def verify_google_token(id_token: str) -> dict | None:
         with urlopen(url, timeout=5) as response:
             payload = json.loads(response.read().decode('utf-8'))
         if 'sub' not in payload:
+            return None
+        if GOOGLE_CLIENT_ID and payload.get('aud') != GOOGLE_CLIENT_ID:
             return None
         return payload
     except (HTTPError, URLError, json.JSONDecodeError):
