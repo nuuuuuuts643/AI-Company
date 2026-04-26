@@ -38,3 +38,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T059 auth.jsログインモーダル文言修正 | frontend/js/auth.js | 2026-04-27 01:00 |
+| T061 app.js ?filter解析 | frontend/app.js | 2026-04-27 01:00 |
+| T062 robots.txt Disallow削除 | frontend/robots.txt | 2026-04-27 01:00 |
