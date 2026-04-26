@@ -776,7 +776,7 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
         'author': {'@type': 'Organization', 'name': 'Flotopic', 'url': 'https://flotopic.com'},
         'publisher': {'@type': 'Organization', 'name': 'Flotopic', 'url': 'https://flotopic.com'},
         'url': canonical,
-        'keywords': genre,
+        'keywords': ', '.join(genres_raw) if genres_raw else genre,
     }, ensure_ascii=False)
 
     html = f"""<!DOCTYPE html>
@@ -785,11 +785,11 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{seo_title} | Flotopic</title>
-<meta name="description" content="{summary[:120] if summary else title}">
+<meta name="description" content="{summary[:155] if summary else title}">
 <link rel="canonical" href="{canonical}">
 <meta property="og:type" content="article">
 <meta property="og:title" content="{title}">
-<meta property="og:description" content="{summary[:120] if summary else title}">
+<meta property="og:description" content="{summary[:155] if summary else title}">
 <meta property="og:image" content="{image_url}">
 <meta property="og:url" content="{canonical}">
 <meta name="twitter:card" content="summary_large_image">
