@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T159 AI要約カバレッジ改善 MAX_API_CALLS 150→200）
+- ✅ **T159 proc_config.py MAX_API_CALLS 150→200** — coverage 46.1% storyPhase, 70.5% summary の状態でキュー溢れが多発。MIN_ARTICLES_FOR_SUMMARY は既に1（変更不要）。MAX_API_CALLS を150→200に増量して処理漏れを削減。APIコスト月+数百円程度。カバレッジ80%超えたら下げる方針。コメント更新済み。
+
 ### 完了済み（2026-04-26 T161 mypageボトムナビ赤バッジ）
 - ✅ **T161 ボトムナビ マイページアイコンに「新着あり」赤ドット追加** — T157(お気に入り新着グルーピング)の延長として、マイページを開かなくても新着があるとわかるように改善。app.js に `updateMypageBadge(topics)` を追加し、topics.json ロード後に `flotopic_last_mypage_visit`（localStorage、秒単位）と各favトピックの `lastUpdated` を比較。1件でも新しければ `bn-mypage` に `.has-badge` クラスを付与。style.css に `.bn-item.has-badge::after` で赤8px丸ドット（`position:absolute; background:#ef4444; border: 1.5px solid card-bg`で白縁付き）を追加。`flotopic_last_mypage_visit`未設定の場合は表示しない（初回訪問ユーザーへの誤表示防止）。npm test 42件全パス。
 
