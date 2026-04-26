@@ -88,9 +88,22 @@ def topic_fingerprint(articles):
     return hashlib.md5(' '.join(top).encode()).hexdigest()[:16]
 
 
+def _precompute_chunks(text):
+    """_chunk_sim用チャンクデータを事前計算（O(n²)ループ内での重複regex呼び出しを排除）。"""
+    text = _LIVE_PREFIX.sub('', text)
+    text = re.sub(r'[0-9\s　・！？!?「」【】（）()]+', ' ', text)
+    kana  = frozenset(SYNONYMS.get(t, t) for t in _KATAKANA_RUN.findall(text))
+    kanji = frozenset(SYNONYMS.get(t, t) for t in _KANJI_RUN.findall(text))
+    return kana, kanji
+
+
 def cluster(articles):
     n = len(articles)
     parent = list(range(n))
+
+    # O(n²)ループ内でのnormalize/regex重複呼び出しを排除するため事前計算
+    normalized  = [normalize(a['title']) - STOP_WORDS for a in articles]
+    pre_chunks  = [_precompute_chunks(a['title']) for a in articles]
 
     def find(x):
         while parent[x] != x:
@@ -106,14 +119,14 @@ def cluster(articles):
     cluster_size = {i: 1 for i in range(n)}
 
     for i in range(n):
+        wi = normalized[i]
         for j in range(i + 1, n):
             ri, rj = find(i), find(j)
             if ri == rj:
                 continue
             if cluster_size.get(ri, 1) + cluster_size.get(rj, 1) > MAX_CLUSTER_SIZE:
                 continue
-            wi = normalize(articles[i]['title']) - STOP_WORDS
-            wj = normalize(articles[j]['title']) - STOP_WORDS
+            wj = normalized[j]
             shared = wi & wj
             union_sz = len(wi | wj)
             # カタカナ固有名詞（3文字以上）を1語共有し、かつ両記事が短い場合は緩和閾値で結合
@@ -125,12 +138,25 @@ def cluster(articles):
                     and 1.0 / union_sz >= _ENTITY_MERGE_THRESHOLD):
                 pass  # → merge below
             elif len(shared) < 2:
-                # word-level が失敗した場合（スペースなし日本語タイトル）chunk-level でリトライ
-                cs = _chunk_sim(articles[i]['title'], articles[j]['title'])
-                if cs >= _CHUNK_THRESHOLD:
-                    union(i, j)
-                    new_size = cluster_size.get(ri, 1) + cluster_size.get(rj, 1)
-                    cluster_size[find(i)] = new_size
+                # word-level が失敗した場合（スペースなし日本語タイトル）事前計算チャンクでリトライ
+                kana_a, kanji_a = pre_chunks[i]
+                kana_b, kanji_b = pre_chunks[j]
+                shared_kana  = kana_a & kana_b
+                shared_kanji: set = set()
+                for r in kanji_a:
+                    for s in kanji_b:
+                        if r == s or (len(r) >= 2 and r in s) or (len(s) >= 2 and s in r):
+                            shared_kanji.add(r if len(r) <= len(s) else s)
+                shared_c  = shared_kana | shared_kanji
+                specific  = shared_c - _CHUNK_COMMON
+                if len(specific) >= 2:
+                    sa = kana_a | kanji_a
+                    sb = kana_b | kanji_b
+                    usz = len(sa | sb)
+                    if usz and len(shared_c) / usz >= _CHUNK_THRESHOLD:
+                        union(i, j)
+                        new_size = cluster_size.get(ri, 1) + cluster_size.get(rj, 1)
+                        cluster_size[find(i)] = new_size
                 continue
             if union_sz == 0:
                 continue
