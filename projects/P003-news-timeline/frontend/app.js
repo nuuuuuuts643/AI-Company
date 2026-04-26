@@ -589,12 +589,21 @@ function setupSearch() {
   input.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
+      const prev = currentSearch;
       currentSearch = input.value.trim();
-      if (currentGenre !== '総合') {
-        currentGenre = '総合';
-        savePrefs({...loadPrefs(), genre: currentGenre});
-        if (typeof syncGenreToCloud === 'function') syncGenreToCloud(currentGenre);
-        buildFilters();
+      if (currentSearch) {
+        // 検索中は総合に一時切替（prefs は保存しない）
+        if (currentGenre !== '総合') {
+          currentGenre = '総合';
+          buildFilters();
+        }
+      } else if (prev && !currentSearch) {
+        // 検索クリア時は保存済みジャンルを復元
+        const saved = (loadPrefs().genre) || '総合';
+        if (currentGenre !== saved) {
+          currentGenre = saved;
+          buildFilters();
+        }
       }
       currentPage = 1;
       renderTopics(allTopics);
