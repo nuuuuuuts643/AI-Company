@@ -38,5 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T153 初回ジャンル選択ボトムシート | frontend/app.js, frontend/index.html, frontend/style.css | 2026-04-27 01:20 |
 

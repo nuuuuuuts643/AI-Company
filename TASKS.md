@@ -24,7 +24,6 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| T153 | 中 | **初回訪問時のジャンル選択（パーソナライズ起点）** — 根本原因: 全ジャンル混在のトップを初見で見ても「自分向けか？」判断できず離脱しやすい。修正方法: 初回訪問時（localStorageフラグなし）にボトムシートで「興味あるジャンルを選んでください」→ 選択をlocalStorageに保存 → 次回以降のデフォルトフィルターに反映。スキップ可能。T150のオンボーディングと合わせて実装。 | `frontend/app.js`, `frontend/index.html`, `frontend/style.css` | 2026-04-26 |
 | T154 | 中 | **お気に入りトピックへの新展開をWeb Push通知** — 根本原因: お気に入り登録しても次の展開を見に戻る動機がない。修正方法: ServiceWorkerにWeb Push受信を追加。fetcherが既存お気に入りtidへの新記事を検知→DynamoDB notification_queueに積む→Lambda(notifier)が1日2回処理。ユーザー増加後の優先施策。 | `frontend/sw.js`, `frontend/mypage.html`, 新Lambda | 2026-04-26 |
 
 ## 進行中
