@@ -330,32 +330,46 @@ def find_related_topics(topics: list, max_related: int = 5) -> dict:
 def detect_topic_hierarchy(topics: list, topic_entities: dict) -> dict:
     parent_map = {}
     sorted_topics = sorted(topics, key=lambda t: int(t.get('score', 0)), reverse=True)
+    topic_meta = {t['topicId']: t for t in sorted_topics}
 
-    for i, topic_a in enumerate(sorted_topics):
-        tid_a = topic_a['topicId']
-        entities_a = topic_entities.get(tid_a, set())
-        score_a = int(topic_a.get('score', 0))
+    # 転置インデックス: エンティティ → そのエンティティを持つtopicIdの集合
+    entity_to_tids: dict = {}
+    for tid, ents in topic_entities.items():
+        for e in ents:
+            entity_to_tids.setdefault(e, set()).add(tid)
 
-        if len(entities_a) < 2:
+    for topic_b in sorted_topics:
+        tid_b = topic_b['topicId']
+        if tid_b in parent_map:
             continue
 
-        for topic_b in sorted_topics[i + 1:]:
-            tid_b = topic_b['topicId']
-            if tid_b in parent_map:
-                continue
+        entities_b = topic_entities.get(tid_b, set())
+        if not entities_b:
+            continue
 
-            entities_b = topic_entities.get(tid_b, set())
-            if not entities_b:
-                continue
+        score_b = int(topic_b.get('score', 0))
+        cnt_b   = int(topic_b.get('articleCount', 0))
 
-            score_b = int(topic_b.get('score', 0))
-            cnt_b   = int(topic_b.get('articleCount', 0))
+        # 記事数・スコアが低いスタブトピック（株価ページ等）を親子関係から除外
+        if score_b < 3 or cnt_b < 2:
+            continue
 
-            # 記事数・スコアが低いスタブトピック（株価ページ等）を親子関係から除外
-            if score_b < 3 or cnt_b < 2:
-                continue
+        # entities_b を全て含む候補 = 全エンティティの積集合
+        candidate_tids: set | None = None
+        for e in entities_b:
+            tids = entity_to_tids.get(e, set())
+            candidate_tids = tids if candidate_tids is None else candidate_tids & tids
+            if not candidate_tids:
+                break
+        if not candidate_tids:
+            continue
 
-            if entities_b.issubset(entities_a) and score_a > score_b and len(entities_a) > len(entities_b):
+        candidate_tids.discard(tid_b)
+        for tid_a in candidate_tids:
+            entities_a = topic_entities.get(tid_a, set())
+            score_a = int(topic_meta[tid_a].get('score', 0))
+            if score_a > score_b and len(entities_a) > len(entities_b):
                 parent_map[tid_b] = tid_a
+                break
 
     return parent_map
