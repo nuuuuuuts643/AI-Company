@@ -345,7 +345,7 @@ const UI = {
 function computeMetrics(topics) {
   const total         = topics.length;
   const totalArticles = topics.reduce((s,t) => s + U.int(t.articleCount), 0);
-  const aiDone        = topics.filter(t => t.generatedSummary || t.generatedTitle).length;
+  const aiDone        = topics.filter(t => t.generatedSummary).length;
   const totalHatena   = topics.reduce((s,t) => s + U.int(t.hatenaCount), 0);
   const maxHatena     = Math.max(...topics.map(t => U.int(t.hatenaCount)), 0);
 
