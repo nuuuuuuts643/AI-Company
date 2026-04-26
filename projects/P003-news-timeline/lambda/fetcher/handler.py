@@ -578,8 +578,8 @@ def lambda_handler(event, context):
                 t['velocityScore'] = apply_velocity_decay(raw_vs, t.get('lastUpdated', ''))
 
         # カード表示・検索用フィールドのみ公開。詳細ページ専用フィールドは除外してサイズ削減
-        # spreadReason/forecast/storyTimeline は api/topic/{id}.json から取得するので不要
-        _INTERNAL = {'SK', 'pendingAI', 'spreadReason', 'forecast', 'storyTimeline'}
+        # spreadReason/forecast/storyTimeline/backgroundContext は api/topic/{id}.json から取得するので不要
+        _INTERNAL = {'SK', 'pendingAI', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext'}
         def _pub(t):
             d = {k: v for k, v in t.items() if k not in _INTERNAL}
             if d.get('generatedSummary'):
