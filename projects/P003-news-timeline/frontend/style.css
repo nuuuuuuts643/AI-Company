@@ -1,4 +1,5 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { overflow-x: hidden; }
 
 /* ═══════════════════════════════════
    DESIGN TOKENS
@@ -457,12 +458,13 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   text-overflow: ellipsis;
 }
 #hero-story-preview { margin-bottom: 8px; }
-.hero-story-card { display: block; background: linear-gradient(135deg, #0f172a, #1e1b4b); border-radius: 12px; padding: 14px 16px; text-decoration: none; margin-bottom: 8px; transition: opacity .15s; }
+.hero-story-card { display: block; background: linear-gradient(135deg, #1e3a5f, #312e6b); border-radius: 12px; padding: 14px 16px; text-decoration: none; margin-bottom: 8px; transition: opacity .15s; }
+[data-theme="light"] .hero-story-card, :root:not([data-theme="dark"]) .hero-story-card { background: linear-gradient(135deg, #3730a3, #6366f1); }
 .hero-story-card:hover { opacity: .9; }
-.hero-story-label { font-size: .7rem; font-weight: 700; color: #818cf8; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
+.hero-story-label { font-size: .7rem; font-weight: 700; color: #c7d2fe; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
 .hero-story-title { font-size: .95rem; font-weight: 700; color: #f1f5f9; line-height: 1.4; margin-bottom: 4px; }
-.hero-story-beat { font-size: .78rem; color: #94a3b8; line-height: 1.4; margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hero-story-cta { font-size: .78rem; color: #818cf8; font-weight: 600; }
+.hero-story-beat { font-size: .78rem; color: #c7d2fe; line-height: 1.4; margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hero-story-cta { font-size: .78rem; color: #e0e7ff; font-weight: 600; }
 .hero-story-tagline { font-size: .72rem; color: var(--text-muted); text-align: center; padding: 4px 0 2px; margin: 0; }
 #onboarding-tip { margin: 0 0 12px; }
 .ob-body { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
@@ -2649,9 +2651,9 @@ details[open] .day-more-btn::before { content: '▼ '; }
 
 /* モバイルでbottomに被らないようにpadding */
 @media (max-width: 768px) {
-  body { padding-bottom: 60px; }
-  .back-to-top-btn { bottom: 72px; }
-  .flotopic-toast { bottom: 70px !important; }
+  body { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
+  .back-to-top-btn { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+  .flotopic-toast { bottom: calc(70px + env(safe-area-inset-bottom, 0px)) !important; }
 }
 
 /* ===== ネイティブ広告カード ===== */
