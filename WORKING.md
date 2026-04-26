@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T136 ヘッダー認証ボタン dark mode 未対応 | frontend/index.html, topic.html, mypage.html | 2026-04-26 21:45 |

@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T136 ヘッダー認証ボタン dark mode 修正）
+- ✅ **T136 index.html・topic.html・mypage.html ヘッダー認証ダークモード対応** — 各ファイルのインライン `<style>` ブロックに `.auth-user-name { color: #737373 }` / `.auth-btn:hover { background: #f5f5f5 }` がハードコードされており style.css の `var(--text-primary)` を上書きしていた。`[data-theme="dark"]` オーバーライドを各ファイルの style 末尾に追加。
+
 ### 完了済み（2026-04-26 T131/T132 storymap.html バグ修正）
 - ✅ **T131 storymap.html 二重フッター削除** — Line 252-254 の旧フッター（プライバシーリンク1本のみ）を削除。site-footer 追加時の取り残し。ユーザーにフッターが2回表示されていた。
 - ✅ **T132 storymap.html エンティティタグ dark mode 対応** — `renderBranchCard()` の entity タグを inline style から CSS クラス `.sm-entity-tag` に変更。`[data-theme="dark"]` オーバーライド追加（`#eff6ff` → `rgba(37,99,235,.18)` / `#2563eb` → `#93c5fd`）。
