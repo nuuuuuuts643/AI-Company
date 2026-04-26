@@ -39,3 +39,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
 | T019 SES Lambda FROM_EMAIL設定 | Lambda env var (AWS CLI) | 2026-04-26 21:30 |
+| T144 proc_storage phase badge日本語キー修正 | lambda/processor/proc_storage.py | 2026-04-26 22:00 |
+| T145 catchup.html HTTP画像混在コンテンツ修正 | frontend/catchup.html | 2026-04-26 22:00 |
