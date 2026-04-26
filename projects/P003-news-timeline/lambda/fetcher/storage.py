@@ -2,7 +2,7 @@ import json
 import os
 import re
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from boto3.dynamodb.conditions import Key
