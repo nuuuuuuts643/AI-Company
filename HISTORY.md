@@ -414,3 +414,61 @@ bash projects/P003-news-timeline/deploy.sh
 - `style.css` に `.velocity-bar-wrap` / `.velocity-bar` 追加。ダークモード対応済み
 - declining/cooling カードには表示しない（トレンドでないトピックをクリーンに維持）
 - テスト: `npm test` 42件全パス
+
+### 完了済み（2026-04-26）T032 スナップショット棚卸し - CLAUDE.md から移動
+
+以下のコンポーネントはすべて本番稼働中・安定済み（変動なし）
+
+| コンポーネント | 完了内容 |
+|---|---|
+| deploy-p003.yml | CloudFront invalidation付き・sw.js SHA注入ステップあり |
+| news-sitemap.xml | Google News Sitemap。robots.txtに記載済み |
+| rss.xml | 品質フィルタ済み。同一イベント重複抑制（最大2件/イベント）・株価ticker除外 |
+| クラスタリング | 【中継】【速報】プレフィックス除去でJaccard比較。SYNONYMS拡充。転置インデックス化（O(n²)→O(n·k)） |
+| 株価ティッカーフィルタ | 英数字コード(325A等)・Yahoo!ファイナンス全般除外 |
+| fetcher Float型エラー | floatをDynamoDBに書いていたバグ修正・Decimal変換済み |
+| deploy-lambdas.yml | analytics/auth/favorites/lifecycle/cf-analytics/api の全Lambda対象 |
+| view tracking | POST /analytics/event → flotopic-analytics Lambda 稼働中 |
+| admin dashboard | velocity分布・AIパイプライングラフ追加済み |
+| lifecycle Lambda各種修正 | archived保護・SK修正・S3孤立ファイル削除・ARCHIVE_DAYS=7・週次自動実行 |
+| pending_ai.json ゾンビ蓄積 | fetcher が topics_deduped 外をqueue追加していたバグ修正。1613→245件 |
+| 検索機能 | タイトル→タイトル+AI要約+ジャンルに拡張 |
+| SEO/OGP | JSON-LD全静的ページ追加（legacy=CollectionPage, catchup/privacy/terms=WebPage+BreadcrumbList） |
+| trendingKeywords | processorが毎回_extract_trending_keywords()で再生成。ストップワード強化 |
+| processor スループット | MAX_API_CALLS 30→150（15件→75件/回） |
+| fetcher S3コスト | 1605件→~194件の個別S3書き込みに削減（公開対象のみ） |
+| Claude Code 確認ダイアログ | ~/.claude/settings.json に Bash/Edit/Write を allow 追加 |
+| topics.json 内部フィールド除去 | SK/pendingAI/ttlをfetcher・processor両方でpublicJSONから除去 |
+| fetcher _core_key重複防止 | 【中継】【速報】等プレフィックス除去でデdup精度向上 |
+| コメント/お気に入りCTA | 空状態改善+モバイルスティッキーCTAバー追加 |
+| processor タイトル再生成スキップ | aiGenerated=True+title既存→タイトルAPI省略 |
+| Google Newsソース名 | （）/()パターン追加・フォールバック→'Google News' |
+| UIボトムナビ統一 | profile.html・storymap.html修正 |
+| processor _dedup_topics | topics.json再生成時のAIタイトル生成後重複防止 |
+| fetcher orphan storyTimeline欠如 | generatedSummary+aiGeneratedあり但しstoryTimeline欠如のトピックをorphan追加対象に修正 |
+| モバイル広告ラッパー | position:relative追加でiframeクリッピング確実化 |
+| flotopic-notifications テーブル | PK=handle/SK=SK/TTL=30日。IAMポリシー(flotopic-least-privilege)に権限追加済み |
+| p003-comments 通知権限 | AccessDeniedException解消 |
+| 通知タブ(mypage) | 🔔 通知パネル追加。loadNotifications()で /notifications/{handle} API呼び出し |
+| catchup.htmlサムネイル | imageUrlがあるトピックにサムネイル表示（80px×80px） |
+| ダークモード漏れ修正 | legacy.html・storymap.htmlにtheme.js追加 |
+| proc_ai.py日付パース | Unixタイムスタンプ整数に対応 |
+| はてなスコア偏重修正 | 対数スケール+上限30点 |
+| 急上昇ストリップ条件 | velocityScore>=3 必須条件追加（新着=急上昇バグ修正） |
+| Googleディスプレイネーム非表示 | ニックネーム未設定時は「ユーザー#XXXX」(Google ID末尾4文字)表示 |
+| storyTimeline繋がり強化 | transition(因果テキスト)追加・記事数で要約深さ分岐・Jaccard関連トピックリンク |
+| ジャンル グルメ/ファッション追加 | GENRE_KEYWORDS追加・RSSフィード追加・app.js/legacy.html GENRESリスト追加 |
+| NHKフィード削減 | 8本→6本・ソース多様性スコア強化 |
+| tokushoho.html廃止 | リダイレクト化(noindex)・全フッターリンク削除・sitemap除外 |
+| アフィリエイト Yahoo!ショッピング | もしもAFF経由でAmazon/楽天/Yahoo!の3店舗対応 |
+| AI拒否応答フィルタ | generate_titleで40文字超・拒否語句を含む無効応答を除外 |
+| モバイル広告CSS修正 | transform-origin:top center+flexbox centeringで広告左はみ出し修正（T005） |
+| AIサマリー固有名詞文脈説明 | 全3プロンプトに「初出時括弧説明」ルール追加（T007） |
+| 広告記事フィルタ強化 | ランキング/徹底比較/アフィリエイト/PRパターン追加（T009） |
+| 長期停滞トピックarchived化 | lifecycle: 30日超lastArticleAtは強制inactive（T008） |
+| get_topic_detail無制限クエリ修正 | get_item(META)+query(Limit=30/90)に分割（T011） |
+| Bluesky 3問題修正 | S3 topics.json読み取り・velocityScore float化・静的URL（T013） |
+| S3 ETag差分書き込み | proc_storage.py: MD5 ETag比較でスキップ。月$1.98コスト削減（T012） |
+| fetcher O(n²)削減 | topics_active[:500]・転置インデックス化（T017） |
+| アフィリエイト収益化基盤 | privacy.html更新・topic.htmlウィジェット枠 |
+| mypage.html 広告追加 | shinobiスクリプト追加・ad-728（PC）+ ad-sp（SP）スロット追加（T029） |
