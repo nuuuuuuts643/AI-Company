@@ -15,6 +15,7 @@
 | T056 | 低 | **フォロー/フォロワー機能**（将来・ユーザー増えてから） | — | 2026-04-26 |
 | T087 | 高 | **topics.jsonの11件がdetail JSON未存在** 「日経平均6万円突破」「半導体キオクシア」等11件がS3 404。fetcherは`saved_ids∩deduped_tids`のみdetail JSONを書くため、スコア浮上した新規記事なしトピックが永遠に書かれない。詳細ページがタイトルのみ表示になる。修正: processorまたはfetcherでdetail JSON欠損トピックをDynamoDBから補完 | `lambda/processor/proc_storage.py` または `lambda/fetcher/handler.py` | 2026-04-26 |
 | T090 | 高 | **admin.html の問い合わせ一覧が完全に動いていない** `admin.html:872`が`GET /contacts`を呼ぶが、API Gatewayには`POST /contact`しか存在せず404。問い合わせは`flotopic-contacts`テーブルに保存されているが管理者が読む手段がない。修正: contact LambdaにGET /contacts（管理者用列挙API）を追加し、API Gatewayにルートを追加。注意: 実装時は必ずサーバー側でGoogle IDトークンのemail検証を行うこと（現状のallowedEmailチェックはJS側のみ） | `lambda/contact/handler.py` + API Gateway route | 2026-04-26 |
+| T092 | 高 | **ジャンル設定クラウド同期が完全に動いていない** `GET /prefs/{userId}`と`PUT /prefs`がAPI Gatewayに未登録（404）。`favorites.js:121-134`がクラウド同期を実装済みで`flotopic-favorites` Lambdaに`get_prefs`/`save_prefs`も実装済みだがAPIルートのみ欠落。ログイン済みユーザーのジャンル設定が複数デバイス間で同期されない。修正: API GatewayにGET /prefs/{userId}（→flotopic-favorites）とPUT /prefs（→flotopic-favorites）の2ルートを追加する | API Gateway routes only | 2026-04-26 |
 
 ## 進行中
 → WORKING.md で管理（実装セッションが記入）
