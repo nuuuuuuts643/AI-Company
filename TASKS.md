@@ -41,7 +41,7 @@
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
 ~~| T184 | 高 | Search Console インデックス申請 | — | 2026-04-27 |~~ → 完了（2026-04-27 PO実施）
-~~| T185 | 高 | Qiita/note 外部記事投稿 | — | 2026-04-27 |~~ → 完了（2026-04-27 PO実施）
+~~| T185 | 高 | Qiita/note 外部記事投稿 | — | 2026-04-27 |~~ → 完了（2026-04-27 PO実施。Qiita: https://qiita.com/nuuuuuuts643/items/01f1774a17737c083f2f / note: https://note.com/flotopic/n/n8a8a6b7d3e38 / Zenn: 執筆中）
 
 ## 進行中
 → WORKING.md で管理（実装セッションが記入）
