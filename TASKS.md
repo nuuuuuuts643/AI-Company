@@ -17,6 +17,10 @@
 | T032 | 高 | **CLAUDE.md棚卸し（コンテキスト軽量化）**。P003技術状態スナップショットテーブルが200行超で肥大化。完了済みコンポーネント行をHISTORY.mdへ移動し、現在も変動中の行のみ残す。セッション品質向上・コンテキスト窓の節約が目的 | CLAUDE.md, HISTORY.md | 2026-04-26 |
 | T033 | 高 | **SEO対策: AIタイトルのロングテールキーワード改善**。現在のAIタイトルは「〇〇が△△」形式が多い。検索意図に合わせ「〇〇とは」「〇〇の経緯・背景」「〇〇まとめ」形式のタイトルを生成するようプロンプト改修。proc_ai.py の generate_title プロンプトを更新 | lambda/processor/proc_ai.py | 2026-04-26 |
 | T034 | 中 | **SEO対策: 内部リンク強化（関連トピック表示改善）**。topic.htmlの「関連トピック」セクションに表示件数が少ない・リンクが目立たない問題。関連トピック4件→6件に増やし、リンクのクリック誘導UIを改善（サムネイル+タイトル+経過時間表示） | frontend/detail.js, style.css | 2026-04-26 |
+| T035 | 高 | **天気ウィジェット→急上昇ジャンル表示に置き換え**。天気はFlotopicと無関係。id="weather-widget"エリアを「🔥 今日は〇〇が急上昇（+N件）」の1行表示に変更。topics.jsonのジャンル別velocity最大値を集計するだけ。未ログインでも表示OK | frontend/app.js, style.css | 2026-04-26 |
+| T036 | 高 | **閲覧済みカードの視覚化**。localStorageにflotopic_historyがあるのにカード一覧で既読/未読の区別が付かない。既読トピックのカードにopacity:0.65程度のグレーオーバーレイを適用。loadPrefsのhistoryデータを使うだけでAPI不要 | frontend/app.js, style.css | 2026-04-26 |
+| T037 | 高 | **ログイン特典を明示するモーダル改善**。未ログイン時にお気に入りボタンを押すと現状ただログインを促すだけ。「ログインするとできること: ①お気に入り保存 ②閲覧履歴をどのデバイスでも同期 ③続報通知」の3点を具体的に示すモーダルに改善 | frontend/js/auth.js | 2026-04-26 |
+| T038 | 中 | **ジャンル設定クラウド同期**。ジャンルフィルター設定が現在localStorageのみ。ログインユーザーはDynamoDB flotopic-favoritesのPK=userId/SK=PREFS#genreに保存、ログイン時に復元。✅完了条件: 別ブラウザ/デバイスでログインしたとき同じジャンル選択が復元されること | frontend/app.js, frontend/js/favorites.js, lambda/favorites/handler.py | 2026-04-26 |
 
 ## 進行中
 → WORKING.md で管理（実装セッションが記入）
