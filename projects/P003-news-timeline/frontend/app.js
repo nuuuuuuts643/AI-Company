@@ -635,6 +635,7 @@ async function refreshTopics() {
     updateFreshnessDisplay();
     renderHotStrip(allTopics);
     renderFavStrip(allTopics);
+    updateMypageBadge(allTopics);
     renderTopics(allTopics);
     renderTrendingGenres();
     if (typeof syncFavSeenTimes === 'function') syncFavSeenTimes(allTopics);
@@ -718,6 +719,18 @@ function renderFavStrip(topics) {
       }).join('')}
     </div>`;
   grid.parentNode.insertBefore(strip, grid);
+}
+
+function updateMypageBadge(topics) {
+  const btn = document.getElementById('bn-mypage');
+  if (!btn || typeof userFavorites === 'undefined' || !userFavorites.size) return;
+  try {
+    const lastVisitSec = Number(localStorage.getItem('flotopic_last_mypage_visit') || 0);
+    if (!lastVisitSec) return;
+    const toSec = v => { if (!v) return 0; const n = Number(v); if (!isNaN(n) && n > 1e9) return n; const t = new Date(v).getTime(); return isNaN(t) ? 0 : t / 1000; };
+    const hasNew = topics.some(t => userFavorites.has(t.topicId) && toSec(t.lastUpdated) > lastVisitSec);
+    if (hasNew) btn.classList.add('has-badge');
+  } catch {}
 }
 
 function showTrendingBanner(topics) {
