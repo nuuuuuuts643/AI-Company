@@ -805,3 +805,10 @@ bash projects/P003-news-timeline/deploy.sh
 - `api/filter-weights.json` を S3 にアップロード（28パターン全て初期値1.0）
 - fetcher が毎回出していた「filter-weights.json 未作成 → デフォルト値使用」ログを解消
 - lifecycle Lambda が週次で最適化する設計は維持（ファイルが存在すれば上書き読み込みされる）
+
+### 完了済み（2026-04-26 T084 アフィリエイトキーワード修正）
+- ✅ **T084** — `isNewsHeadline` チェックを廃止、常に `GENRE_KEYWORD[genre]` を使用
+- 変更前: NEWS_PATSフィルタが「：」「について」等の汎用パターンでほぼ無効 → タイトルをそのまま検索キーワードに使用
+- 変更後: ジャンル固定キーワード（例: テクノロジー→「ガジェット 最新」）のみ使用
+- 効果: Amazonで「〇〇大臣の汚職疑惑」で検索する無意味な状態を解消、購買意図のある商品検索に統一
+- コード12行削減（rawTitle取得・NEWS_PATS定義・isNewsHeadline判定・else分岐を全て削除）
