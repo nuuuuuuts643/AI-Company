@@ -17,6 +17,8 @@
 | T087 | 高 | **topics.jsonの11件がdetail JSON未存在** 「日経平均6万円突破」「半導体キオクシア」等11件がS3 404。fetcherは`saved_ids∩deduped_tids`のみdetail JSONを書くため、スコア浮上した新規記事なしトピックが永遠に書かれない。詳細ページがタイトルのみ表示になる。修正: processorまたはfetcherでdetail JSON欠損トピックをDynamoDBから補完 | `lambda/processor/proc_storage.py` または `lambda/fetcher/handler.py` | 2026-04-26 |
 | T088 | 低 | **StaticHTML `s3.exceptions.NoSuchKey`キャッチ失敗** `proc_storage.py:875`の例外ハンドラが機能せず11件が毎回'fail'扱い。真因: 実際の例外は`botocore.exceptions.ClientError(Code=NoSuchKey)`。修正: `from botocore.exceptions import ClientError`でキャッチして`response['Error']['Code']=='NoSuchKey'`で判定 | `lambda/processor/proc_storage.py` | 2026-04-26 |
 | T089 | 低 | **Bluesky dry-run で画像アップロードエラーログ** `post_daily`で`if dry_run`チェック前に`make_link_embed(client=None,...)`を呼ぶため`AttributeError`。本番投稿には影響なし。修正: dry-runフラグを`make_link_embed`に渡し client=Noneのときはfetch_image_blobをスキップ | `scripts/bluesky_agent.py` | 2026-04-26 |
+| T090 | 高 | **admin.html の問い合わせ一覧が完全に動いていない** `admin.html:872`が`GET /contacts`を呼ぶが、API Gatewayには`POST /contact`しか存在せず404。問い合わせは`flotopic-contacts`テーブルに保存されているが管理者が読む手段がない。修正: contact LambdaにGET /contacts（管理者用列挙API）を追加し、API Gatewayにルートを追加。注意: 実装時は必ずサーバー側でGoogle IDトークンのemail検証を行うこと（現状のallowedEmailチェックはJS側のみ） | `lambda/contact/handler.py` + API Gateway route | 2026-04-26 |
+| T091 | 中 | **lifecycle Lambdaが`topics/*.html`孤立ファイルを削除しない** 現在976ファイル中510件が削除済みトピックの孤立HTML（有効トピック500件のみ）。lifecycleは`api/topic/*.json`の孤立は削除するが`topics/*.html`の削除コードがない。Googlebotが削除済みトピックページをクロールし続けSEO品質低下の恐れ。修正: lifecycle Lambdaの`s3-topic-cleanup`ブロックと同様のロジックで`topics/*.html`の孤立ファイルも削除する | `lambda/lifecycle/handler.py` | 2026-04-26 |
 
 ## 進行中
 → WORKING.md で管理（実装セッションが記入）
