@@ -871,3 +871,7 @@ bash projects/P003-news-timeline/deploy.sh
 - ✅ **T094** — `processor/handler.py:102` の `_is_minimal = (topic.get('summaryMode') == 'minimal' or cnt <= 2)` を `_is_minimal = cnt <= 2` に変更。DynamoDBの古いsummaryModeフィールドに引きずられてcnt=3+のトピックが永遠にstoryTimeline未生成になる永続ループを修正。storyPhaseカバレッジ40%→改善見込み。
 - ✅ **T095** — `fetcher/config.py` の `GENRE_PRIORITY` で '科学' を 'エンタメ' より前（index 8）に移動。スコア同点時にグルメがサイエンス記事に勝つ誤分類を修正。
 - ✅ **T096** — `fetcher/score_utils.py` の `_parse_pubdate_ts()` に ISO 8601 フォールバックを追加。`parsedate_tz`（RFC 2822専用）がNHK/Livedoorの`"2026-04-26T12:00:00+09:00"`形式をNoneと返す → `published_ts=0` → `lifecycle='archived'` → トピック非表示になる問題を修正。`datetime.fromisoformat()`でパース成功するようになった。
+
+### 完了済み（2026-04-26 T097 + favorites バグ修正2件）
+- ✅ **T097** — `fetcher/score_utils.py:calc_score()` の recency_bonus 判定が `parsedate_tz` 直接呼び出しだったため ISO 8601 形式の NHK 記事で ×1.20 ボーナスが取れなかった問題を修正。`published_ts`（`_parse_pubdate_ts()`で既解析済み）を直接使うよう変更。`sort_by_pubdate()` も同様に `published_ts`/`publishedAt` を使うよう修正。
+- ✅ **favorites GET バグ** — `favorites/handler.py:get_favorites()` が全ユーザー行（`HISTORY#*`・`PREFS#genre` も含む）を返していた問題を修正。`FilterExpression=~(Attr('topicId').begins_with('HISTORY#') | Attr('topicId').begins_with('PREFS#'))` を追加。また `delete_all_user_data()` でアカウント削除時に `PREFS#genre` アイテムが残留する問題も修正（`batch.delete_item(Key=..., PREFS_SK_GENRE)` を追加）。
