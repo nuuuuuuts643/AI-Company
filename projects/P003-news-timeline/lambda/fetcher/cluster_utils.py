@@ -20,7 +20,8 @@ _CHUNK_THRESHOLD = 0.40  # word-level より高めに設定して誤クラスタ
 # 高頻度すぎて識別力のない一般語を除外
 _CHUNK_COMMON = {'大統領', '首相', '大臣', '政府', '国会', '議員', '社長', '会長',
                  '委員会', '知事', '市長', '内閣', '官房', '大使', '長官',
-                 '日本', '米国', '中国', '東京', '大阪', '会社', '企業', '事件', '事故'}
+                 '日本', '米国', '中国', '東京', '大阪', '会社', '企業', '事件', '事故',
+                 '発表', '開始', '実施', '決定', '対応', '影響', '問題', '検討', '対策'}
 
 def _chunk_sim(a: str, b: str) -> float:
     """カタカナ連続(3字以上)・漢字連続(2字以上)をチャンクとして抽出しJaccard類似度を計算。
@@ -36,8 +37,9 @@ def _chunk_sim(a: str, b: str) -> float:
     if not sa or not sb:
         return 0.0
     shared = sa & sb
-    if not shared or not (shared - _CHUNK_COMMON):
-        return 0.0  # 固有語の共有なし
+    specific = shared - _CHUNK_COMMON
+    if len(specific) < 2:
+        return 0.0  # 固有語を2語以上共有していなければ誤クラスタリスク大
     return len(shared) / len(sa | sb)
 
 
@@ -106,6 +108,12 @@ def cluster(articles):
                     and 1.0 / union_sz >= _ENTITY_MERGE_THRESHOLD):
                 pass  # → merge below
             elif len(shared) < 2:
+                # word-level が失敗した場合（スペースなし日本語タイトル）chunk-level でリトライ
+                cs = _chunk_sim(articles[i]['title'], articles[j]['title'])
+                if cs >= _CHUNK_THRESHOLD:
+                    union(i, j)
+                    new_size = cluster_size.get(ri, 1) + cluster_size.get(rj, 1)
+                    cluster_size[find(i)] = new_size
                 continue
             if union_sz == 0:
                 continue
