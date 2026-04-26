@@ -1931,6 +1931,27 @@ details[open] .day-more-btn::before { content: '▼ '; }
   box-shadow: 0 2px 8px rgba(99,102,241,0.25);
 }
 
+/* COMPONENT: QUICK-NEWS STRIP */
+.quick-news-strip { margin-bottom: 14px; }
+.qn-item {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(99,102,241,.15);
+  background: rgba(99,102,241,.04);
+  text-decoration: none;
+  margin-bottom: 8px;
+  transition: background .15s, border-color .15s;
+}
+.qn-item:hover { background: rgba(99,102,241,.1); border-color: rgba(99,102,241,.3); }
+.qn-meta { font-size: .68rem; color: #94a3b8; margin-bottom: 3px; }
+.qn-title { font-size: .88rem; font-weight: 700; color: var(--text-primary,#1e293b); line-height: 1.4; margin-bottom: 3px; }
+.qn-snippet { font-size: .75rem; color: var(--text-muted,#64748b); line-height: 1.4; }
+[data-theme="dark"] .qn-item { background: rgba(99,102,241,.08); border-color: rgba(99,102,241,.2); }
+[data-theme="dark"] .qn-item:hover { background: rgba(99,102,241,.16); }
+[data-theme="dark"] .qn-title { color: #e2e8f0; }
+[data-theme="dark"] .qn-snippet { color: #94a3b8; }
+
 /* COMPONENT: BADGES (continued) — カードNEWバッジ */
 @keyframes new-pulse {
   0%, 100% { opacity: 1; }
