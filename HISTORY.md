@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T178 chart.js CDN async化）
+- ✅ **T178 topic.html chart.js/hammer.js/chartjs-plugin-zoom を async 読み込みに変更** — 根本原因: CDN スクリプトを同期ロードしていたため、モバイルで CDN が遅い場合に detail.js（renderAffiliate 呼び出し元）がブロックされアフィリエイトリンクが表示されなかった。T162 の try-catch 修正は CDN が「失敗」した場合のみ有効で「遅い」場合は無効だった。修正: 3つの CDN script タグに `async` を追加。detail.js は CDN 完了を待たず即実行されるため renderAffiliate が常に動く。Chart が未定義の場合は buildCharts の try-catch がグラフのみ非表示にして継続。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T175 processor 1件記事skip）
 - ✅ **T175 proc_config.py MIN_ARTICLES定数を1→2・handler.py 早期skip追加** — 根本原因: `MIN_ARTICLES_FOR_TITLE=1`/`MIN_ARTICLES_FOR_SUMMARY=1` が articleCount=1 の非表示トピック（占星術・1件記事等 206件）へのAI呼び出しを許容。176件分のAPI呼び出しが浪費され、ユーザー可視トピック(articleCount≥2・294件)のカバレッジが43%止まりだった。修正: ①両定数を2に変更 ②`handler.py` ループ冒頭に `if cnt < MIN_ARTICLES_FOR_TITLE: skipped+=1; continue` を追加（max_topics=100ループ枠の節約も兼ねる）。効果: 全API呼び出しが可視トピックに集中し、カバレッジが短期間で大幅改善見込み。Python構文チェック・npm test 42件全パス。
 
