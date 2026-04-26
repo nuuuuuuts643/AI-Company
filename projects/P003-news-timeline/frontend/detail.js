@@ -23,7 +23,12 @@ function trackView(topicId) {
 function updateOGP(meta) {
   const title   = meta.generatedTitle || meta.title || 'Flotopic';
   const rawDesc = cleanSummary(meta.generatedSummary) || '';
-  const desc    = rawDesc.length > 0 ? rawDesc.slice(0, 100) : 'Flotopicでトピックの推移をAIが分析';
+  const phase   = meta.storyPhase || '';
+  const phasePrefix = phase ? `【${phase}】` : '';
+  const summaryPart = rawDesc.length > 0 ? rawDesc.slice(0, 90) : '';
+  const desc = summaryPart
+    ? `${phasePrefix}${summaryPart}`
+    : 'Flotopicでトピックの推移をAIが分析';
   const url     = meta.topicId ? `https://flotopic.com/topics/${meta.topicId}.html` : 'https://flotopic.com/topic.html';
   const ogImage = meta.imageUrl || 'https://flotopic.com/ogp.png';
   const setMeta = (prop, val) => {
