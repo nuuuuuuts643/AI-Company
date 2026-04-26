@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T167 静的HTMLマークダウン混入修正 | lambda/processor/proc_storage.py | 2026-04-27 03:10 |
