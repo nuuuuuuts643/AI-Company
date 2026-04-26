@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T189 シェアURL体験設計 | projects/P003-news-timeline/frontend/detail.js, topic.html | 2026-04-27 |
