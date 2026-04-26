@@ -676,3 +676,10 @@ bash projects/P003-news-timeline/deploy.sh
 - Lambda `flotopic-cf-analytics` の環境変数に CF_API_TOKEN・CF_ACCOUNT_ID・CF_SITE_TAG が設定済み
 - `https://flotopic.com/api/cf-analytics.json` の更新確認済み（users=1, comments=2）
 - CF PV=0 は RUM ビーコンのデータが蓄積中のため（構造的には正常動作）
+
+### 完了済み（2026-04-26）T066 proc_ai.pyストーリー生成プロンプト強化
+→ HISTORY.mdに記録 14:45 JST
+- standard/full両モードのtimeline[].event: 20文字→40文字に拡大
+- standard/full両モードのtimeline[].transition: 15文字→25文字に拡大
+- standard mode max_tokens: 500→700（長いeventを切り詰めないよう）
+- event/transitionルールの説明文を詳細化（体言止め・具体的固有名詞等）
