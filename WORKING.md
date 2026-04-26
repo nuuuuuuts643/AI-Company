@@ -38,3 +38,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T044 MAX_API_CALLS 150復元 | lambda/processor/proc_config.py | 2026-04-26 15:30 |
+| T045 minimal mode storyPhase修正 | lambda/processor/proc_ai.py | 2026-04-26 15:30 |
