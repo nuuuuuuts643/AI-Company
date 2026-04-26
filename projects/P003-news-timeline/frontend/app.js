@@ -406,7 +406,14 @@ function renderTopics(topics) {
   } else {
     list = list.filter(t => t.lifecycleStatus !== 'archived');
   }
-  if (currentGenre  !== '総合') list = list.filter(t => (t.genres||[t.genre]).includes(currentGenre));
+  if (currentGenre !== '総合') {
+    const _GENRE_ALIAS = { 'ファッション': 'ファッション・美容' };
+    const _alt = _GENRE_ALIAS[currentGenre];
+    list = list.filter(t => {
+      const gs = t.genres || [t.genre];
+      return gs.includes(currentGenre) || (_alt && gs.includes(_alt));
+    });
+  }
   if (showFavsOnly) list = list.filter(t => userFavorites.has(t.topicId));
 
   // ジャンル多様性を確保（テック偏り防止）
