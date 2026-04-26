@@ -13,9 +13,6 @@
 |---|---|---|---|---|
 | T056 | 低 | **フォロー/フォロワー機能**（将来・ユーザー増えてから） | — | 2026-04-26 |
 | T109 | 低 | **アフィリエイト: トピック内容に合わせた関連商品表示（将来）** — 現状はジャンル固定キーワードで検索。AI要約生成時に商品検索クエリも同時生成してDynamoDBに保存し、トピックページに関連商品として表示できれば収益性向下。AI処理コスト増になるため収益化フェーズで検討 | `lambda/processor/proc_ai.py`, `frontend/js/affiliate.js` | 2026-04-26 |
-| T172 | 低 | **detail.js renderDiscovery: imageUrl を esc() でHTMLエスケープ** — 根本原因: `renderDiscovery()` の `safeThumb` が `src="${safeThumb}"` に直接埋め込まれ `esc()` が未適用（app.js の `renderTopicCard` は `esc(safeImgUrl(t.imageUrl))` と正しくエスケープしている）。実際のimageUrlはS3 URLで実害なしだが一貫性とセキュリティ強化のため修正。修正方法: L739 `safeImgUrl(t.imageUrl)` → `esc(safeImgUrl(t.imageUrl))` に変更。 | `frontend/detail.js` | 2026-04-27 |
-| T173 | 低 | **utils.js CONFIG値をapp.jsと同期** — 根本原因: テスト用 `utils.js` の `CONFIG.HOT_STRIP_HOURS: 2` (app.jsは6)・`AD_CARD_INTERVAL: 10` (app.jsは9) が乖離。テストが本番と異なる閾値で通過するためisHotTopic境界テストが不正確。修正方法: utils.js の定数を app.js に合わせ(HOT_STRIP_HOURS:6, AD_CARD_INTERVAL:9)、tests/utils.test.js の検証値も更新。isHotTopic テストは6時間境界に変更。 | `frontend/js/utils.js`, `tests/utils.test.js` | 2026-04-27 |
-| T174 | 低 | **tracker Lambda: topicId フォーマット検証を追加** — 根本原因: `tracker/handler.py` の POST /tracker が `topicId` を無検証でDynamoDB VIEW#dateキーに書き込む。topicIdは `md5().hexdigest()[:16]`（16文字小文字hex）なので、任意文字列でのDynamoDB書き込みが可能（ファントムVIEWレコード生成・ビュー数水増し）。修正方法: `if not re.match(r'^[0-9a-f]{16}$', tid): return {'statusCode':400,...}` を追加（`import re` も追加）。 | `lambda/tracker/handler.py` | 2026-04-27 |
 
 ### 🎯 使いたくなるUX（「また来たい」動線）
 
