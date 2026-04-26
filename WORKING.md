@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T074 admin.html サービス管理リンク追加 | frontend/admin.html | 2026-04-26 18:10 |
