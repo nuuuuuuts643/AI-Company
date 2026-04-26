@@ -29,19 +29,22 @@
   <style>
     /* ===== キャッチアップ専用スタイル ===== */
     .catchup-hero {
-      background: linear-gradient(135deg, #1a1f3a 0%, #0f1629 100%);
+      background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
       padding: 40px 20px 32px;
       text-align: center;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
+      border-bottom: 1px solid var(--border);
+    }
+    [data-theme="dark"] .catchup-hero {
+      background: linear-gradient(135deg, #1a1f3a 0%, #0f1629 100%);
     }
     .catchup-hero h1 {
       font-size: 1.8rem;
       font-weight: 700;
-      color: #f1f5f9;
+      color: var(--text-primary);
       margin: 0 0 8px;
     }
     .catchup-hero p {
-      color: #94a3b8;
+      color: var(--text-secondary);
       font-size: 0.95rem;
       margin: 0 0 28px;
     }
@@ -57,17 +60,23 @@
     .period-btn {
       padding: 10px 22px;
       border-radius: 24px;
-      border: 1.5px solid rgba(255,255,255,0.15);
-      background: rgba(255,255,255,0.05);
-      color: #cbd5e1;
+      border: 1.5px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-secondary);
       font-size: 0.95rem;
       cursor: pointer;
       transition: all 0.18s;
     }
+    [data-theme="dark"] .period-btn {
+      border-color: rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.05);
+      color: #cbd5e1;
+    }
     .period-btn:hover {
       border-color: #3b82f6;
-      color: #93c5fd;
+      color: #3b82f6;
     }
+    [data-theme="dark"] .period-btn:hover { color: #93c5fd; }
     .period-btn.active {
       background: #2563eb;
       border-color: #2563eb;
@@ -82,26 +91,28 @@
       align-items: center;
       gap: 10px;
       padding: 14px 20px;
-      background: #0f1629;
-      border-bottom: 1px solid rgba(255,255,255,0.07);
+      background: var(--bg-page);
+      border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
       z-index: 10;
     }
+    [data-theme="dark"] .filter-bar { background: #0f1629; }
     .filter-bar label {
-      color: #94a3b8;
+      color: var(--text-muted);
       font-size: 0.85rem;
     }
     .lifecycle-btn {
       padding: 5px 14px;
       border-radius: 16px;
-      border: 1px solid rgba(255,255,255,0.12);
+      border: 1px solid var(--border);
       background: transparent;
-      color: #94a3b8;
+      color: var(--text-muted);
       font-size: 0.82rem;
       cursor: pointer;
       transition: all 0.15s;
     }
+    [data-theme="dark"] .lifecycle-btn { border-color: rgba(255,255,255,0.12); }
     .lifecycle-btn.active {
       border-color: #22c55e;
       color: #22c55e;
@@ -119,7 +130,7 @@
     }
     .result-count {
       margin-left: auto;
-      color: #64748b;
+      color: var(--text-muted);
       font-size: 0.82rem;
     }
 
@@ -141,7 +152,7 @@
       }
     }
     .catchup-card {
-      background: #1e2540;
+      background: var(--bg-card);
       border-radius: 12px;
       border-left: 4px solid #22c55e;
       padding: 18px 20px;
@@ -150,10 +161,12 @@
       display: block;
       transition: transform 0.15s, box-shadow 0.15s;
     }
+    [data-theme="dark"] .catchup-card { background: #1e2540; }
     .catchup-card:hover {
       transform: translateY(-2px);
-      box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.15);
     }
+    [data-theme="dark"] .catchup-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.35); }
     .catchup-card[data-lc="cooling"] {
       border-left-color: #f59e0b;
     }
@@ -196,11 +209,12 @@
     .badge-lc.cooling  { background: rgba(245,158,11,0.15); color: #f59e0b; }
     .badge-lc.archived { background: rgba(107,114,128,0.15); color: #9ca3af; }
     .badge-phase { font-size: .7rem; font-weight: 600; color: #6366f1; background: #eef2ff; border-radius: 999px; padding: 2px 8px; }
+    [data-theme="dark"] .badge-phase { background: rgba(99,102,241,0.15); color: #818cf8; }
 
     .catchup-card h2 {
       font-size: 1.05rem;
       font-weight: 700;
-      color: #f1f5f9;
+      color: var(--text-primary);
       margin: 0 0 8px;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -211,7 +225,7 @@
     /* 期間概要（いつ始まり、どう展開したか） */
     .catchup-timeline {
       font-size: 0.82rem;
-      color: #64748b;
+      color: var(--text-muted);
       margin-bottom: 8px;
       display: flex;
       align-items: center;
@@ -223,7 +237,7 @@
 
     .catchup-summary {
       font-size: 0.88rem;
-      color: #94a3b8;
+      color: var(--text-secondary);
       line-height: 1.55;
       display: -webkit-box;
       -webkit-line-clamp: 3;
@@ -237,14 +251,15 @@
       align-items: center;
       gap: 12px;
       font-size: 0.78rem;
-      color: #64748b;
+      color: var(--text-muted);
       flex-wrap: wrap;
     }
     .catchup-meta .genre-tag {
-      background: rgba(255,255,255,0.06);
+      background: rgba(0,0,0,0.06);
       padding: 2px 8px;
       border-radius: 4px;
     }
+    [data-theme="dark"] .catchup-meta .genre-tag { background: rgba(255,255,255,0.06); }
     .velocity-bar {
       display: flex;
       align-items: center;
@@ -259,18 +274,23 @@
 
     /* ── スケルトン ── */
     .skeleton-card {
-      background: #1e2540;
+      background: var(--bg-card);
       border-radius: 12px;
       padding: 18px 20px;
-      border-left: 4px solid #2d3a5a;
+      border-left: 4px solid var(--border);
     }
+    [data-theme="dark"] .skeleton-card { background: #1e2540; border-left-color: #2d3a5a; }
     .skeleton-line {
       height: 12px;
       border-radius: 6px;
-      background: linear-gradient(90deg, #2d3a5a 25%, #374562 50%, #2d3a5a 75%);
+      background: rgba(0,0,0,0.06);
       background-size: 200% 100%;
       animation: shimmer 1.4s infinite;
       margin-bottom: 10px;
+    }
+    [data-theme="dark"] .skeleton-line {
+      background: linear-gradient(90deg, #2d3a5a 25%, #374562 50%, #2d3a5a 75%);
+      background-size: 200% 100%;
     }
     @keyframes shimmer {
       0%   { background-position: 200% 0; }
@@ -281,7 +301,7 @@
     .empty-state {
       text-align: center;
       padding: 60px 20px;
-      color: #64748b;
+      color: var(--text-muted);
     }
     .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
     .empty-state p { font-size: 0.95rem; }
@@ -294,17 +314,19 @@
     .load-more-btn {
       padding: 10px 32px;
       border-radius: 24px;
-      border: 1.5px solid rgba(255,255,255,0.15);
+      border: 1.5px solid var(--border);
       background: transparent;
-      color: #94a3b8;
+      color: var(--text-secondary);
       font-size: 0.9rem;
       cursor: pointer;
       transition: all 0.15s;
     }
+    [data-theme="dark"] .load-more-btn { border-color: rgba(255,255,255,0.15); color: #94a3b8; }
     .load-more-btn:hover {
       border-color: #3b82f6;
-      color: #93c5fd;
+      color: #3b82f6;
     }
+    [data-theme="dark"] .load-more-btn:hover { color: #93c5fd; }
 
 
     /* サムネイル対応 */
