@@ -1250,10 +1250,10 @@
         const topicUrl = `topic.html?id=${encodeURIComponent(n.topicId || '')}`;
         const unread = n.read === false;
         return `
-          <div style="padding:12px 0;border-bottom:1px solid #f1f5f9;${unread ? 'background:#fafafa;' : ''}">
+          <div class="notif-item${unread ? ' notif-unread' : ''}">
             <div style="font-size:.82rem;color:#94a3b8;margin-bottom:4px;">${time}${unread ? ' <span style="color:#6366f1;font-weight:700;">NEW</span>' : ''}</div>
             <div style="font-size:.9rem;"><a href="${topicUrl}" style="color:#6366f1;font-weight:600;text-decoration:none;">@${escHtml(n.fromHandle || '')}</a> さんがあなたをメンションしました</div>
-            <div style="font-size:.82rem;color:#64748b;margin-top:4px;background:#f8fafc;border-radius:6px;padding:6px 10px;">${escHtml(n.excerpt || '')}</div>
+            <div class="notif-excerpt">${escHtml(n.excerpt || '')}</div>
           </div>`;
       }).join('');
       // 既読にする
@@ -1321,7 +1321,7 @@
 
     const historyHtml = history.length
       ? `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-           <button id="clear-history-btn" style="background:none;border:1px solid #e2e8f0;border-radius:8px;padding:4px 12px;font-size:.78rem;color:#94a3b8;cursor:pointer;">🗑 履歴を全削除</button>
+           <button id="clear-history-btn" class="clear-history-btn">🗑 履歴を全削除</button>
          </div>` +
         history.map(h => `
           <a class="mp-topic-row" href="topic.html?id=${safeEsc(h.topicId)}">
