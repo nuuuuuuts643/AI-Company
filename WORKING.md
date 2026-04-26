@@ -37,5 +37,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| tokushoho.html復元・T005/T006/T007/T008/T009 | frontend/tokushoho.html, frontend/style.css, lambda/fetcher/cluster_utils.py, lambda/processor/proc_ai.py, lambda/fetcher/filters.py, lambda/fetcher/score_utils.py | 2026-04-26 継続 |
-| T001+T002 save_seen_articles修正+summary切り詰め | lambda/fetcher/handler.py, lambda/processor/handler.py | 2026-04-26 JST |
