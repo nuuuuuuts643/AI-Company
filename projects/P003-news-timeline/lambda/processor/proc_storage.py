@@ -235,6 +235,9 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
             if gen_story.get('summaryMode'):
                 update_expr += ', summaryMode = :smode'
                 expr_values[':smode'] = gen_story['summaryMode']
+            if gen_story.get('backgroundContext'):
+                update_expr += ', backgroundContext = :bgctx'
+                expr_values[':bgctx'] = gen_story['backgroundContext']
         if image_url:
             # if_not_exists: 既にRSS由来画像があれば上書きしない
             update_expr += ', imageUrl = if_not_exists(imageUrl, :img)'
@@ -347,6 +350,8 @@ def update_topic_s3_file(tid, upd, articles=None):
             meta['forecast'] = upd['forecast']
         if upd.get('summaryMode'):
             meta['summaryMode'] = upd['summaryMode']
+        if upd.get('backgroundContext'):
+            meta['backgroundContext'] = upd['backgroundContext']
         if upd.get('aiGenerated'):
             meta['aiGenerated'] = True
         if upd.get('imageUrl') and not meta.get('imageUrl'):
@@ -705,6 +710,7 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
         return
     title      = _html_esc(meta.get('generatedTitle') or meta.get('title', ''))
     summary    = _html_esc(_strip_md(meta.get('generatedSummary') or ''))
+    bg_context = _html_esc(_strip_md(meta.get('backgroundContext') or ''))
     spread     = _html_esc(_strip_md(meta.get('spreadReason') or ''))
     forecast   = _html_esc(_strip_md(meta.get('forecast') or ''))
     genres_raw = meta.get('genres') or ([meta.get('genre', '総合')] if meta.get('genre') else ['総合'])
@@ -806,6 +812,8 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
     ai_html = ''
     if summary:
         parts = [f'<section><h2>AIによるまとめ</h2><p>{summary}</p>']
+        if bg_context:
+            parts.append(f'<h3>なぜ起きたか（背景・構造的原因）</h3><p>{bg_context}</p>')
         if spread:
             parts.append(f'<h3>なぜ広がっているか</h3><p>{spread}</p>')
         if forecast:
