@@ -180,17 +180,6 @@ TECH_GENERAL_KEYWORDS = [
 JACCARD_THRESHOLD = 0.35
 MAX_CLUSTER_SIZE  = 20
 
-AI_GENERATION_LIMIT = 10
-MAX_API_CALLS = 20
-
-CLAUDE_CALL_CONDITIONS = {
-    "min_articles_for_title":   3,
-    "min_articles_for_summary": 5,
-    "min_velocity_score":      20,
-    "max_calls_per_run":       10,
-    "cache_ttl_hours":          6,
-}
-
 STOP_WORDS = {
     'は','が','を','に','の','と','で','も','や','か','へ','より','から','まで',
     'という','として','による','において','について','した','する','して',
@@ -319,8 +308,6 @@ SOURCE_NAME_MAP = {
 }
 
 URGENT_WORDS = {'緊急', '速報', '重大', '急騰', '急落', '大幅', '速報', '号外', '警報', '警告', '危機', '緊迫'}
-
-CACHE_SK_PREFIX = 'CACHE#'
 
 SEEN_KEY = 'api/seen_articles.json'
 SEEN_MAX = 3000
