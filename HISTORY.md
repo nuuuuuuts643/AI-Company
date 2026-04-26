@@ -720,3 +720,9 @@ bash projects/P003-news-timeline/deploy.sh
 → HISTORY.mdに記録 15:25 JST
 - dec()関数: Decimal→int変換がfloat値(velocityScore等)を切り捨てていたバグ修正（int(f) if f==int(f) else f）
 - topic_detail応答: SK/pendingAI/ttlの内部フィールドをpub_metaフィルタで除去（S3プライマリパスと同様の動作に統一）
+
+### 完了済み（2026-04-26）comments Lambda Decimal修正
+→ HISTORY.mdに記録 15:30 JST
+- comments/handler.py: `default=str` → `_json_serial` に変更
+- likeCount/dislikeCount などDecimal値が文字列で返ってきていたバグ修正（DynamoDB返却時のDecimal→文字列→数値型不一致）
+- favorites/auth/analyticsは返す値に数値Decimalなしため変更不要を確認
