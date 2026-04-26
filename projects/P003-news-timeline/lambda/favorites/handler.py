@@ -1,14 +1,18 @@
 """
-P003 お気に入り Lambda
+P003 お気に入り + 閲覧履歴 Lambda
 - GET    /favorites/{userId}   → ユーザーのお気に入りトピックID一覧
 - POST   /favorites            → お気に入り追加 {userId, idToken, topicId}
 - DELETE /favorites            → お気に入り削除 {userId, idToken, topicId}
+- GET    /history/{userId}     → 閲覧履歴一覧（最新20件）
+- POST   /history              → 閲覧履歴追加 {userId, idToken, topicId, title, viewedAt}
+- DELETE /history              → 閲覧履歴削除 {userId, idToken, topicId?} topicId省略=全削除
 - DELETE /user                 → アカウント全データ削除 {userId, idToken}
 
 書き込み操作は Google idToken を検証してから実行する。
 
 DynamoDB テーブル: flotopic-favorites
-  PK=userId / SK=topicId  fields: createdAt
+  favorites: PK=userId / SK=topicId          fields: createdAt
+  history:   PK=userId / SK=HISTORY#{topicId} fields: title, viewedAt, ttl
 """
 
 import base64
@@ -26,6 +30,8 @@ TABLE_NAME   = os.environ.get('FAVORITES_TABLE', 'flotopic-favorites')
 TOPICS_TABLE = os.environ.get('TABLE_NAME', 'p003-topics')
 REGION       = os.environ.get('REGION', 'ap-northeast-1')
 GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token='
+HISTORY_SK_PREFIX = 'HISTORY#'
+HISTORY_TTL_DAYS  = 30
 
 dynamodb     = boto3.resource('dynamodb', region_name=REGION)
 table        = dynamodb.Table(TABLE_NAME)
@@ -131,9 +137,53 @@ def remove_favorite(user_id: str, topic_id: str):
 
 def delete_all_user_data(user_id: str):
     items = get_favorites(user_id)
+    history_items = get_history(user_id)
     with table.batch_writer() as batch:
         for item in items:
             batch.delete_item(Key={'userId': user_id, 'topicId': item['topicId']})
+        for item in history_items:
+            batch.delete_item(Key={'userId': user_id, 'topicId': HISTORY_SK_PREFIX + item['topicId']})
+
+
+# ── 閲覧履歴 ─────────────────────────────────────────────────────
+
+def _history_ttl() -> int:
+    import calendar
+    return calendar.timegm(datetime.now(timezone.utc).timetuple()) + HISTORY_TTL_DAYS * 86400
+
+
+def get_history(user_id: str) -> list:
+    r = table.query(
+        KeyConditionExpression=Key('userId').eq(user_id) & Key('topicId').begins_with(HISTORY_SK_PREFIX),
+        ProjectionExpression='topicId, title, viewedAt',
+        ScanIndexForward=False,
+        Limit=20,
+    )
+    items = r.get('Items', [])
+    for item in items:
+        item['topicId'] = item['topicId'][len(HISTORY_SK_PREFIX):]
+    return items
+
+
+def add_history_item(user_id: str, topic_id: str, title: str, viewed_at: str):
+    table.put_item(Item={
+        'userId':   user_id,
+        'topicId':  HISTORY_SK_PREFIX + topic_id,
+        'title':    title,
+        'viewedAt': viewed_at,
+        'ttl':      _history_ttl(),
+    })
+
+
+def remove_history_item(user_id: str, topic_id: str):
+    table.delete_item(Key={'userId': user_id, 'topicId': HISTORY_SK_PREFIX + topic_id})
+
+
+def clear_history(user_id: str):
+    items = get_history(user_id)
+    with table.batch_writer() as batch:
+        for item in items:
+            batch.delete_item(Key={'userId': user_id, 'topicId': HISTORY_SK_PREFIX + item['topicId']})
 
 
 # ── エントリポイント ──────────────────────────────────────────────
@@ -148,21 +198,26 @@ def lambda_handler(event, context):
     if method == 'OPTIONS':
         return resp(200, {})
 
-    # ── GET /favorites/{userId} ──────────────────────────────────
+    parts = [p for p in path.split('/') if p]
+
+    # ── GET /favorites/{userId} or GET /history/{userId} ─────────
     if method == 'GET':
-        parts = [p for p in path.split('/') if p]
-        # /favorites/{userId}
-        if len(parts) < 2 or parts[0] != 'favorites':
+        if len(parts) < 2:
             return resp(400, {'error': 'userId が必要です'})
-        user_id = parts[1]
+        resource, user_id = parts[0], parts[1]
         try:
-            items = get_favorites(user_id)
-            return resp(200, {'userId': user_id, 'favorites': items})
+            if resource == 'history':
+                items = get_history(user_id)
+                return resp(200, {'userId': user_id, 'history': items})
+            elif resource == 'favorites':
+                items = get_favorites(user_id)
+                return resp(200, {'userId': user_id, 'favorites': items})
+            else:
+                return resp(404, {'error': 'not found'})
         except Exception as e:
-            return resp(500, {'error': 'お気に入りの取得に失敗しました', 'detail': str(e)})
+            return resp(500, {'error': '取得に失敗しました', 'detail': str(e)})
 
     # ── DELETE /user : アカウント全データ削除 ────────────────────
-    parts = [p for p in path.split('/') if p]
     if method == 'DELETE' and len(parts) >= 1 and parts[0] == 'user':
         data = parse_body(event)
         user_id  = (data.get('userId')  or '').strip()
@@ -178,7 +233,47 @@ def lambda_handler(event, context):
         except Exception as e:
             return resp(500, {'error': 'データ削除に失敗しました', 'detail': str(e)})
 
-    # ── POST / DELETE: 認証付き書き込み ──────────────────────────
+    # ── POST /history : 閲覧履歴追加 ─────────────────────────────
+    if method == 'POST' and len(parts) >= 1 and parts[0] == 'history':
+        data = parse_body(event)
+        user_id   = (data.get('userId')   or '').strip()
+        id_token  = (data.get('idToken')  or '').strip()
+        topic_id  = (data.get('topicId')  or '').strip()
+        title     = (data.get('title')    or '').strip()
+        viewed_at = (data.get('viewedAt') or datetime.now(timezone.utc).isoformat()).strip()
+        if not user_id or not id_token or not topic_id:
+            return resp(400, {'error': 'userId, idToken, topicId は必須です'})
+        payload = verify_google_token(id_token)
+        if not payload or payload.get('sub') != user_id:
+            return resp(401, {'error': 'トークンの検証に失敗しました'})
+        try:
+            add_history_item(user_id, topic_id, title, viewed_at)
+            return resp(200, {'status': 'added', 'topicId': topic_id})
+        except Exception as e:
+            return resp(500, {'error': '履歴追加に失敗しました', 'detail': str(e)})
+
+    # ── DELETE /history : 閲覧履歴削除 (topicId省略=全削除) ───────
+    if method == 'DELETE' and len(parts) >= 1 and parts[0] == 'history':
+        data = parse_body(event)
+        user_id  = (data.get('userId')  or '').strip()
+        id_token = (data.get('idToken') or '').strip()
+        topic_id = (data.get('topicId') or '').strip()
+        if not user_id or not id_token:
+            return resp(400, {'error': 'userId, idToken は必須です'})
+        payload = verify_google_token(id_token)
+        if not payload or payload.get('sub') != user_id:
+            return resp(401, {'error': 'トークンの検証に失敗しました'})
+        try:
+            if topic_id:
+                remove_history_item(user_id, topic_id)
+                return resp(200, {'status': 'removed', 'topicId': topic_id})
+            else:
+                clear_history(user_id)
+                return resp(200, {'status': 'cleared', 'userId': user_id})
+        except Exception as e:
+            return resp(500, {'error': '履歴削除に失敗しました', 'detail': str(e)})
+
+    # ── POST / DELETE /favorites: 認証付き書き込み ───────────────
     if method in ('POST', 'DELETE'):
         data = parse_body(event)
         if not data:
