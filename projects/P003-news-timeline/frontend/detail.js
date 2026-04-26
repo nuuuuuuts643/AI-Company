@@ -210,9 +210,10 @@ function renderDetail(data) {
   // ── AI 分析表示（記事数に応じた段階レンダリング） ───────────────────────────────────
   const aiAnalysisEl = document.getElementById('ai-analysis');
   if (aiAnalysisEl) {
-    const summary      = cleanSummary(meta.generatedSummary);
-    const spreadReason = cleanSummary(meta.spreadReason || '');
-    const forecast     = cleanSummary(meta.forecast     || '');
+    const summary           = cleanSummary(meta.generatedSummary);
+    const backgroundContext = cleanSummary(meta.backgroundContext || '');
+    const spreadReason      = cleanSummary(meta.spreadReason || '');
+    const forecast          = cleanSummary(meta.forecast     || '');
     const beats        = Array.isArray(meta.storyTimeline) ? meta.storyTimeline : [];
     const phase        = meta.storyPhase   || '';
     const summaryMode  = meta.summaryMode  || (beats.length > 0 || spreadReason || forecast ? 'full' : 'minimal');
@@ -255,6 +256,11 @@ function renderDetail(data) {
             <div class="ai-section-label">何が起きたか</div>
             <p class="ai-section-body">${esc(summary)}</p>
           </div>`;
+        const sectBg = backgroundContext ? `
+          <div class="ai-section">
+            <div class="ai-section-label">なぜ起きたか（背景・構造的原因）</div>
+            <p class="ai-section-body">${esc(backgroundContext)}</p>
+          </div>` : '';
         const sect2 = spreadReason ? `
           <div class="ai-section">
             <div class="ai-section-label">なぜ広がったか</div>
@@ -268,7 +274,7 @@ function renderDetail(data) {
             ${originHtml}
             ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
           </div>` : '';
-        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2}${sect3}</div>`;
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sectBg}${sect2}${sect3}</div>`;
 
       // ── full: 6件以上 → フル4セクション（従来通り）
       } else {
@@ -278,28 +284,34 @@ function renderDetail(data) {
             <div class="ai-section-label">① 何が起きたか</div>
             <p class="ai-section-body">${esc(summary)}</p>
           </div>`;
-        // ② なぜ広がったか
+        // ② なぜ起きたか（背景・構造的原因）
+        const sect2bg = backgroundContext ? `
+          <div class="ai-section">
+            <div class="ai-section-label">② なぜ起きたか（背景・構造的原因）</div>
+            <p class="ai-section-body">${esc(backgroundContext)}</p>
+          </div>` : '';
+        // ③ なぜ広がったか
         const sect2 = spreadReason ? `
           <div class="ai-section">
-            <div class="ai-section-label">② なぜ広がったか</div>
+            <div class="ai-section-label">${backgroundContext ? '③' : '②'} なぜ広がったか</div>
             <p class="ai-section-body">${esc(spreadReason)}</p>
           </div>` : '';
-        // ③ 今どの段階か（フェーズ進捗バー + タイムライン）
+        // ④ 今どの段階か（フェーズ進捗バー + タイムライン）
         const beatsHtml = beats.length ? buildBeatsHtml(beats) : '';
         const sect3 = (phaseBarHtml || beatsHtml) ? `
           <div class="ai-section">
-            <div class="ai-section-label">③ 今どの段階か</div>
+            <div class="ai-section-label">${backgroundContext ? '④' : '③'} 今どの段階か</div>
             ${phaseBarHtml}
             ${originHtml}
             ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
           </div>` : '';
-        // ④ 今後どうなるか
+        // ⑤ 今後どうなるか
         const sect4 = forecast ? `
           <div class="ai-section ai-section-forecast">
-            <div class="ai-section-label">④ 今後どうなるか <span class="ai-hypothesis-badge">仮説</span></div>
+            <div class="ai-section-label">${backgroundContext ? '⑤' : '④'} 今後どうなるか <span class="ai-hypothesis-badge">仮説</span></div>
             <p class="ai-section-body">${esc(forecast)}</p>
           </div>` : '';
-        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2}${sect3}${sect4}</div>`;
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2bg}${sect2}${sect3}${sect4}</div>`;
       }
 
       aiAnalysisEl.style.display = 'block';
