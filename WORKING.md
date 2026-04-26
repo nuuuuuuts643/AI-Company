@@ -38,4 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-
+| T165 heroプレビューstoryTimeline→storyPhase修正 | frontend/app.js | 2026-04-27 01:40 |
