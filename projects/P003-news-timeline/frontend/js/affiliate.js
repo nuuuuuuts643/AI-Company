@@ -19,13 +19,13 @@ function renderAffiliate(meta) {
     'ファッション': 'ファッション アイテム',
     'スポーツ': 'スポーツ 用品',
     'エンタメ': 'エンタメ グッズ',
-    '健康': '健康 サプリ',
+    '健康': '健康 書籍',
     'ビジネス': 'ビジネス 書籍',
     '科学': '科学 本',
     'くらし': 'くらし 雑貨',
     '総合': 'おすすめ 人気',
-    '社会': 'くらし 便利グッズ',
-    '国際': '旅行 グッズ',
+    '社会': '教養 書籍',
+    '国際': '国際 書籍',
     '株・金融': '投資 書籍',
     '政治': 'ビジネス 書籍',
   };
@@ -63,7 +63,10 @@ function renderAffiliate(meta) {
     }
   }
 
-  if (!items.length) return;
+  if (!items.length) {
+    section.style.display = 'none';
+    return;
+  }
 
   linksEl.innerHTML = items.map(it => `
     <a href="${esc(it.href)}" target="_blank" rel="noopener sponsored" class="affiliate-link-item">
