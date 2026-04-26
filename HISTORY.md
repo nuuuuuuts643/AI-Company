@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T125 storymap.html ダークモード対応）
+- ✅ **T125 storymap.html コンテンツカードダークモード対応** — `.sm-section`・`.sm-branch-card`・`.sm-show-more`・`.sm-related-pill`等のハードコード白色（`#fff`, `#f8fafc`, `#e2e8f0`, `#1e293b`等）をCSS変数（`var(--bg-card)`, `var(--bg-page)`, `var(--border)`, `var(--text-primary)`, `var(--text-secondary)`）に置換。ダーク時hover色は`[data-theme="dark"]`で上書き。ヒーロー（`.sm-hero`）は意図的暗色グラデーションのまま維持。
+
 ### 完了済み（2026-04-26 T123+T124）
 - ✅ **T123 コメントいいね取消DynamoDB反映** — Lambda `handle_like()` に `unlike`/`undislike` type追加（ADD count -1, DELETE from Set, condition: contains）。frontend `toggleLike()`・`toggleDislike()` でもundo時にAPIを呼ぶよう修正（楽観的UI維持）。リロードでカウントが戻るバグ修正。
 - ✅ **T124 terms/privacy/contact ダークモード未適用修正** — 3ページの`style.css`の直後に`<script src="js/theme.js"></script>`を追加。`data-theme`属性が設定されるようになりダークモード対応。
