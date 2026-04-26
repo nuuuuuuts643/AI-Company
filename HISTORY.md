@@ -875,3 +875,6 @@ bash projects/P003-news-timeline/deploy.sh
 ### 完了済み（2026-04-26 T097 + favorites バグ修正2件）
 - ✅ **T097** — `fetcher/score_utils.py:calc_score()` の recency_bonus 判定が `parsedate_tz` 直接呼び出しだったため ISO 8601 形式の NHK 記事で ×1.20 ボーナスが取れなかった問題を修正。`published_ts`（`_parse_pubdate_ts()`で既解析済み）を直接使うよう変更。`sort_by_pubdate()` も同様に `published_ts`/`publishedAt` を使うよう修正。
 - ✅ **favorites GET バグ** — `favorites/handler.py:get_favorites()` が全ユーザー行（`HISTORY#*`・`PREFS#genre` も含む）を返していた問題を修正。`FilterExpression=~(Attr('topicId').begins_with('HISTORY#') | Attr('topicId').begins_with('PREFS#'))` を追加。また `delete_all_user_data()` でアカウント削除時に `PREFS#genre` アイテムが残留する問題も修正（`batch.delete_item(Key=..., PREFS_SK_GENRE)` を追加）。
+
+### 完了済み（2026-04-26 T098 imageUrl欠損修正）
+- ✅ **T098** — `fetcher/handler.py:orphan_candidates` の除外条件に `and t.get('imageUrl')` を追加。aiGenerated=True+全AI要素済みでも imageUrl が空のトピックを orphan_candidates に含め、次回 processor 実行時に OGP 画像を自動生成させるようにした。imageUrl coverage 68% 改善に向けた修正。
