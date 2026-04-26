@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T069 pendingAI無限再キュー修正 | lambda/fetcher/handler.py | 2026-04-26 14:45 |
