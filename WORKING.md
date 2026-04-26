@@ -37,3 +37,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T017 fetcher O(n²)削減 | lambda/fetcher/handler.py, lambda/fetcher/text_utils.py | 2026-04-26 14:05 |
