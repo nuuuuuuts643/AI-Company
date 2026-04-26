@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T133 terms/privacy/contact/storymap テーマ切替ボタン追加）
+- ✅ **T133 4ページにテーマ切替ボタン追加** — terms.html・privacy.html・contact.html・storymap.htmlのヘッダーに`<button id="theme-toggle-btn">`を追加。これらのページでユーザーがダーク/ライト/システムテーマを切り替えられるようになった。theme.jsはT124で追加済みだったがボタンが未追加だったため切替不可だった。
+
 ### 完了済み（2026-04-26 T132 topic.html スティッキーCTAバーダークモードバグ修正）
 - ✅ **T132 topic.html CSS変数名修正** — `.sticky-cta-bar`と`.scb-fav`が`var(--card-bg, #fff)`・`var(--border-color, #e2e8f0)`を参照していたが、実際に定義されているのは`--bg-card`・`--border`。未定義変数のため常にフォールバック値（白/薄グレー）が使われていた。`--bg-card`・`--border`に修正しダークモードで正しく`#1e2035`・`rgba(99,102,241,0.18)`が適用されるよう修正。
 
