@@ -1510,7 +1510,7 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .auth-area { display: flex; align-items: center; gap: 10px; }
 
 /* ===== TOPIC CARD WRAPPER ===== */
-.topic-card-wrapper { position: relative; }
+.topic-card-wrapper { position: relative; display: flex; flex-direction: column; }
 .card-storymap-link {
   display: block;
   text-align: center;
@@ -1526,8 +1526,8 @@ details[open] .day-more-btn::before { content: '▼ '; }
 }
 .card-storymap-link:hover { background: rgba(99,102,241,.13); }
 @media (min-width: 768px) {
-  /* 同じ行のカード高さを揃える */
-  .topic-card { height: 100%; box-sizing: border-box; }
+  /* 同じ行のカード高さを揃える。flex:1でstorymap-linkが下に押し出されても高さが正しく収まる */
+  .topic-card { flex: 1; box-sizing: border-box; }
 }
 
 /* ===== FAV BUTTON ===== */
