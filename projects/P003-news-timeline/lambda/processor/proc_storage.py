@@ -741,7 +741,7 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
     timeline   = meta.get('storyTimeline') or []
     story_phase = meta.get('storyPhase', '')
     article_count = int(meta.get('articleCount', 0) or 0)
-    _PHASE_LABEL = {'発端': '🌱 発端', '拡散': '📡 拡散', 'ピーク': '🔥 ピーク', '現在地': '📍 現在地', '収束': '✅ 収束'}
+    _PHASE_LABEL = {'発端': '🌱 始まり', '拡散': '📡 広まってる', 'ピーク': '🔥 急上昇', '現在地': '📍 進行中', '収束': '✅ ひと段落'}
     _PHASE_CSS   = {'発端': 'rising', '拡散': 'rising', 'ピーク': 'peak', '現在地': 'declining', '収束': 'declining'}
     phase_css    = _PHASE_CSS.get(story_phase, '')
     phase_badge  = (f'<span class="phase-badge phase-{phase_css}">{_PHASE_LABEL[story_phase]}</span>'
@@ -838,7 +838,7 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
 <link rel="canonical" href="{canonical}">
 <meta property="og:type" content="article">
 <meta property="og:title" content="{title}">
-<meta property="og:description" content="{summary[:155] if summary else title}">
+<meta property="og:description" content="{((_PHASE_LABEL.get(story_phase,'') + ' ') if story_phase else '') + (summary[:140] if summary else title)}">
 <meta property="og:image" content="{image_url}">
 <meta property="og:url" content="{canonical}">
 <meta name="twitter:card" content="summary_large_image">
@@ -856,8 +856,10 @@ h3{{font-size:1rem;color:#475569;margin-top:1.2rem}}
 .ev{{border-left:2px solid #c7d2fe;margin:.8rem 0;padding:.4rem .8rem}}
 .ev-date{{font-size:.8rem;color:#64748b;display:block}}
 .tr{{font-style:italic;color:#6366f1;margin:.3rem 0 0}}
-.cta{{background:#f1f5f9;border-radius:8px;padding:16px;margin:2rem 0;text-align:center}}
-.cta a{{color:#6366f1;font-weight:bold}}
+.cta{{background:#f1f5f9;border-radius:8px;padding:20px;margin:2rem 0;text-align:center}}
+.cta-context{{font-size:.82rem;color:#64748b;margin:0 0 12px}}
+.cta-btn{{display:inline-block;background:#6366f1;color:#fff;border-radius:8px;padding:12px 24px;font-weight:bold;font-size:.95rem;text-decoration:none;margin:0 0 10px}}
+.cta-sub{{font-size:.75rem;color:#94a3b8;margin:6px 0 0}}
 ul{{padding-left:1.2rem}}
 li{{margin:.4rem 0}}
 .src{{font-size:.8rem;color:#94a3b8}}
@@ -882,8 +884,9 @@ header a{{color:#6366f1;font-weight:bold;font-size:1.1rem;text-decoration:none}}
 {articles_html}
 {_affiliate_html}
 <div class="cta">
-  <p>コメント・お気に入り登録などのインタラクティブ機能は<br>
-  <a href="{interactive}">Flotopicのトピックページ</a>でご利用いただけます。</p>
+  <p class="cta-context">{article_count}件の記事からAIが経緯をまとめました</p>
+  <a class="cta-btn" href="{interactive}">📖 ストーリーの全体像を見る →</a>
+  <p class="cta-sub">お気に入り登録でこのトピックの新展開を見逃さない</p>
 </div>
 <footer style="margin-top:2rem;padding-top:1rem;border-top:1px solid #e2e8f0;font-size:.8rem;color:#94a3b8">
   <a href="https://flotopic.com">Flotopic</a> &nbsp;|&nbsp;
