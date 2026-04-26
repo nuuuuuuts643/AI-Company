@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6754575901141756"
+     crossorigin="anonymous"></script>
+  <script>window.admaxads = window.admaxads || [];</script>
+  <script async src="https://adm.shinobi.jp/st/t.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>トピック詳細 | Flotopic</title>
+  <meta name="description" content="このトピックの時系列推移をAIが分析。Flotopicで同じ話題のニュースをまとめて追えます。">
+  <meta property="og:title" content="Flotopic | トピック詳細">
+  <meta property="og:description" content="このトピックの時系列推移をAIが分析。Flotopicで同じ話題のニュースをまとめて追えます。">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://flotopic.com/topic.html">
+  <meta property="og:image" content="https://flotopic.com/ogp.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Flotopic | トピック詳細">
+  <meta name="twitter:description" content="このトピックの時系列推移をAIが分析。Flotopicで同じ話題のニュースをまとめて追えます。">
+  <meta name="twitter:image" content="https://flotopic.com/ogp.png">
+  <link rel="canonical" id="canonical-url" href="https://flotopic.com/topic.html">
+  <script id="jsonld-newsarticle" type="application/ld+json">{"@context":"https://schema.org","@type":"NewsArticle","headline":"Flotopic","publisher":{"@type":"Organization","name":"Flotopic","url":"https://flotopic.com","logo":{"@type":"ImageObject","url":"https://flotopic.com/icon-192.png"}}}</script>
+  <script id="jsonld-breadcrumb" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Flotopic","item":"https://flotopic.com/"}]}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="js/theme.js"></script>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <script src="https://accounts.google.com/gsi/client" async defer onload="if(window.__gsiReady)window.__gsiReady()"></script>
+  <style>
+    /* ===== 認証UI ===== */
+    .auth-area {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .auth-user-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: none;
+      vertical-align: middle;
+      border: 2px solid rgba(0,0,0,0.08);
+    }
+    .auth-user-name {
+      font-size: .8rem;
+      color: #737373;
+      max-width: 80px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .auth-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1.5px solid rgba(0,0,0,0.09);
+      cursor: pointer;
+      font-size: .78rem;
+      font-weight: 600;
+      font-family: inherit;
+      transition: all .15s;
+    }
+    .auth-btn:hover { border-color: #a8a8a8; background: #f5f5f5; }
+    #auth-signin-btn {
+      background: #fff;
+      color: #1a1a1a;
+    }
+    #auth-signout-btn {
+      display: none;
+      background: rgba(0,0,0,0.05);
+      color: #737373;
+      border-color: transparent;
+    }
+    /* ===== コメントログインプロンプト ===== */
+    .comment-login-prompt {
+      display: none;
+      padding: 22px 20px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%);
+      border: 1px solid #e0e7ff;
+      text-align: center;
+    }
+    .comment-login-prompt .clp-title {
+      font-size: .95rem; font-weight: 700; color: #1e293b; margin: 0 0 6px;
+    }
+    .comment-login-prompt .clp-sub {
+      font-size: .82rem; color: #64748b; margin: 0 0 14px; line-height: 1.6;
+    }
+    .comment-login-google-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      background: #fff;
+      border: 1.5px solid #d1d5db;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: .9rem;
+      font-weight: 700;
+      color: #374151;
+      transition: all .2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    .comment-login-google-btn:hover {
+      box-shadow: 0 3px 12px rgba(0,0,0,.15);
+      border-color: #4285F4;
+      color: #1a1a1a;
+    }
+    [data-theme="dark"] .comment-login-prompt {
+      background: linear-gradient(135deg, #1e2035 0%, #1e1b2e 100%);
+      border-color: rgba(99,102,241,.2);
+    }
+    [data-theme="dark"] .comment-login-prompt .clp-title { color: #eef0f8; }
+    [data-theme="dark"] .comment-login-prompt .clp-sub { color: #9ba3c4; }
+    [data-theme="dark"] .comment-login-google-btn { background: #2a2b3d; border-color: #404260; color: #eef0f8; }
+    /* ===== スティッキーCTAバー（モバイル） ===== */
+    .sticky-cta-bar {
+      display: none;
+      position: fixed;
+      bottom: 60px; /* bottom-nav の上（bottom-navはheight:60px） */
+      left: 0; right: 0;
+      z-index: 200;
+      padding: 10px 16px;
+      background: var(--bg-card, #fff);
+      border-top: 1px solid var(--border, #e2e8f0);
+      box-shadow: 0 -2px 10px rgba(0,0,0,.08);
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+    }
+    .sticky-cta-bar.visible { display: flex; }
+    .sticky-cta-bar .scb-fav {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 8px 16px; border-radius: 999px;
+      border: 1.5px solid var(--border, #e2e8f0);
+      background: transparent; color: var(--text-primary);
+      font-size: .84rem; font-weight: 600; cursor: pointer;
+      transition: all .2s;
+    }
+    .sticky-cta-bar .scb-fav.fav-active { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .sticky-cta-bar .scb-comment {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 8px 20px; border-radius: 999px;
+      border: none; background: var(--accent, #6366f1); color: #fff;
+      font-size: .84rem; font-weight: 700; cursor: pointer;
+      transition: opacity .2s;
+    }
+    .sticky-cta-bar .scb-comment:hover { opacity: .85; }
+    @media (min-width: 769px) { .sticky-cta-bar { display: none !important; } }
+    /* ===== トピックページヘッダー内タイトルヒーロー ===== */
+    .topic-hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #2d2a7a 100%);
+      padding: 20px 20px 18px;
+      position: relative;
+      overflow: hidden;
+    }
+    .topic-hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 80% 50%, rgba(99,102,241,0.3) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .topic-hero-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+    .topic-back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: rgba(255,255,255,0.6);
+      text-decoration: none;
+      font-size: .8rem;
+      margin-bottom: 10px;
+      transition: color .15s;
+    }
+    .topic-back-link:hover { color: rgba(255,255,255,0.9); }
+    .topic-hero-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.4;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 480px) { .topic-hero-title { font-size: 1.05rem; } }
+    .topic-hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .topic-share-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .topic-fav-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 14px; border-radius: 16px; border: 1.5px solid rgba(255,255,255,.4);
+      background: transparent; color: rgba(255,255,255,.75);
+      font-size: .8rem; font-weight: 600; cursor: pointer; transition: all .2s;
+    }
+    .topic-fav-btn:hover { background: rgba(255,255,255,.15); color: #fff; }
+    .topic-fav-btn.fav-active { background: #ef4444; border-color: #ef4444; color: #fff; }
+    /* dark mode for hero is already dark */
+    [data-theme="dark"] .auth-user-name { color: var(--text-secondary); }
+    [data-theme="dark"] .auth-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
+  </style>
+</head>
+<body>
+<header>
+  <div class="inner header-inner">
+    <a href="index.html" class="header-logo-link">
+      <h1>Flotopic</h1>
+      <p>話題の流れをAIで追う</p>
+    </a>
+    <div class="header-right">
+      <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替">🌙</button>
+      <div class="auth-area">
+        <button id="auth-signin-btn" class="auth-btn" style="display:none;">ログイン</button>
+        <div class="user-menu-wrap" id="user-menu-wrap" style="display:none;">
+          <button class="user-menu-trigger" id="user-menu-trigger" aria-haspopup="menu" aria-expanded="false">
+            <img id="auth-user-avatar" class="auth-user-avatar" src="" alt="">
+            <div id="auth-user-init" class="auth-user-init"></div>
+            <span id="auth-user-name" class="auth-user-name"></span>
+            <span class="user-menu-caret">▾</span>
+          </button>
+          <div class="user-dropdown" id="user-dropdown" role="menu">
+            <a href="mypage.html" class="user-dd-item" role="menuitem">👤 マイページ</a>
+            <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem">ログアウト</button>
+          </div>
+        </div>
+        <button id="auth-signout-btn" style="display:none;"></button>
+        <a id="auth-user-link" style="display:none;"></a>
+        <a id="mypage-link" style="display:none;"></a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- トピックタイトルヒーロー（ヘッダー外に移動） -->
+<div class="topic-hero">
+  <div class="topic-hero-inner">
+    <a href="index.html" class="topic-back-link">← 一覧に戻る</a>
+    <h1 id="topic-title" class="topic-hero-title">読み込み中...</h1>
+    <div class="topic-hero-meta">
+      <span id="status-badge" class="status-badge" style="display:none;"></span>
+      <span id="genre-badge"></span>
+    </div>
+    <div class="topic-share-bar">
+      <button id="topic-fav-btn" class="topic-fav-btn" title="お気に入りに追加" aria-label="お気に入り">♥ お気に入り</button>
+      <button id="share-btn" style="display:none;align-items:center;gap:5px;padding:5px 14px;border:none;border-radius:16px;background:rgba(255,255,255,.15);color:#fff;font-size:.8rem;font-weight:600;cursor:pointer;backdrop-filter:blur(4px);" aria-label="シェア">📤 シェア</button>
+      <a id="x-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:#000;color:#fff;font-size:.8rem;font-weight:700;text-decoration:none;" aria-label="Xでシェア">𝕏 シェア</a>
+      <a id="hatena-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:#00a4de;color:#fff;font-size:.8rem;font-weight:700;text-decoration:none;" aria-label="はてなブックマーク">B! はてブ</a>
+      <a id="threads-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:rgba(255,255,255,.18);color:#fff;font-size:.8rem;font-weight:600;text-decoration:none;" aria-label="Threads">🧵 Threads</a>
+      <a id="line-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:#06c755;color:#fff;font-size:.8rem;font-weight:700;text-decoration:none;" aria-label="LINEでシェア">LINE</a>
+    </div>
+    <div id="storymap-link-container"></div>
+  </div>
+</div>
+
+<main class="container">
+
+
+  <div class="card summary-card">
+    <h2>AI分析</h2>
+    <div id="ai-analysis">
+      <div class="topic-sk" id="ai-analysis-sk">
+        <div class="sk-line sk-title"></div>
+        <div class="sk-line sk-mid"></div>
+        <div class="sk-line sk-mid"></div>
+        <div class="sk-line sk-short" style="margin-bottom:18px;"></div>
+        <div class="sk-line sk-mid"></div>
+        <div class="sk-line sk-short"></div>
+        <div class="sk-line sk-tiny"></div>
+      </div>
+    </div>
+    <p style="margin-top:12px;font-size:.75rem;color:#94a3b8;">⚠️ AI自動生成。情報の正確性は各元記事をご確認ください。<a href="contact.html" style="color:#94a3b8;text-decoration:underline;margin-left:4px;">誤情報のご指摘</a></p>
+    <p style="margin-top:4px;font-size:.73rem;color:#94a3b8;">最終更新: <time id="topic-last-updated" datetime=""></time></p>
+  </div>
+
+  <div class="card">
+    <h2>記事の流れ</h2>
+    <div id="story-timeline">
+      <div class="topic-sk" id="story-timeline-sk">
+        <div class="sk-line sk-title"></div>
+        <div class="sk-line sk-mid"></div>
+        <div class="sk-line sk-short" style="margin-bottom:16px;"></div>
+        <div class="sk-line sk-title"></div>
+        <div class="sk-line sk-mid"></div>
+        <div class="sk-line sk-tiny"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 広告: 記事流れの直後 -->
+  <div class="ad-slot" style="margin:4px 0 8px;">
+    <!-- PC: 728×90 -->
+    <div class="ad-728-scale-wrapper ad-pc-only">
+      <div class="admax-ads" data-admax-id="6b65a9c9ba3c1c898e167bbf103830d7" style="display:inline-block;width:728px;height:90px;"></div>
+      <script>admaxads.push({admax_id:"6b65a9c9ba3c1c898e167bbf103830d7",type:"banner"});</script>
+    </div>
+    <!-- SP: 320×50 (モバイル専用枠) -->
+    <div class="ad-sp-only" style="text-align:center;">
+      <div class="admax-ads" data-admax-id="570fe6c87677ba7c5417119c60ca979d" style="display:inline-block;width:320px;height:50px;"></div>
+      <script>admaxads.push({admax_id:"570fe6c87677ba7c5417119c60ca979d",type:"banner"});</script>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>関連記事</h2>
+    <div id="related-articles"></div>
+  </div>
+
+  <!-- Discovery (関連トピック・親子関係) -->
+  <div id="discovery-section"></div>
+
+  <div class="card">
+    <div class="chart-header">
+      <h2>推移グラフ</h2>
+      <div class="timerange-btns">
+        <button class="tr-btn active" data-range="1d">24h</button>
+        <button class="tr-btn" data-range="3d">3日</button>
+        <button class="tr-btn" data-range="7d">7日</button>
+        <button class="tr-btn" data-range="1m">1ヶ月</button>
+        <button class="tr-btn" data-range="3m">3ヶ月</button>
+        <button class="tr-btn" data-range="6m">半年</button>
+        <button class="tr-btn" data-range="1y">1年</button>
+        <button class="tr-btn" data-range="all">全期間</button>
+      </div>
+    </div>
+    <p id="no-data" style="color:#9ca3af;font-size:.85rem;display:none;margin-top:8px;">データ蓄積中（30分ごとに更新）</p>
+    <div class="charts-row">
+      <div class="chart-col">
+        <div class="chart-col-title">記事数の推移</div>
+        <canvas id="score-chart"></canvas>
+      </div>
+      <div class="chart-col">
+        <div class="chart-col-title">注目スコアの推移</div>
+        <canvas id="views-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ===== アフィリエイトウィジェット ===== -->
+  <div class="card affiliate-card" id="affiliate-section" style="display:none;">
+    <div class="affiliate-header">
+      <span class="affiliate-label">広告</span>
+      <h2>この話題をもっと知る</h2>
+    </div>
+    <div id="affiliate-links" class="affiliate-links"></div>
+  </div>
+
+  <!-- ===== コメント掲示板 ===== -->
+  <div class="card comments-card" id="comments-section">
+    <h2>コメント</h2>
+
+    <!-- 未ログイン時のログイン促進 -->
+    <div class="comment-login-prompt" id="comment-login-prompt">
+      <p class="clp-title">💬 このトピックについて話し合いませんか？</p>
+      <p class="clp-sub">Googleアカウントでログインすると、コメント投稿・お気に入り保存・閲覧履歴の同期が使えます。</p>
+      <button class="comment-login-google-btn" onclick="document.getElementById('auth-signin-btn').click()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Googleでログイン
+      </button>
+    </div>
+
+    <!-- ログイン済み投稿フォーム（X風） -->
+    <div class="cx-post-area" id="comment-form-area" style="display:none;">
+      <div class="cx-post-avatar-col" id="post-avatar-col">
+        <!-- avatarはJS(comments.js updatePostAvatar)で挿入 -->
+      </div>
+      <div class="cx-post-right">
+        <div class="cx-post-handle" id="post-handle-display"></div>
+        <!-- 引用プレビュー -->
+        <div id="quote-preview" style="display:none;margin-bottom:6px;"></div>
+        <!-- @メンションサジェスト（textarea上に表示） -->
+        <div id="mention-suggest" class="mention-suggest" style="display:none;"></div>
+        <textarea
+          id="comment-body"
+          class="comment-textarea"
+          placeholder="このトピックについてコメントする... (@名前 でメンション)"
+          maxlength="200"
+          rows="3"
+        ></textarea>
+        <div class="comment-char-count"><span id="comment-chars">0</span> / 200</div>
+        <div class="comment-form-actions">
+          <span id="comment-error" class="comment-error" aria-live="polite"></span>
+          <button id="comment-submit" class="comment-submit-btn" type="button">
+            投稿する
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- コメント一覧 -->
+    <div id="comments-list" class="comments-list">
+      <div class="comments-loading">読み込み中...</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- スティッキーCTAバー（モバイルのみ・コメントセクション表示前まで） -->
+<div class="sticky-cta-bar" id="sticky-cta-bar" aria-hidden="true">
+  <button class="scb-fav" id="scb-fav-btn" aria-label="お気に入り">♥ お気に入り</button>
+  <button class="scb-comment" id="scb-comment-btn">💬 コメントする</button>
+</div>
+
+<footer class="site-footer">
+  <div class="site-footer-links">
+    <a href="index.html">トップ</a>
+    <a href="about.html">Flotopicについて</a>
+    <a href="terms.html">利用規約</a>
+    <a href="privacy.html">プライバシーポリシー</a>
+    <a href="contact.html">お問い合わせ・削除依頼</a>
+  </div>
+  <div class="site-footer-copy">記事の著作権は各報道機関に帰属します。AI要約は自動生成です。© 2024-2026 Flotopic</div>
+</footer>
+<nav class="bottom-nav" id="bottom-nav" aria-label="ナビゲーション">
+  <a href="index.html" class="bn-item" id="bn-home">
+    <span class="bn-icon">🏠</span><span>ホーム</span>
+  </a>
+  <button class="bn-item" id="bn-search">
+    <span class="bn-icon">🔍</span><span>検索</span>
+  </button>
+  <a href="storymap.html" class="bn-item"><span class="bn-icon">📖</span><span>ストーリー</span></a>
+
+  <a href="catchup.html" class="bn-item" id="bn-catchup">
+    <span class="bn-icon">🕰️</span><span>リワインド</span>
+  </a>
+  <a href="mypage.html" class="bn-item" id="bn-mypage" style="position:relative;">
+    <span class="bn-icon">👤</span><span>マイページ</span>
+    <span id="notif-badge" style="display:none;"></span>
+  </a>
+</nav>
+<!-- 認証モーダル（Google / Apple） -->
+<div id="auth-modal" class="auth-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="ログイン">
+  <div class="auth-modal-inner">
+    <button id="auth-modal-close" class="auth-modal-close" aria-label="閉じる">×</button>
+    <div class="auth-modal-logo">🌊 Flotopic</div>
+    <h2 class="auth-modal-title">ログイン / 新規登録</h2>
+    <p class="auth-modal-desc">コメント・お気に入りを<br>どのデバイスでも同期</p>
+    <div id="auth-modal-google-wrap" class="auth-modal-provider-wrap"></div>
+    <div class="auth-modal-divider"><span>または</span></div>
+    <div class="auth-modal-apple-wrap">
+      <button class="auth-modal-apple-btn" disabled aria-disabled="true">
+        <svg class="apple-icon" viewBox="0 0 814 1000" fill="currentColor" aria-hidden="true">
+          <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.9 0 663.2 0 541.3c0-207.4 133.4-317 264.1-317 69.6 0 127.5 45.6 171.2 45.6 41.7 0 107.2-48.5 185-48.5z"/>
+        </svg>
+        Appleでサインイン
+      </button>
+      <span class="auth-coming-soon">近日公開</span>
+    </div>
+    <p class="auth-modal-terms">続けることで<a href="terms.html" target="_blank">利用規約</a>と<a href="privacy.html" target="_blank">プライバシーポリシー</a>に同意します</p>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/favorites.js"></script>
+<script src="js/history.js"></script>
+<script src="js/comments.js"></script>
+<script src="js/notifications.js"></script>
+<script src="app.js"></script>
+<script src="js/affiliate.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<script defer src="detail.js"></script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "35149d754c3a4903b9461c157568d392"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
