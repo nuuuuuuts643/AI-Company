@@ -526,6 +526,7 @@ function renderStorymap(parent, allTopics) {
   }
 
   // ---- 同ジャンルで今動いているストーリー（読了後の導線）----
+  const _PL = { '発端':'🌱 始まり','拡散':'📡 広まってる','ピーク':'🔥 急上昇','現在地':'📍 進行中','収束':'✅ ひと段落' };
   const parentGenres = new Set(parent.genres || (parent.genre ? [parent.genre] : []));
   const excludeIds   = new Set([parent.topicId, ...children.map(c => c.topicId)]);
   const activeGenreTopics = allTopics
@@ -542,7 +543,7 @@ function renderStorymap(parent, allTopics) {
     const nextCards = activeGenreTopics.map(t => {
       const tTitle = t.generatedTitle || t.title || '';
       const tCnt   = t.articleCount || 0;
-      const tPhase = t.storyPhase || '';
+      const tPhase = t.storyPhase ? (_PL[t.storyPhase] || t.storyPhase) : '';
       return `<a href="topic.html?id=${esc(t.topicId)}" class="sm-next-card">
         <div class="sm-next-card-title">${esc(tTitle.length > 48 ? tTitle.slice(0,48)+'…' : tTitle)}</div>
         <div class="sm-next-card-meta">📄 ${tCnt}件${tPhase ? ' · '+esc(tPhase) : ''}</div>
