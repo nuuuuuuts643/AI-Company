@@ -601,7 +601,10 @@ def lambda_handler(event, context):
                  if t['topicId'] not in already_pending
                  and not (t.get('aiGenerated')
                           and t.get('generatedSummary')
-                          and t.get('storyTimeline'))),  # timeline欠如も再処理対象
+                          and (t.get('storyTimeline')                       # full/standard: timeline必須
+                               or t.get('summaryMode') == 'minimal'         # minimal: timeline不要
+                               or int(t.get('articleCount', 0) or 0) <= 2)  # 2件以下: timeline不要
+                          )),
                 key=lambda t: float(t.get('velocityScore', 0) or 0),
                 reverse=True,
             )
