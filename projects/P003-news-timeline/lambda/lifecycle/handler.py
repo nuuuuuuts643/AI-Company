@@ -265,8 +265,9 @@ def lambda_handler(event, context):
     # ---- 孤立 topics/*.html のクリーンアップ ----
     s3_html_deleted = 0
     try:
+        html_paginator = s3.get_paginator('list_objects_v2')
         all_html_tids = []
-        for page in paginator.paginate(Bucket=S3_BUCKET, Prefix='topics/'):
+        for page in html_paginator.paginate(Bucket=S3_BUCKET, Prefix='topics/'):
             for obj in page.get('Contents', []):
                 key = obj['Key']
                 if key.endswith('.html'):
