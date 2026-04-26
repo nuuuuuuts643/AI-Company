@@ -708,11 +708,11 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
     }
     _aff_kw  = _GENRE_KW.get(genres_raw[0], 'おすすめ 人気')
     import urllib.parse as _up
-    _q       = _up.quote(_aff_kw)
+    _q       = _up.quote(_aff_kw, safe='')
     _aid     = '1188659'
-    _amz_url = _up.quote(f'https://www.amazon.co.jp/s?k={_q}')
-    _rkt_url = _up.quote(f'https://search.rakuten.co.jp/search/mall/{_q}/')
-    _yhs_url = _up.quote(f'https://shopping.yahoo.co.jp/search?p={_q}')
+    _amz_url = _up.quote(f'https://www.amazon.co.jp/s?k={_q}', safe='')
+    _rkt_url = _up.quote(f'https://search.rakuten.co.jp/search/mall/{_q}/', safe='')
+    _yhs_url = _up.quote(f'https://shopping.yahoo.co.jp/search?p={_q}', safe='')
     _affiliate_html = f'''<section class="aff-section">
 <p class="aff-label">広告 — この話題に関連する商品</p>
 <div class="aff-links">
@@ -848,6 +848,12 @@ li{{margin:.4rem 0}}
 a{{color:#3b82f6}}
 header{{display:flex;align-items:center;gap:12px;margin-bottom:1rem;border-bottom:1px solid #e2e8f0;padding-bottom:.8rem}}
 header a{{color:#6366f1;font-weight:bold;font-size:1.1rem;text-decoration:none}}
+.aff-section{{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;margin:2rem 0}}
+.aff-label{{font-size:.72rem;color:#92400e;font-weight:700;margin:0 0 10px}}
+.aff-links{{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}}
+.aff-btn{{display:inline-block;padding:8px 14px;border-radius:6px;font-size:.84rem;font-weight:600;text-decoration:none}}
+.aff-amz{{background:#ff9900;color:#fff}}.aff-rkt{{background:#bf0000;color:#fff}}.aff-yhs{{background:#ff0033;color:#fff}}
+.aff-note{{font-size:.7rem;color:#92400e;margin:0}}
 </style>
 </head>
 <body>
@@ -858,6 +864,7 @@ header a{{color:#6366f1;font-weight:bold;font-size:1.1rem;text-decoration:none}}
 {ai_html}
 {timeline_html}
 {articles_html}
+{_affiliate_html}
 <div class="cta">
   <p>コメント・お気に入り登録などのインタラクティブ機能は<br>
   <a href="{interactive}">Flotopicのトピックページ</a>でご利用いただけます。</p>
