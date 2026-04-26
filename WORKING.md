@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T131 storymap二重フッター + T132 エンティティtagdark | frontend/storymap.html | 2026-04-26 21:30 |
