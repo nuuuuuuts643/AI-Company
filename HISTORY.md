@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T165 heroプレビューstoryTimeline→storyPhase修正）
+- ✅ **T165 app.js renderHeroStoryPreview: storyTimeline → storyPhase** — 根本原因: T158で実装したheroプレビューが `t.storyTimeline` フィールドの有無でフィルタリングしていたが、`storyTimeline` は fetcher の `_INTERNAL` 除外フィールドのため `topics.json` に含まれず常に `undefined`。結果としてheroプレビューは常に非表示（`display:none`）になっていた。修正: フィルタ条件を `t.storyPhase`（topics.jsonに含まれる）に変更。storyTimelineの最新beatイベントの代わりに `storyPhase` をフェーズバッジで表示（「現在フェーズ: 🔥 ピーク」等）。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T153 初回ジャンル選択ボトムシート）
 - ✅ **T153 app.js/style.css 初回ジャンル選択ボトムシート追加** — `flotopic_genre_selected` localStorageフラグなし＋genre未設定 or '総合'の場合、topics読み込み後にボトムシートを表示。13ジャンルのチップボタンを表示し、選択時に `savePrefs` でgenere保存・`currentGenre`更新・`renderTopics`再描画・genre-filterバー同期。スキップ可能。オーバーレイクリックでもスキップ。style.cssに `.go-overlay/.go-sheet/.go-title/.go-sub/.go-chips/.go-chip/.go-skip` のスライドアップアニメーションCSS追加。npm test 42件全パス。
 
