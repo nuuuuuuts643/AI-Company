@@ -694,3 +694,8 @@ bash projects/P003-news-timeline/deploy.sh
 ### 完了済み（2026-04-26）T058/T060 開発ファイル削除
 → HISTORY.mdに記録 14:55 JST
 - ICONS-NEEDED.md / twitter-card.pngはすでに存在しておらず実質完了済みを確認
+
+### 完了済み（2026-04-26）T067 CLAUDE.mdスナップショット更新
+→ HISTORY.mdに記録 17:10 JST
+- AI要約カバレッジを実測値に更新: summary69%(316/455)・storyPhase43%(199/455)・imageUrl62%(286/455)
+- storyTimeline=0%(topics.json) → 個別ファイルにのみ存在（意図的設計）と注記追加
