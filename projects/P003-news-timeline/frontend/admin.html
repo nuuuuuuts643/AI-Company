@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flotopic 管理ダッシュボード</title>
+<meta name="robots" content="noindex,nofollow">
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+/* ─── RESET ─────────────────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+
+/* ─── AUTH ──────────────────────────────────────────────────────────── */
+#auth-screen{position:fixed;inset:0;background:#0d1117;display:flex;align-items:center;justify-content:center;z-index:999}
+.auth-box{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:40px;width:340px;text-align:center}
+.auth-box h2{margin-bottom:8px;font-size:1.2rem}
+.auth-sub{font-size:.8rem;color:#8b949e;margin-bottom:28px}
+.auth-error{color:#f85149;font-size:.85rem;margin-top:12px;min-height:20px}
+#gsi-button-wrap{display:flex;justify-content:center}
+
+/* ─── LAYOUT ────────────────────────────────────────────────────────── */
+header{background:#161b22;border-bottom:1px solid #30363d;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:1.1rem;font-weight:700}
+header h1 span{color:#58a6ff}
+.header-right{display:flex;align-items:center;gap:12px}
+#user-badge{font-size:.78rem;color:#8b949e;background:#21262d;padding:4px 10px;border-radius:12px}
+#last-fetch{font-size:.78rem;color:#8b949e}
+main{max-width:1300px;margin:0 auto;padding:24px 20px}
+
+/* ─── SUMMARY CARDS ─────────────────────────────────────────────────── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.card.blue::before{background:linear-gradient(90deg,#58a6ff,#1f6feb)}
+.card.green::before{background:linear-gradient(90deg,#3fb950,#238636)}
+.card.orange::before{background:linear-gradient(90deg,#f78166,#da3633)}
+.card.purple::before{background:linear-gradient(90deg,#bc8cff,#8957e5)}
+.card.yellow::before{background:linear-gradient(90deg,#e3b341,#9e6a03)}
+.card.teal::before{background:linear-gradient(90deg,#39d3aa,#0d9488)}
+.card.red::before{background:linear-gradient(90deg,#f85149,#b91c1c)}
+.card-label{font-size:.75rem;color:#8b949e;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em}
+.card-value{font-size:2rem;font-weight:700;line-height:1}
+.card-sub{font-size:.78rem;color:#8b949e;margin-top:6px}
+
+/* ─── SECTIONS ──────────────────────────────────────────────────────── */
+section{margin-bottom:28px}
+section h2{font-size:.9rem;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #30363d}
+.panel{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px}
+
+/* ─── GRID ──────────────────────────────────────────────────────────── */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+@media(max-width:900px){.grid3{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.grid2,.grid3{grid-template-columns:1fr}}
+
+/* ─── BAR CHART ─────────────────────────────────────────────────────── */
+.bar-list{display:flex;flex-direction:column;gap:10px}
+.bar-row{display:flex;align-items:center;gap:10px}
+.bar-label{width:100px;font-size:.82rem;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;background:#21262d;border-radius:4px;height:18px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .5s ease}
+.bar-val{width:50px;text-align:right;font-size:.8rem;color:#8b949e;flex-shrink:0}
+
+/* ─── PROGRESS ──────────────────────────────────────────────────────── */
+.progress-header{display:flex;justify-content:space-between;font-size:.82rem;color:#8b949e;margin-bottom:6px}
+.progress-track{background:#21262d;border-radius:8px;height:24px;overflow:hidden;margin-bottom:6px}
+.progress-fill{height:100%;border-radius:8px;transition:width .5s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:.75rem;font-weight:700;color:#fff}
+.progress-footer{display:flex;justify-content:space-between;font-size:.78rem;color:#8b949e}
+
+/* ─── TABLE ─────────────────────────────────────────────────────────── */
+.data-table{width:100%;border-collapse:collapse;font-size:.83rem}
+.data-table th{text-align:left;padding:8px 10px;color:#8b949e;font-weight:500;border-bottom:1px solid #30363d;white-space:nowrap}
+.data-table td{padding:8px 10px;border-bottom:1px solid #21262d;vertical-align:middle}
+.data-table tr:hover td{background:#0d1117}
+.td-link{color:#58a6ff;text-decoration:none;display:block;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.td-link:hover{text-decoration:underline}
+.td-num{text-align:right}
+.td-center{text-align:center}
+
+/* ─── BADGES ────────────────────────────────────────────────────────── */
+.badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:.72rem;font-weight:600}
+.badge-active{background:#1a3626;color:#3fb950}
+.badge-cooling{background:#2d2a1e;color:#e3b341}
+.badge-archived{background:#21262d;color:#8b949e}
+.badge-legacy{background:#1e1e2e;color:#bc8cff}
+.tag{display:inline-block;padding:2px 6px;border-radius:6px;font-size:.7rem;background:#21262d;color:#8b949e}
+
+/* ─── FILL COLORS ───────────────────────────────────────────────────── */
+.fill-blue{background:linear-gradient(90deg,#58a6ff,#1f6feb)}
+.fill-green{background:linear-gradient(90deg,#3fb950,#238636)}
+.fill-orange{background:linear-gradient(90deg,#f78166,#da3633)}
+.fill-purple{background:linear-gradient(90deg,#bc8cff,#8957e5)}
+.fill-teal{background:linear-gradient(90deg,#39d3aa,#0d9488)}
+.fill-yellow{background:linear-gradient(90deg,#e3b341,#9e6a03)}
+.fill-gray{background:#30363d}
+
+/* ─── MISC ──────────────────────────────────────────────────────────── */
+.ok{color:#3fb950}.muted{color:#8b949e}
+#loading{text-align:center;padding:60px;color:#8b949e}
+#dashboard{display:none}
+.btn{background:#21262d;border:1px solid #30363d;color:#e6edf3;padding:6px 14px;border-radius:6px;font-size:.8rem;cursor:pointer}
+.btn:hover{background:#30363d}
+.no-data{color:#8b949e;font-size:.85rem;text-align:center;padding:20px}
+
+/* ─── HIGHLIGHT BAR ─────────────────────────────────────────────────── */
+.highlight-bar{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.hl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;transition:background .3s}
+.hl-dot.green{background:#3fb950;box-shadow:0 0 8px #3fb95055}
+.hl-dot.yellow{background:#e3b341;box-shadow:0 0 8px #e3b34155}
+.hl-dot.red{background:#f85149;box-shadow:0 0 8px #f8514955}
+.hl-text{font-size:.87rem;flex:1;line-height:1.6}
+.hl-label{font-size:.72rem;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;flex-shrink:0}
+
+/* ─── TREND ─────────────────────────────────────────────────────────── */
+.trend-up{color:#3fb950;font-weight:600}
+.trend-down{color:#f85149;font-weight:600}
+.trend-flat{color:#8b949e}
+
+/* ─── PERIOD BUTTONS ────────────────────────────────────────────────── */
+.period-btn{background:#21262d;border:1px solid #30363d;color:#8b949e;padding:3px 10px;border-radius:5px;font-size:.75rem;cursor:pointer;transition:all .15s}
+.period-btn:hover{border-color:#58a6ff;color:#e6edf3}
+.period-btn.active{background:#1f3a5f;border-color:#58a6ff;color:#58a6ff;font-weight:600}
+
+/* ─── CHART STAT ROW ────────────────────────────────────────────────── */
+.chart-stats{display:flex;gap:24px;margin-bottom:12px;flex-wrap:wrap}
+.chart-stat{display:flex;flex-direction:column;gap:2px}
+.chart-stat-val{font-size:1.4rem;font-weight:700;line-height:1}
+.chart-stat-lbl{font-size:.72rem;color:#8b949e}
+</style>
+</head>
+<body>
+
+<!-- Google認証画面 -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <h2>🔐 Flotopic Admin</h2>
+    <p class="auth-sub">管理者の Google アカウントでログインしてください</p>
+    <div id="gsi-button-wrap"></div>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- ヘッダー -->
+<header>
+  <h1><span>Flotopic</span> 管理ダッシュボード</h1>
+  <div class="header-right">
+    <span id="user-badge"></span>
+    <span id="last-fetch"></span>
+    <button class="btn" onclick="Dashboard.load()">↺ 更新</button>
+    <button class="btn" onclick="Auth.logout()">ログアウト</button>
+  </div>
+</header>
+
+<main>
+  <div id="loading">データを読み込み中...</div>
+  <div id="dashboard">
+
+    <!-- ハイライトバー -->
+    <div class="highlight-bar" id="highlight-bar" style="display:none">
+      <div class="hl-dot" id="hl-dot"></div>
+      <div class="hl-text" id="hl-text"></div>
+      <div class="hl-label" id="hl-label"></div>
+    </div>
+
+    <!-- サマリーカード（動的生成） -->
+    <div class="cards" id="summary-cards"></div>
+
+    <!-- Cloudflare Analytics -->
+    <section>
+      <h2>アクセス数（Cloudflare Analytics）
+        <span style="float:right;display:flex;gap:4px" id="cf-period-btns">
+          <button class="period-btn active" data-days="7">7日</button>
+          <button class="period-btn" data-days="14">14日</button>
+          <button class="period-btn" data-days="30">30日</button>
+          <button class="period-btn" data-days="0">全期間</button>
+        </span>
+      </h2>
+      <div class="panel" id="section-cf-analytics">
+        <div class="no-data">読み込み中...</div>
+      </div>
+    </section>
+
+    <!-- アクセス数（analytics） -->
+    <section>
+      <h2>アクセス数 — 直近24時間（独自集計）</h2>
+      <div class="grid2">
+        <div class="panel">
+          <div class="bar-list" id="chart-trending-topics">
+            <div class="no-data" id="analytics-loading">アクセスデータ読み込み中...</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="bar-list" id="chart-activity-24h">
+            <div class="no-data">24h アクティビティ</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- チャート行 -->
+    <div class="grid3" style="margin-bottom:20px">
+      <section>
+        <h2>ライフサイクル</h2>
+        <div class="panel"><div class="bar-list" id="chart-lifecycle"></div></div>
+      </section>
+      <section>
+        <h2>AI要約 カバレッジ</h2>
+        <div class="panel" id="chart-ai"></div>
+      </section>
+      <section>
+        <h2>ジャンル別トピック数</h2>
+        <div class="panel"><div class="bar-list" id="chart-genre"></div></div>
+      </section>
+    </div>
+    <!-- チャート行2 -->
+    <div class="grid2" style="margin-bottom:28px">
+      <section>
+        <h2>Velocity 分布</h2>
+        <div class="panel"><div class="bar-list" id="chart-velocity"></div></div>
+      </section>
+      <section>
+        <h2>AI処理 パイプライン</h2>
+        <div class="panel" id="chart-ai-pipeline"></div>
+      </section>
+    </div>
+
+    <!-- 上位トピック -->
+    <section>
+      <h2>上位トピック — スコア順 TOP<span id="top-n"></span></h2>
+      <div class="panel" style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr>
+            <th>#</th><th>タイトル</th><th>ジャンル</th><th>状態</th>
+            <th class="td-num">記事数</th><th class="td-num">スコア</th>
+            <th class="td-num">Velocity</th><th class="td-center">AI</th>
+            <th class="td-num">はてブ</th><th class="td-num">24h PV</th>
+          </tr></thead>
+          <tbody id="table-top-topics"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 最近更新 -->
+    <section>
+      <h2>最近更新されたトピック TOP<span id="recent-n"></span></h2>
+      <div class="panel" style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr>
+            <th>#</th><th>タイトル</th><th>ジャンル</th><th>状態</th>
+            <th class="td-num">記事数</th><th>最終更新</th><th>フェーズ</th>
+          </tr></thead>
+          <tbody id="table-recent-topics"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- お問い合わせ -->
+    <section>
+      <h2>お問い合わせ <span id="contact-badge" style="background:#388bfd;color:#fff;border-radius:10px;padding:1px 8px;font-size:.75rem;margin-left:6px;display:none"></span></h2>
+      <div class="panel" style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr>
+            <th>日時</th><th>種別</th><th>送信者</th><th>内容</th><th>トピックID</th><th>操作</th>
+          </tr></thead>
+          <tbody id="table-contacts"><tr><td colspan="6" style="color:#8b949e;padding:16px">読み込み中...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 収益管理 -->
+    <section>
+      <h2>収益管理</h2>
+      <div class="panel">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px" id="revenue-cards"></div>
+      </div>
+    </section>
+
+    <!-- サービス管理 -->
+    <section>
+      <h2>サービス管理</h2>
+      <div class="panel">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px" id="service-cards"></div>
+      </div>
+    </section>
+
+  </div><!-- /#dashboard -->
+</main>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// CONFIG — ここだけ変更すれば設定完了
+// ═══════════════════════════════════════════════════════════════════════
+const CONFIG = {
+  allowedEmail:    'mrkm.naoya643@gmail.com',
+  googleClientId:  '632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com',
+  apiBase:         'https://flotopic.com/api/',
+  contactsApiBase: 'https://x73mzc0v06.execute-api.ap-northeast-1.amazonaws.com',
+  analyticsUrl:    'https://2svmxx7aou6w5ekdruw5maqnfu0aplju.lambda-url.ap-northeast-1.on.aws/',
+  cfAnalyticsUrl:  'https://flotopic.com/api/cf-analytics.json',  // S3キャッシュ
+  topTopicsN:      20,
+  recentTopicsN:   10,
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════════════
+const U = {
+  esc(s)  { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); },
+  setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; },
+  relTime(iso) {
+    if (!iso) return '—';
+    const s = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (s < 60)    return '今';
+    if (s < 3600)  return `${Math.floor(s/60)}分前`;
+    if (s < 86400) return `${Math.floor(s/3600)}時間前`;
+    return `${Math.floor(s/86400)}日前`;
+  },
+  int(v)     { return parseInt(v) || 0; },
+  pct(a, b)  { return b > 0 ? (a / b * 100).toFixed(1) : '0.0'; },
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// UI — 再利用コンポーネント
+// ═══════════════════════════════════════════════════════════════════════
+const UI = {
+  barRow(label, val, maxVal, fillClass, displayVal) {
+    const w = maxVal > 0 ? U.pct(val, maxVal) : 0;
+    return `<div class="bar-row">
+      <div class="bar-label" title="${U.esc(label)}">${U.esc(label)}</div>
+      <div class="bar-track"><div class="bar-fill ${fillClass}" style="width:${w}%"></div></div>
+      <div class="bar-val">${displayVal ?? val.toLocaleString()}</div>
+    </div>`;
+  },
+  progressBar(done, total, fillClass) {
+    const p = U.pct(done, total);
+    return `<div class="progress-header"><span>生成済み</span><span>${p}%</span></div>
+      <div class="progress-track">
+        <div class="progress-fill ${fillClass}" style="width:${p}%">${parseFloat(p)>8?p+'%':''}</div>
+      </div>
+      <div class="progress-footer"><span>済: ${done.toLocaleString()}件</span><span>未: ${(total-done).toLocaleString()}件</span></div>`;
+  },
+  lifecycle(s) {
+    const m = { active:['badge-active','active'], cooling:['badge-cooling','cooling'],
+                archived:['badge-archived','archived'], legacy:['badge-legacy','legacy'] };
+    const [cls, lbl] = m[s] ?? ['badge-archived', s || '—'];
+    return `<span class="badge ${cls}">${lbl}</span>`;
+  },
+  card(colorCls, label, value, sub='') {
+    return `<div class="card ${colorCls}">
+      <div class="card-label">${label}</div>
+      <div class="card-value">${value}</div>
+      ${sub ? `<div class="card-sub">${sub}</div>` : ''}
+    </div>`;
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// METRICS — データ計算（描画から分離）
+// ═══════════════════════════════════════════════════════════════════════
+function computeMetrics(topics) {
+  const total         = topics.length;
+  const totalArticles = topics.reduce((s,t) => s + U.int(t.articleCount), 0);
+  const aiDone        = topics.filter(t => t.generatedSummary).length;
+  const totalHatena   = topics.reduce((s,t) => s + U.int(t.hatenaCount), 0);
+  const maxHatena     = Math.max(...topics.map(t => U.int(t.hatenaCount)), 0);
+
+  // 更新頻度（今日・24時間以内）
+  const now24h = Date.now() - 86400 * 1000;
+  const updatedToday = topics.filter(t => t.lastUpdated && new Date(t.lastUpdated).getTime() > now24h).length;
+
+  // ライフサイクル
+  const lifecycle = {};
+  topics.forEach(t => { const s = t.lifecycleStatus||'active'; lifecycle[s]=(lifecycle[s]||0)+1; });
+
+  // ジャンル
+  const genre = {};
+  topics.forEach(t => { const g = (t.genres && t.genres[0]) || t.genre || '総合'; genre[g]=(genre[g]||0)+1; });
+
+  // AI詳細
+  const aiGenerated = topics.filter(t => t.aiGenerated).length;
+  const hasTimeline = topics.filter(t => t.storyPhase).length;
+  const hasImageUrl = topics.filter(t => t.imageUrl).length;
+  const hasCustomOgp = topics.filter(t => (t.imageUrl||'').startsWith('https://flotopic.com')).length;
+
+  // velocity分布
+  const velBuckets = { zero: 0, low: 0, mid: 0, high: 0 };
+  topics.forEach(t => {
+    const v = parseFloat(t.velocityScore) || 0;
+    if (v === 0)       velBuckets.zero++;
+    else if (v < 10)   velBuckets.low++;
+    else if (v < 50)   velBuckets.mid++;
+    else               velBuckets.high++;
+  });
+
+  return { total, totalArticles, aiDone, totalHatena, maxHatena, updatedToday, lifecycle, genre,
+           avgArticles: total > 0 ? (totalArticles/total).toFixed(1) : '0',
+           aiGenerated, hasTimeline, hasImageUrl, hasCustomOgp, velBuckets };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SVG CHARTS — ライブラリ不要の純粋SVGチャート
+// ═══════════════════════════════════════════════════════════════════════
+const SVG = {
+  lineChart(data, { color='#58a6ff', gradId='lg0' } = {}) {
+    if (!data.length) return '<div class="no-data">データなし</div>';
+    const pad = {t:20, r:16, b:28, l:36};
+    const W = 480, H = 160;
+    const iW = W - pad.l - pad.r, iH = H - pad.t - pad.b;
+    const maxV = Math.max(...data.map(d=>d.v), 1);
+    const px = i => data.length===1 ? iW/2 : (i/(data.length-1))*iW;
+    const py = v => iH - (v/maxV)*iH;
+    const pts = data.map((d,i) => [px(i), py(d.v)]);
+
+    // スムーズベジェ
+    let line = `M ${pts[0].join(' ')}`;
+    for (let i=1; i<pts.length; i++) {
+      const cpx = (pts[i-1][0]+pts[i][0])/2;
+      line += ` C ${cpx} ${pts[i-1][1]}, ${cpx} ${pts[i][1]}, ${pts[i].join(' ')}`;
+    }
+    const area = `${line} L ${pts[pts.length-1][0]} ${iH} L ${pts[0][0]} ${iH} Z`;
+
+    // Y補助線
+    const yLines = [0,.5,1].map(r => {
+      const v = Math.round(maxV*r), yp = py(v);
+      return `<line x1="0" y1="${yp}" x2="${iW}" y2="${yp}" stroke="#21262d" stroke-dasharray="3,3"/>
+              <text x="-4" y="${yp+4}" text-anchor="end" fill="#484f58" font-size="9">${v}</text>`;
+    }).join('');
+
+    // X軸ラベル
+    const step = Math.max(1, Math.ceil(data.length/6));
+    const xLabels = data.map((d,i) =>
+      (i%step===0 || i===data.length-1)
+        ? `<text x="${px(i)}" y="${iH+16}" text-anchor="middle" fill="#484f58" font-size="9">${d.label}</text>` : ''
+    ).join('');
+
+    const dots = pts.map(([x,y],i) =>
+      `<circle cx="${x}" cy="${y}" r="3.5" fill="${color}" stroke="#0d1117" stroke-width="2"/>
+       <text x="${x}" y="${y-9}" text-anchor="middle" fill="${color}" font-size="9" font-weight="600">${data[i].v}</text>`
+    ).join('');
+
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;overflow:visible">
+      <defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity=".3"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity=".02"/>
+      </linearGradient></defs>
+      <g transform="translate(${pad.l},${pad.t})">
+        ${yLines}
+        <path d="${area}" fill="url(#${gradId})"/>
+        <path d="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        ${dots}${xLabels}
+      </g></svg>`;
+  },
+
+  donutChart(data, { size=140, thickness=34 } = {}) {
+    const valid = data.filter(d=>d.v>0);
+    if (!valid.length) return '<div class="no-data">データなし</div>';
+    const total = valid.reduce((s,d)=>s+d.v,0);
+    const cx=size/2, cy=size/2, R=size/2-4, Ri=R-thickness;
+    let angle=-Math.PI/2;
+    const paths = valid.map(d => {
+      const da=(d.v/total)*2*Math.PI, ea=angle+da, lg=da>Math.PI?1:0;
+      const path=[
+        `M ${cx+R*Math.cos(angle)} ${cy+R*Math.sin(angle)}`,
+        `A ${R} ${R} 0 ${lg} 1 ${cx+R*Math.cos(ea)} ${cy+R*Math.sin(ea)}`,
+        `L ${cx+Ri*Math.cos(ea)} ${cy+Ri*Math.sin(ea)}`,
+        `A ${Ri} ${Ri} 0 ${lg} 0 ${cx+Ri*Math.cos(angle)} ${cy+Ri*Math.sin(angle)} Z`,
+      ].join(' ');
+      angle=ea;
+      return `<path d="${path}" fill="${d.color}" opacity=".92"/>`;
+    }).join('');
+    return `<svg viewBox="0 0 ${size} ${size}" style="width:${size}px;height:${size}px;flex-shrink:0">
+      ${paths}
+      <text x="${cx}" y="${cy-4}" text-anchor="middle" fill="#e6edf3" font-size="22" font-weight="700">${total}</text>
+      <text x="${cx}" y="${cy+14}" text-anchor="middle" fill="#8b949e" font-size="10">topics</text>
+    </svg>`;
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// TREND HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+
+function pvDayOverDay(daily) {
+  if (!daily || daily.length < 2) return null;
+  const sorted = [...daily].sort((a,b) => a.date.localeCompare(b.date));
+  const last = sorted[sorted.length - 1].count;
+  const prev = sorted[sorted.length - 2].count;
+  if (prev === 0) return null;
+  return { last, prev, pct: Math.round((last - prev) / prev * 100) };
+}
+
+function trendHtml(pct) {
+  if (pct === null) return '';
+  const sign  = pct >= 0 ? '+' : '';
+  const arrow = pct > 0 ? '↑' : pct < 0 ? '↓' : '→';
+  const cls   = pct > 0 ? 'trend-up' : pct < 0 ? 'trend-down' : 'trend-flat';
+  return `<span class="${cls}">${sign}${pct}% ${arrow}</span>`;
+}
+
+// ─── ハイライトバー ──────────────────────────────────────────────────────
+function renderHighlight(m, cfData) {
+  const bar  = document.getElementById('highlight-bar');
+  const dot  = document.getElementById('hl-dot');
+  const text = document.getElementById('hl-text');
+  const lbl  = document.getElementById('hl-label');
+  if (!bar) return;
+
+  const cf    = cfData?.cf || {};
+  const daily = cf.daily || [];
+  const trend = pvDayOverDay(daily);
+
+  // 国別TOP
+  const CNAMES = {JP:'日本',US:'米国',KR:'韓国',CN:'中国',GB:'英国',DE:'ドイツ',TW:'台湾',AU:'豪州',CA:'カナダ',FR:'フランス'};
+  const topC   = cf.byCountry?.[0];
+  const totalPv = cf.totalPv7d || 1;
+  const topCPct = topC ? Math.round(topC.count / totalPv * 100) : null;
+
+  // デバイス
+  const devices = cf.byDevice || [];
+  const desktop = devices.find(d=>d.type==='desktop')?.count || 0;
+  const mobile  = devices.find(d=>d.type==='mobile')?.count || 0;
+  const totalDev = desktop + mobile || 1;
+  const mobilePct = Math.round(mobile / totalDev * 100);
+
+  // 健康状態判定
+  let health = 'green';
+  if (trend !== null && trend.pct < -20) health = 'red';
+  else if (trend !== null && trend.pct < 0) health = 'yellow';
+
+  // テキスト生成
+  const parts = [];
+  if (trend !== null) {
+    parts.push(`昨日のPV <strong>${trend.last}件</strong>（前日比 ${trendHtml(trend.pct)}）`);
+  } else if (cf.totalPv7d) {
+    parts.push(`7日間の総PV <strong>${cf.totalPv7d}件</strong>`);
+  }
+  if (topC && topCPct) parts.push(`${CNAMES[topC.code]||topC.code}からのアクセス ${topCPct}%`);
+  if (desktop + mobile > 0) parts.push(`モバイル比率 ${mobilePct}%`);
+  if (m.lifecycle.active) parts.push(`アクティブトピック ${m.lifecycle.active}件`);
+
+  const STATUS_LABEL = {green:'順調', yellow:'やや注意', red:'要確認'};
+
+  dot.className  = `hl-dot ${health}`;
+  text.innerHTML = parts.length ? parts.join('　·　') : 'データ収集中...';
+  lbl.textContent = STATUS_LABEL[health];
+  bar.style.display = 'flex';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SECTIONS
+// ═══════════════════════════════════════════════════════════════════════
+
+function renderSummaryCards(m, analyticsData, cfData) {
+  const pv24h  = analyticsData?.trending?.reduce((s,t)=>s+(t.views||0),0) ?? null;
+  const cf     = cfData || {};
+  const users  = cf.users  || {};
+  const comments  = cf.comments  || {};
+  const favorites = cf.favorites || {};
+  const pv7d   = cf.cf?.totalPv7d ?? null;
+
+  const cards = [
+    UI.card('blue',   '総トピック数',    m.total.toLocaleString(),   `24h更新: ${m.updatedToday}`),
+    UI.card('green',  '総記事数',        m.totalArticles.toLocaleString(), `平均 ${m.avgArticles}件/トピック`),
+    UI.card('purple', 'AI要約済み',      m.aiDone.toLocaleString(),  `${U.pct(m.aiDone, m.total)}% 完了`),
+    (() => {
+      const trend = pvDayOverDay(cfData?.cf?.daily || []);
+      const tSub  = trend !== null
+        ? `前日比 ${trend.pct >= 0 ? '+' : ''}${trend.pct}% ${trend.pct > 0 ? '↑' : trend.pct < 0 ? '↓' : '→'}`
+        : (pv7d !== null ? 'Cloudflare Analytics' : (pv24h !== null ? '24h（独自集計）' : 'データ収集中...'));
+      return UI.card('teal', 'PV（7日間）',
+        pv7d !== null ? pv7d.toLocaleString() : (pv24h !== null ? pv24h.toLocaleString() : '—'), tSub);
+    })(),
+    UI.card('orange', 'ユーザー数',
+            users.total != null ? users.total.toLocaleString() : '—',
+            users.new7d != null ? `7日新規: ${users.new7d}人` : ''),
+    UI.card('yellow', 'コメント数',
+            comments.total != null ? comments.total.toLocaleString() : '—',
+            comments.new7d != null ? `7日新規: ${comments.new7d}件 / いいね: ${comments.totalLikes||0}` : ''),
+    UI.card('red',    'お気に入り数',
+            favorites.total != null ? favorites.total.toLocaleString() : '—',
+            favorites.new7d != null ? `7日新規: ${favorites.new7d}件` : ''),
+    UI.card('blue',   'はてブ総数',      m.totalHatena.toLocaleString(), `最高 ${m.maxHatena} ブクマ`),
+  ];
+  document.getElementById('summary-cards').innerHTML = cards.join('');
+}
+
+function renderAnalytics(analyticsData, topics) {
+  const topicMap = {};
+  topics.forEach(t => { topicMap[t.topicId] = t; });
+
+  if (!analyticsData?.trending?.length) {
+    document.getElementById('chart-trending-topics').innerHTML =
+      '<div class="no-data">まだアクセスデータがありません。<br>ユーザーがトピックを閲覧すると表示されます。</div>';
+    document.getElementById('chart-activity-24h').innerHTML =
+      '<div class="no-data">データ収集中...</div>';
+    return;
+  }
+
+  const top10 = analyticsData.trending.slice(0, 10);
+  const maxV  = Math.max(...top10.map(t => t.views||0), 1);
+  document.getElementById('chart-trending-topics').innerHTML =
+    top10.map(t => {
+      const topic = topicMap[t.topicId];
+      const label = topic ? (topic.generatedTitle || topic.title || t.topicId).slice(0, 22) : t.topicId.slice(0, 16);
+      return UI.barRow(label, t.views||0, maxV, 'fill-blue', `${t.views||0} PV`);
+    }).join('');
+
+  const totalViews  = analyticsData.trending.reduce((s,t)=>s+(t.views||0),0);
+  const totalNew    = analyticsData.trending.reduce((s,t)=>s+(t.new_viewers||0),0);
+  const totalReturn = totalViews - totalNew;
+  const totalFavs   = analyticsData.trending.reduce((s,t)=>s+(t.favorites||0),0);
+  const maxAct      = Math.max(totalNew, totalReturn, totalFavs, 1);
+  document.getElementById('chart-activity-24h').innerHTML = [
+    UI.barRow('新規訪問',   totalNew,    maxAct, 'fill-green'),
+    UI.barRow('リピーター', totalReturn, maxAct, 'fill-blue'),
+    UI.barRow('お気に入り', totalFavs,   maxAct, 'fill-yellow'),
+  ].join('');
+}
+
+// CF Analyticsのグローバル状態（期間切り替えで再描画）
+let _cfDataCache = null;
+let _cfPeriodDays = 7;
+
+function renderCfAnalytics(cfData) {
+  _cfDataCache = cfData;
+  const el = document.getElementById('section-cf-analytics');
+  if (!el) return;
+  const cf = cfData?.cf;
+  if (!cf?.totalPv7d) {
+    el.innerHTML = '<div class="no-data">CF_API_TOKEN 未設定 — セットアップ手順を参照</div>';
+    return;
+  }
+
+  // 期間ボタンのイベント設定（初回のみ）
+  const btnWrap = document.getElementById('cf-period-btns');
+  if (btnWrap && !btnWrap._bound) {
+    btnWrap._bound = true;
+    btnWrap.addEventListener('click', e => {
+      const btn = e.target.closest('.period-btn');
+      if (!btn) return;
+      btnWrap.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _cfPeriodDays = parseInt(btn.dataset.days);
+      renderCfAnalyticsInner(_cfDataCache);
+    });
+  }
+
+  renderCfAnalyticsInner(cfData);
+}
+
+function renderCfAnalyticsInner(cfData) {
+  const el = document.getElementById('section-cf-analytics');
+  if (!el || !cfData?.cf) return;
+  const cf = cfData.cf;
+  const CNAMES = {JP:'日本',US:'米国',KR:'韓国',CN:'中国',GB:'英国',DE:'ドイツ',TW:'台湾',AU:'豪州',CA:'カナダ',FR:'フランス'};
+  const DNAMES = {desktop:'デスクトップ', mobile:'モバイル', tablet:'タブレット', other:'その他'};
+
+  // 期間フィルター
+  const allDaily = [...(cf.daily||[])].sort((a,b)=>a.date.localeCompare(b.date));
+  const daily = _cfPeriodDays > 0 ? allDaily.slice(-_cfPeriodDays) : allDaily;
+
+  // 統計
+  const totalPv   = daily.reduce((s,d)=>s+d.count,0);
+  const trend     = pvDayOverDay(daily);
+  const maxDay    = daily.reduce((m,d)=>d.count>m.count?d:m, {count:0,date:''});
+
+  // ライングラフ
+  const lineData = daily.map(d => ({
+    label: d.date.split('-').slice(1).map(Number).join('/'),
+    v: d.count,
+  }));
+  const chart = SVG.lineChart(lineData, { color:'#58a6ff', gradId:'lg-pv' });
+
+  // 期間サマリー数値
+  const periodLabel = _cfPeriodDays === 0 ? `全期間(${allDaily.length}日)` : `${Math.min(_cfPeriodDays, daily.length)}日間`;
+  const trendStr = trend !== null
+    ? `<span class="${trend.pct>=0?'trend-up':'trend-down'}">${trend.pct>=0?'+':''}${trend.pct}% ${trend.pct>0?'↑':trend.pct<0?'↓':'→'}</span>`
+    : '—';
+
+  const statsHtml = `
+    <div class="chart-stats">
+      <div class="chart-stat">
+        <div class="chart-stat-val" style="color:#58a6ff">${totalPv.toLocaleString()}</div>
+        <div class="chart-stat-lbl">合計PV（${periodLabel}）</div>
+      </div>
+      <div class="chart-stat">
+        <div class="chart-stat-val">${trendStr}</div>
+        <div class="chart-stat-lbl">前日比</div>
+      </div>
+      ${maxDay.count > 0 ? `<div class="chart-stat">
+        <div class="chart-stat-val" style="color:#e3b341">${maxDay.count}</div>
+        <div class="chart-stat-lbl">最高PV（${maxDay.date.split('-').slice(1).map(Number).join('/')}）</div>
+      </div>` : ''}
+      <div class="chart-stat">
+        <div class="chart-stat-val">${daily.length > 0 ? Math.round(totalPv/daily.length) : '—'}</div>
+        <div class="chart-stat-lbl">日平均PV</div>
+      </div>
+    </div>`;
+
+  // トップページ
+  const pages = cf.topPages || [];
+  const maxPg = Math.max(...pages.map(p=>p.count||0), 1);
+  const pagesHtml = pages.slice(0,6).map(p =>
+    UI.barRow(p.path.replace('/index.html','/').slice(0,20)||'/', p.count, maxPg, 'fill-teal')
+  ).join('');
+
+  // 国別
+  const countries = cf.byCountry || [];
+  const maxC = Math.max(...countries.map(c=>c.count||0), 1);
+  const countriesHtml = countries.slice(0,6).map(c =>
+    UI.barRow(CNAMES[c.code]||c.code, c.count, maxC, 'fill-purple')
+  ).join('');
+
+  // デバイス
+  const devices = cf.byDevice || [];
+  const totalDev = devices.reduce((s,d)=>s+d.count,0)||1;
+  const devHtml = devices.map(d => {
+    const pct = Math.round(d.count/totalDev*100);
+    return UI.barRow(DNAMES[d.type]||d.type, d.count, totalDev, 'fill-orange', `${d.count} (${pct}%)`);
+  }).join('');
+
+  el.innerHTML = `
+    <div style="margin-bottom:16px">
+      ${statsHtml}
+      ${chart}
+    </div>
+    <div class="grid3" style="border-top:1px solid #30363d;padding-top:16px">
+      <div>
+        <div style="font-size:.8rem;color:#8b949e;margin-bottom:8px">トップページ</div>
+        <div class="bar-list">${pagesHtml||'<div class="no-data">データなし</div>'}</div>
+      </div>
+      <div>
+        <div style="font-size:.8rem;color:#8b949e;margin-bottom:8px">訪問者の国</div>
+        <div class="bar-list">${countriesHtml||'<div class="no-data">データなし</div>'}</div>
+      </div>
+      <div>
+        <div style="font-size:.8rem;color:#8b949e;margin-bottom:8px">デバイス</div>
+        <div class="bar-list">${devHtml||'<div class="no-data">データなし</div>'}</div>
+      </div>
+    </div>`;
+}
+
+function renderCharts(m) {
+  // ライフサイクル — ドーナツチャート
+  const LC_COLORS = {active:'#3fb950', cooling:'#e3b341', archived:'#484f58', legacy:'#bc8cff'};
+  const lcData = ['active','cooling','archived','legacy']
+    .map(s => ({ label:s, v:m.lifecycle[s]||0, color:LC_COLORS[s] }));
+  const legend = lcData.map(d =>
+    `<div style="display:flex;align-items:center;gap:6px;font-size:.78rem;padding:3px 0">
+      <div style="width:9px;height:9px;border-radius:2px;background:${d.color};flex-shrink:0"></div>
+      <span class="muted">${d.label}</span>
+      <span style="margin-left:auto;color:#e6edf3;font-weight:600">${d.v}</span>
+    </div>`
+  ).join('');
+  document.getElementById('chart-lifecycle').innerHTML =
+    `<div style="display:flex;gap:16px;align-items:center">
+      ${SVG.donutChart(lcData)}
+      <div style="flex:1">${legend}</div>
+    </div>`;
+
+  // AI要約カバレッジ（aiGenerated = 完全生成済み）
+  const aiGenPct = U.pct(m.aiGenerated, m.total);
+  const tlPct    = U.pct(m.hasTimeline, m.total);
+  document.getElementById('chart-ai').innerHTML = `
+    <div style="font-size:.78rem;color:#8b949e;margin-bottom:4px;display:flex;justify-content:space-between">
+      <span>aiGenerated（完全生成）</span><span style="color:#3fb950;font-weight:600">${aiGenPct}%</span>
+    </div>
+    ${UI.progressBar(m.aiGenerated, m.total, 'fill-green')}
+    <div style="margin-top:12px;border-top:1px solid #21262d;padding-top:10px">
+      <div style="font-size:.78rem;color:#8b949e;margin-bottom:4px;display:flex;justify-content:space-between">
+        <span>storyPhase 有</span><span style="color:#39d3aa;font-weight:600">${tlPct}%</span>
+      </div>
+      ${UI.progressBar(m.hasTimeline, m.total, 'fill-teal')}
+    </div>
+    <div style="margin-top:10px;display:flex;gap:16px;font-size:.78rem;color:#8b949e">
+      <span>未処理: <strong style="color:#e6edf3">${m.total - m.aiGenerated}件</strong></span>
+      <span>phase欠: <strong style="color:#e6edf3">${m.total - m.hasTimeline}件</strong></span>
+    </div>`;
+
+  // AI処理パイプライン（funnel）
+  const pipelineSteps = [
+    { label: '全トピック',          val: m.total,         color: '#58a6ff' },
+    { label: 'aiGenerated',        val: m.aiGenerated,   color: '#3fb950' },
+    { label: 'storyPhase 有',      val: m.hasTimeline,   color: '#39d3aa' },
+    { label: 'imageUrl 有',         val: m.hasImageUrl,   color: '#f78166' },
+    { label: 'カスタムOGP生成済',   val: m.hasCustomOgp,  color: '#d2a8ff' },
+  ];
+  const pmx = pipelineSteps[0].val;
+  document.getElementById('chart-ai-pipeline').innerHTML =
+    pipelineSteps.map(s => {
+      const w = pmx > 0 ? U.pct(s.val, pmx) : 0;
+      return `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:.78rem;color:#8b949e;margin-bottom:3px">
+          <span>${s.label}</span>
+          <span style="color:${s.color};font-weight:600">${s.val.toLocaleString()} (${U.pct(s.val,m.total)}%)</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:${w}%;background:${s.color}"></div></div>
+      </div>`;
+    }).join('');
+
+  // velocity分布
+  const vel = m.velBuckets;
+  const velMax = Math.max(vel.zero, vel.low, vel.mid, vel.high, 1);
+  document.getElementById('chart-velocity').innerHTML = [
+    UI.barRow('停滞 (=0)',  vel.zero, velMax, 'fill-gray',   `${vel.zero}件 (${U.pct(vel.zero, m.total)}%)`),
+    UI.barRow('低 (1-9)',   vel.low,  velMax, 'fill-yellow', `${vel.low}件`),
+    UI.barRow('中 (10-49)', vel.mid,  velMax, 'fill-blue',   `${vel.mid}件`),
+    UI.barRow('高 (50+)',   vel.high, velMax, 'fill-green',  `${vel.high}件`),
+  ].join('') + `<div style="margin-top:8px;font-size:.75rem;color:#8b949e">
+    停滞トピック ${vel.zero}件はlifecycle Lambdaが7日後に自動整理</div>`;
+
+  // ジャンル
+  const gList = Object.entries(m.genre).sort((a,b)=>b[1]-a[1]);
+  const gMax  = Math.max(...gList.map(g=>g[1]), 1);
+  document.getElementById('chart-genre').innerHTML =
+    gList.map(([n,c]) => UI.barRow(n, c, gMax, 'fill-purple')).join('');
+}
+
+function renderTopTopics(topics, analyticsMap) {
+  U.setText('top-n', CONFIG.topTopicsN);
+  const rows = [...topics]
+    .sort((a,b) => U.int(b.score) - U.int(a.score))
+    .slice(0, CONFIG.topTopicsN)
+    .map((t, i) => {
+      const pv = analyticsMap[t.topicId]?.views;
+      return `<tr>
+        <td class="muted">${i+1}</td>
+        <td><a class="td-link" href="/topic.html?id=${U.esc(t.topicId)}" target="_blank">
+          ${U.esc(t.generatedTitle||t.title||'—')}
+        </a></td>
+        <td><span class="tag">${U.esc((t.genres && t.genres[0]) || t.genre || '総合')}</span></td>
+        <td>${UI.lifecycle(t.lifecycleStatus)}</td>
+        <td class="td-num">${U.int(t.articleCount)}</td>
+        <td class="td-num" style="font-weight:600;color:#e3b341">${U.int(t.score)}</td>
+        <td class="td-num" style="color:#58a6ff">${U.int(t.velocityScore)}</td>
+        <td class="td-center">${t.generatedSummary ? '<span class="ok">✓</span>' : '<span class="muted">·</span>'}</td>
+        <td class="td-num muted">${U.int(t.hatenaCount)||'—'}</td>
+        <td class="td-num" style="color:#39d3aa">${pv != null ? pv : '—'}</td>
+      </tr>`;
+    });
+  document.getElementById('table-top-topics').innerHTML = rows.join('');
+}
+
+function renderRecentTopics(topics) {
+  U.setText('recent-n', CONFIG.recentTopicsN);
+  const rows = [...topics]
+    .filter(t => t.lastUpdated)
+    .sort((a,b) => new Date(b.lastUpdated) - new Date(a.lastUpdated))
+    .slice(0, CONFIG.recentTopicsN)
+    .map((t, i) => `<tr>
+      <td class="muted">${i+1}</td>
+      <td><a class="td-link" href="/topic.html?id=${U.esc(t.topicId)}" target="_blank">
+        ${U.esc(t.generatedTitle||t.title||'—')}
+      </a></td>
+      <td><span class="tag">${U.esc(t.genre||'総合')}</span></td>
+      <td>${UI.lifecycle(t.lifecycleStatus)}</td>
+      <td class="td-num">${U.int(t.articleCount)}</td>
+      <td class="muted" style="white-space:nowrap">${U.relTime(t.lastUpdated)}</td>
+      <td class="muted">${U.esc(t.storyPhase||'—')}</td>
+    </tr>`);
+  document.getElementById('table-recent-topics').innerHTML = rows.join('');
+}
+
+// ─── お問い合わせ一覧 ────────────────────────────────────────────────────
+async function renderContacts() {
+  const LABELS = {
+    copyright: '著作権', privacy: 'プライバシー', error: '誤情報',
+    media: 'メディア', other: 'その他',
+  };
+  try {
+    const token = sessionStorage.getItem('admin_token') || '';
+    const res = await fetch(CONFIG.contactsApiBase + '/contacts?_=' + Date.now(), {
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+    });
+    if (!res.ok) { document.getElementById('table-contacts').innerHTML = '<tr><td colspan="6" style="color:#8b949e">取得できません（API未実装）</td></tr>'; return; }
+    const data = await res.json();
+    const list = data.contacts || [];
+    const badge = document.getElementById('contact-badge');
+    if (list.length > 0) { badge.textContent = list.length; badge.style.display = 'inline'; }
+    if (list.length === 0) {
+      document.getElementById('table-contacts').innerHTML = '<tr><td colspan="6" style="color:#8b949e;padding:16px">お問い合わせはありません</td></tr>';
+      return;
+    }
+    const rows = list.map(c => {
+      const dt = new Date(c.createdAt * 1000).toLocaleString('ja-JP');
+      const label = LABELS[c.category] || c.category;
+      const msg = U.esc((c.message||'').slice(0, 80)) + (c.message?.length > 80 ? '…' : '');
+      const tid = c.topicId ? `<a href="/topics/${U.esc(c.topicId)}.html" target="_blank" style="color:#58a6ff">${U.esc(c.topicId.slice(0,8))}</a>` : '—';
+      const sender = [c.name ? U.esc(c.name) : '', c.email ? `<span class="muted">${U.esc(c.email)}</span>` : ''].filter(Boolean).join('<br>') || '—';
+      return `<tr>
+        <td class="muted" style="white-space:nowrap">${dt}</td>
+        <td><span class="tag">${label}</span></td>
+        <td>${sender}</td>
+        <td>${msg}</td>
+        <td>${tid}</td>
+        <td><button onclick="archiveTopic('${U.esc(c.topicId||'')}','${U.esc(c.contactId)}')" style="font-size:.75rem;padding:3px 8px;background:#21262d;border:1px solid #30363d;color:#cdd9e5;border-radius:4px;cursor:pointer">archived化</button></td>
+      </tr>`;
+    });
+    document.getElementById('table-contacts').innerHTML = rows.join('');
+  } catch(e) {
+    document.getElementById('table-contacts').innerHTML = `<tr><td colspan="6" style="color:#f85149">${e.message}</td></tr>`;
+  }
+}
+
+async function archiveTopic(topicId, contactId) {
+  if (!topicId) { alert('トピックIDなし'); return; }
+  if (!confirm(`トピック ${topicId} をarchived化しますか？`)) return;
+  try {
+    const token2 = sessionStorage.getItem('admin_token') || '';
+    const res = await fetch(CONFIG.contactsApiBase + '/contacts/resolve', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token2 ? { 'Authorization': 'Bearer ' + token2 } : {}),
+      },
+      body: JSON.stringify({ contactId, topicId, action: 'archive' }),
+    });
+    if (res.ok) { alert('完了'); renderContacts(); }
+    else { alert('失敗: ' + await res.text()); }
+  } catch(e) { alert('エラー: ' + e.message); }
+}
+
+// ─── 収益管理カード ────────────────────────────────────────────────────
+function renderRevenue() {
+  const PLATFORMS = [
+    {
+      name:   '忍者 AdMax',
+      status: 'active',
+      note:   '掲載中（AdSense審査通過後に切り替え予定）',
+      url:    'https://admax.ninja//',
+    },
+    {
+      name:   'Google AdSense',
+      status: 'pending',
+      note:   '審査中 — 通過後に忍者AdMaxから切り替え',
+      url:    'https://www.google.com/adsense/',
+    },
+    {
+      name:   'もしもアフィリエイト',
+      status: 'active',
+      note:   'a_id=1188659 設定済み。Amazon・楽天・Yahoo! 3店舗一括対応',
+      url:    'https://af.moshimo.com/',
+    },
+    {
+      name:   'Amazon アソシエイト',
+      status: 'active',
+      note:   'タグ flotopic-22 設定済み（もしも経由で連携中）',
+      url:    'https://affiliate.amazon.co.jp/home/reports',
+    },
+    {
+      name:   '楽天アフィリエイト',
+      status: 'setup',
+      note:   '申請後 config.js の AFFILIATE_RAKUTEN_ID を設定',
+      url:    'https://affiliate.rakuten.co.jp/',
+    },
+  ];
+  const STATUS_LABEL = { active: '稼働中', pending: '審査中', setup: '未申請' };
+  const STATUS_COLOR = { active: '#3fb950', pending: '#d29922', setup: '#8b949e' };
+  document.getElementById('revenue-cards').innerHTML = PLATFORMS.map(p => `
+    <a href="${p.url}" target="_blank" rel="noopener noreferrer" style="display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px 16px;text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#30363d'">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-weight:600;font-size:.9rem;color:#e6edf3">${p.name}</span>
+        <span style="font-size:.72rem;padding:2px 8px;border-radius:10px;background:${STATUS_COLOR[p.status]}22;color:${STATUS_COLOR[p.status]};border:1px solid ${STATUS_COLOR[p.status]}44">${STATUS_LABEL[p.status]}</span>
+      </div>
+      <p style="font-size:.78rem;color:#8b949e;margin:0;line-height:1.5">${p.note}</p>
+    </a>`).join('');
+}
+
+// ─── サービス管理カード ────────────────────────────────────────────────────
+function renderServiceLinks() {
+  const SERVICES = [
+    {
+      name:  'AWS Console',
+      note:  'ap-northeast-1 / Lambda・DynamoDB・S3・SES',
+      url:   'https://ap-northeast-1.console.aws.amazon.com/console/home?region=ap-northeast-1',
+      color: '#f89820',
+    },
+    {
+      name:  'Anthropic Console',
+      note:  'Claude API キー・使用量・請求',
+      url:   'https://console.anthropic.com/',
+      color: '#d4a574',
+    },
+    {
+      name:  'GitHub',
+      note:  'ai-company リポジトリ・Actions・Issues',
+      url:   'https://github.com/murakaminaoya/ai-company',
+      color: '#58a6ff',
+    },
+    {
+      name:  'Google AdSense',
+      note:  '審査中 — 収益レポート・広告ユニット管理',
+      url:   'https://www.google.com/adsense/',
+      color: '#4285f4',
+    },
+    {
+      name:  '忍者 AdMax',
+      note:  '掲載中広告の管理・レポート',
+      url:   'https://admax.ninja//',
+      color: '#e06c75',
+    },
+    {
+      name:  'もしもアフィリエイト',
+      note:  'a_id=1188659 / Amazon・楽天・Yahoo! 一括管理',
+      url:   'https://af.moshimo.com/',
+      color: '#3fb950',
+    },
+    {
+      name:  '楽天アフィリエイト',
+      note:  '申請後 AFFILIATE_RAKUTEN_ID を config.js に設定',
+      url:   'https://affiliate.rakuten.co.jp/',
+      color: '#bf3b3b',
+    },
+  ];
+  document.getElementById('service-cards').innerHTML = SERVICES.map(s => `
+    <a href="${s.url}" target="_blank" rel="noopener noreferrer" style="display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px 16px;text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='${s.color}'" onmouseout="this.style.borderColor='#30363d'">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${s.color};flex-shrink:0"></span>
+        <span style="font-weight:600;font-size:.9rem;color:#e6edf3">${s.name}</span>
+      </div>
+      <p style="font-size:.78rem;color:#8b949e;margin:0;line-height:1.5">${s.note}</p>
+    </a>`).join('');
+}
+
+// ─── セクション登録（新セクション追加はここに関数を追記） ─────────────────
+// 引数: (metrics, topics, analyticsMap, analyticsData, cfData)
+const SECTIONS = [
+  (m,t,am,ad,cf) => renderHighlight(m, cf),
+  (m,t,am,ad,cf) => renderSummaryCards(m, ad, cf),
+  (m,t,am,ad,cf) => renderCfAnalytics(cf),
+  (m,t,am,ad)    => renderAnalytics(ad, t),
+  (m)            => renderCharts(m),
+  (m,t,am)       => renderTopTopics(t, am),
+  (m,t)          => renderRecentTopics(t),
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+// DASHBOARD — データ取得 + 描画
+// ═══════════════════════════════════════════════════════════════════════
+const Dashboard = {
+  async load() {
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('dashboard').style.display = 'none';
+    try {
+      const [topicsRes, analyticsRes, cfRes] = await Promise.allSettled([
+        fetch(CONFIG.apiBase + 'topics.json?_=' + Date.now()),
+        fetch(CONFIG.analyticsUrl + 'analytics/trending'),
+        fetch(CONFIG.cfAnalyticsUrl + '?_=' + Date.now()),
+      ]);
+
+      if (topicsRes.status === 'rejected' || !topicsRes.value.ok) throw new Error('topics.json 取得失敗');
+      const raw    = await topicsRes.value.json();
+      const topics = Array.isArray(raw) ? raw : (raw.topics || []);
+
+      let analyticsData = null;
+      if (analyticsRes.status === 'fulfilled' && analyticsRes.value.ok) {
+        try { analyticsData = await analyticsRes.value.json(); } catch(e) {}
+      }
+
+      let cfData = null;
+      if (cfRes.status === 'fulfilled' && cfRes.value.ok) {
+        try { cfData = await cfRes.value.json(); } catch(e) {}
+      }
+
+      const m            = computeMetrics(topics);
+      const analyticsMap = {};
+      if (analyticsData?.trending) {
+        analyticsData.trending.forEach(t => { analyticsMap[t.topicId] = t; });
+      }
+
+      SECTIONS.forEach(fn => fn(m, topics, analyticsMap, analyticsData, cfData));
+      renderContacts();
+      renderRevenue();
+      renderServiceLinks();
+      U.setText('last-fetch', '更新: ' + new Date().toLocaleTimeString('ja-JP'));
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+    } catch(e) {
+      document.getElementById('loading').textContent = 'データ取得失敗: ' + e.message;
+    }
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// AUTH — Google Sign-In（許可メール: CONFIG.allowedEmail のみ）
+// ═══════════════════════════════════════════════════════════════════════
+const Auth = {
+  /** Google ID トークンのペイロードを base64 デコード（検証なし・表示用のみ） */
+  parseJwt(token) {
+    try {
+      const b64 = token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+      return JSON.parse(atob(b64));
+    } catch { return null; }
+  },
+
+  /** Google から credential が返ってきたときのコールバック */
+  onCredential(response) {
+    const payload = Auth.parseJwt(response.credential);
+    if (!payload) {
+      document.getElementById('auth-error').textContent = '認証データの解析に失敗しました';
+      return;
+    }
+    if (payload.email !== CONFIG.allowedEmail) {
+      document.getElementById('auth-error').textContent =
+        `このアカウント (${payload.email}) はアクセスできません`;
+      return;
+    }
+    // 認証成功
+    sessionStorage.setItem('admin_token', response.credential);
+    sessionStorage.setItem('admin_email', payload.email);
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('user-badge').textContent = payload.email;
+    Dashboard.load();
+  },
+
+  logout() {
+    sessionStorage.removeItem('admin_token');
+    sessionStorage.removeItem('admin_email');
+    location.reload();
+  },
+
+  /** GSI ライブラリが読み込まれたら呼ぶ */
+  initGSI() {
+    if (!window.google?.accounts?.id) return;
+    google.accounts.id.initialize({
+      client_id: CONFIG.googleClientId,
+      callback:  Auth.onCredential,
+      auto_select: false,
+    });
+    google.accounts.id.renderButton(
+      document.getElementById('gsi-button-wrap'),
+      { theme: 'outline', size: 'large', locale: 'ja' }
+    );
+  },
+
+  init() {
+    // セッション継続確認（トークンの有効期限は1時間なので再ログインが必要になることがある）
+    const savedEmail = sessionStorage.getItem('admin_email');
+    if (savedEmail === CONFIG.allowedEmail) {
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('user-badge').textContent = savedEmail;
+      Dashboard.load();
+      return;
+    }
+    // GSI ライブラリの読み込み完了を待つ
+    if (window.google?.accounts?.id) {
+      Auth.initGSI();
+    } else {
+      const script = document.querySelector('script[src*="accounts.google.com"]');
+      if (script) {
+        script.addEventListener('load', Auth.initGSI);
+      } else {
+        setTimeout(() => Auth.initGSI(), 2000);
+      }
+    }
+  },
+};
+
+Auth.init();
+</script>
+</body>
+</html>

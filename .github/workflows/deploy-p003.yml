@@ -1,0 +1,93 @@
+name: P003 フロントエンドデプロイ（S3同期 + CloudFront）
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'projects/P003-news-timeline/frontend/**'
+
+concurrency:
+  group: deploy-p003-frontend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: AWS認証情報を設定
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: sw.js バージョンをgit SHAで上書き
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          sed -i "s|const CACHE_NAME = '[^']*'|const CACHE_NAME = 'flotopic-${SHORT_SHA}'|" \
+            projects/P003-news-timeline/frontend/sw.js
+          echo "✅ sw.js CACHE_NAME = flotopic-${SHORT_SHA}"
+
+      - name: フロントエンドをS3に同期（cache-control付き）
+        run: |
+          BUCKET="p003-news-946554699567"
+          REGION="ap-northeast-1"
+          FRONTEND="projects/P003-news-timeline/frontend"
+
+          # HTML: no-cache（常に最新を取得）
+          aws s3 sync "${FRONTEND}/" "s3://${BUCKET}/" \
+            --region "${REGION}" \
+            --exclude "*" \
+            --include "*.html" \
+            --content-type "text/html; charset=utf-8" \
+            --cache-control "no-cache, must-revalidate"
+
+          # JS/CSS: no-cache
+          aws s3 sync "${FRONTEND}/" "s3://${BUCKET}/" \
+            --region "${REGION}" \
+            --exclude "*" \
+            --include "*.js" \
+            --exclude "sw.js" \
+            --content-type "application/javascript" \
+            --cache-control "no-cache, must-revalidate"
+
+          aws s3 sync "${FRONTEND}/" "s3://${BUCKET}/" \
+            --region "${REGION}" \
+            --exclude "*" \
+            --include "*.css" \
+            --content-type "text/css" \
+            --cache-control "no-cache, must-revalidate"
+
+          # sw.js: no-store（ブラウザのHTTPキャッシュにも保存させない）
+          aws s3 cp "${FRONTEND}/sw.js" "s3://${BUCKET}/sw.js" \
+            --region "${REGION}" \
+            --content-type "application/javascript" \
+            --cache-control "no-store, no-cache, must-revalidate"
+
+          # 画像・その他: 長期キャッシュ（.md等の開発ファイルは除外）
+          aws s3 sync "${FRONTEND}/" "s3://${BUCKET}/" \
+            --region "${REGION}" \
+            --exclude "*.html" \
+            --exclude "*.js" \
+            --exclude "*.css" \
+            --exclude "*.md" \
+            --cache-control "public, max-age=604800"
+
+          echo "✅ S3同期完了"
+
+      - name: CloudFront invalidation（全キャッシュクリア）
+        run: |
+          DIST_ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?contains(Aliases.Items, 'flotopic.com')].Id" \
+            --output text --region us-east-1)
+          aws cloudfront create-invalidation \
+            --distribution-id "${DIST_ID}" \
+            --paths "/*" \
+            --region us-east-1
+          echo "✅ CloudFront invalidation完了"
