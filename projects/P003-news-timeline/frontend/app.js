@@ -635,6 +635,7 @@ async function refreshTopics() {
     });
     lastFetchTime = Date.now();
     updateFreshnessDisplay();
+    renderHeroStoryPreview(allTopics);
     renderHotStrip(allTopics);
     renderFavStrip(allTopics);
     renderQuickNews(allTopics);
@@ -665,6 +666,28 @@ function updateFreshnessDisplay() {
  * HOT_STRIP_HOURS 以内に更新されたトピックを velocityScore 降順で最大5件表示する
  * @param {Array} topics - 全トピックの配列
  */
+function renderHeroStoryPreview(topics) {
+  const el = document.getElementById('hero-story-preview');
+  if (!el) return;
+  const candidate = (topics || [])
+    .filter(t => Array.isArray(t.storyTimeline) && t.storyTimeline.length >= 1 && t.lifecycleStatus !== 'archived')
+    .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0))[0];
+  if (!candidate) { el.style.display = 'none'; return; }
+  const beats = candidate.storyTimeline;
+  const latest = beats[beats.length - 1];
+  const latestEvent = latest && latest.event ? esc(latest.event) : '';
+  const title = esc(candidate.generatedTitle || candidate.title);
+  el.innerHTML = `
+    <a href="storymap.html?id=${esc(candidate.topicId)}" class="hero-story-card">
+      <div class="hero-story-label">📖 今日最も動きのあったストーリー</div>
+      <div class="hero-story-title">${title}</div>
+      ${latestEvent ? `<div class="hero-story-beat">最新: ${latestEvent}</div>` : ''}
+      <div class="hero-story-cta">経緯をすべて見る →</div>
+    </a>
+    <p class="hero-story-tagline">速報じゃなく、<strong>経緯</strong>がわかる</p>`;
+  el.style.display = '';
+}
+
 function renderHotStrip(topics) {
   let strip = document.getElementById('hot-strip');
   if (!strip) {
