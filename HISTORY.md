@@ -472,3 +472,9 @@ bash projects/P003-news-timeline/deploy.sh
 | fetcher O(n²)削減 | topics_active[:500]・転置インデックス化（T017） |
 | アフィリエイト収益化基盤 | privacy.html更新・topic.htmlウィジェット枠 |
 | mypage.html 広告追加 | shinobiスクリプト追加・ad-728（PC）+ ad-sp（SP）スロット追加（T029） |
+
+→ T034 SEO内部リンク強化（15:00 JST）
+- `detail.js` 関連トピック上限を5件→6件に増加（relatedTopics/childTopics両方）
+- `disc-card` にサムネイル画像を追加（52×52px。imageUrlがあるトピックのみ表示）
+- `.disc-card` を `display:flex` に変更、`.disc-card-body` と `.disc-card-thumb` スタイル追加
+- テスト: `npm test` 42件全パス
