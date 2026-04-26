@@ -413,6 +413,35 @@
       line-height: 1.6;
     }
     .mp-empty a { color: #2563eb; }
+    .mp-fav-group-header {
+      font-size: .75rem;
+      font-weight: 700;
+      color: #64748b;
+      letter-spacing: .06em;
+      padding: 10px 20px 4px;
+      text-transform: uppercase;
+      list-style: none;
+      display: block;
+    }
+    .mp-fav-group-header.new { color: #f59e0b; }
+    .mp-fav-unchanged { border-top: 1px solid #f1f5f9; }
+    .mp-fav-unchanged summary::-webkit-details-marker { display: none; }
+    .mp-topic-row.fav-new-activity { background: rgba(245,158,11,.05); }
+    .fav-new-badge {
+      display: inline-block;
+      background: #f59e0b;
+      color: #fff;
+      font-size: .65rem;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 1px 5px;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+    [data-theme="dark"] .mp-fav-group-header { color: #6b7280; }
+    [data-theme="dark"] .mp-fav-group-header.new { color: #fbbf24; }
+    [data-theme="dark"] .mp-topic-row.fav-new-activity { background: rgba(245,158,11,.08); }
+    [data-theme="dark"] .mp-fav-unchanged { border-top-color: rgba(99,102,241,.1); }
 
     /* ===== ニックネーム編集 ===== */
     .mp-nickname-field {
@@ -1309,16 +1338,53 @@
     const profile     = readProfile();
     const handleText  = profile.handle ? `@${profile.handle}` : '@Flotopicメンバー';
 
-    const favsHtml = favTopics.length
-      ? favTopics.map(t => `
-          <a class="mp-topic-row" href="topic.html?id=${safeEsc(t.topicId)}">
+    const LAST_VISIT_KEY = 'flotopic_last_mypage_visit';
+    const lastVisitSec = (() => { try { const v = localStorage.getItem(LAST_VISIT_KEY); return v ? Number(v) : 0; } catch { return 0; } })();
+    try { localStorage.setItem(LAST_VISIT_KEY, String(Math.floor(Date.now() / 1000))); } catch {}
+
+    function toSec(v) {
+      if (!v) return 0;
+      const n = Number(v);
+      if (!isNaN(n) && n > 1e9) return n;
+      const t = new Date(v).getTime();
+      return isNaN(t) ? 0 : t / 1000;
+    }
+    function fmtRelSec(sec) {
+      const diff = Date.now() / 1000 - sec;
+      if (diff < 3600) return Math.floor(diff / 60) + '分前更新';
+      if (diff < 86400) return Math.floor(diff / 3600) + '時間前更新';
+      return Math.floor(diff / 86400) + '日前更新';
+    }
+
+    const renderFavRow = (t, isNew) => {
+      const sec = toSec(t.lastUpdated);
+      const relTime = isNew && sec ? ' · ' + fmtRelSec(sec) : '';
+      const subText = isNew
+        ? `<span class="fav-new-badge">NEW</span>${safeEsc((t.genres || [t.genre || '総合'])[0])} · ${t.articleCount || 0}件${relTime}`
+        : `${safeEsc((t.genres || [t.genre || '総合'])[0])} · ${t.articleCount || 0}件`;
+      return `
+          <a class="mp-topic-row${isNew ? ' fav-new-activity' : ''}" href="topic.html?id=${safeEsc(t.topicId)}">
             <div class="mp-topic-icon fav">⭐</div>
             <div class="mp-topic-info">
               <div class="mp-topic-title">${safeEsc(t.generatedTitle || t.title)}</div>
-              <div class="mp-topic-sub">${safeEsc((t.genres || [t.genre || '総合'])[0])} · ${t.articleCount || 0}件</div>
+              <div class="mp-topic-sub">${subText}</div>
             </div>
             <span class="mp-topic-arrow">›</span>
-          </a>`).join('')
+          </a>`;
+    };
+
+    const newTopics       = favTopics.filter(t => lastVisitSec > 0 && toSec(t.lastUpdated) > lastVisitSec);
+    const unchangedTopics = favTopics.filter(t => !(lastVisitSec > 0 && toSec(t.lastUpdated) > lastVisitSec));
+
+    const favsHtml = favTopics.length
+      ? (() => {
+          if (!newTopics.length) return favTopics.map(t => renderFavRow(t, false)).join('');
+          const newSection = `<div class="mp-fav-group-header new">🔔 新着あり (${newTopics.length}件)</div>` + newTopics.map(t => renderFavRow(t, true)).join('');
+          const unchangedSection = unchangedTopics.length
+            ? `<details class="mp-fav-unchanged"><summary class="mp-fav-group-header" style="cursor:pointer;list-style:none;">変化なし (${unchangedTopics.length}件) ›</summary>${unchangedTopics.map(t => renderFavRow(t, false)).join('')}</details>`
+            : '';
+          return newSection + unchangedSection;
+        })()
       : `<div class="mp-empty">お気に入りのトピックはまだありません<br><a href="index.html">トピック一覧へ →</a></div>`;
 
     const historyHtml = history.length

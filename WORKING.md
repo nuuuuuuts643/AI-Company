@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T157 mypage お気に入り新着グルーピング | frontend/mypage.html | 2026-04-26 23:30 |
