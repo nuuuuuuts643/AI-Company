@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T067 CLAUDE.mdスナップショット更新 | CLAUDE.md | 2026-04-26 15:05 |
