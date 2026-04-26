@@ -682,12 +682,30 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
     summary    = _html_esc(meta.get('generatedSummary') or '')
     spread     = _html_esc(meta.get('spreadReason') or '')
     forecast   = _html_esc(meta.get('forecast') or '')
-    genre      = _html_esc((meta.get('genres') or [meta.get('genre', '総合')])[0])
+    genres_raw = meta.get('genres') or ([meta.get('genre', '総合')] if meta.get('genre') else ['総合'])
+    genre      = _html_esc(genres_raw[0])
     image_url  = _html_esc(meta.get('imageUrl') or 'https://flotopic.com/icons/icon-512.png')
     canonical  = f'https://flotopic.com/topics/{tid}.html'
     interactive = f'https://flotopic.com/topic.html?id={tid}'
     timeline   = meta.get('storyTimeline') or []
     last_upd   = (meta.get('lastUpdated') or '')[:10] or ''
+
+    # ロングテールSEO用 <title>: ジャンル別サフィックスを付与
+    _GENRE_SUFFIX = {
+        '政治': '政治ニュース 経緯・最新情報まとめ',
+        'ビジネス': 'ビジネスニュース 経緯・最新情報まとめ',
+        '株・金融': '株式・金融 経緯・最新情報まとめ',
+        'テクノロジー': 'テクノロジーニュース 経緯まとめ',
+        'スポーツ': 'スポーツニュース 経緯・最新情報まとめ',
+        'エンタメ': 'エンタメニュース 経緯まとめ',
+        '科学': '科学ニュース 最新情報まとめ',
+        '健康': '健康・医療ニュース まとめ',
+        '国際': '国際ニュース 経緯・最新情報まとめ',
+        'グルメ': 'グルメ情報まとめ',
+        'ファッション・美容': 'ファッション・美容 最新情報まとめ',
+    }
+    seo_suffix = _GENRE_SUFFIX.get(genres_raw[0], '最新情報・経緯まとめ')
+    seo_title  = _html_esc(f'{meta.get("generatedTitle") or meta.get("title", "")} — {seo_suffix}')
 
     # ストーリータイムラインHTML
     timeline_html = ''
@@ -755,7 +773,7 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{title} — Flotopic</title>
+<title>{seo_title} | Flotopic</title>
 <meta name="description" content="{summary[:120] if summary else title}">
 <link rel="canonical" href="{canonical}">
 <meta property="og:type" content="article">
