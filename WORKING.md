@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T070 minimalモードorphanループ完全修正 | lambda/fetcher/handler.py, lambda/processor/proc_storage.py | 2026-04-26 17:30 |
