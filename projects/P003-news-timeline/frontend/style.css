@@ -464,6 +464,14 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
 .hero-story-beat { font-size: .78rem; color: #94a3b8; line-height: 1.4; margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hero-story-cta { font-size: .78rem; color: #818cf8; font-weight: 600; }
 .hero-story-tagline { font-size: .72rem; color: var(--text-muted); text-align: center; padding: 4px 0 2px; margin: 0; }
+#onboarding-tip { margin: 0 0 12px; }
+.ob-body { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.ob-title { font-size: .8rem; font-weight: 700; color: var(--text-secondary); margin: 0 0 10px; }
+.ob-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.ob-item { display: flex; align-items: flex-start; gap: 8px; font-size: .8rem; color: var(--text-primary); line-height: 1.45; }
+.ob-icon { font-size: 1rem; flex-shrink: 0; }
+.ob-dismiss { display: block; margin: 0 auto; background: var(--accent); color: #fff; border: none; border-radius: 20px; padding: 7px 24px; font-size: .85rem; font-weight: 600; cursor: pointer; }
+.ob-dismiss:hover { opacity: .85; }
 .card-summary-pending {
   font-size: .72rem;
   color: var(--text-muted);
