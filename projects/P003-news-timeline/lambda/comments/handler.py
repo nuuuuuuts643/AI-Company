@@ -79,8 +79,12 @@ def increment_topic_comment_count(topic_id: str):
         topics_table.update_item(
             Key={'topicId': topic_id, 'SK': 'META'},
             UpdateExpression='ADD commentCount :one',
+            ConditionExpression='attribute_exists(topicId)',
             ExpressionAttributeValues={':one': 1},
         )
+    except ClientError as e:
+        if e.response['Error']['Code'] != 'ConditionalCheckFailedException':
+            print(f'increment_topic_comment_count error: {e}')
     except Exception as e:
         print(f'increment_topic_comment_count error: {e}')
 
@@ -607,6 +611,8 @@ def lambda_handler(event, context):
         return handle_like(event)
 
     topic_id = parts[1]
+    if not re.match(r'^[0-9a-f]{16}$', topic_id):
+        return resp(400, {'error': 'invalid topicId'})
     comment_id = unquote(parts[2]) if len(parts) >= 3 else None
 
     # ── GET: コメント一覧 ─────────────────────────────────────────

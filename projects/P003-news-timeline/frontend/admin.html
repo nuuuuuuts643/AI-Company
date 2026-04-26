@@ -376,7 +376,7 @@ function computeMetrics(topics) {
 
   // ジャンル
   const genre = {};
-  topics.forEach(t => { const g = t.genre||'総合'; genre[g]=(genre[g]||0)+1; });
+  topics.forEach(t => { const g = (t.genres && t.genres[0]) || t.genre || '総合'; genre[g]=(genre[g]||0)+1; });
 
   // AI詳細
   const aiGenerated = topics.filter(t => t.aiGenerated).length;
@@ -830,7 +830,7 @@ function renderTopTopics(topics, analyticsMap) {
         <td><a class="td-link" href="/topic.html?id=${U.esc(t.topicId)}" target="_blank">
           ${U.esc(t.generatedTitle||t.title||'—')}
         </a></td>
-        <td><span class="tag">${U.esc(t.genre||'総合')}</span></td>
+        <td><span class="tag">${U.esc((t.genres && t.genres[0]) || t.genre || '総合')}</span></td>
         <td>${UI.lifecycle(t.lifecycleStatus)}</td>
         <td class="td-num">${U.int(t.articleCount)}</td>
         <td class="td-num" style="font-weight:600;color:#e3b341">${U.int(t.score)}</td>
