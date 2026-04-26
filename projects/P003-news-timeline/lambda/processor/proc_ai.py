@@ -185,17 +185,15 @@ def _generate_story_minimal(articles: list) -> dict | None:
     headlines, cnt = _build_headlines(articles, limit=2)
     prompt = (
         '以下はニューストピックに関する記事です。\n'
-        'このトピックの内容を事実ベースで1段落（100〜150文字程度）にまとめてください。\n\n'
-        + _WORD_RULES
-        + '【出力フォーマット（JSON以外出力禁止）】\n'
+        '事実のみで1段落（100〜150文字）にまとめてください。断定・感情語・メディア名禁止。\n\n'
+        '【出力フォーマット（JSON以外出力禁止）】\n'
         '{"aiSummary": "何が起きたか。誰が・何をして・何が起き・なぜ注目されたかを事実ベースで1段落"}\n\n'
-        'aiSummary: 改行・箇条書き・見出し禁止。1段落。メディア名不要。\n\n'
         f'記事情報（{cnt}件）:\n{headlines}'
     )
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 400,
+            'max_tokens': 200,
             'messages': [{'role': 'user', 'content': prompt}],
         })
         result = _parse_story_json(data['content'][0]['text'].strip())
@@ -220,8 +218,8 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
     prompt = (
         '以下は同じニューストピックに関する記事の一覧です。\n'
         'このトピックを2つの視点で分析し、JSONのみを出力してください。\n\n'
-        + _WORD_RULES
-        + '【出力フォーマット（JSON以外出力禁止）】\n'
+        '【ルール】事実は「〜した/〜と述べた」で記述。断定・感情語・メディア名禁止。主語を具体的に。\n\n'
+        '【出力フォーマット（JSON以外出力禁止）】\n'
         '{\n'
         '  "aiSummary": "何が起きたか。誰が・何をして・何が起き・なぜ注目されたかを事実ベースで1段落",\n'
         '  "spreadReason": "なぜ広がったか。記事数・メディア種別・社会的背景・議論の焦点を1〜2文で分析",\n'
@@ -243,7 +241,7 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 700,
+            'max_tokens': 500,
             'messages': [{'role': 'user', 'content': prompt}],
         })
         result = _parse_story_json(data['content'][0]['text'].strip())
@@ -265,7 +263,7 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
 
 def _generate_story_full(articles: list, cnt: int) -> dict | None:
     """6件以上: フル4セクション + 因果タイムライン（最大6件）。"""
-    headlines, _ = _build_headlines(articles, limit=15)
+    headlines, _ = _build_headlines(articles, limit=10)
     prompt = (
         '以下は同じニューストピックに関する記事の一覧です（日付付きの場合あり）。\n'
         'このトピックを4つの視点で分析し、JSONのみを出力してください。\n\n'
@@ -295,7 +293,7 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 1400,
+            'max_tokens': 900,
             'messages': [{'role': 'user', 'content': prompt}],
         })
         result = _parse_story_json(data['content'][0]['text'].strip())
