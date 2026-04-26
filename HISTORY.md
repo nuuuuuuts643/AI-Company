@@ -4,6 +4,10 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T044/T045）
+- ✅ **T044 MAX_API_CALLS 35→150復元** — proc_config.py。storyPhase 46.1% / summary 70.5% でカバレッジ80%を下回ったため150に戻す。pending 291件を4回/dayで約2日で消化見込み。
+- ✅ **T045 minimal mode storyPhase='発端'デフォルト** — proc_ai.py の `_generate_story_minimal` で `'phase': ''` → `'phase': '発端'` に変更。1〜2件記事のトピックは始まったばかりの発端と判定するのが適切。
+
 ### 完了済み（2026-04-26 T028/T029-partial）
 - ✅ **T028 グルメ・ファッションGENRESフィルター追加** — app.js L72とlegacy.html L189にグルメ/ファッションを追加。GENRE_EMOJIも対応（🍽️/👗）。
 - ✅ **T029-partial legacy.html・catchup.htmlに広告追加** — shinobiスクリプト+ad-728-scale-wrapper（728×90 PC + 320×50 SP）追加。mypage.htmlは残作業。
