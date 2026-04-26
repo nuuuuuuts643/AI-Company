@@ -107,14 +107,14 @@ def check_auto_archive(category, topic_id):
     if count >= AUTO_ARCHIVE_THRESHOLD:
         try:
             topics.update_item(
-                Key={'PK': f'TOPIC#{topic_id}', 'SK': 'META'},
+                Key={'topicId': topic_id, 'SK': 'META'},
                 UpdateExpression='SET lifecycleStatus = :s, archivedReason = :r, archivedAt = :t',
                 ExpressionAttributeValues={
                     ':s': 'archived',
                     ':r': f'auto:{category}:{count}件申告',
                     ':t': int(time.time()),
                 },
-                ConditionExpression=boto3.dynamodb.conditions.Attr('PK').exists(),
+                ConditionExpression=boto3.dynamodb.conditions.Attr('topicId').exists(),
             )
             print(f'自動archived: {topic_id} ({category} {count}件)')
             return True
