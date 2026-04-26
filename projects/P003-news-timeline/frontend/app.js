@@ -503,7 +503,6 @@ function renderTopics(topics) {
 }
 
 function updateIndexOGP(genre) {
-  const base = 'flotopic.com';
   const desc = genre === '総合'
     ? '同じ話題のニュースをAIがまとめ、時間軸で推移を可視化。30分ごと自動更新。'
     : `${genre}のニュースをAIがまとめて時間軸で可視化。急上昇トピックをリアルタイム更新。`;
@@ -979,8 +978,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const r3 = await fetch(apiUrl('topics'));
         const d3 = await r3.json();
         const t = (d3.topics || []).find(t => t.topicId === topicId);
-        if (t) { try { renderDetail({ meta: t, timeline: [], views: [] }); } catch {} return; }
-      } catch {}
+        if (t) { try { renderDetail({ meta: t, timeline: [], views: [] }); } catch(e) { console.error('renderDetail (fallback):', e); showError(); } return; }
+      } catch(e) { console.error('topics fallback fetch:', e); }
       showError();
     };
     refresh();
