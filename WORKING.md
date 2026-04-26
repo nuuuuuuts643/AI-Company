@@ -38,4 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T169 proc_ai.py _format_pub_date truncationバグ修正 | lambda/processor/proc_ai.py | 2026-04-27 03:35 |
+| T170 キーワードチップgenre上書きバグ修正 | frontend/app.js | 2026-04-27 03:40 |

@@ -20,6 +20,7 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
+| T170 | 中 | **キーワードチップクリック時にジャンル設定を恒久上書きするバグ** — 根本原因: `renderKeywordStrip` のキーワードチップクリック時に `savePrefs({genre:'総合'})` を呼んでいる（app.js line 198）。233f3ee でテキスト検索は「prefs保存なし」に修正されたが、チップは未修正のまま。修正方法: 検索入力と同様に、チップクリック時は `currentGenre='総合'` に一時変更するが `savePrefs` は呼ばない。検索クリア時（search input の clear）には保存済みジャンルを復元（既存の setupSearch の restore ロジックがそのまま適用される）。 | `frontend/app.js` | 2026-04-27 |
 | T154 | 中 | **お気に入りトピックへの新展開をWeb Push通知** — 根本原因: お気に入り登録しても次の展開を見に戻る動機がない。修正方法: ServiceWorkerにWeb Push受信を追加。fetcherが既存お気に入りtidへの新記事を検知→DynamoDB notification_queueに積む→Lambda(notifier)が1日2回処理。ユーザー増加後の優先施策。 | `frontend/sw.js`, `frontend/mypage.html`, 新Lambda | 2026-04-26 |
 
 ## 進行中
