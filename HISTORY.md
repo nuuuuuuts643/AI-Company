@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T156 about.html 今後やりたいこと追記）
+- ✅ **T156 about.html「今後やりたいこと」セクション追加** — about.htmlにはFAQ・なぜ作ったか・他サービスとの違い・AIの仕組みなど既存コンテンツが充実していたが「今後やりたいこと」が欠落していた。Web Push通知・パーソナライズ・ストーリーマップ強化・「その後どうなったか」追跡の4方向を読み物形式で追記。AdSense審査観点のオリジナルコンテンツ充実と初回訪問ユーザーへのプロダクトビジョン伝達が目的。
+
 ### 完了済み（2026-04-26 T149 affiliate-label CSS二重定義削除 + JS重複ラベル除去）
 - ✅ **T149 style.css `.affiliate-label` 二重定義を解消し、affiliate.js の重複「広告」ラベルを削除** — style.css に `.affiliate-label` が2箇所定義されていた（2610行目: amber背景 `background:#f59e0b; color:#fff; padding:2px 7px`、2651行目: グレー文字 `color:#94a3b8; border:1px solid #e2e8f0; padding:1px 5px`）。CSSカスケードにより後者のグレープロパティが一部上書きされ amber背景+グレー文字という低コントラスト状態になっていた。2651行目の重複定義を削除。また affiliate.js line 68 で `<p class="affiliate-label">広告</p>` を冒頭に挿入していたが、topic.html の `.affiliate-header` には既に `<span class="affiliate-label">広告</span>` が存在するため二重表示だった。JS側の `<p class="affiliate-label">広告</p>` を削除。npm test 42件全パス確認。
 
