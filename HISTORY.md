@@ -394,3 +394,9 @@ bash projects/P003-news-timeline/deploy.sh
 → T012 S3差分書き込み最適化（13:30 JST）
 - `proc_storage.py`: `update_topic_s3_file` に ETag(MD5)比較を追加。`get_object` の ETag と新コンテンツの MD5 が一致する場合は `put_object` をスキップ。AI処理済みトピックの再書き込みを省略し月 $1.98 のS3書き込みコスト削減
 - ✅ **T014 processor 4x/day → 2x/day** — EventBridge `cron(0 22,10 * * ? *)` (JST 7:00/19:00) が既に設定済み確認。別セッションで適用済み。Claude API 月$1.2節約。
+
+→ T027 モバイル専用広告枠追加（14:30 JST）
+- `index.html` と `topic.html` の `ad-sp-only`（320×50）スロットを PC 用 ID(`6b65a9c9ba3c1c898e167bbf103830d7`) から モバイル専用 ID(`570fe6c87677ba7c5417119c60ca979d`) に切り替え
+- PC 728×90 は `ad-pc-only`（768px以上のみ表示）のまま変更なし
+- shinobi スクリプトはページ1回のみ（`<head>` に既存）。重複なし確認済み
+- テスト: `npm test` 42件全パス
