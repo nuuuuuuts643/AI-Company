@@ -29,7 +29,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T113 ジャンル分類精度向上 | lambda/fetcher/filters.py, lambda/fetcher/handler.py | 2026-04-26 |
 | T021 fetcher高速化 | lambda/fetcher/handler.py | 2026-04-26 14:00 |
 | 例: OGP改善 | frontend/detail.js | 2026-04-26 15:00 |
 
@@ -40,3 +39,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
 | T113 カテゴリー分類精度向上 | lambda/fetcher/text_utils.py, lambda/fetcher/handler.py | 2026-04-26 |
+| T114 AI処理中バッジ表示 | frontend/app.js, frontend/index.html | 2026-04-26 |
