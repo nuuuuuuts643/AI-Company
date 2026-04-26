@@ -1,5 +1,6 @@
 import json
 import os
+import time
 import boto3
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -26,11 +27,12 @@ def lambda_handler(event, context):
         if not tid:
             return {'statusCode': 400, 'headers': CORS, 'body': 'missing topicId'}
         date = datetime.now(timezone.utc).strftime('%Y%m%d')
+        ttl_ts = int(time.time()) + 90 * 86400
         table.update_item(
             Key={'topicId': tid, 'SK': f'VIEW#{date}'},
-            UpdateExpression='ADD #c :one SET #d = :date',
-            ExpressionAttributeNames={'#c': 'count', '#d': 'date'},
-            ExpressionAttributeValues={':one': Decimal('1'), ':date': date},
+            UpdateExpression='ADD #c :one SET #d = :date, #ttl = :ttl',
+            ExpressionAttributeNames={'#c': 'count', '#d': 'date', '#ttl': 'ttl'},
+            ExpressionAttributeValues={':one': Decimal('1'), ':date': date, ':ttl': Decimal(str(ttl_ts))},
         )
         return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True})}
     except Exception as e:
