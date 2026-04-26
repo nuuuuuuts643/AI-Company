@@ -16,7 +16,7 @@ _ENTITY_MERGE_MAX_WORDS  = 5    # 対象は短い記事のみ
 # chunk-based similarity（スペースなし日本語タイトル向けフォールバック）
 _KATAKANA_RUN = re.compile(r'[ァ-ヴーｦ-ﾟ]{3,}')
 _KANJI_RUN    = re.compile(r'[一-鿿々〆〇]{2,}')
-_CHUNK_THRESHOLD = 0.40  # word-level より高めに設定して誤クラスタを防ぐ
+_CHUNK_THRESHOLD = 0.30  # 2語以上の固有語共有を要件にしているため誤クラスタはほぼ起きない
 # 高頻度すぎて識別力のない一般語を除外
 _CHUNK_COMMON = {'大統領', '首相', '大臣', '政府', '国会', '議員', '社長', '会長',
                  '委員会', '知事', '市長', '内閣', '官房', '大使', '長官',
