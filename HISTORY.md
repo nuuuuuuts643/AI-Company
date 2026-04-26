@@ -4,6 +4,10 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T048/T049）
+- ✅ **T048 ジャンル表記揺れ修正** — DynamoDB p003-topics テーブル内の `genre='ファッション・美容'` / `genres=['ファッション・美容']` を144件一括修正 → `'ファッション'` に統一。残件数0確認済み。fetcher/processor は既に 'ファッション' を使用しているので再発しない。次の processor 実行で topics.json にも反映される。
+- ✅ **T049 processor 4x/day化** — EventBridge `p003-processor-schedule` を `cron(0 22,10 * * ? *)` (2x/day) → `cron(0 22,16,10,4 * * ? *)` (JST 07:00/13:00/19:00/01:00 = 4x/day) に変更。CLAUDE.md 記載の「4x/day」と実態を一致させた。MAX_API_CALLS=150との組み合わせで 600 API calls/day まで処理能力向上。
+
 ### 完了済み（2026-04-26 T044/T045）
 - ✅ **T044 MAX_API_CALLS 35→150復元** — proc_config.py。storyPhase 46.1% / summary 70.5% でカバレッジ80%を下回ったため150に戻す。pending 291件を4回/dayで約2日で消化見込み。
 - ✅ **T045 minimal mode storyPhase='発端'デフォルト** — proc_ai.py の `_generate_story_minimal` で `'phase': ''` → `'phase': '発端'` に変更。1〜2件記事のトピックは始まったばかりの発端と判定するのが適切。
