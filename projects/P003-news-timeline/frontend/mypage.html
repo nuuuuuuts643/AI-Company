@@ -1588,7 +1588,8 @@
     } catch {}
 
     // ローカルデータ全削除
-    ['flotopic_user', 'flotopic_favs', 'flotopic_history', 'flotopic_prefs'].forEach(k => {
+    ['flotopic_user', 'flotopic_favs', 'flotopic_history', 'flotopic_prefs',
+     'flotopic_avatar', 'flotopic_profile', 'flotopic_profile_set', 'flotopic_saved_comments'].forEach(k => {
       try { localStorage.removeItem(k); } catch {}
     });
 
