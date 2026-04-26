@@ -29,7 +29,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T018 お問い合わせDynamoDB保存+自動処理 | lambda/contact/handler.py, frontend/admin.html | 2026-04-26 13:10 |
 | 例: OGP改善 | frontend/detail.js | 2026-04-26 15:00 |
 
 ---
