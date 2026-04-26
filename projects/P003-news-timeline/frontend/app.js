@@ -321,7 +321,7 @@ function renderTopicCard(t, i) {
 
   const summaryHtml = t.generatedSummary
     ? `<p class="card-summary">${esc(cleanSummary(t.generatedSummary))}</p>`
-    : '';
+    : `<p class="card-summary"><span class="badge-processing">AI処理中</span></p>`;
   const _phaseClr = PHASE_COLOR[t.storyPhase] || '#6366f1';
   const phaseHtml = t.storyPhase && PHASE_BADGE[t.storyPhase]
     ? `<span class="card-phase-badge" style="background:${_phaseClr}1a;color:${_phaseClr}">${PHASE_BADGE[t.storyPhase]}</span>`

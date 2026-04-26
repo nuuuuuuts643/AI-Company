@@ -38,5 +38,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T114 AI処理中バッジ表示 | frontend/app.js, frontend/index.html | 2026-04-26 |
+| T115+T117 velocity表示ラベル化+catchupリンク修正 | frontend/catchup.html, frontend/app.js, frontend/style.css | 2026-04-26 |
 | T116 dominant_genres少記事総合誤分類修正 | lambda/fetcher/text_utils.py | 2026-04-26 |
