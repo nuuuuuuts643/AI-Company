@@ -23,6 +23,7 @@ legacy 昇格条件:
   - かつ スコア < DEAD_SCORE_THRESHOLD（注目されなかった低品質トピック）
 """
 
+import datetime
 import json
 import os
 import time
@@ -77,18 +78,20 @@ def is_truly_inactive(item: dict, now: int) -> bool:
 
 
 def delete_snaps(topic_id: str) -> int:
-    """指定トピックのSNAPアイテムをすべて削除する"""
-    deleted = 0
-    kwargs = {'KeyConditionExpression': DKey('topicId').eq(topic_id) & DKey('SK').begins_with('SNAP#')}
+    """指定トピックのSNAPアイテムをすべて削除する（batch_writer使用）"""
+    keys_to_delete = []
+    kwargs = {'KeyConditionExpression': DKey('topicId').eq(topic_id) & DKey('SK').begins_with('SNAP#'),
+              'ProjectionExpression': 'topicId, SK'}
     while True:
         resp = table.query(**kwargs)
-        for item in resp.get('Items', []):
-            table.delete_item(Key={'topicId': item['topicId'], 'SK': item['SK']})
-            deleted += 1
+        keys_to_delete.extend({'topicId': i['topicId'], 'SK': i['SK']} for i in resp.get('Items', []))
         if not resp.get('LastEvaluatedKey'):
             break
         kwargs['ExclusiveStartKey'] = resp['LastEvaluatedKey']
-    return deleted
+    with table.batch_writer() as bw:
+        for key in keys_to_delete:
+            bw.delete_item(Key=key)
+    return len(keys_to_delete)
 
 
 def delete_old_snaps(topic_id: str, cutoff_sk: str) -> int:
@@ -160,11 +163,12 @@ def cleanup_filter_feedback(now: int) -> int:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+DELETION_CAP = 300  # 1回のLambda実行で削除するトピック数の上限（タイムアウト防止）
+
+
 def lambda_handler(event, context):
     now = int(time.time())
 
-    # SNAP_TTL_DAYS(7日)と合わせて7日超SNAPを削除。fetcher の ttl 属性未設定の古いアイテムも除去できる。
-    import datetime
     cutoff_dt  = datetime.datetime.utcfromtimestamp(now - 7 * 86400)
     cutoff_sk  = f"SNAP#{cutoff_dt.strftime('%Y%m%dT%H%M%SZ')}"
 
@@ -214,23 +218,27 @@ def lambda_handler(event, context):
             print(f"[legacy]   topicId={topic_id} score={score}")
 
         elif score < DEAD_SCORE_THRESHOLD:
-            # 低スコアで完全停止 → 全アイテム削除 + S3個別ファイル削除（ページネーション対応）
+            if deleted_count >= DELETION_CAP:
+                skipped_count += 1
+                continue
+            # 低スコアで完全停止 → 全アイテムをbatch削除 + S3個別ファイル削除
+            del_keys = []
             del_kwargs = {'KeyConditionExpression': DKey('topicId').eq(topic_id), 'ProjectionExpression': 'topicId, SK'}
-            total_deleted = 0
             while True:
                 r = table.query(**del_kwargs)
-                for ti in r.get('Items', []):
-                    table.delete_item(Key={'topicId': ti['topicId'], 'SK': ti['SK']})
-                    total_deleted += 1
+                del_keys.extend({'topicId': ti['topicId'], 'SK': ti['SK']} for ti in r.get('Items', []))
                 if not r.get('LastEvaluatedKey'):
                     break
                 del_kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
+            with table.batch_writer() as bw:
+                for k in del_keys:
+                    bw.delete_item(Key=k)
             try:
                 s3.delete_object(Bucket=S3_BUCKET, Key=f'api/topic/{topic_id}.json')
             except Exception:
                 pass
             deleted_count += 1
-            print(f"[deleted]  topicId={topic_id} score={score} items={total_deleted}")
+            print(f"[deleted]  topicId={topic_id} score={score} items={len(del_keys)}")
 
         else:
             # 中間スコア → archived に設定 + SNAPを即削除（容量節約）
