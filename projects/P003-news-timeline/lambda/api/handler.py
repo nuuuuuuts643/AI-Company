@@ -14,7 +14,8 @@ table    = dynamodb.Table(TABLE_NAME)
 
 def dec(obj):
     if isinstance(obj, Decimal):
-        return int(obj)
+        f = float(obj)
+        return int(f) if f == int(f) else f
     raise TypeError
 
 
@@ -78,8 +79,10 @@ def lambda_handler(event, context):
         meta, snaps = topic_detail(tid)
         if not meta:
             return resp(404, {'error': 'not found'})
+        _INTERNAL = {'SK', 'pendingAI', 'ttl'}
+        pub_meta = {k: v for k, v in meta.items() if k not in _INTERNAL}
         return resp(200, {
-            'meta': meta,
+            'meta': pub_meta,
             'timeline': [
                 {
                     'timestamp':    s['timestamp'],
