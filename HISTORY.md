@@ -579,3 +579,10 @@ bash projects/P003-news-timeline/deploy.sh
 → favorites Lambda CORS PUT追加（17:00 JST）
 - `lambda/favorites/handler.py` の cors_headers() `Access-Control-Allow-Methods` に `PUT` を追加
 - T038で追加した `PUT /prefs` エンドポイントのCORSプリフライトが通らなかったバグを修正
+
+→ T019 お問い合わせフォーム SES有効化（16:30 JST）
+- SES検証状況: mrkm.naoya643@gmail.com = Success ✅ / flotopic.com = Pending（DNS未設定）
+- SES sandbox mode のため FROM_EMAIL を未検証の contact@flotopic.com から検証済み mrkm.naoya643@gmail.com に変更
+- Lambda環境変数: FROM_EMAIL=mrkm.naoya643@gmail.com, TO_EMAIL=mrkm.naoya643@gmail.com
+- 実テスト送信確認済み（「送信しました」レスポンス）
+- flotopic.com ドメインのDNS TXT レコード追加で contact@flotopic.com からの送信も可能になる
