@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T125 storymap.html ダークモード対応 | frontend/storymap.html | 2026-04-26 |

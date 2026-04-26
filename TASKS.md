@@ -12,7 +12,6 @@
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
 | T019 | 中 | **SES本番アクセス申請後のLambda環境変数設定**（ナオヤ手動） | — | 2026-04-26 |
-| T125 | 中 | **storymap.htmlのコンテンツカードがダークモード未対応** — storymap.htmlはtheme.jsを読み込んでいて`data-theme`は正しく設定されるが、カスタムCSS内の`.sm-section`（`background:#fff`）・`.sm-branch-card`（`background:#f8fafc; border-color:#e2e8f0`）・`.sm-branch-card-title`（`color:#1e293b`）・`.sm-section-title`（`color:#1e293b`）がハードコード白色のため、ダークモード時に白いカードが浮いて見える。**修正方針**: style.cssの既存CSS変数（`--card-bg`, `--border`, `--text-primary`, `--surface`等）をstorymap.htmlのカスタムCSSに適用。ヒーローセクション（`.sm-hero`）はデザイン上の暗色グラデーションのままでOK。検証: ダークモードでstorymap.htmlを開き、コンテンツカードが適切に暗色表示されること | `frontend/storymap.html`, `frontend/style.css`(参照のみ) | 2026-04-26 |
 | T056 | 低 | **フォロー/フォロワー機能**（将来・ユーザー増えてから） | — | 2026-04-26 |
 | T109 | 低 | **アフィリエイト: トピック内容に合わせた関連商品表示（将来）** — 現状はジャンル固定キーワードで検索。AI要約生成時に商品検索クエリも同時生成してDynamoDBに保存し、トピックページに関連商品として表示できれば収益性向上。AI処理コスト増になるため収益化フェーズで検討 | `lambda/processor/proc_ai.py`, `frontend/js/affiliate.js` | 2026-04-26 |
 
