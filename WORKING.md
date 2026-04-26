@@ -39,4 +39,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
 | T065 ストーリー表示強化 | frontend/catchup.html | 2026-04-26 15:00 |
-| T066 proc_ai.pyプロンプト強化 | lambda/processor/proc_ai.py | 2026-04-26 14:40 |
