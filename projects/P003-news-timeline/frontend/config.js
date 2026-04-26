@@ -12,7 +12,7 @@ const GOOGLE_CLIENT_ID = '632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.goo
 // アフィリエイト設定（申請後にIDを設定する）
 // ① もしもアフィリエイト（推奨・審査が緩い・Amazon/楽天/Yahoo!をまとめて対応）
 //   https://af.moshimo.com/ で登録 → マイページ > プログラム管理 > a_id を確認
-const AFFILIATE_MOSHIMO_A_ID = '';  // 例: '1234567'
+const AFFILIATE_MOSHIMO_A_ID = '1188659';  // 例: '1234567'
 // ② Amazonアソシエイト直接（もしもIDがない場合のフォールバック）
 //   https://affiliate.amazon.co.jp/ でタグIDを取得後に設定
 const AFFILIATE_AMAZON_TAG = 'flotopic-22';    // 例: 'flotopic-22'
