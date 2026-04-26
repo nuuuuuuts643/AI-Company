@@ -1977,6 +1977,13 @@ details[open] .day-more-btn::before { content: '▼ '; }
   box-shadow: 0 2px 8px rgba(99,102,241,0.25);
 }
 
+/* return-strip: 前回訪問から新着あり */
+.return-strip { border-left: 3px solid #f59e0b; padding-left: 10px; }
+.return-chip { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.35); color: #b45309; }
+.return-chip:hover { background: rgba(245,158,11,0.18); border-color: #f59e0b; }
+[data-theme="dark"] .return-chip { background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.3); color: #fbbf24; }
+[data-theme="dark"] .return-chip:hover { background: rgba(245,158,11,0.22); }
+
 /* COMPONENT: QUICK-NEWS STRIP */
 .quick-news-strip { margin-bottom: 14px; }
 .qn-item {
