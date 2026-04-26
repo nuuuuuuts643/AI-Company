@@ -842,22 +842,24 @@ header a{{color:#6366f1;font-weight:bold;font-size:1.1rem;text-decoration:none}}
 
 
 def batch_generate_static_html(max_topics: int = 500) -> int:
-    """既存の api/topic/{tid}.json を全件読み込み、topics/{tid}.html を生成する。
-    新規追加した静的HTML機能を既存トピックに適用するために使う。
+    """現在の api/topics.json に含まれるトピックの静的HTMLを一括生成する。
+    api/topic/{tid}.json が存在するトピックのみ対象。
     """
     if not S3_BUCKET:
         return 0
 
-    paginator = s3.get_paginator('list_objects_v2')
-    pages = paginator.paginate(Bucket=S3_BUCKET, Prefix='api/topic/')
-    keys = []
-    for page in pages:
-        for obj in page.get('Contents', []):
-            k = obj['Key']
-            if k.endswith('.json') and '/topic/' in k:
-                keys.append(k)
-    keys = keys[:max_topics]
-    print(f'[StaticHTML] バッチ生成対象: {len(keys)}件')
+    # 現在のアクティブトピック一覧を topics.json から取得
+    try:
+        resp = s3.get_object(Bucket=S3_BUCKET, Key='api/topics.json')
+        topics_data = json.loads(resp['Body'].read())
+        active_topics = topics_data if isinstance(topics_data, list) else topics_data.get('topics', [])
+    except Exception as e:
+        print(f'[StaticHTML] topics.json 読み込み失敗: {e}')
+        return 0
+
+    # アクティブトピックのIDから api/topic/{tid}.json キーリストを作成
+    keys = [f'api/topic/{t["topicId"]}.json' for t in active_topics[:max_topics] if t.get('topicId')]
+    print(f'[StaticHTML] バッチ生成対象: {len(keys)}件（topics.json ベース）')
 
     generated = 0
 
