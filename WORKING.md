@@ -38,6 +38,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T028 グルメ・ファッションGENRES追加 | frontend/app.js, frontend/legacy.html | 2026-04-26 14:20 |
-| T029 legacy/catchup/mypageに広告追加 | frontend/legacy.html, frontend/catchup.html | 2026-04-26 14:20 |
+| T029 mypage.htmlに広告追加（残作業） | frontend/mypage.html | 2026-04-26 14:20 |
 | T027 モバイル専用広告枠追加 | frontend/index.html, frontend/topic.html, frontend/style.css | 2026-04-26 14:30 |
