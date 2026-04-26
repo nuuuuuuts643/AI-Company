@@ -52,21 +52,27 @@ table    = dynamodb.Table(TABLE)
 s3       = boto3.client('s3', region_name=REGION)
 
 
+FORCE_ARCHIVE_DAYS = 30  # 30日超は velocityScore の値に関係なく inactive 扱い
+
 def is_truly_inactive(item: dict, now: int) -> bool:
     """
     「本当に活動停止しているか」を判定する。
-    velocity_score <= 0 かつ lastArticleAt が ARCHIVE_DAYS 以上前の場合のみ True。
 
-    lastArticleAt=0 の扱い:
-    - 高スコア(>= DEAD_SCORE_THRESHOLD): 保護する（pubDate未解析の正当なトピックの可能性）
-    - 低スコア(< DEAD_SCORE_THRESHOLD): True を返す（ゾンビトピックとして削除対象）
+    判定ルール:
+    - lastArticleAt=0: 低スコア(<DEAD_SCORE_THRESHOLD)なら True（ゾンビ）
+    - lastArticleAt設定済み:
+      - days_since >= FORCE_ARCHIVE_DAYS(30日): 無条件 True
+        （DynamoDBのvocityScoreが古い正値のまま残っている場合への対策）
+      - days_since >= ARCHIVE_DAYS(7日) AND velocity <= 0: True
     """
     last_article = int(item.get('lastArticleAt', 0))
     if last_article == 0:
         score = int(item.get('score', 0))
-        return score < DEAD_SCORE_THRESHOLD  # 低スコアゾンビは削除対象
-    velocity   = int(item.get('velocityScore', 0))
+        return score < DEAD_SCORE_THRESHOLD
     days_since = (now - last_article) / 86400
+    if days_since >= FORCE_ARCHIVE_DAYS:
+        return True  # 30日以上記事がない → 速度スコアに関係なく停止扱い
+    velocity = int(item.get('velocityScore', 0))
     return days_since >= ARCHIVE_DAYS and velocity <= 0
 
 
