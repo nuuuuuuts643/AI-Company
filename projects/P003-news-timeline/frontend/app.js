@@ -348,6 +348,7 @@ function renderTopicCard(t, i) {
       </a>
       <button class="fav-btn ${isFav ? 'fav-active' : ''}" data-topic-id="${esc(t.topicId)}" title="${isFav ? 'お気に入りを解除' : 'お気に入りに追加'}" aria-label="お気に入り">♥</button>
       <button class="card-share-btn" data-share-id="${esc(t.topicId)}" data-share-title="${esc(t.generatedTitle || t.title)}" title="URLをコピー" aria-label="URLをコピー">🔗</button>
+      ${t.storyPhase ? `<a href="storymap.html?id=${esc(t.topicId)}" class="card-storymap-link">📖 経緯を読む →</a>` : ''}
     </div>`;
 }
 

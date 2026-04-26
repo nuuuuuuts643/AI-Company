@@ -1458,6 +1458,20 @@ details[open] .day-more-btn::before { content: '▼ '; }
 
 /* ===== TOPIC CARD WRAPPER ===== */
 .topic-card-wrapper { position: relative; }
+.card-storymap-link {
+  display: block;
+  text-align: center;
+  padding: 5px 8px;
+  font-size: .7rem;
+  font-weight: 600;
+  color: #6366f1;
+  text-decoration: none;
+  background: rgba(99,102,241,.06);
+  border-top: 1px solid rgba(99,102,241,.1);
+  border-radius: 0 0 10px 10px;
+  transition: background .15s;
+}
+.card-storymap-link:hover { background: rgba(99,102,241,.13); }
 @media (min-width: 768px) {
   /* 同じ行のカード高さを揃える */
   .topic-card { height: 100%; box-sizing: border-box; }
@@ -1759,6 +1773,22 @@ details[open] .day-more-btn::before { content: '▼ '; }
   transition: opacity .2s, transform .15s;
 }
 .storymap-btn:hover { opacity: .85; transform: translateY(-1px); }
+.storymap-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(99,102,241,.1);
+  color: #6366f1;
+  border-radius: 999px;
+  text-decoration: none;
+  font-size: .8rem;
+  font-weight: 600;
+  margin: 8px 0 4px;
+  border: 1px solid rgba(99,102,241,.2);
+  transition: background .15s, transform .15s;
+}
+.storymap-banner:hover { background: rgba(99,102,241,.18); transform: translateY(-1px); }
 
 /* ===== Discovery (関連する話題) ===== */
 #discovery-section { margin-bottom: 16px; }
@@ -2406,6 +2436,10 @@ details[open] .day-more-btn::before { content: '▼ '; }
 [data-theme="dark"] .sort-btn { background: #1e2035; border-color: rgba(99,102,241,.2); }
 [data-theme="dark"] .sort-btn.active, [data-theme="dark"] .sort-btn:hover { background: #6366f1; border-color: #6366f1; color: #fff; }
 [data-theme="dark"] .storymap-btn { background: linear-gradient(135deg,#6366f1,#38bdf8); color: #fff; }
+[data-theme="dark"] .storymap-banner { background: rgba(99,102,241,.18); color: #a5b4fc; border-color: rgba(99,102,241,.3); }
+[data-theme="dark"] .storymap-banner:hover { background: rgba(99,102,241,.28); }
+[data-theme="dark"] .card-storymap-link { color: #a5b4fc; background: rgba(99,102,241,.1); border-color: rgba(99,102,241,.2); }
+[data-theme="dark"] .card-storymap-link:hover { background: rgba(99,102,241,.2); }
 [data-theme="dark"] .related-topic-item { background: #1e2035; border-color: rgba(99,102,241,.14); }
 [data-theme="dark"] .related-topic-item:hover { background: #252840; border-color: rgba(99,102,241,.35); }
 [data-theme="dark"] .comment-submit-btn { background: #6366f1; color: #fff; }
