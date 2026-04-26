@@ -214,18 +214,23 @@ def lambda_handler(event, context):
             print(f"[legacy]   topicId={topic_id} score={score}")
 
         elif score < DEAD_SCORE_THRESHOLD:
-            # 低スコアで完全停止 → 全アイテム削除 + S3個別ファイル削除
-            topic_items = table.query(
-                KeyConditionExpression=DKey('topicId').eq(topic_id)
-            ).get('Items', [])
-            for ti in topic_items:
-                table.delete_item(Key={'topicId': ti['topicId'], 'SK': ti['SK']})
+            # 低スコアで完全停止 → 全アイテム削除 + S3個別ファイル削除（ページネーション対応）
+            del_kwargs = {'KeyConditionExpression': DKey('topicId').eq(topic_id), 'ProjectionExpression': 'topicId, SK'}
+            total_deleted = 0
+            while True:
+                r = table.query(**del_kwargs)
+                for ti in r.get('Items', []):
+                    table.delete_item(Key={'topicId': ti['topicId'], 'SK': ti['SK']})
+                    total_deleted += 1
+                if not r.get('LastEvaluatedKey'):
+                    break
+                del_kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
             try:
                 s3.delete_object(Bucket=S3_BUCKET, Key=f'api/topic/{topic_id}.json')
             except Exception:
                 pass
             deleted_count += 1
-            print(f"[deleted]  topicId={topic_id} score={score} items={len(topic_items)}")
+            print(f"[deleted]  topicId={topic_id} score={score} items={total_deleted}")
 
         else:
             # 中間スコア → archived に設定 + SNAPを即削除（容量節約）
