@@ -400,3 +400,9 @@ bash projects/P003-news-timeline/deploy.sh
 - PC 728×90 は `ad-pc-only`（768px以上のみ表示）のまま変更なし
 - shinobi スクリプトはページ1回のみ（`<head>` に既存）。重複なし確認済み
 - テスト: `npm test` 42件全パス
+
+→ T035 位置情報ダイアログをログインユーザー限定（14:40 JST）
+- `app.js` L988 の `loadWeather()` 呼び出しを `if (typeof currentUser !== 'undefined' && currentUser) loadWeather();` に変更
+- 未ログインユーザーが index.html を開いたときにブラウザの位置情報許可ダイアログが出る問題を修正
+- ログイン済みユーザーは従来通り天気ウィジェットが動作する
+- テスト: `npm test` 42件全パス
