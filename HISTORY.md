@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T139 storyPhase欠如トピック優先キュー追加）
+- ✅ **T139 fetcher/handler.py storyPhase欠如トピックをorphan capに依存せず追加** — orphan機構はqueue<80のとき限定だが、現状queue=311のため17件のstoryPhase欠如トピックが永遠にキューに入らない問題を修正。新規ブロックを追加: `aiGenerated=True` + `generatedSummary` + `storyPhase=None` + `cnt>=3` のトピックを最大5件/run強制追加。fetcher 30分毎×5件 = 17件が4run（約2時間）で全件キュー投入可能になった。
+
 ### 完了済み（2026-04-26 T137/T138 contact/storymap dark mode 修正）
 - ✅ **T137 contact.html notice box inline style 除去** — `<div class="info-section" style="border-color:#fde68a;background:#fffbeb;">` のinline styleがCSSの特定性(1,0,0,0)で `[data-theme="dark"] .info-section` オーバーライド(0,1,1,0)に勝つためダークモード時に黄色ボックスが表示される問題を修正。`.info-section-notice` クラスを追加してinline styleを削除し、`[data-theme="dark"] .info-section-notice { background: var(--bg-card); border-color: var(--border); }` でダークモード対応。
 - ✅ **T138 storymap.html ステータスバッジ dark mode 対応** — `.sm-status-badge.active { background: #dcfce7; color: #16a34a; }` / `.sm-status-badge.cooling { background: #fef3c7; color: #92400e; }` にダークモードオーバーライドなし。 `[data-theme="dark"]` セレクタを2件追加（active: rgba緑 / cooling: rgba琥珀）。

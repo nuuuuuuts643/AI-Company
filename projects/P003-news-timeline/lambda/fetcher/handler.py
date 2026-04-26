@@ -627,6 +627,24 @@ def lambda_handler(event, context):
                 pending_ids = pending_ids + [t['topicId'] for t in orphan_candidates[:add_count]]
                 print(f'[pending] summary欠如orphan追加: {add_count}件 (残{len(orphan_candidates)-add_count}件, total={len(pending_ids)})')
 
+        # storyPhase欠如トピックをorphan_capに関わらず優先追加（T139: 大きなキューでもカバレッジ確保）
+        _PHASE_CAP = 5
+        already_pending_set = set(pending_ids)
+        phase_missing = sorted(
+            (t for t in topics_deduped
+             if t['topicId'] not in already_pending_set
+             and t.get('aiGenerated')
+             and t.get('generatedSummary')
+             and not t.get('storyPhase')
+             and int(t.get('articleCount', 0) or 0) >= 3),
+            key=lambda t: float(t.get('velocityScore', 0) or 0),
+            reverse=True,
+        )
+        if phase_missing:
+            add_count = min(_PHASE_CAP, len(phase_missing))
+            pending_ids = pending_ids + [t['topicId'] for t in phase_missing[:add_count]]
+            print(f'[pending] storyPhase欠如追加: {add_count}件 (残{len(phase_missing)-add_count}件)')
+
         write_s3('api/pending_ai.json', {'topicIds': pending_ids, 'updatedAt': ts_iso})
         generate_rss(topics, ts_iso)
         generate_sitemap(topics_deduped)  # 公開対象のみsitemapに含める
