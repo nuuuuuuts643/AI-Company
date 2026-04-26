@@ -52,7 +52,7 @@ function renderAffiliate(meta) {
 
   if (!items.length) return;
 
-  linksEl.innerHTML = items.map(it => `
+  linksEl.innerHTML = `<p class="affiliate-label">広告</p>` + items.map(it => `
     <a href="${esc(it.href)}" target="_blank" rel="noopener sponsored" class="affiliate-link-item">
       <div class="affiliate-link-logo ${esc(it.logoClass)}">${it.logoText}</div>
       <div class="affiliate-link-body">
