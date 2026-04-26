@@ -38,6 +38,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T036 閲覧済みカードの視覚化 | frontend/app.js, frontend/style.css | 2026-04-26 15:10 |
 | T037 ログイン特典モーダル改善 | frontend/js/auth.js | 2026-04-26 15:15 |
 | T039 Bluesky投稿文改善 | scripts/bluesky_agent.py | 2026-04-26 15:15 |

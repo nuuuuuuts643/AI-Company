@@ -478,3 +478,9 @@ bash projects/P003-news-timeline/deploy.sh
 - `disc-card` にサムネイル画像を追加（52×52px。imageUrlがあるトピックのみ表示）
 - `.disc-card` を `display:flex` に変更、`.disc-card-body` と `.disc-card-thumb` スタイル追加
 - テスト: `npm test` 42件全パス
+
+→ T036 閲覧済みカードの視覚化（15:10 JST）
+- `loadViewedTopics()` を改修: `flotopic_viewed` に加えて `flotopic_history`（閲覧履歴）のtopicIdもマージ
+- これによりflotopic_historyにデータがあるユーザーのカードも正しくopacity:0.65のグレー表示になる
+- `.topic-card.viewed` CSSは既存のまま（opacity:0.65/muted title/hover:0.85）
+- テスト: `npm test` 42件全パス
