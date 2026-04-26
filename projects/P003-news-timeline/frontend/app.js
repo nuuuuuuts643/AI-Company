@@ -578,6 +578,12 @@ function setupSearch() {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       currentSearch = input.value.trim();
+      if (currentGenre !== '総合') {
+        currentGenre = '総合';
+        savePrefs({...loadPrefs(), genre: currentGenre});
+        if (typeof syncGenreToCloud === 'function') syncGenreToCloud(currentGenre);
+        buildFilters();
+      }
       currentPage = 1;
       renderTopics(allTopics);
     }, 200);
