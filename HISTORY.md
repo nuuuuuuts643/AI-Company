@@ -586,3 +586,18 @@ bash projects/P003-news-timeline/deploy.sh
 - Lambda環境変数: FROM_EMAIL=mrkm.naoya643@gmail.com, TO_EMAIL=mrkm.naoya643@gmail.com
 - 実テスト送信確認済み（「送信しました」レスポンス）
 - flotopic.com ドメインのDNS TXT レコード追加で contact@flotopic.com からの送信も可能になる
+
+### 完了済み（2026-04-26）
+→ HISTORY.md に移動済み（セッション継続）
+
+#### T045 アバター保存「保存中...」のまま固まるバグ修正
+- `frontend/mypage.html` `uploadAvatarBlob()` に AbortController + 30秒タイムアウト追加
+- ネットワーク障害時・S3無応答時に保存ボタンが永遠にdisabledのまま固まるバグを修正
+- AbortError は既存のcatchブロックで処理されsaveBtnがリセットされる
+
+#### T046 ログインモーダルの通知文言修正
+- `frontend/js/auth.js` L131: 「急上昇・続報の通知を受け取る」→「コメント返信・@メンション通知を受け取る」
+- Web Push（pushManager.subscribe）は未実装なので実装済み機能に合わせた正確な文言に修正
+
+#### profile.html r.ok チェック追加
+- `loadTopicTitleMap()` 内の topics.json fetch に `if (!r.ok) throw new Error(...)` を追加
