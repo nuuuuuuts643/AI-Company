@@ -38,7 +38,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T182 CLAUDE.md 原因分析ルール追記 | CLAUDE.md | 2026-04-27 08:45 |
 | T176 モバイルUI崩れ修正 | frontend/style.css, frontend/index.html | 2026-04-27 08:00 |
 | T178 topic.html CDN async追加 | projects/P003-news-timeline/frontend/topic.html | 2026-04-27 |
 | T179 グラフ/記事数補正 | projects/P003-news-timeline/frontend/detail.js | 2026-04-27 |
