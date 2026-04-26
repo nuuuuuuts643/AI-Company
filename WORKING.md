@@ -41,3 +41,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | T021 fetcher高速化 | lambda/fetcher/handler.py | 2026-04-26 14:00 |
 | T022 モバイル広告調査修正 | frontend/topic.html, frontend/style.css | 2026-04-26 14:05 |
 | T023 UIコピー改善 | frontend/contact.html, frontend/legacy.html, frontend/privacy.html, frontend/catchup.html | 2026-04-26 14:05 |
+| T024 閲覧履歴クラウド同期 | lambda/favorites/handler.py, frontend/app.js, frontend/mypage.html | 2026-04-26 14:10 |
