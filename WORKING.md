@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T132 topic.html CSS変数名修正(--card-bg→--bg-card) | frontend/topic.html | 2026-04-26 15:00 |
