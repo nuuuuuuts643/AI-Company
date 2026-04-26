@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T068 ジャンル分類精度改善 | lambda/fetcher/text_utils.py, lambda/fetcher/config.py | 2026-04-26 14:30 |
