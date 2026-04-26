@@ -699,7 +699,7 @@ function renderDiscovery(meta) {
 
     // 2. エンティティ類似トピック（relatedTopics・最も確実な関連性）
     for (const rt of (meta.relatedTopics || [])) {
-      if (items.length >= 5) break;
+      if (items.length >= 6) break;
       if (usedIds.has(rt.topicId)) continue;
       const t = tMap[rt.topicId];
       if (!t) continue;
@@ -710,7 +710,7 @@ function renderDiscovery(meta) {
 
     // 3. 子トピック（この話題から派生した流れ）
     for (const ref of (meta.childTopics || [])) {
-      if (items.length >= 5) break;
+      if (items.length >= 6) break;
       if (usedIds.has(ref.topicId)) continue;
       const t = tMap[ref.topicId] || ref;
       if (!t) continue;
