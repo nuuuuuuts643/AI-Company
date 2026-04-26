@@ -125,12 +125,20 @@
 
     /* ── トピックカード ── */
     .catchup-list {
-      max-width: 720px;
+      max-width: 1200px;
       margin: 24px auto;
       padding: 0 16px;
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: 1fr;
       gap: 16px;
+    }
+    @media (min-width: 768px) {
+      .catchup-list {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .catchup-list > .empty-state {
+        grid-column: 1 / -1;
+      }
     }
     .catchup-card {
       background: #1e2540;
