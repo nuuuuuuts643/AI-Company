@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T018緊急 T116 RSSフォールバック削除）
+- ✅ **T018 dominant_genres() RSSフォールバック削除（T116回帰バグ修正）** — T116が追加したRSSフィードジャンルフォールバック（lines 140-143）を削除。Google NewsのRSSはクエリジャンルと無関係な記事を混入するため`a.get('genre')`はfeed設定値（例: テクノロジークエリ由来の政治記事が`genre='テクノロジー'`）。これが既知の設計ミスパターン(CLAUDE.md参照)を再導入していた。キーワード不一致時は`['総合']`のみ返すよう戻した。T113の`override_genre_by_title()`は維持。
+
 ### 完了済み（2026-04-26 T115+T117 velocity表示ラベル化+catchupリンク修正）
 - ✅ **T115 velocityスコアをラベル表示に変更** — `catchup.html`の`buildVelocityBar()`を改修。「velocity 23」の数値表示を廃止し、v>30→`🔥 急上昇`、v>10→`📈 上昇中`、それ以外→非表示に。`style.css`に`.velocity-label`スタイル追加。
 - ✅ **T117 catchup.htmlリンクをSPA URLに変更** — `buildCard()`のURLを`topics/${tid}.html`（静的SEO専用）→`topic.html?id=${tid}`（SPA）に変更。リワインドからのお気に入り・コメント・閲覧履歴機能が利用可能になる。
