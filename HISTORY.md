@@ -753,3 +753,7 @@ bash projects/P003-news-timeline/deploy.sh
 - fetcher handler.py: orphan candidates条件にsummaryMode='minimal'またはarticleCount<=2を追加
 - processor proc_storage.py: needs_ai_processingでis_minimal判定追加、timeline有無を問わず処理済みとみなす
 - processor handler.py: needs_storyでis_minimal判定追加、minimal+aiGenerated済みなら再生成不要
+
+### 完了済み（2026-04-26 DynamoDB肥大化対策）
+- ✅ **lifecycle SNAPカットオフ 30日→7日** — fetcher の SNAP_TTL_DAYS=7 と整合。TTL属性未設定の古いSNAPも lifecycle 週次削除（月曜 02:00 UTC）で除去できるようになった。808K件 → 次週から大幅減見込み。
+- ✅ **T071 tracker VIEW#アイテムにTTL 90日追加** — VIEW#{date}が無期限蓄積していた問題を修正。新規書き込み時に `ttl = now + 90*86400` を設定。DynamoDB が自動削除する。
