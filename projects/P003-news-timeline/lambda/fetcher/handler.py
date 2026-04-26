@@ -394,6 +394,10 @@ def lambda_handler(event, context):
         if gen_summary:                 item['generatedSummary'] = gen_summary
         if image_url:                   item['imageUrl']         = image_url
         if existing.get('aiGenerated'): item['aiGenerated']      = True
+        # put_item はフィールドを完全上書きするため、既存AI生成フィールドをコピーして保持
+        for _fld in ('storyTimeline', 'storyPhase', 'spreadReason', 'forecast', 'summaryMode'):
+            if existing.get(_fld):
+                item[_fld] = existing[_fld]
         current_run_metas[tid] = item
         _dynamo_puts.append(item)
         _dynamo_puts.append({
