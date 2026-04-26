@@ -502,6 +502,15 @@ function renderTopics(topics) {
   showTrendingBanner(allTopics);
 }
 
+function updateIndexOGP(genre) {
+  const base = 'flotopic.com';
+  const desc = genre === '総合'
+    ? '同じ話題のニュースをAIがまとめ、時間軸で推移を可視化。30分ごと自動更新。'
+    : `${genre}のニュースをAIがまとめて時間軸で可視化。急上昇トピックをリアルタイム更新。`;
+  document.querySelectorAll('meta[name="description"], meta[property="og:description"], meta[name="twitter:description"]')
+    .forEach(m => m.setAttribute('content', desc));
+}
+
 function buildFilters() {
   const sbar = document.getElementById('status-filter');
   if (sbar) {
@@ -525,7 +534,11 @@ function buildFilters() {
       btn.classList.add('active'); currentGenre = btn.dataset.genre;
       savePrefs({...loadPrefs(), genre: currentGenre});
       if (typeof syncGenreToCloud === 'function') syncGenreToCloud(currentGenre);
-      currentPage = 1; renderTopics(allTopics);
+      currentPage = 1;
+      currentSearch = '';
+      const si = document.getElementById('search-input'); if (si) si.value = '';
+      updateIndexOGP(currentGenre);
+      renderTopics(allTopics);
     }));
   }
 }
