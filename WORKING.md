@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| lifecycle SNAP削減（30日→7日）| lambda/lifecycle/handler.py | 2026-04-26 17:30 |
