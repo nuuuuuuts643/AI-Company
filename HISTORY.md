@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T180 AI要約 原因深掘りセクション追加）
+- ✅ **T180 proc_ai.py + detail.js: backgroundContext（なぜ起きたか）セクション追加** — 根本原因: 既存4セクション（概要・拡散理由・フェーズ・今後）は「何が起きているか」に偏り「なぜ起きたか・背景にある構造的原因」が欠けていた。修正: ①proc_ai.py の standard/full モードプロンプトに `backgroundContext`（構造的・社会的・経済的・政治的背景を1〜2文で分析）フィールドを追加。同一APIコールへの追加のためコスト増はほぼなし。max_tokens を standard: 700→900、full: 1000→1200 に増加 ②detail.js で standard/full 両モードに「なぜ起きたか（背景・構造的原因）」セクションを表示。full mode は ①何が起きたか②なぜ起きたか③なぜ広がったか④今どの段階か⑤今後どうなるか の5セクション構成に。既存レコード（backgroundContext未設定）は背景セクションを非表示にして4セクション従来表示を継続。Python構文チェック・npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T176 モバイルUI崩れ修正）
 - ✅ **T176 style.css モバイル3点修正** — ①`html, body { overflow-x: hidden }` 追加（flex no-shrink+white-space:nowrapが僅かにビューポートを超えると横スクロールが発生していた防御策）②`body padding-bottom: 60px → calc(60px + env(safe-area-inset-bottom, 0px))` に修正（iPhone X以降34pxのsafe-areaを考慮しておらず、ボトムナビ下にコンテンツが隠れていた）③`.hero-story-card` にライトモード用 `#3730a3→#6366f1` グラデーションを追加（`#0f172a→#1e1b4b` の暗いグラデーションがライトモードUIに突然現れてUIが壊れて見えた）。npm test 42件全パス。
 

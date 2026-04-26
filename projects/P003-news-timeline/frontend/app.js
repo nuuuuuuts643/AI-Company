@@ -320,7 +320,8 @@ function renderTopicCard(t, i) {
 
   const _clean = cleanSummary(t.generatedSummary || '');
   const _snip  = _clean.length > 52 ? _clean.slice(0, 50) + '…' : _clean;
-  const summaryHtml = _snip
+  const titleHead = (t.generatedTitle || t.title || '').slice(0, 15);
+  const summaryHtml = (_snip && !_snip.startsWith(titleHead.slice(0, 10)))
     ? `<p class="card-snippet">${esc(_snip)}</p>`
     : '';
   const phaseHtml = t.storyPhase && PHASE_BADGE[t.storyPhase]
