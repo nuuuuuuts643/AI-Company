@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T186 カード差分表示）
+- ✅ **T186 fetcher+api+app.js: 24h記事数差分バッジ追加** — 根本原因: カードは静的な記事数のみ表示でトピックの動きが伝わらなかった。修正: ①fetcher/handler.pyでMETA書き込み時にarticleCountDelta（24hローリングベースライン）を計算・保存。ベースライン超過時に自動リセット。追加DynamoDB queryなし ②api/handler.pyのProjectionExpressionにarticleCountDeltaを追加 ③app.js renderCardMeta()で_deltaCnt（前回訪問）が0のときにサーバー側24h差分を「📈 +N件」で表示。初回訪問者にもトピックの動きが伝わる。Python構文チェック・npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T189 シェアUX・OGP改善）
 - ✅ **T189 detail.js updateOGP改善・ストーリーナビ追加** — 根本原因: シェアボタンは実装済みだがOGP descriptionが「このトピックの時系列推移をAIが分析。」という汎用文言で、シェア先でのクリック意欲が低かった。修正: ①`updateOGP()`のdescriptionにstoryPhaseを日本語で接頭辞追加（「【進行中】要約冒頭90文字」形式）②デフォルト説明を「AIがニュースの経緯をストーリー化。話の始まりから今日まで時系列で追える。」に改善 ③AI分析セクション下部に「📅 記事の全タイムラインを見る」アンカーリンクを追加（story-timeline要素が存在する場合のみ表示）④style.cssにai-story-navスタイル追加。npm test 42件全パス。
 
@@ -1141,6 +1144,9 @@ bash projects/P003-news-timeline/deploy.sh
 
 ### 完了済み（2026-04-27 T186(UX) カード「前回から+N件」差分表示・フェーズ変化バッジ）
 - ✅ **T186(UX)** — `app.js`: localStorageキー`ftpc_snap`に前回訪問時のarticleCount・storyPhaseをトピック別に保存。topics読込後に各トピックへ`_deltaCnt`/`_phaseChanged`注釈を付与。`renderCardMeta()`で前回から記事が増えた場合は`+N件`(.new-articles-delta 緑)、storyPhaseが変化した場合は`🔄展開`(.phase-change-badge 橙)バッジを表示。初回訪問はデルタなし。バックエンド変更なし。
+
+### 完了済み（2026-04-27 T186 カード差分表示）
+- ✅ **T186 fetcher+api+app.js: 24h記事数差分バッジ追加** — 根本原因: カードは静的な記事数のみ表示でトピックの動きが伝わらなかった。修正: ①fetcher/handler.pyでMETA書き込み時にarticleCountDelta（24hローリングベースライン）を計算・保存。ベースライン超過時に自動リセット。追加DynamoDB queryなし ②api/handler.pyのProjectionExpressionにarticleCountDeltaを追加 ③app.js renderCardMeta()で_deltaCnt（前回訪問）が0のときにサーバー側24h差分を「📈 +N件」で表示。初回訪問者にもトピックの動きが伝わる。Python構文チェック・npm test 42件全パス。
 
 ### 完了済み（2026-04-27 T189 シェアURL体験設計）
 - ✅ **T189** — `detail.js:updateOGP()`: OGPフォールバック文言を「Flotopicでトピックの推移をAIが分析」→「AIがニュースの経緯をストーリー化。話の始まりから今日まで時系列で追える。」に変更（サービス価値を明示）。phaseTextをPHASE_LABEL_OGPマップで日本語親しみやすい語（拡散→広まってる等）に変換してOGP descriptionに含める。`storymapContainer`の非分岐トピックの誘導テキストを「このストーリーの全体像を見る →」→「このストーリーを始まりから追う →」に変更し、シェア経由ユーザーへの文脈説明を改善。
