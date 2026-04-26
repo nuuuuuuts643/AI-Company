@@ -331,36 +331,19 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 ## 次フェーズのタスク（優先度順）
 
 ### 優先度1: SEO・流入強化（Claude実行可能）
-- ~~Google Search Console でサイトマップ送信~~ ✅ 2026-04-26 完了（/sitemap.xml 送信済み・最終読み込み確認済み）
-- ~~トピック別 OGP 画像生成~~ ✅ 2026-04-26 完了（Pillow+NotoSansJP、processor AI処理時に api/ogp/{id}.png 自動生成）
-- ~~Google News サイトマップ追加~~ ✅ 実装済み
-- ~~株価ティッカートピックS3除去~~ ✅ 0件確認済み
-- ~~Twitter Card/OGPメタタグ全ページ追加~~ ✅ 2026-04-25 完了
-- ~~BreadcrumbList JSON-LD追加~~ ✅ 2026-04-25 完了
-- ~~about.html FAQ + FAQPage JSON-LD~~ ✅ 2026-04-25 完了
+- **SEO強化（被リンク・流入）**: 静的HTMLは実装済み(topics/{id}.html)。次の打ち手: ①Qiita/note/Zennに技術記事を書いてFlotopicへリンク ②Bluesky/X経由でニッチトピックの流入狙い ③「〇〇 まとめ 経緯」のロングテールキーワードを意識したAIタイトル生成改善
 
 ### 優先度2: コンテンツ品質（Claude実行可能）
-- ~~about.html の内容充実~~ ✅ 2026-04-26 完了（「なぜ作ったか」「他サービスとの違い」「AIの仕組み」「まとめサイトとの違い」など7セクション追加）
-- **SEO強化（被リンク・流入）**: 静的HTMLは実装済み(topics/{id}.html)。次の打ち手: ①Qiita/note/Zennに技術記事を書いてFlotopicへリンク ②Bluesky/X経由でニッチトピックの流入狙い ③「〇〇 まとめ 経緯」のロングテールキーワードを意識したAIタイトル生成改善
-- AI要約カバレッジ向上（95.8%/90%/80.4%。スケジュール実行(4x/day)で継続改善中）
-- ~~processor Lambda メモリ 512MB~~ ✅ 確認済み（既に512MB）
+- AI要約カバレッジ向上（スケジュール実行 4x/day で継続改善中）
 - velocity=0 の停滞トピック → lifecycle Lambda(ARCHIVE_DAYS=7)が次週月曜に自動整理
-- ~~Bluesky 自動投稿~~ ✅ 稼働確認済み
 
 ### 優先度3: ユーザー体験（Claude実行可能）
 - モバイルUX改善（実ユーザー獲得後に重要度UP）
-- ~~コメント・お気に入り促進UI（現在0件）→ CTAを目立たせる~~ ✅ 2026-04-26 完了（空状態改善・モバイルスティッキーCTAバー）
 - **表示名・ハンドル名分離**（@メンション・固定プロフィールURL実装時に必要）→ コミュニティ機能が育ってから実装でOK
 
-### 優先度4: 運用・インフラ（Claude実行可能）
-- ~~cf-analytics スケジュール確認~~ ✅ ENABLED確認済み（CF認証情報未設定は別問題）
-- ~~DynamoDB 784K件のTTL動作確認~~ ✅ 2026-04-25 確認済み（TTL ENABLED・属性名 `ttl`）
-- ~~admin ダッシュボード velocity分布・AIパイプライングラフ~~ ✅ 2026-04-25 完了
-
-### 優先度5: 収益化
-- **モバイル広告表示確認**（git push後にスマホでflotopic.comを開いて広告が見えるか確認。style.css修正済み: scale+translateX センタリング）
+### 優先度4: 収益化
 - AdSense 審査通過後の広告設定切り替え（忍者 AdMax → AdSense）→ 審査中・ナオヤ待ち
-- **Amazonアソシエイト申請**（ナオヤ手動）→ 申請後 `config.js` の `AFFILIATE_AMAZON_TAG` に取得タグを設定するだけで即稼働
+- **Amazonアソシエイト申請**（ナオヤ手動）→ 申請後 `config.js` の `AFFILIATE_AMAZON_TAG` は設定済み（flotopic-22）
 - **楽天アフィリエイト申請**（ナオヤ手動）→ 申請後 `AFFILIATE_RAKUTEN_ID` に設定
 - X 投稿エージェント再開（X API Basic Plan $100/月が必要）→ 収益化後に判断
 
@@ -404,7 +387,6 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 
 - **P003 AdSense審査待ち** — 申請済み。通過まで数週間かかる場合あり。それまでは忍者AdMaxで代替。
 - **P003 グラフデータ蓄積中** — 長期グラフ（1ヶ月〜1年）はデータ蓄積後に意味を持つ。
-- ~~**P003 news.google.comがソースとして表示される問題**~~ ✅ 解決済み（text_utils.py の extract_source_name が <source> 要素のテキスト＋URLから正しく抽出）
 - **P002 Flutterスプライト素材未作成** — AI生成で後日追加。
 - **P002 BGM本番版未作成** — Suno AIで後日生成・差し替え。
 - **P002 動作確認未実施** — `flutter pub get && flutter run` をローカルで実行すること。
