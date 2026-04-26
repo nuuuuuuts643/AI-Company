@@ -37,7 +37,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T005 モバイル広告CSS修正 | frontend/style.css | 2026-04-26 12:10 |
-| T006 クラスタリング重複改善 | lambda/fetcher/cluster_utils.py | 2026-04-26 12:10 |
-| T007 AIサマリー文脈説明追加 | lambda/processor/proc_ai.py | 2026-04-26 12:10 |
-| T009 広告記事フィルタ強化 | lambda/fetcher/filters.py | 2026-04-26 12:10 |
+| tokushoho.html復元・T005/T006/T007/T008/T009 | frontend/tokushoho.html, frontend/style.css, lambda/fetcher/cluster_utils.py, lambda/processor/proc_ai.py, lambda/fetcher/filters.py, lambda/fetcher/score_utils.py | 2026-04-26 継続 |

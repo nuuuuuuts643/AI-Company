@@ -29,6 +29,13 @@ _DIGEST_SKIP_PATS = [
     re.compile(r'【[A-Za-z0-9]{3,10}[A-Za-z]】[：:]'),  # 325A, 0431523B など英数字ティッカー
     re.compile(r'掲示板\s*[-–]\s*Yahoo!ファイナンス'),
     re.compile(r'\s*[-–]\s*Yahoo!ファイナンス$'),  # Yahoo!ファイナンス全般を末尾でキャッチ
+    re.compile(r'おすすめ.{0,10}ランキング'),
+    re.compile(r'人気.{0,5}ランキング'),
+    re.compile(r'徹底比較'),
+    re.compile(r'買ったら辛'),
+    re.compile(r'アフィリエイト'),
+    re.compile(r'PR[：:\s]|【PR】|〔PR〕'),
+    re.compile(r'広告[：:\s]|【広告】'),
 ]
 
 # ── 意見・コラム記事パターン (正規表現, ベース係数, weight_key) ──────────
