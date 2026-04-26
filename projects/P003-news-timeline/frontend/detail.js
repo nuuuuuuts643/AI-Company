@@ -23,12 +23,13 @@ function trackView(topicId) {
 function updateOGP(meta) {
   const title   = meta.generatedTitle || meta.title || 'Flotopic';
   const rawDesc = cleanSummary(meta.generatedSummary) || '';
-  const phase   = meta.storyPhase || '';
-  const phasePrefix = phase ? `【${phase}】` : '';
+  const PHASE_LABEL_OGP = {'発端':'始まり','拡散':'広まってる','ピーク':'急上昇','現在地':'進行中','収束':'ひと段落'};
+  const phaseText = meta.storyPhase ? (PHASE_LABEL_OGP[meta.storyPhase] || meta.storyPhase) : '';
+  const phasePrefix = phaseText ? `【${phaseText}】` : '';
   const summaryPart = rawDesc.length > 0 ? rawDesc.slice(0, 90) : '';
   const desc = summaryPart
     ? `${phasePrefix}${summaryPart}`
-    : 'Flotopicでトピックの推移をAIが分析';
+    : 'AIがニュースの経緯をストーリー化。話の始まりから今日まで時系列で追える。';
   const url     = meta.topicId ? `https://flotopic.com/topics/${meta.topicId}.html` : 'https://flotopic.com/topic.html';
   const ogImage = meta.imageUrl || 'https://flotopic.com/ogp.png';
   const setMeta = (prop, val) => {
@@ -255,6 +256,9 @@ function renderDetail(data) {
         const srcItems = _srcs.map(s => `<span class="ai-trust-source">${esc(s)}</span>`).join('');
         return `<details class="ai-trust-footer"><summary>${cntText} <span class="ai-trust-toggle">（情報源を見る）</span></summary><div class="ai-trust-sources">${srcItems}</div></details>`;
       })() : '';
+      const storyNavHtml = document.getElementById('story-timeline')
+        ? `<a class="ai-story-nav" href="#story-timeline">📅 記事の全タイムラインを見る</a>`
+        : '';
 
       // ── minimal: 1〜2件記事 → シンプルな1段落表示（見出しなし）
       if (summaryMode === 'minimal') {
@@ -289,7 +293,7 @@ function renderDetail(data) {
             ${originHtml}
             ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
           </div>` : '';
-        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sectBg}${sect2}${sect3}${trustFooterHtml}</div>`;
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sectBg}${sect2}${sect3}${trustFooterHtml}${storyNavHtml}</div>`;
 
       // ── full: 6件以上 → フル4セクション（従来通り）
       } else {
@@ -326,7 +330,7 @@ function renderDetail(data) {
             <div class="ai-section-label">${backgroundContext ? '⑤' : '④'} 今後どうなるか <span class="ai-hypothesis-badge">仮説</span></div>
             <p class="ai-section-body">${esc(forecast)}</p>
           </div>` : '';
-        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2bg}${sect2}${sect3}${sect4}${trustFooterHtml}</div>`;
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2bg}${sect2}${sect3}${sect4}${trustFooterHtml}${storyNavHtml}</div>`;
       }
 
       aiAnalysisEl.style.display = 'block';
@@ -506,7 +510,7 @@ function renderDetail(data) {
     if (meta.childTopics && meta.childTopics.length > 0) {
       storymapContainer.innerHTML = `<a href="storymap.html?id=${esc(meta.topicId)}" class="storymap-btn">🗺 このストーリーの分岐を見る (${meta.childTopics.length}件)</a>`;
     } else if (meta.storyPhase || (Array.isArray(meta.storyTimeline) && meta.storyTimeline.length > 0)) {
-      storymapContainer.innerHTML = `<a href="storymap.html?id=${esc(meta.topicId)}" class="storymap-banner">📖 このストーリーの全体像を見る →</a>`;
+      storymapContainer.innerHTML = `<a href="storymap.html?id=${esc(meta.topicId)}" class="storymap-banner">📖 このストーリーを始まりから追う →</a>`;
     }
   }
 
