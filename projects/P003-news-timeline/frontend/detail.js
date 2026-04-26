@@ -487,22 +487,30 @@ function renderDetail(data) {
         }
       };
 
-      try {
-        buildCharts(24);
-        new MutationObserver(() => { try { buildCharts(_chartRange); } catch {} }).observe(
-          document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }
-        );
-        document.querySelectorAll('.tr-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            document.querySelectorAll('.tr-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            const r = btn.dataset.range;
-            try { buildCharts(r==='1d'?24 : r==='3d'?72 : r==='7d'?168 : r==='1m'?720 : r==='3m'?2160 : r==='6m'?4320 : r==='1y'?8760 : null); } catch {}
+      const _initCharts = () => {
+        if (typeof Chart === 'undefined') {
+          // Chart.js未ロード: window.loadで再試行（CDN遅延対策）
+          window.addEventListener('load', () => { try { _initCharts(); } catch {} }, { once: true });
+          return;
+        }
+        try {
+          buildCharts(24);
+          new MutationObserver(() => { try { buildCharts(_chartRange); } catch {} }).observe(
+            document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }
+          );
+          document.querySelectorAll('.tr-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              document.querySelectorAll('.tr-btn').forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+              const r = btn.dataset.range;
+              try { buildCharts(r==='1d'?24 : r==='3d'?72 : r==='7d'?168 : r==='1m'?720 : r==='3m'?2160 : r==='6m'?4320 : r==='1y'?8760 : null); } catch {}
+            });
           });
-        });
-      } catch(e) {
-        if (chartCard) chartCard.style.display = 'none';
-      }
+        } catch(e) {
+          if (chartCard) chartCard.style.display = 'none';
+        }
+      };
+      _initCharts();
     }
   }
 
