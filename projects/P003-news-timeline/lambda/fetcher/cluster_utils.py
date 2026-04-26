@@ -10,7 +10,7 @@ from config import STOP_WORDS, SYNONYMS, JACCARD_THRESHOLD, MAX_CLUSTER_SIZE
 
 _LIVE_PREFIX = re.compile(r'^【(中継|速報|更新|独自|詳報|続報|緊急|号外)[^】]*】')
 _KATAKANA_ENTITY = re.compile(r'^[゠-ヿ]{3,}$')  # 3文字以上のカタカナ固有名詞（トランプ/プーチン等）
-_ENTITY_MERGE_THRESHOLD = 0.12  # 固有名詞1語共有の場合の緩和閾値
+_ENTITY_MERGE_THRESHOLD = 0.20  # 固有名詞1語共有の場合の緩和閾値（union_sz<=5 のみ）
 _ENTITY_MERGE_MAX_WORDS  = 5    # 対象は短い記事のみ
 
 # chunk-based similarity（スペースなし日本語タイトル向けフォールバック）
@@ -130,4 +130,38 @@ def cluster(articles):
             groups_dict[root] = []
         groups_dict[root].append(articles[i])
 
-    return list(groups_dict.values())
+    return _centroid_verify(list(groups_dict.values()))
+
+
+def _centroid_verify(groups):
+    """重心検証パス: 4件以上のクラスタで重心と共通語ゼロの記事をスタンドアロンに分離。"""
+    result = []
+    for group in groups:
+        if len(group) < 4:
+            result.append(group)
+            continue
+        word_lists = []
+        freq = Counter()
+        for a in group:
+            ws = {w for w in (normalize(a['title']) - STOP_WORDS) if len(w) > 2}
+            word_lists.append(ws)
+            freq.update(ws)
+        # 半数超（ceiling）の記事に出現する語を重心とする
+        min_count = (len(group) + 1) // 2
+        centroid = {w for w, c in freq.items() if c >= min_count}
+        if not centroid:
+            result.append(group)
+            continue
+        core, outliers = [], []
+        for i, a in enumerate(group):
+            if word_lists[i] & centroid:
+                core.append(a)
+            else:
+                outliers.append(a)
+        if not core:
+            result.append(group)
+            continue
+        result.append(core)
+        for o in outliers:
+            result.append([o])
+    return result
