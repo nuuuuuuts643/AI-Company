@@ -9,6 +9,7 @@ from config import STOP_WORDS, SYNONYMS, JACCARD_THRESHOLD, MAX_CLUSTER_SIZE
 
 
 _LIVE_PREFIX = re.compile(r'^【(中継|速報|更新|独自|詳報|続報|緊急|号外)[^】]*】')
+_KATAKANA_LONG = re.compile(r'^[゠-ヿ]{5,}$')  # 5文字以上のカタカナ固有名詞
 
 def normalize(text):
     text = _LIVE_PREFIX.sub('', text).strip()  # 【中継】【速報】等のプレフィックスを除去してから比較
@@ -65,8 +66,10 @@ def cluster(articles):
             wi = normalize(articles[i]['title']) - STOP_WORDS
             wj = normalize(articles[j]['title']) - STOP_WORDS
             shared = wi & wj
-            # 共通の有意義な単語が2つ未満なら絶対に結合しない（誤クラスタ防止）
-            if len(shared) < 2:
+            # 5文字以上のカタカナ固有名詞を共有する場合は1単語でも結合候補
+            has_strong_entity = any(_KATAKANA_LONG.match(w) for w in shared)
+            min_shared = 1 if has_strong_entity else 2
+            if len(shared) < min_shared:
                 continue
             if len(shared) / len(wi | wj) >= JACCARD_THRESHOLD:
                 new_size = cluster_size.get(ri, 1) + cluster_size.get(rj, 1)
