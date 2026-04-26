@@ -24,7 +24,7 @@ function updateOGP(meta) {
   const title   = meta.generatedTitle || meta.title || 'Flotopic';
   const rawDesc = cleanSummary(meta.generatedSummary) || '';
   const desc    = rawDesc.length > 0 ? rawDesc.slice(0, 100) : 'Flotopicでトピックの推移をAIが分析';
-  const url     = `https://flotopic.com/topic.html?id=${meta.topicId || ''}`;
+  const url     = meta.topicId ? `https://flotopic.com/topics/${meta.topicId}.html` : 'https://flotopic.com/topic.html';
   const ogImage = meta.imageUrl || 'https://flotopic.com/ogp.png';
   const setMeta = (prop, val) => {
     const el = document.querySelector(`meta[property="${prop}"]`);
@@ -152,30 +152,30 @@ function renderDetail(data) {
     });
   }
 
+  // シェアボタン共通: canonicalな静的URLを使用（SEO・OGP最適化）
+  const sharePageUrl = meta.topicId ? `https://flotopic.com/topics/${meta.topicId}.html` : location.href;
+
   // X（旧Twitter）シェアボタン
   const xBtn = document.getElementById('x-share-btn');
   if (xBtn) {
-    const pageUrl  = `https://flotopic.com/topic.html?id=${encodeURIComponent(meta.topicId || '')}`;
-    const xTitle   = encodeURIComponent(meta.generatedTitle || meta.title || 'Flotopic');
-    xBtn.href = `https://twitter.com/intent/tweet?text=${xTitle}&url=${encodeURIComponent(pageUrl)}`;
+    const xTitle = encodeURIComponent(meta.generatedTitle || meta.title || 'Flotopic');
+    xBtn.href = `https://twitter.com/intent/tweet?text=${xTitle}&url=${encodeURIComponent(sharePageUrl)}`;
     xBtn.style.display = 'inline-flex';
   }
 
   // はてなブックマーク シェアボタン
   const hatenaBtn = document.getElementById('hatena-share-btn');
   if (hatenaBtn) {
-    const pageUrl   = `https://flotopic.com/topic.html?id=${encodeURIComponent(meta.topicId || '')}`;
     const pageTitle = encodeURIComponent(meta.generatedTitle || meta.title || 'Flotopic');
-    hatenaBtn.href = `https://b.hatena.ne.jp/add?mode=confirm&url=${encodeURIComponent(pageUrl)}&title=${pageTitle}`;
+    hatenaBtn.href = `https://b.hatena.ne.jp/add?mode=confirm&url=${encodeURIComponent(sharePageUrl)}&title=${pageTitle}`;
     hatenaBtn.style.display = 'inline-flex';
   }
 
   // Threads シェアボタン
   const threadsBtn = document.getElementById('threads-share-btn');
   if (threadsBtn) {
-    const pageUrl    = `https://flotopic.com/topic.html?id=${encodeURIComponent(meta.topicId || '')}`;
     const shareTitle = meta.generatedTitle || meta.title || 'Flotopic';
-    const shareText  = encodeURIComponent(`${shareTitle}\n${pageUrl}`);
+    const shareText  = encodeURIComponent(`${shareTitle}\n${sharePageUrl}`);
     threadsBtn.href = `https://www.threads.net/intent/post?text=${shareText}`;
     threadsBtn.style.display = 'inline-flex';
   }
@@ -183,8 +183,7 @@ function renderDetail(data) {
   // LINE シェアボタン
   const lineBtn = document.getElementById('line-share-btn');
   if (lineBtn) {
-    const pageUrl = `https://flotopic.com/topic.html?id=${encodeURIComponent(meta.topicId || '')}`;
-    lineBtn.href = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(pageUrl)}`;
+    lineBtn.href = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(sharePageUrl)}`;
     lineBtn.style.display = 'inline-flex';
   }
 
