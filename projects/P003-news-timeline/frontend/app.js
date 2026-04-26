@@ -976,6 +976,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // 3. topics.jsonからメタデータのみ（最終手段）
       try {
         const r3 = await fetch(apiUrl('topics'));
+        if (!r3.ok) { showError(); return; }
         const d3 = await r3.json();
         const t = (d3.topics || []).find(t => t.topicId === topicId);
         if (t) { try { renderDetail({ meta: t, timeline: [], views: [] }); } catch(e) { console.error('renderDetail (fallback):', e); showError(); } return; }
@@ -1009,6 +1010,12 @@ document.addEventListener('DOMContentLoaded', () => {
       refreshTopics();
       setInterval(refreshTopics, CONFIG.REFRESH_INTERVAL_MS);
       setInterval(updateFreshnessDisplay, CONFIG.FRESHNESS_INTERVAL_MS);
+      // タブ非表示→復帰時に古くなったデータを即更新（5分以上経過していれば）
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && lastFetchTime && (Date.now() - lastFetchTime) > CONFIG.REFRESH_INTERVAL_MS) {
+          refreshTopics();
+        }
+      });
     });
   }
 });
