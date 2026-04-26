@@ -574,7 +574,8 @@ function renderStorymapList(topics) {
   document.title = 'ストーリー一覧 | Flotopic';
 
   const stories = topics
-    .filter(t => t.storyPhase || (Array.isArray(t.storyTimeline) && t.storyTimeline.length > 0))
+    // storyTimeline は topics.json の _INTERNAL 除外フィールドのため使用不可。storyPhase で判定
+    .filter(t => t.storyPhase)
     .filter(t => t.lifecycleStatus !== 'archived')
     .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0));
 
@@ -583,18 +584,16 @@ function renderStorymapList(topics) {
   const cardsHtml = stories.length === 0
     ? `<p style="color:#94a3b8;font-size:.85rem;text-align:center;padding:20px 0;">現在ストーリーを追跡中のトピックはありません。</p>`
     : stories.map(t => {
-        const title  = t.generatedTitle || t.title || '';
-        const phase  = t.storyPhase ? (PHASE_LABEL[t.storyPhase] || t.storyPhase) : '';
-        const beats  = Array.isArray(t.storyTimeline) ? t.storyTimeline : [];
-        const latest = beats.length > 0 ? beats[beats.length - 1] : null;
-        const latestEvent = latest && latest.event ? latest.event : '';
-        const cnt    = t.articleCount || 0;
-        const ago    = fmtAgo(t.lastArticleAt || t.lastUpdated || 0);
-        const status = t.lifecycleStatus || '';
+        const title   = t.generatedTitle || t.title || '';
+        const phase   = t.storyPhase ? (PHASE_LABEL[t.storyPhase] || t.storyPhase) : '';
+        const snippet = cleanSummary(t.generatedSummary || '').slice(0, 55);
+        const cnt     = t.articleCount || 0;
+        const ago     = fmtAgo(t.lastArticleAt || t.lastUpdated || 0);
+        const status  = t.lifecycleStatus || '';
         return `<a href="storymap.html?id=${esc(t.topicId)}" class="sm-branch-card ${statusClass(status)}">
           ${phase ? `<div style="font-size:.6rem;font-weight:700;color:#6366f1;background:rgba(99,102,241,.1);padding:1px 8px;border-radius:999px;display:inline-block;margin-bottom:6px;">${esc(phase)}</div>` : ''}
           <div class="sm-branch-card-title">${esc(title)}</div>
-          ${latestEvent ? `<div style="font-size:.75rem;color:#94a3b8;line-height:1.4;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">最新: ${esc(latestEvent)}</div>` : ''}
+          ${snippet ? `<div style="font-size:.75rem;color:#94a3b8;line-height:1.4;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(snippet)}…</div>` : ''}
           <div class="sm-branch-card-foot">
             <span class="sm-branch-card-count">📄 ${cnt}件</span>
             ${ago ? `<span class="sm-branch-card-date">${esc(ago)}</span>` : ''}
