@@ -7,7 +7,7 @@ from decimal import Decimal
 from boto3.dynamodb.conditions import Key
 
 from config import (
-    S3_BUCKET, TABLE_NAME, CACHE_SK_PREFIX, CLAUDE_CALL_CONDITIONS,
+    S3_BUCKET, TABLE_NAME,
     SEEN_KEY, SEEN_MAX, SITE_URL, table, s3, dynamodb,
 )
 from score_utils import apply_time_decay
@@ -115,41 +115,6 @@ def get_topic_detail(tid):
     views = sorted(views_resp.get('Items', []), key=lambda x: x['SK'])
 
     return meta, snaps, views
-
-
-def get_cached_summary(topic_id, articles_hash):
-    try:
-        resp = table.get_item(Key={
-            'topicId': topic_id,
-            'SK': f'{CACHE_SK_PREFIX}{articles_hash}'
-        })
-        item = resp.get('Item')
-        if not item:
-            return None, None
-        cached_at = float(item.get('cachedAtTs', 0))
-        if time.time() - cached_at > CLAUDE_CALL_CONDITIONS['cache_ttl_hours'] * 3600:
-            return None, None
-        return item.get('generatedTitle'), item.get('generatedSummary')
-    except Exception as e:
-        print(f'get_cached_summary error: {e}')
-        return None, None
-
-
-def save_summary_cache(topic_id, articles_hash, title, summary):
-    try:
-        now_ts = int(time.time())
-        ttl_ts = now_ts + int(CLAUDE_CALL_CONDITIONS['cache_ttl_hours'] * 3600)
-        item = {
-            'topicId': topic_id,
-            'SK': f'{CACHE_SK_PREFIX}{articles_hash}',
-            'cachedAtTs': Decimal(str(now_ts)),
-            'ttl': Decimal(str(ttl_ts)),
-        }
-        if title:   item['generatedTitle']   = title
-        if summary: item['generatedSummary'] = summary
-        table.put_item(Item=item)
-    except Exception as e:
-        print(f'save_summary_cache error: {e}')
 
 
 def recent_counts(tid, n=5):
