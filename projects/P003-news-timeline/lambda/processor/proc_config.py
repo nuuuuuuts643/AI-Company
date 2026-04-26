@@ -12,6 +12,7 @@ dynamodb = boto3.resource('dynamodb', region_name=REGION)
 table    = dynamodb.Table(TABLE_NAME)
 s3       = boto3.client('s3', region_name=REGION)
 
+# 35×4回/day=140calls→pending~100件なら十分。カバレッジ80%未満になったら150に戻す
 MAX_API_CALLS          = 35
 MIN_ARTICLES_FOR_TITLE   = 1
 MIN_ARTICLES_FOR_SUMMARY = 1
