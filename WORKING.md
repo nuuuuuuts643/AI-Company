@@ -40,3 +40,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 |---|---|---|
 | T044 MAX_API_CALLS 150復元 | lambda/processor/proc_config.py | 2026-04-26 15:30 |
 | T045 minimal mode storyPhase修正 | lambda/processor/proc_ai.py | 2026-04-26 15:30 |
+| T046 検索時ジャンルリセット | frontend/app.js | 2026-04-26 |
