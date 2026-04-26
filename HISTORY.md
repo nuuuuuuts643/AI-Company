@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T077）
+- ✅ **T077 静的HTML JSON-LD に datePublished・author 追加** — `proc_storage.py` の `generate_static_topic_html()` で生成する Article 構造化データに `datePublished`（lastArticleAt Unix秒→ISO文字列）と `author`（Organization: Flotopic）を追加。Google Search Console のリッチリザルト対応。次回 processor 実行時から新規生成ファイルに反映。
+
 ### 完了済み（2026-04-26 T075）
 - ✅ **T075 Bluesky自動投稿 S3_BUCKET修正** — `bluesky-agent.yml` の `env:` に `S3_BUCKET: p003-news-946554699567` が未設定で、スクリプトのデフォルト `flotopic-public`（存在しないバケット）を参照して毎回失敗していた。正しいバケット名を追加して修正。JST 08:00/12:00/18:00 スケジュールが次回から正常動作するはず。
 
