@@ -38,3 +38,8 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T086 _GW変数修正 | frontend/config.js | 2026-04-26 19:10 |
+| T087 detail JSON欠損補完 | lambda/processor/proc_storage.py | 2026-04-26 19:10 |
+| T088 StaticHTML例外修正 | lambda/processor/proc_storage.py | 2026-04-26 19:10 |
+| T089 Bluesky dry-run修正 | scripts/bluesky_agent.py | 2026-04-26 19:10 |
+| T091 lifecycle HTML孤立削除 | lambda/lifecycle/handler.py | 2026-04-26 19:10 |
