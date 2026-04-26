@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T114 AI処理中バッジ表示）
+- ✅ **T114 AI要約なしトピックに「AI処理中」バッジ表示** — `app.js`の`summaryHtml`でgeneratedSummary未存在時に`<span class="badge-processing">AI処理中</span>`を表示するよう変更。`style.css`に`.badge-processing`スタイル追加（控えめなグレー・ミュートカラー）。ユーザーが「壊れてる？」と思うのを防止。
+
 ### 完了済み（2026-04-26 T113 カテゴリー分類精度向上）
 - ✅ **T113 override_genre_by_title() によるジャンル上書き実装** — `text_utils.py` に `override_genre_by_title(combined_titles)` を追加。株価/日経平均→株・金融、首相/総理/国会→政治、ミサイル発射→国際、オリンピック→スポーツ など高確度キーワードで1件でもジャンルを強制上書き。`handler.py` で `dominant_genres()` の直後に呼び出し、異なる場合はログ出力して上書き。Google News混入記事のジャンル誤分類を抑制。
 
