@@ -76,7 +76,19 @@ function _showFavLoginToast() {
     el.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(60px);background:#1a1a2e;color:#fff;padding:12px 18px;border-radius:16px;font-size:.84rem;font-weight:600;z-index:9999;opacity:0;transition:all .3s ease;display:flex;align-items:center;gap:10px;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.35);';
     document.body.appendChild(el);
   }
-  el.innerHTML = '<span>💾 ログインで別デバイスでも同期できます</span><button onclick="openAuthModal&&openAuthModal();this.closest(\'#flotopic-fav-login-toast\').style.opacity=0" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:4px 12px;font-size:.8rem;cursor:pointer;font-weight:700;">ログイン</button>';
+  el.textContent = '';
+  const msg = document.createElement('span');
+  msg.textContent = '💾 ログインで別デバイスでも同期できます';
+  const btn = document.createElement('button');
+  btn.textContent = 'ログイン';
+  btn.style.cssText = 'background:#6366f1;color:#fff;border:none;border-radius:8px;padding:4px 12px;font-size:.8rem;cursor:pointer;font-weight:700;';
+  btn.addEventListener('click', () => {
+    if (typeof openAuthModal === 'function') openAuthModal();
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(-50%) translateY(60px)';
+  });
+  el.appendChild(msg);
+  el.appendChild(btn);
   el.style.opacity = '1';
   el.style.transform = 'translateX(-50%) translateY(0)';
   clearTimeout(el._tid);
