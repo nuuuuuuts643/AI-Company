@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T152 過去24h急展開セクション追加）
+- ✅ **T152 app.js/style.css 「⚡ 過去24時間の急展開」セクションをトップに追加** — 毎日訪問する理由として「昨日から何が変わったか」を可視化。`renderQuickNews(topics)` を追加し、`lastArticleAt` が過去24h以内かつ `velocityScore >= HOT_STRIP_MIN_VELOCITY` かつ `generatedSummary` ありのトピックをvelocityScore降順で最大3件表示。各カードに「📄 N件 · X時間前更新」のメタ情報＋トピックタイトル＋要約スニペット(55字)を表示。既存hot-strip（タイトルチップのみ）との差別化: こちらは文脈付き縦カード形式。style.cssに `.quick-news-strip` / `.qn-item` / `.qn-meta` / `.qn-title` / `.qn-snippet` のライト/ダーク両モードCSS追加。renderFavStrip直後に呼び出し、hot-strip→fav-strip→quick-news→topic-gridの順で表示。npm test 42件全パス。
+
 ### 完了済み（2026-04-26 T162 スマホアフィリエイト表示バグ修正）
 - ✅ **T162 detail.js chart.js CDN失敗時のエラー伝播を修正** — 根本原因: `buildCharts()`内で `new Chart(...)` を呼ぶが、モバイルでchart.js CDN読み込み失敗時に `TypeError: Chart is not defined` がスローされ、try-catchなしで `renderDetail` 全体を中断させていた。その結果 `renderAffiliate(meta)` が呼ばれずアフィリエイトセクションが `style="display:none;"` のままになっていた（モバイルで再現性高い理由: CDN failureがモバイルで多い）。修正: `buildCharts(24)` 呼び出しと関連イベントハンドラをtry-catchで囲み、chart描画失敗時はchartCardを非表示にしてrenderDetailを継続。renderAffiliate/renderDiscoveryが常に実行されるよう保証。npm test 42件全パス。
 
