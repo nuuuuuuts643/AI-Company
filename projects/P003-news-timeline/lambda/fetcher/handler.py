@@ -337,6 +337,23 @@ def lambda_handler(event, context):
             velocity_score,
         )
 
+        # 24h記事数差分計算（「昨日から+N件」カード表示用）
+        _day_base_cnt = int(existing.get('articleCountDayBase', 0) or 0)
+        _day_base_ts  = existing.get('articleCountDayBaseTs') or ''
+        if not _day_base_ts:
+            _count_delta   = 0
+            _day_base_cnt  = cnt
+            _day_base_ts   = ts_iso
+        else:
+            try:
+                _base_age = (datetime.now(timezone.utc) - datetime.fromisoformat(_day_base_ts)).total_seconds()
+            except Exception:
+                _base_age = 0
+            _count_delta = max(0, cnt - _day_base_cnt)
+            if _base_age >= 86400:
+                _day_base_cnt = cnt
+                _day_base_ts  = ts_iso
+
         # ソーシャルシグナル加点: コメント数・お気に入り数（ユーザー注目度を反映）
         comment_count  = int(existing.get('commentCount')  or 0)
         fav_count      = int(existing.get('favoriteCount') or 0)
@@ -401,8 +418,12 @@ def lambda_handler(event, context):
             'hasConflict':     has_conflict,
             'uniqueSourceCount': unique_src_count,
             # ソーシャルシグナル（フロントエンド表示用）
-            'commentCount':    comment_count,
-            'favoriteCount':   fav_count,
+            'commentCount':      comment_count,
+            'favoriteCount':     fav_count,
+            # 24h差分（「昨日から+N件」カード表示用）
+            'articleCountDelta':     _count_delta,
+            'articleCountDayBase':   _day_base_cnt,
+            'articleCountDayBaseTs': _day_base_ts,
         }
         if gen_summary:                 item['generatedSummary'] = gen_summary
         if image_url:                   item['imageUrl']         = image_url
