@@ -7,8 +7,9 @@
 ### 完了済み（2026-04-27 T166 storymapリスト latestEvent空白バグ修正）
 - ✅ **T166 storymap.html renderStorymapList latestEvent→summarySnippet** — 根本原因: `renderStorymapList` がストーリーカードの説明文として `storyTimeline[last].event`（latestEvent）を表示しようとしていたが、`storyTimeline` は fetcher の `_INTERNAL` 除外フィールドのため `topics.json` に含まれず常に空文字。結果としてカード内の説明テキストが一切表示されなかった。修正: フィルター条件から dead code の `storyTimeline` 分岐を削除（`storyPhase` のみ）、`latestEvent` を `cleanSummary(generatedSummary).slice(0,55)` スニペットに差し替え。npm test 42件全パス。
 
-### 完了済み（2026-04-27 T165 heroプレビューstoryTimeline→storyPhase修正）
-- ✅ **T165 app.js renderHeroStoryPreview: storyTimeline → storyPhase** — 根本原因: T158で実装したheroプレビューが `t.storyTimeline` フィールドの有無でフィルタリングしていたが、`storyTimeline` は fetcher の `_INTERNAL` 除外フィールドのため `topics.json` に含まれず常に `undefined`。結果としてheroプレビューは常に非表示（`display:none`）になっていた。修正: フィルタ条件を `t.storyPhase`（topics.jsonに含まれる）に変更。storyTimelineの最新beatイベントの代わりに `storyPhase` をフェーズバッジで表示（「現在フェーズ: 🔥 ピーク」等）。npm test 42件全パス。
+### 完了済み（2026-04-27 T165 heroプレビューstoryTimeline→storyPhase修正・storymap一覧追加）
+- ✅ **T165 app.js renderHeroStoryPreview: storyTimeline → storyPhase** — heroプレビューが `storyTimeline`（topics.json除外フィールド）で常に非表示になっていた問題を修正。storyPhaseで判定するよう変更。npm test 42件全パス。
+- ✅ **T165 storymap.html 一覧モード追加** — ボトムナビ「ストーリー」タブから `storymap.html`（?id無し）に直接アクセスするとエラーが表示されていた問題を修正。`renderStorymapList()` を追加し `storyPhase` 保有トピックを velocityScore 順に一覧表示（バグはT166で即修正）。
 
 ### 完了済み（2026-04-27 T153 初回ジャンル選択ボトムシート）
 - ✅ **T153 app.js/style.css 初回ジャンル選択ボトムシート追加** — `flotopic_genre_selected` localStorageフラグなし＋genre未設定 or '総合'の場合、topics読み込み後にボトムシートを表示。13ジャンルのチップボタンを表示し、選択時に `savePrefs` でgenere保存・`currentGenre`更新・`renderTopics`再描画・genre-filterバー同期。スキップ可能。オーバーレイクリックでもスキップ。style.cssに `.go-overlay/.go-sheet/.go-title/.go-sub/.go-chips/.go-chip/.go-skip` のスライドアップアニメーションCSS追加。npm test 42件全パス。
