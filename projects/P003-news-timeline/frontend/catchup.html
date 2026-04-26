@@ -550,13 +550,10 @@ function buildTimelineText(topic) {
 }
 
 function buildVelocityBar(velocityScore) {
-  const v     = Math.min(parseInt(velocityScore || 0), 100);
-  const width = Math.max(2, Math.round(v / 100 * 80)); // px 最大80px
-  const color = v > 30 ? '#ef4444' : v > 10 ? '#f97316' : '#22c55e';
-  return `<div class="velocity-bar">
-    <div class="bar" style="width:${width}px;background:${color}"></div>
-    <span>velocity ${v}</span>
-  </div>`;
+  const v = Math.min(parseInt(velocityScore || 0), 100);
+  if (v > 30) return '<span class="velocity-label hot">🔥 急上昇</span>';
+  if (v > 10) return '<span class="velocity-label rising">📈 上昇中</span>';
+  return '';
 }
 
 function buildCard(topic) {
@@ -568,7 +565,7 @@ function buildCard(topic) {
   const tid     = topic.topicId || '';
   const updated = topic.lastUpdated || '';
   const created = topic.firstArticleAt ? new Date(topic.firstArticleAt * 1000).toISOString() : '';
-  const url     = tid ? `topics/${tid}.html` : 'topic.html';
+  const url     = tid ? `topic.html?id=${tid}` : 'topic.html';
   const velocity = parseInt(topic.velocityScore || 0);
 
   // バッジ
