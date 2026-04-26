@@ -681,6 +681,16 @@ def _html_esc(s: str) -> str:
     return (s or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
 
 
+import re as _re
+def _strip_md(s: str) -> str:
+    """AI生成テキストのマークダウン記法を除去して1行プレーンテキストにする。"""
+    s = _re.sub(r'^#{1,3}\s+.+?$', '', s, flags=_re.MULTILINE)
+    s = _re.sub(r'^[-*]\s+', '', s, flags=_re.MULTILINE)
+    s = _re.sub(r'^\d+\.\s+', '', s, flags=_re.MULTILINE)
+    s = _re.sub(r'\n{2,}', ' ', s)
+    return s.replace('\n', ' ').strip()
+
+
 def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
     """トピックの静的SEO用HTMLをS3の topics/{tid}.html に書き出す。
     Googlebotが読める完全なHTMLを生成する（JavaScriptなし）。
@@ -688,9 +698,9 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
     if not S3_BUCKET:
         return
     title      = _html_esc(meta.get('generatedTitle') or meta.get('title', ''))
-    summary    = _html_esc(meta.get('generatedSummary') or '')
-    spread     = _html_esc(meta.get('spreadReason') or '')
-    forecast   = _html_esc(meta.get('forecast') or '')
+    summary    = _html_esc(_strip_md(meta.get('generatedSummary') or ''))
+    spread     = _html_esc(_strip_md(meta.get('spreadReason') or ''))
+    forecast   = _html_esc(_strip_md(meta.get('forecast') or ''))
     genres_raw = meta.get('genres') or ([meta.get('genre', '総合')] if meta.get('genre') else ['総合'])
     genre      = _html_esc(genres_raw[0])
     image_url  = _html_esc(meta.get('imageUrl') or 'https://flotopic.com/icons/icon-512.png')
