@@ -23,7 +23,7 @@ from proc_storage import (
     update_topic_s3_files_parallel, generate_ogp_image,
     write_s3, notify_slack_error, generate_and_upload_sitemap,
     generate_and_upload_rss, generate_and_upload_news_sitemap,
-    batch_generate_static_html,
+    batch_generate_static_html, backfill_missing_detail_json,
 )
 
 _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline'}
@@ -37,6 +37,11 @@ def lambda_handler(event, context):
     if event.get('regenerateStaticHtml'):
         count = batch_generate_static_html(max_topics=event.get('maxTopics', 500))
         return {'statusCode': 200, 'body': json.dumps({'generated': count})}
+
+    # 特殊モード: detail JSON欠損トピックをDynamoDBから補完
+    if event.get('backfillDetailJson'):
+        filled = backfill_missing_detail_json()
+        return {'statusCode': 200, 'body': json.dumps({'filled': filled})}
 
     # 特殊モード: サイトマップ・RSS・静的JSON再生成のみ（AI呼び出しなし）
     if event.get('regenerateSitemap'):
