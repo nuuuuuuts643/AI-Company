@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T120 マイページ未実装UI非表示 | frontend/mypage.html | 2026-04-26 14:30 |
