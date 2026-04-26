@@ -421,8 +421,10 @@ async function deleteComment(topicId, commentId) {
       body: JSON.stringify({ idToken: currentUser.token }),
     });
     if (r.status === 401) {
+      // トークン期限切れ: 再認証後に自動リトライするためペンディング情報を保存
+      window._pendingCommentDelete = { topicId, commentId };
+      if (typeof showToast === 'function') showToast('セッションが切れました。再ログイン後に削除を自動実行します', 5000);
       if (typeof openAuthModal === 'function') openAuthModal();
-      if (typeof showToast === 'function') showToast('セッションが切れました。再ログインしてください');
       return;
     }
     if (r.status === 403) {
