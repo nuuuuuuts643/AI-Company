@@ -295,10 +295,14 @@ def post_daily(client, dry_run=False):
     topics     = get_topics_from_s3(limit=50, sort_by='velocity')
     posted_ids = get_posted_ids()
 
-    # active かつ未投稿のトップ1件
+    # active / cooling かつ未投稿のトップ1件
+    # NOTE: lifecycleStatus は 48h 以内→'active', 2-7日→'cooling'。
+    # 'active' のみだと48h経過後に全件除外されて投稿ゼロになるため
+    # codebase 全体の定義（proc_storage.py L396, fetcher/storage.py L186）に合わせて
+    # 'active', 'cooling', '' を許容する。
     candidates = [
         t for t in topics
-        if t.get('lifecycleStatus', 'active') == 'active'
+        if t.get('lifecycleStatus', 'active') in ('active', 'cooling', '')
         and t.get('topicId') not in posted_ids
     ]
 
