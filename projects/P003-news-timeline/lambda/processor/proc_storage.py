@@ -336,8 +336,8 @@ def update_topic_s3_file(tid, upd, articles=None):
             meta['imageUrl'] = upd['imageUrl']
         data['meta'] = meta
         write_s3(key, data)
-        # 静的SEO用HTML生成（AI処理完了後に常に更新）
-        if upd.get('aiGenerated'):
+        # 静的SEO用HTML生成（ai要約があれば常に更新。aiGenerated条件を外してOGPのみ更新時も再生成）
+        if meta.get('aiGenerated') or meta.get('generatedSummary'):
             generate_static_topic_html(tid, meta, articles or data.get('articles', []))
     except Exception:
         pass
