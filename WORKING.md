@@ -38,6 +38,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T180 AI要約 原因深掘りセクション追加 | lambda/processor/proc_ai.py, frontend/detail.js | 2026-04-27 09:15 |
 | T176 モバイルUI崩れ修正 | frontend/style.css, frontend/index.html | 2026-04-27 08:00 |
 | T178 topic.html CDN async追加 | projects/P003-news-timeline/frontend/topic.html | 2026-04-27 |
 | T179 グラフ/記事数補正 | projects/P003-news-timeline/frontend/detail.js | 2026-04-27 |
