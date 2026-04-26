@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T148 card-phase-badge インラインスタイルをCSSクラス化）
+- ✅ **T148 card-phase-badge ダークモード修正** — app.js の `renderTopicCard()` が `<span class="card-phase-badge" style="background:...;color:...">` でインラインスタイルを付与していたため、T135で追加した `[data-theme="dark"] .card-phase-badge` CSS（特異性0,2,0,0）がインライン特異性（1,0,0,0）に負けて適用されない状態だった。`PHASE_COLOR` を廃止して `PHASE_CLASS`（phase-start/spread/peak/now/end）に置換し、style.css にフェーズ別ライト/ダーク両モードのCSSクラスを追加。ダークモードでアンバー→#fbbf24、青→#60a5fa、赤→#f87171、緑→#34d399、グレー→#94a3b8 と適切にレンダリングされるよう修正。
+
 ### 完了済み（2026-04-26 T146 コメント欄 cx-mention/cx-save-btn dark mode 修正）
 - ✅ **T146 style.css コメント欄 @メンション・保存ボタン active 色のダークモード欠落修正** — `@media(prefers-color-scheme:dark)` ブロックには `.cx-mention{color:#6366f1}` `.cx-save-btn.saved{color:#38bdf8}` があったが `[data-theme="dark"]` ブロックに同等ルールがなかった。手動ダークモード時に `#2563eb`（暗い青）がそのまま使われ暗背景で約2.9:1（WCAG AA失格）だった。`[data-theme="dark"]` ブロック末尾の2行追加で修正。
 
