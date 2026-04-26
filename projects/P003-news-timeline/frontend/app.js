@@ -193,9 +193,8 @@ function renderKeywordStrip(keywords) {
         input.value = btn.dataset.kw;
         currentSearch = btn.dataset.kw;
         currentPage = 1;
-        // キーワードはサイト全体トレンドなのでジャンルフィルターをリセット
+        // キーワードはサイト全体トレンドなのでジャンルを一時的に総合にする（prefs保存しない）
         currentGenre = '総合';
-        savePrefs({...loadPrefs(), genre: currentGenre});
         buildFilters();
         renderTopics(allTopics);
       }
