@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T126 Chart.jsグラフ ダークモード対応 | frontend/detail.js | 2026-04-26 |
