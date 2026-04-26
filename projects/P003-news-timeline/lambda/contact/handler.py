@@ -179,14 +179,6 @@ def send_ses_notification(data, contact_id):
 
 def list_contacts(limit=100) -> list:
     """flotopic-contacts テーブルから最新件を取得して返す。"""
-    items = []
-    kwargs = {
-        'IndexName': 'category-createdAt-index',
-        'KeyConditionExpression': Key('category').eq('other'),
-        'Limit': limit,
-        'ScanIndexForward': False,
-    }
-    # 全カテゴリをスキャン（件数が少ないのでスキャンが現実的）
     result = contacts.scan(
         Limit=limit,
         FilterExpression=boto3.dynamodb.conditions.Attr('status').exists(),
