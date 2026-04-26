@@ -18,6 +18,8 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
+| T196 | 高 | **Chart.js低速読み込み時にグラフがサイレント消失** — 根本原因: detail.jsはDOMContentLoaded後すぐにbuildCharts()→new Chart()を呼ぶが、低速回線・CDNキャッシュミス時にChart.jsが未ロードのまま実行されてエラー。try-catchでグラフカードごと非表示になるがユーザーには「グラフがない」としか見えない。修正方法: buildCharts()実行前に`typeof Chart !== 'undefined'`を確認し、未ロード時はChart.jsのload完了イベントを待ってから初期化する。 | `frontend/detail.js` | 2026-04-27 |
+| T203 | 高 | **storymap.htmlの検索ボタンが機能不全** — 根本原因: storymap.htmlのbottom-nav「検索」が `<a href="index.html#search-input">` のaタグになっており、index.htmlに遷移するだけで検索欄にフォーカスが当たらない。修正方法: storymap.htmlの検索ナビをbuttonタグに変更し、index.htmlへの遷移時にsearch-inputフォーカスが当たるようパラメータ付きURL（?focus=search）で遷移するかindex.html側でURLSearchParamsをハンドリングしてフォーカスを当てる。 | `frontend/storymap.html`, `frontend/app.js` | 2026-04-27 |
 | T202 | 中 | **app.js:104 `_prevSnap` JSON.parseがトップレベルでtry/catch未適用** — 根本原因: T186で追加した `const _prevSnap = JSON.parse(localStorage.getItem('ftpc_snap') \|\| '{}')` がモジュールトップレベルにtry/catchなし。localStorage値が破損している場合（ストレージ容量逼迫時）SyntaxError uncaughtでapp.js全体が実行されない。他のJSON.parseはすべてtry/catch済みなのでこの1箇所のみ漏れ。修正方法: IIFE化: `const _prevSnap = (() => { try { return JSON.parse(localStorage.getItem('ftpc_snap') \|\| '{}'); } catch { return {}; } })();` | `frontend/app.js` | 2026-04-27 |
 
 ### 🎯 使いたくなるUX（「また来たい」動線）
