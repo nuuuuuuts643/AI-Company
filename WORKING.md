@@ -29,7 +29,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T018 T116 RSSフォールバック削除 | lambda/fetcher/text_utils.py | 2026-04-26 |
 | T021 fetcher高速化 | lambda/fetcher/handler.py | 2026-04-26 14:00 |
 | 例: OGP改善 | frontend/detail.js | 2026-04-26 15:00 |
 
