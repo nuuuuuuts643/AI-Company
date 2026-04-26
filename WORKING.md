@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T157 AI要約なしカード「AI分析中」バッジ追加 | frontend/app.js, frontend/style.css | 2026-04-26 23:15 |
