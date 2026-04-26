@@ -184,6 +184,12 @@ def lambda_handler(event, context):
             print(f'[Processor] {err}')
             notify_slack_error(err)
 
+    # detail JSON 欠損補完（topics.json に存在するが S3 に未作成のトピックを DynamoDB から補完）
+    try:
+        backfill_missing_detail_json()
+    except Exception as e:
+        print(f'[Processor] backfill error: {e}')
+
     return {
         'statusCode': 200,
         'body': json.dumps({
