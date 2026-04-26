@@ -711,8 +711,7 @@ function renderHeroStoryPreview(topics) {
     .filter(t => t.storyPhase && t.lifecycleStatus !== 'archived')
     .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0))[0];
   if (!candidate) { el.style.display = 'none'; return; }
-  const _PHASE_BADGE = { '発端':'🌱 始まり', '拡散':'📡 広まってる', 'ピーク':'🔥 急上昇', '現在地':'📍 進行中', '収束':'✅ ひと段落' };
-  const phaseLabel = _PHASE_BADGE[candidate.storyPhase] || candidate.storyPhase;
+  const phaseLabel = PHASE_BADGE[candidate.storyPhase] || candidate.storyPhase;
   const title = esc(candidate.generatedTitle || candidate.title);
   el.innerHTML = `
     <a href="storymap.html?id=${esc(candidate.topicId)}" class="hero-story-card">
