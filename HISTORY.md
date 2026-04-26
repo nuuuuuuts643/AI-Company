@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T164 storymap.html summaryマークダウン除去）
+- ✅ **T164 storymap.html cleanSummary適用** — `parent.generatedSummary` を hero summary に表示する際、AI生成サマリーのマークダウン記法（`##`見出し・`- `箇条書き）が文字通りに表示されていた。`cleanSummary()` 関数を追加して hero description に適用。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T150/T158 初回onboarding・hero差別化）
 - ✅ **T150 index.html/app.js/style.css 初回訪問onboarding追加** — `flotopic_onboarded` localStorageフラグなし＝初回訪問時、heroエリア下にカード見かたガイドを表示。スコア=トレンド強度、記事N件=記事本数、フェーズバッジ=ストーリー段階の3点を説明。「わかった！」ボタンでlocalStorageに記録して非表示化。`showOnboardingTip()` / `flotopicDismissOnboarding()` 追加。style.cssに `.ob-body/.ob-title/.ob-items/.ob-item/.ob-icon/.ob-dismiss` 追加。
 - ✅ **T158(index.html) heroタグライン確定** — heroタグラインを「ニュースの"流れ"を、AIがストーリーにする」に変更（app.js/style.cssは前コミット済み）。`#hero-story-preview` div追加。npm test 42件全パス。

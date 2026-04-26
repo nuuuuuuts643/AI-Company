@@ -644,6 +644,7 @@ async function refreshTopics() {
     renderTrendingGenres();
     if (typeof syncFavSeenTimes === 'function') syncFavSeenTimes(allTopics);
     showOnboardingTip();
+    showGenreOnboarding();
   } catch(e) {
     console.error(e);
     showErrorBanner('データの読み込みに失敗しました。しばらくしてから再度お試しください。');
@@ -699,6 +700,53 @@ window.flotopicDismissOnboarding = function() {
   localStorage.setItem('flotopic_onboarded', '1');
   const el = document.getElementById('onboarding-tip');
   if (el) el.style.display = 'none';
+};
+
+function showGenreOnboarding() {
+  if (localStorage.getItem('flotopic_genre_selected')) return;
+  const prefs = loadPrefs();
+  if (prefs.genre && prefs.genre !== '総合') return;
+  const overlay = document.createElement('div');
+  overlay.id = 'go-overlay';
+  overlay.className = 'go-overlay';
+  overlay.onclick = window.flotopicSkipGenreOnboarding;
+  const sheet = document.createElement('div');
+  sheet.id = 'go-sheet';
+  sheet.className = 'go-sheet';
+  const chips = GENRES.filter(g => g !== '総合').map(g =>
+    `<button class="go-chip" onclick="flotopicSelectGenre('${g}')">${g}</button>`
+  ).join('');
+  sheet.innerHTML = `
+    <p class="go-title">🎯 興味あるジャンルは？</p>
+    <p class="go-sub">次回から自動で絞り込みます（後で変更できます）</p>
+    <div class="go-chips">${chips}</div>
+    <button class="go-skip" onclick="flotopicSkipGenreOnboarding()">スキップ</button>
+  `;
+  document.body.appendChild(overlay);
+  document.body.appendChild(sheet);
+  requestAnimationFrame(() => { overlay.classList.add('go-visible'); sheet.classList.add('go-visible'); });
+}
+
+function dismissGenreOnboarding() {
+  const overlay = document.getElementById('go-overlay');
+  const sheet = document.getElementById('go-sheet');
+  if (overlay) overlay.remove();
+  if (sheet) sheet.remove();
+}
+
+window.flotopicSelectGenre = function(genre) {
+  localStorage.setItem('flotopic_genre_selected', '1');
+  currentGenre = genre;
+  savePrefs({...loadPrefs(), genre: currentGenre});
+  document.querySelectorAll('.genre-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.genre === currentGenre));
+  currentPage = 1;
+  renderTopics(allTopics);
+  dismissGenreOnboarding();
+};
+
+window.flotopicSkipGenreOnboarding = function() {
+  localStorage.setItem('flotopic_genre_selected', '1');
+  dismissGenreOnboarding();
 };
 
 function renderHotStrip(topics) {
