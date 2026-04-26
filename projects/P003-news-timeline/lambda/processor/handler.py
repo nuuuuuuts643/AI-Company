@@ -102,7 +102,8 @@ def lambda_handler(event, context):
         _is_minimal = cnt <= 2
         needs_story = (cnt >= MIN_ARTICLES_FOR_SUMMARY
                        and not (topic.get('aiGenerated')
-                                and (topic.get('storyTimeline') or _is_minimal)))
+                                and (topic.get('storyTimeline') or _is_minimal)
+                                and (topic.get('storyPhase') or _is_minimal)))
         if needs_story and api_calls < MAX_API_CALLS:
             new_story = generate_story(articles, article_count=cnt)
             api_calls += 1
