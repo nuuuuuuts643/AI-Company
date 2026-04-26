@@ -769,3 +769,10 @@ bash projects/P003-news-timeline/deploy.sh
 
 ### 完了済み（2026-04-26 T073調査）
 - ✅ **T073 ファッション・美容フィルタ調査** — app.js L410 の `_GENRE_ALIAS = {'ファッション':'ファッション・美容'}` で既に対応済み。DynamoDBも0件修正済み（T048完了）。topics.jsonは次回processor実行で自動更新。実装不要と判断。
+
+### 完了済み（2026-04-26 T078 コメント削除UX修正）
+- ✅ **T078** — コメント削除時にトークン期限切れ（401）を検出
+- `deleteComment()` の 401 分岐で `window._pendingCommentDelete = { topicId, commentId }` を保存
+- toast: 「セッションが切れました。再ログイン後に削除を自動実行します」（5秒表示）
+- `auth.js::handleGoogleCredentialResponse` に `_retryPendingDelete()` ヘルパーを追加
+- 再ログイン成功後に `deleteComment()` を自動呼び出し → ユーザーが削除ボタンを再クリック不要
