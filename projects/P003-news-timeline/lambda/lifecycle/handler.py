@@ -262,6 +262,41 @@ def lambda_handler(event, context):
     except Exception as e:
         print(f"[s3-topic-cleanup] error: {e}")
 
+    # ---- 孤立 topics/*.html のクリーンアップ ----
+    s3_html_deleted = 0
+    try:
+        all_html_tids = []
+        for page in paginator.paginate(Bucket=S3_BUCKET, Prefix='topics/'):
+            for obj in page.get('Contents', []):
+                key = obj['Key']
+                if key.endswith('.html'):
+                    tid = key[len('topics/'):-len('.html')]
+                    if tid:
+                        all_html_tids.append((tid, key))
+        existing_html_tids = set()
+        for i in range(0, len(all_html_tids), 100):
+            chunk = all_html_tids[i:i+100]
+            keys = [{'topicId': tid, 'SK': 'META'} for tid, _ in chunk]
+            try:
+                resp = dynamodb.batch_get_item(
+                    RequestItems={TABLE: {'Keys': keys, 'ProjectionExpression': 'topicId'}}
+                )
+                for it in resp.get('Responses', {}).get(TABLE, []):
+                    existing_html_tids.add(it['topicId'])
+            except Exception:
+                for tid, _ in chunk:
+                    existing_html_tids.add(tid)
+        for tid, key in all_html_tids:
+            if tid not in existing_html_tids:
+                try:
+                    s3.delete_object(Bucket=S3_BUCKET, Key=key)
+                    s3_html_deleted += 1
+                except Exception:
+                    pass
+        print(f"[s3-html-cleanup] orphan html deleted: {s3_html_deleted} / {len(all_html_tids)}")
+    except Exception as e:
+        print(f"[s3-html-cleanup] error: {e}")
+
     # ---- filter-feedback S3 クリーンアップ ----
     try:
         fb_deleted = cleanup_filter_feedback(now)
