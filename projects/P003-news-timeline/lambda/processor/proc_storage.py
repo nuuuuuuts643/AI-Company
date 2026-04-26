@@ -890,6 +890,64 @@ def batch_generate_static_html(max_topics: int = 500) -> int:
     return generated
 
 
+def backfill_missing_detail_json() -> int:
+    """topics.json に含まれるが api/topic/{tid}.json が S3 に存在しないトピックを DynamoDB から補完する。"""
+    if not S3_BUCKET:
+        return 0
+    try:
+        resp = s3.get_object(Bucket=S3_BUCKET, Key='api/topics.json')
+        topics_data = json.loads(resp['Body'].read())
+        active_topics = topics_data if isinstance(topics_data, list) else topics_data.get('topics', [])
+    except Exception as e:
+        print(f'[Backfill] topics.json 読み込み失敗: {e}')
+        return 0
+
+    _INTERNAL = {'SK', 'pendingAI', 'ttl'}
+    filled = 0
+    for t in active_topics:
+        tid = t.get('topicId')
+        if not tid:
+            continue
+        key = f'api/topic/{tid}.json'
+        try:
+            s3.head_object(Bucket=S3_BUCKET, Key=key)
+            continue
+        except Exception as e:
+            if hasattr(e, 'response') and e.response.get('Error', {}).get('Code') not in ('404', 'NoSuchKey'):
+                continue
+
+        try:
+            meta_resp = table.get_item(Key={'topicId': tid, 'SK': 'META'})
+            meta = meta_resp.get('Item')
+            if not meta:
+                continue
+            meta_public = {k: v for k, v in meta.items() if k not in _INTERNAL}
+
+            snaps_resp = table.query(
+                KeyConditionExpression=Key('topicId').eq(tid) & Key('SK').begins_with('SNAP#'),
+                ScanIndexForward=False, Limit=30,
+            )
+            snaps = sorted(snaps_resp.get('Items', []), key=lambda x: x['SK'])
+
+            write_s3(key, {
+                'meta': meta_public,
+                'timeline': [
+                    {'timestamp': s['timestamp'], 'articleCount': s['articleCount'],
+                     'score': s.get('score', 0), 'hatenaCount': s.get('hatenaCount', 0),
+                     'articles': s.get('articles', [])}
+                    for s in snaps
+                ],
+                'views': [],
+            })
+            filled += 1
+            print(f'[Backfill] {tid}: detail JSON 補完完了')
+        except Exception as e:
+            print(f'[Backfill] {tid}: 補完失敗 {e}')
+
+    print(f'[Backfill] 完了: {filled}件補完')
+    return filled
+
+
 def notify_slack_error(error_msg: str):
     if not SLACK_WEBHOOK:
         return
