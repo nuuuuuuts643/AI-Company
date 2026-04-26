@@ -153,7 +153,7 @@ def _sanitize_timeline(raw_timeline, max_items: int = 6) -> list:
     for i, e in enumerate(items):
         item = {
             'date':  str(e.get('date', '')),
-            'event': str(e.get('event', ''))[:30],
+            'event': str(e.get('event', ''))[:40],
         }
         raw_tr = str(e.get('transition') or '').strip()
         if raw_tr and i < len(items) - 1:
