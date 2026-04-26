@@ -39,3 +39,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
 | T149 affiliate-label CSS二重定義 + JS重複ラベル修正 | frontend/js/affiliate.js, frontend/style.css | 2026-04-26 22:45 |
+| T146 detail.js hasSummary 旧extractive表示修正 | frontend/detail.js | 2026-04-26 23:00 |
