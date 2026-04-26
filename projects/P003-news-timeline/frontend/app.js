@@ -859,7 +859,7 @@ function updateMypageBadge(topics) {
     if (!lastVisitSec) return;
     const toSec = v => { if (!v) return 0; const n = Number(v); if (!isNaN(n) && n > 1e9) return n; const t = new Date(v).getTime(); return isNaN(t) ? 0 : t / 1000; };
     const hasNew = topics.some(t => userFavorites.has(t.topicId) && toSec(t.lastUpdated) > lastVisitSec);
-    if (hasNew) btn.classList.add('has-badge');
+    btn.classList.toggle('has-badge', hasNew);
   } catch {}
 }
 
