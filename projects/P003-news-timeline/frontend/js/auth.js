@@ -174,6 +174,14 @@ async function handleGoogleCredentialResponse(response) {
   if (!idToken) return;
   closeAuthModal();
 
+  function _retryPendingDelete() {
+    const pending = window._pendingCommentDelete;
+    if (pending && typeof deleteComment === 'function') {
+      window._pendingCommentDelete = null;
+      deleteComment(pending.topicId, pending.commentId);
+    }
+  }
+
   function localLogin(token) {
     try {
       const p = JSON.parse(atob(token.split('.')[1]));
@@ -183,6 +191,7 @@ async function handleGoogleCredentialResponse(response) {
       if (typeof showToast === 'function') showToast(`${getDisplayName(currentUser)} でログインしました`);
       const tid = new URLSearchParams(location.search).get('id');
       if (tid && typeof setupCommentForm === 'function') setupCommentForm(tid);
+      _retryPendingDelete();
     } catch {}
   }
 
@@ -198,12 +207,13 @@ async function handleGoogleCredentialResponse(response) {
       const data = await r.json();
       currentUser = { ...data, token: idToken };
       saveUser(currentUser);
-      mergeServerProfile(data);  // handle + ageGroup + gender をローカルに反映
+      mergeServerProfile(data);
       updateAuthUI();
       if (typeof loadFavorites === 'function') loadFavorites();
       if (typeof showToast === 'function') showToast(`${getDisplayName(currentUser)} でログインしました`);
       const tid = new URLSearchParams(location.search).get('id');
       if (tid && typeof setupCommentForm === 'function') setupCommentForm(tid);
+      _retryPendingDelete();
     } else {
       localLogin(idToken);
     }
