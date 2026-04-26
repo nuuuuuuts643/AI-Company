@@ -57,6 +57,7 @@ function showErrorBanner(message) {
 
 const STATUS_LABEL = { rising:'🔥 急上昇', peak:'⚡ 注目中', declining:'📉 落ち着き', cooling:'📉 落ち着き' };
 const PHASE_BADGE  = { '発端':'🌱 発端', '拡散':'📡 拡散', 'ピーク':'🔥 ピーク', '現在地':'📍 現在地', '収束':'✅ 収束' };
+const PHASE_COLOR  = { '発端':'#f59e0b','拡散':'#3b82f6','ピーク':'#ef4444','現在地':'#10b981','収束':'#64748b' };
 
 function cleanSummary(s) {
   if (!s) return s;
@@ -321,8 +322,9 @@ function renderTopicCard(t, i) {
   const summaryHtml = t.generatedSummary
     ? `<p class="card-summary">${esc(cleanSummary(t.generatedSummary))}</p>`
     : '';
+  const _phaseClr = PHASE_COLOR[t.storyPhase] || '#6366f1';
   const phaseHtml = t.storyPhase && PHASE_BADGE[t.storyPhase]
-    ? `<span class="card-phase-badge">${PHASE_BADGE[t.storyPhase]}</span>`
+    ? `<span class="card-phase-badge" style="background:${_phaseClr}1a;color:${_phaseClr}">${PHASE_BADGE[t.storyPhase]}</span>`
     : '';
 
   const velocity = Number(t.velocityScore || 0);
