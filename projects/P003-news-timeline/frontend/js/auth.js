@@ -120,6 +120,19 @@ function openAuthModal() {
   const modal = document.getElementById('auth-modal');
   if (!modal) return;
   modal.style.display = 'flex';
+
+  // 特典を明示（初回のみ書き換え）
+  const desc = modal.querySelector('.auth-modal-desc');
+  if (desc && !desc.dataset.enhanced) {
+    desc.innerHTML =
+      '<ul style="list-style:none;padding:0;margin:0;text-align:left;font-size:.82rem;color:inherit;">' +
+      '<li style="padding:3px 0;">⭐ お気に入りトピックを保存</li>' +
+      '<li style="padding:3px 0;">📱 閲覧履歴をどのデバイスでも同期</li>' +
+      '<li style="padding:3px 0;">🔔 急上昇・続報の通知を受け取る</li>' +
+      '</ul>';
+    desc.dataset.enhanced = '1';
+  }
+
   const wrap = document.getElementById('auth-modal-google-wrap');
   if (wrap && !wrap.hasChildNodes() && window.google && google.accounts && google.accounts.id) {
     google.accounts.id.renderButton(wrap, {
