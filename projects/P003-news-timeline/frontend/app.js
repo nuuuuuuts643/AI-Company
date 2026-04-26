@@ -525,47 +525,23 @@ function buildFilters() {
   }
 }
 
-const WMO = {
-  0:'☀️ 快晴',1:'🌤 晴れ',2:'⛅ 曇り時々晴れ',3:'☁️ 曇り',
-  45:'🌫 霧',48:'🌫 霧',
-  51:'🌦 小雨',53:'🌧 雨',55:'🌧 強雨',
-  61:'🌦 小雨',63:'🌧 雨',65:'🌧 強雨',
-  71:'🌨 小雪',73:'❄️ 雪',75:'❄️ 大雪',
-  80:'🌦 にわか雨',81:'🌧 にわか雨',82:'⛈ 激しいにわか雨',
-  95:'⛈ 雷雨',96:'⛈ 雷雨',99:'⛈ 激しい雷雨',
-};
-async function loadWeather() {
+function renderTrendingGenres() {
   const el = document.getElementById('weather-widget');
-  if (!el) return;
-
-  async function fetchWeather(lat, lon, cityName) {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Tokyo';
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=${encodeURIComponent(tz)}&forecast_days=1`;
-    const r = await fetch(url);
-    const d = await r.json();
-    const temp = Math.round(d.current.temperature_2m);
-    const desc = WMO[d.current.weather_code] || '―';
-    el.innerHTML = `<span class="weather-city">${cityName}</span><span class="weather-desc">${desc}</span><span class="weather-temp">${temp}°C</span>`;
+  if (!el || !allTopics.length) return;
+  const genreVelocity = {}, genreCount = {};
+  for (const t of allTopics) {
+    if (t.status !== 'rising' && t.status !== 'peak') continue;
+    for (const g of (t.genres || [t.genre || '総合'])) {
+      const v = Number(t.velocityScore || 0);
+      if (!genreVelocity[g] || v > genreVelocity[g]) genreVelocity[g] = v;
+      genreCount[g] = (genreCount[g] || 0) + 1;
+    }
   }
-
-  try {
-    if (!navigator.geolocation) throw new Error('no geolocation');
-    const pos = await new Promise((resolve, reject) =>
-      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 })
-    );
-    const { latitude: lat, longitude: lon } = pos.coords;
-    // Nominatim で都市名を逆ジオコーディング
-    let cityName = '';
-    try {
-      const gr = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ja`, { headers: { 'Accept-Language': 'ja' } });
-      const gd = await gr.json();
-      cityName = gd.address?.city || gd.address?.town || gd.address?.county || gd.address?.state || '';
-    } catch {}
-    await fetchWeather(lat, lon, cityName || '現在地');
-  } catch {
-    // 位置情報が取れない場合は東京にフォールバック
-    try { await fetchWeather(35.68, 139.69, '東京'); } catch { el.textContent = ''; }
-  }
+  const top = Object.entries(genreVelocity).sort((a,b)=>b[1]-a[1]).slice(0,1);
+  if (!top.length) { el.innerHTML = ''; return; }
+  const [genre] = top[0];
+  const cnt = genreCount[genre] || 0;
+  el.innerHTML = `<span class="trend-genre-label">🔥 今日は<strong>${esc(genre)}</strong>が急上昇</span><span class="trend-genre-count">+${cnt}件</span>`;
 }
 
 function setupSearch() {
@@ -616,6 +592,7 @@ async function refreshTopics() {
     renderHotStrip(allTopics);
     renderFavStrip(allTopics);
     renderTopics(allTopics);
+    renderTrendingGenres();
     if (typeof syncFavSeenTimes === 'function') syncFavSeenTimes(allTopics);
   } catch(e) {
     console.error(e);
@@ -997,7 +974,6 @@ document.addEventListener('DOMContentLoaded', () => {
     buildFilters();
     setupSearch();
     setupFavsToggle();
-    if (typeof currentUser !== 'undefined' && currentUser) loadWeather();
     initScrollRestoration();
     showSkeletonCards();
     loadFavorites().finally(() => {
