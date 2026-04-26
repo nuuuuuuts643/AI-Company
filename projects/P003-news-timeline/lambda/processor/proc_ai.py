@@ -4,10 +4,9 @@ import re
 import time
 import urllib.error
 import urllib.request
-from collections import Counter
 from datetime import datetime
 
-from proc_config import ANTHROPIC_API_KEY, STOP_WORDS, SYNONYMS, normalize, extract_entities
+from proc_config import ANTHROPIC_API_KEY
 
 _CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages'
 
@@ -322,23 +321,3 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
     except Exception as e:
         print(f'generate_story (full) error: {e}')
         return None
-
-
-def extractive_title(articles):
-    """AIを使わないフォールバックタイトル生成。"""
-    word_counter = Counter()
-    for a in articles:
-        words = normalize(a.get('title', '')) - STOP_WORDS
-        word_counter.update(w for w in words if len(w) >= 2)
-    top_words = [w for w, _ in word_counter.most_common(5) if word_counter[w] >= 2]
-    all_text  = ' '.join(a.get('title', '') for a in articles)
-    entities  = list(extract_entities(all_text))
-    if entities and top_words:
-        return f'{entities[0]}と{top_words[0]}をめぐる動き'
-    elif entities:
-        return f'{entities[0]}に関する動向'
-    elif top_words:
-        return f'{top_words[0]}をめぐる動き'
-    else:
-        first = articles[0].get('title', '') if articles else ''
-        return first[:25] + ('…' if len(first) > 25 else '')
