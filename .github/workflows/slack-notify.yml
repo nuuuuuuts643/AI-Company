@@ -13,8 +13,9 @@ jobs:
           fetch-depth: 2
 
       - name: コミット情報を取得してSlackに送信
+        continue-on-error: true
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
         run: |
           if [ -z "$SLACK_WEBHOOK_URL" ]; then
             echo "SLACK_WEBHOOK_URL未設定のためスキップ"
