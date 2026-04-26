@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T149 affiliate-label CSS二重定義削除 + JS重複ラベル除去）
+- ✅ **T149 style.css `.affiliate-label` 二重定義を解消し、affiliate.js の重複「広告」ラベルを削除** — style.css に `.affiliate-label` が2箇所定義されていた（2610行目: amber背景 `background:#f59e0b; color:#fff; padding:2px 7px`、2651行目: グレー文字 `color:#94a3b8; border:1px solid #e2e8f0; padding:1px 5px`）。CSSカスケードにより後者のグレープロパティが一部上書きされ amber背景+グレー文字という低コントラスト状態になっていた。2651行目の重複定義を削除。また affiliate.js line 68 で `<p class="affiliate-label">広告</p>` を冒頭に挿入していたが、topic.html の `.affiliate-header` には既に `<span class="affiliate-label">広告</span>` が存在するため二重表示だった。JS側の `<p class="affiliate-label">広告</p>` を削除。npm test 42件全パス確認。
+
 ### 完了済み（2026-04-26 T147 静的SEO HTMLにアフィリエイトリンク追加）
 - ✅ **T147 静的HTML topics/{tid}.html にアフィリエイトリンク追加** — 根本問題: モバイルユーザーがGoogle検索から topics/{tid}.html（静的SEOページ）に着地した場合、アフィリエイトセクションが topic.html にしか存在しないためアフィリリンクが見えなかった。proc_storage.py の `generate_static_topic_html()` にジャンル別キーワードマッピング(_GENRE_KW)を追加し、Amazon/楽天市場/Yahoo!ショッピングへのもしもアフィリエイトリンクを静的HTMLに埋め込むよう修正。CSSも <style> ブロックに追記。次回processor実行（JST 01:00/07:00/13:00/19:00）で既存500件の静的HTMLが更新される。
 
