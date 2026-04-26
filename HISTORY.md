@@ -709,3 +709,9 @@ bash projects/P003-news-timeline/deploy.sh
 ### 完了済み（2026-04-26）T058/T060 開発ファイル確認
 → HISTORY.mdに記録 15:10 JST  
 - ICONS-NEEDED.md / twitter-card.pngはすでにリポジトリに存在しないことを確認（別セッションで削除済み or 未追跡）
+
+### 完了済み（2026-04-26）T067 CLAUDE.mdスナップショット更新
+→ HISTORY.mdに記録 15:15 JST
+- AI要約カバレッジ行は既に最新値(summary69%/phase43%/imageUrl62%)確認済み
+- T065/T066/T057の完了をスナップショットテーブルに追記
+- _sanitize_timeline event[:30]→[:40] バグ修正（T066プロンプトと不一致だった）を同時修正
