@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import time
 import boto3
 from datetime import datetime, timezone
@@ -26,6 +27,8 @@ def lambda_handler(event, context):
         tid = body.get('topicId', '')
         if not tid:
             return {'statusCode': 400, 'headers': CORS, 'body': 'missing topicId'}
+        if not re.match(r'^[0-9a-f]{16}$', tid):
+            return {'statusCode': 400, 'headers': CORS, 'body': 'invalid topicId'}
         date = datetime.now(timezone.utc).strftime('%Y%m%d')
         ttl_ts = int(time.time()) + 90 * 86400
         table.update_item(
