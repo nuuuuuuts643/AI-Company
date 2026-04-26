@@ -980,6 +980,24 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .ai-phase-step-icon { display: block; font-size: .85rem; line-height: 1.2; }
 .ai-phase-step-label { display: block; font-size: .6rem; font-weight: 700; color: #fff; margin-top: 1px; white-space: nowrap; }
 /* Dot+line timeline beats */
+.story-origin-highlight {
+  background: rgba(99,102,241,.07);
+  border-left: 3px solid #6366f1;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+}
+.story-origin-label {
+  display: block;
+  font-size: .68rem;
+  font-weight: 700;
+  color: #6366f1;
+  margin-bottom: 4px;
+  letter-spacing: .02em;
+}
+.story-origin-event { font-size: .82rem; color: var(--text-primary, #1e293b); line-height: 1.45; }
+[data-theme="dark"] .story-origin-highlight { background: rgba(99,102,241,.13); border-left-color: #818cf8; }
+[data-theme="dark"] .story-origin-label { color: #a5b4fc; }
 .ai-beats { display: flex; flex-direction: column; gap: 0; padding-left: 2px; }
 .ai-beat { display: flex; gap: 10px; align-items: flex-start; }
 .ai-beat-dot-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; width: 14px; }
