@@ -20,6 +20,7 @@
 | T036 | 高 | **閲覧済みカードの視覚化**。localStorageにflotopic_historyがあるのにカード一覧で既読/未読の区別が付かない。既読トピックのカードにopacity:0.65程度のグレーオーバーレイを適用。loadPrefsのhistoryデータを使うだけでAPI不要 | frontend/app.js, style.css | 2026-04-26 |
 | T037 | 高 | **ログイン特典を明示するモーダル改善**。未ログイン時にお気に入りボタンを押すと現状ただログインを促すだけ。「ログインするとできること: ①お気に入り保存 ②閲覧履歴をどのデバイスでも同期 ③続報通知」の3点を具体的に示すモーダルに改善 | frontend/js/auth.js | 2026-04-26 |
 | T038 | 中 | **ジャンル設定クラウド同期**。ジャンルフィルター設定が現在localStorageのみ。ログインユーザーはDynamoDB flotopic-favoritesのPK=userId/SK=PREFS#genreに保存、ログイン時に復元。✅完了条件: 別ブラウザ/デバイスでログインしたとき同じジャンル選択が復元されること | frontend/app.js, frontend/js/favorites.js, lambda/favorites/handler.py | 2026-04-26 |
+| T039 | 高 | **Bluesky投稿文をロングテールキーワード狙いに改善**。現在の投稿文は「🔥 今日の急上昇トピック\nタイトル\nサマリー」の単純形式。「〇〇とは何か」「〇〇の背景・経緯」を問いかける形式に変え、トピックのstoryPhaseに応じた文体バリエーション（勃発/展開/決着）も追加。bluesky_agent.py の post_text 生成部分（L334-L340）を改修 | scripts/bluesky_agent.py | 2026-04-26 |
 
 ## 進行中
 → WORKING.md で管理（実装セッションが記入）
