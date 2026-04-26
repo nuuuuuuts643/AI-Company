@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T080 topic.html重複広告修正 | frontend/topic.html | 2026-04-26 19:05 |
