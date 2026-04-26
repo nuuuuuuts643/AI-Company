@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T038 ジャンル設定クラウド同期 | frontend/app.js, frontend/js/favorites.js, lambda/favorites/handler.py | 2026-04-26 15:30 |
