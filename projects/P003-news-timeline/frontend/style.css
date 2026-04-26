@@ -1063,6 +1063,8 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .ai-trust-toggle { color: var(--primary, #6366f1); text-decoration: underline; text-underline-offset: 2px; }
 .ai-trust-sources { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .ai-trust-source { background: var(--surface2, rgba(255,255,255,.06)); padding: 2px 7px; border-radius: 12px; font-size: .7rem; color: var(--text-secondary); }
+.ai-story-nav { display: inline-block; margin-top: 8px; font-size: .8rem; color: var(--primary, #6366f1); text-decoration: none; font-weight: 600; }
+.ai-story-nav:hover { text-decoration: underline; }
 
 .headline-item {
   padding: 6px 0; border-bottom: 1px solid var(--surface2);
