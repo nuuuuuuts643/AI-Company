@@ -187,7 +187,16 @@ function renderKeywordStrip(keywords) {
   strip.querySelectorAll('.kw-chip').forEach(btn => {
     btn.addEventListener('click', () => {
       const input = document.getElementById('search-input');
-      if (input) { input.value = btn.dataset.kw; currentSearch = btn.dataset.kw; currentPage = 1; renderTopics(allTopics); }
+      if (input) {
+        input.value = btn.dataset.kw;
+        currentSearch = btn.dataset.kw;
+        currentPage = 1;
+        // キーワードはサイト全体トレンドなのでジャンルフィルターをリセット
+        currentGenre = '総合';
+        savePrefs({...loadPrefs(), genre: currentGenre});
+        buildFilters();
+        renderTopics(allTopics);
+      }
     });
   });
 }
