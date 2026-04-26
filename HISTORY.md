@@ -610,3 +610,9 @@ bash projects/P003-news-timeline/deploy.sh
 - `frontend/app.js` `setupSearch()` inputハンドラに `currentGenre !== '総合'` チェックを追加
 - 検索テキスト入力時にジャンルを総合にリセット → buildFilters() でUI更新 → クラウド同期
 - ジャンルを選択した状態で検索すると結果ゼロになるバグを修正
+
+#### contact Lambda auto-archive DynamoDB キー修正
+- `lambda/contact/handler.py` `check_auto_archive()` の p003-topics テーブル更新キーを修正
+- `Key={'PK': 'TOPIC#...', 'SK': 'META'}` → `Key={'topicId': ..., 'SK': 'META'}` (テーブルのPKは topicId)
+- `ConditionExpression=Attr('PK').exists()` → `Attr('topicId').exists()` も合わせて修正
+- このバグにより著作権・プライバシー申告3件以上でのトピック自動archived化が機能していなかった（silent fail）
