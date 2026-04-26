@@ -511,6 +511,16 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   border-radius: 20px;
   padding: 2px 8px;
 }
+.badge-processing {
+  display: inline-block;
+  font-size: .68rem;
+  font-weight: 500;
+  color: var(--text-muted, #8b949e);
+  background: rgba(139,148,158,0.1);
+  border: 1px solid rgba(139,148,158,0.25);
+  border-radius: 20px;
+  padding: 2px 8px;
+}
 .genre-tag {
   font-size: .7rem;
   font-weight: 500;
