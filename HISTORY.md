@@ -620,3 +620,11 @@ bash projects/P003-news-timeline/deploy.sh
 - `Key={'PK': 'TOPIC#...', 'SK': 'META'}` → `Key={'topicId': ..., 'SK': 'META'}` (テーブルのPKは topicId)
 - `ConditionExpression=Attr('PK').exists()` → `Attr('topicId').exists()` も合わせて修正
 - このバグにより著作権・プライバシー申告3件以上でのトピック自動archived化が機能していなかった（silent fail）
+
+#### T047 「クロニクル/しばらくぶり」→「リワインド」統一 + legacy.html廃止
+- catchup.html: title/h1/OGP/JSON-LD「クロニクル」→「リワインド」統一
+- legacy.html: noindex+catchup.htmlへのリダイレクト（旧アーカイブページ廃止）
+- 全ページナビ（index/about/contact/topic/mypage/profile/storymap/catchup/privacy/terms）:
+  「クロニクル」→「リワインド」、フッターの「アーカイブ(legacy.html)」リンク削除
+- about.html: 機能名「しばらくぶりモード」→「リワインド」、FAQ更新
+- sw.js: NETWORK_FIRST_ASSETS から重複 `/legacy.html` エントリを削除
