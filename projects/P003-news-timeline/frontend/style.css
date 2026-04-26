@@ -2648,7 +2648,6 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .affiliate-link-shop { font-size: .72rem; color: #94a3b8; font-weight: 500; margin-bottom: 2px; }
 .affiliate-link-title { font-size: .88rem; font-weight: 600; color: #1e293b; line-height: 1.4; }
 .affiliate-link-arrow { color: #94a3b8; font-size: 1rem; flex-shrink: 0; }
-.affiliate-label { font-size: .7rem; color: #94a3b8; border: 1px solid #e2e8f0; border-radius: 3px; display: inline-block; padding: 1px 5px; margin-bottom: 8px; }
 .affiliate-note { margin-top: 10px; font-size: .73rem; color: #94a3b8; }
 
 [data-theme="dark"] .affiliate-link-item { border-color: #334155; }
