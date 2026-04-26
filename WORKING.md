@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T065 ストーリー表示強化 | frontend/detail.js, frontend/style.css, frontend/catchup.html | 2026-04-26 14:30 |
