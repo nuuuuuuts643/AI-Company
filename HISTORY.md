@@ -666,3 +666,13 @@ bash projects/P003-news-timeline/deploy.sh
 - detail.js: beats を dot+縦ライン付きカード形式に刷新（ai-beat-dot-col / ai-beat-vline / ai-beat-content 構造）。最後のdotは緑色。
 - style.css: ai-phase-bar / ai-phase-step / ai-beat-dot-col 等の新規スタイル追加。旧ai-beat-connector削除。
 - catchup.html: storyPhaseバッジをフェーズ固有色（🌱黄/📡青/🔥赤/📍緑/✅グレー）の塗りつぶしに変更。
+
+### 完了済み（2026-04-26）
+
+#### T053 CloudFlare Analytics設定
+- ワークフローファイル `.github/workflows/cf-analytics-setup.yml` が削除されていたため git 履歴から復元・push
+- GitHub Secrets（CF_API_TOKEN・CF_ACCOUNT_ID）は2日前に登録済みだった
+- `gh workflow run cf-analytics-setup.yml --field action=both` でワークフロー実行
+- Lambda `flotopic-cf-analytics` の環境変数に CF_API_TOKEN・CF_ACCOUNT_ID・CF_SITE_TAG が設定済み
+- `https://flotopic.com/api/cf-analytics.json` の更新確認済み（users=1, comments=2）
+- CF PV=0 は RUM ビーコンのデータが蓄積中のため（構造的には正常動作）
