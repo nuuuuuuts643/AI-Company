@@ -40,8 +40,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 |---|---|---|
 | T182 CLAUDE.md 原因分析ルール追記 | CLAUDE.md | 2026-04-27 08:45 |
 | T176 モバイルUI崩れ修正 | frontend/style.css, frontend/index.html | 2026-04-27 08:00 |
-| T177 admin.html ジャンル修正 | frontend/admin.html | 2026-04-27 08:30 |
-| T181 comments/favorites topicId検証 | lambda/comments/handler.py, lambda/favorites/handler.py | 2026-04-27 08:30 |
-| T172 detail.js imageUrl esc() | projects/P003-news-timeline/frontend/detail.js | 2026-04-27 |
-| T173 utils.js CONFIG drift | projects/P003-news-timeline/frontend/js/utils.js, tests/utils.test.js | 2026-04-27 |
-| T174 tracker topicId validation | projects/P003-news-timeline/lambda/tracker/handler.py | 2026-04-27 |
+| T178 topic.html CDN async追加 | projects/P003-news-timeline/frontend/topic.html | 2026-04-27 |
+| T179 グラフ/記事数補正 | projects/P003-news-timeline/frontend/detail.js | 2026-04-27 |
+| T183 Bluesky自動投稿継続確認 | CLAUDE.md | 2026-04-27 |
