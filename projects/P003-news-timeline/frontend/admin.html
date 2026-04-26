@@ -912,28 +912,30 @@ function renderRevenue() {
       status: 'active',
       note:   '掲載中（AdSense審査通過後に切り替え予定）',
       url:    'https://admax.ninja//',
-      color:  '#3fb950',
     },
     {
       name:   'Google AdSense',
       status: 'pending',
       note:   '審査中 — 通過後に忍者AdMaxから切り替え',
       url:    'https://www.google.com/adsense/',
-      color:  '#d29922',
+    },
+    {
+      name:   'もしもアフィリエイト',
+      status: 'active',
+      note:   'a_id=1188659 設定済み。Amazon・楽天・Yahoo! 3店舗一括対応',
+      url:    'https://af.moshimo.com/',
     },
     {
       name:   'Amazon アソシエイト',
-      status: 'setup',
-      note:   '申請後 config.js の AFFILIATE_AMAZON_TAG を設定',
-      url:    'https://affiliate.amazon.co.jp/',
-      color:  '#8b949e',
+      status: 'active',
+      note:   'タグ flotopic-22 設定済み（もしも経由で連携中）',
+      url:    'https://affiliate.amazon.co.jp/home/reports',
     },
     {
       name:   '楽天アフィリエイト',
       status: 'setup',
       note:   '申請後 config.js の AFFILIATE_RAKUTEN_ID を設定',
       url:    'https://affiliate.rakuten.co.jp/',
-      color:  '#8b949e',
     },
   ];
   const STATUS_LABEL = { active: '稼働中', pending: '審査中', setup: '未申請' };
