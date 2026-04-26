@@ -568,6 +568,55 @@ function renderError(msg) {
     </div>`;
 }
 
+function renderStorymapList(topics) {
+  const root = document.getElementById('sm-root');
+  if (!root) return;
+  document.title = 'ストーリー一覧 | Flotopic';
+
+  const stories = topics
+    .filter(t => t.storyPhase || (Array.isArray(t.storyTimeline) && t.storyTimeline.length > 0))
+    .filter(t => t.lifecycleStatus !== 'archived')
+    .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0));
+
+  const PHASE_LABEL = { '発端': '📌 発端', '拡散': '📢 拡散中', 'ピーク': '🔥 ピーク', '現在地': '📍 現在地', '収束': '🌀 収束' };
+
+  const cardsHtml = stories.length === 0
+    ? `<p style="color:#94a3b8;font-size:.85rem;text-align:center;padding:20px 0;">現在ストーリーを追跡中のトピックはありません。</p>`
+    : stories.map(t => {
+        const title  = t.generatedTitle || t.title || '';
+        const phase  = t.storyPhase ? (PHASE_LABEL[t.storyPhase] || t.storyPhase) : '';
+        const beats  = Array.isArray(t.storyTimeline) ? t.storyTimeline : [];
+        const latest = beats.length > 0 ? beats[beats.length - 1] : null;
+        const latestEvent = latest && latest.event ? latest.event : '';
+        const cnt    = t.articleCount || 0;
+        const ago    = fmtAgo(t.lastArticleAt || t.lastUpdated || 0);
+        const status = t.lifecycleStatus || '';
+        return `<a href="storymap.html?id=${esc(t.topicId)}" class="sm-branch-card ${statusClass(status)}">
+          ${phase ? `<div style="font-size:.6rem;font-weight:700;color:#6366f1;background:rgba(99,102,241,.1);padding:1px 8px;border-radius:999px;display:inline-block;margin-bottom:6px;">${esc(phase)}</div>` : ''}
+          <div class="sm-branch-card-title">${esc(title)}</div>
+          ${latestEvent ? `<div style="font-size:.75rem;color:#94a3b8;line-height:1.4;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">最新: ${esc(latestEvent)}</div>` : ''}
+          <div class="sm-branch-card-foot">
+            <span class="sm-branch-card-count">📄 ${cnt}件</span>
+            ${ago ? `<span class="sm-branch-card-date">${esc(ago)}</span>` : ''}
+          </div>
+        </a>`;
+      }).join('');
+
+  root.innerHTML = `
+    <div class="sm-breadcrumb">
+      <a href="index.html">🏠 トップ</a>
+      <span class="sep">›</span>
+      <span class="current">ストーリー一覧</span>
+    </div>
+    <div class="sm-section">
+      <div class="sm-section-header">
+        <span class="sm-section-title">📖 追跡中のストーリー</span>
+        <span class="sm-section-count">${stories.length}件</span>
+      </div>
+      <div class="sm-branch-grid">${cardsHtml}</div>
+    </div>`;
+}
+
 // ===== Main =====
 document.addEventListener('DOMContentLoaded', async () => {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
@@ -575,13 +624,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const params  = new URLSearchParams(location.search);
   const topicId = params.get('id');
-  if (!topicId) { renderError('トピックIDが指定されていません'); return; }
 
   try {
     const r    = await fetch(apiUrl('topics'));
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     const topics = data.topics || [];
+
+    if (!topicId) { renderStorymapList(topics); return; }
 
     const parent = topics.find(t => t.topicId === topicId);
     if (!parent) { renderError('トピックが見つかりませんでした'); return; }
