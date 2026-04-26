@@ -533,3 +533,13 @@ bash projects/P003-news-timeline/deploy.sh
 
 → T042 モバイルキーボード表示時のレイアウト崩れ修正（16:10 JST）
 - `style.css` body `min-height: 100vh` の次行に `min-height: 100dvh` を追加（dynamic viewport height対応）
+
+→ T040追加修正: detail.js r.ok対応・fallback r.ok対応・favorites CORS PUT追加（16:20 JST）
+- `detail.js` の `fetchAllTopicsOnce()` に `if (!r.ok) return [];` を追加
+- `app.js` の topic detail fallback（topics.json最終手段）に `if (!r3.ok) { showError(); return; }` を追加
+- `lambda/favorites/handler.py` の `cors_headers()` の `Access-Control-Allow-Methods` に `PUT` を追加（T038で追加した PUT /prefs エンドポイントのCORSプリフライトが通るように）
+
+→ UX改善: visibilitychange によるタブ復帰時自動更新（16:25 JST）
+- `app.js` に `document.addEventListener('visibilitychange', ...)` を追加
+- タブから離れて5分以上経過後に戻ってきた場合、即 `refreshTopics()` を呼んで古いデータを更新
+- これにより長時間別タブを見た後にFlotopicに戻ったときに自動で最新情報が表示される
