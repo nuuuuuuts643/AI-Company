@@ -858,3 +858,7 @@ bash projects/P003-news-timeline/deploy.sh
 - ✅ **T088** — `proc_storage.py`の`except s3.exceptions.NoSuchKey`が実際のClientErrorをキャッチできていなかった。`except Exception as e: if hasattr(e,'response') and e.response['Error']['Code']=='NoSuchKey'`に変更。StaticHTML生成で毎回11件が「失敗」と誤記録されるログノイズ解消。
 - ✅ **T089** — `bluesky_agent.py`の`make_link_embed`で`client is None`のときに`fetch_image_blob`をスキップするよう修正。dry-run時にAttributeErrorが発生していたが本番投稿には影響なかった。
 - ✅ **T091** — `lifecycle/handler.py`に`topics/*.html`孤立ファイル削除ブロックを追加。`s3-topic-cleanup`と同様のDynamoDB batch_get_itemで有効トピック確認→孤立HTML削除。500件超の削除済みトピックHTMLがGooglebotにクロールされ続けるSEO品質問題を週次自動修正。
+
+### 完了済み（2026-04-26 T090/T092 API実装・ルート追加）
+- ✅ **T090** — `GET /contacts`・`POST /contacts/resolve` ルートは API GW に既存。真因: Lambda invoke 権限が `POST /contact` のみで `GET /contacts` と `POST /contacts/resolve` パスが許可されていなかった。`lambda add-permission` で2ルートを追加 → 403（要管理者token）で正常動作確認。
+- ✅ **T092** — `GET /prefs/{userId}` と `PUT /prefs` ルートは既に API GW に存在（RouteId: l2xib69, 14b64mq）。実際には動作していた（curl 200確認）。finder の誤検知。
