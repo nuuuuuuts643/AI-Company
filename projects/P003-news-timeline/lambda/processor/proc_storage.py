@@ -699,9 +699,11 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
     timeline   = meta.get('storyTimeline') or []
     story_phase = meta.get('storyPhase', '')
     article_count = int(meta.get('articleCount', 0) or 0)
-    _PHASE_LABEL = {'rising': '🔥 急上昇中', 'peak': '📈 最高潮', 'declining': '📉 落ち着き'}
-    phase_badge = (f'<span class="phase-badge phase-{story_phase}">{_PHASE_LABEL[story_phase]}</span>'
-                   if story_phase in _PHASE_LABEL else '')
+    _PHASE_LABEL = {'発端': '🌱 発端', '拡散': '📡 拡散', 'ピーク': '🔥 ピーク', '現在地': '📍 現在地', '収束': '✅ 収束'}
+    _PHASE_CSS   = {'発端': 'rising', '拡散': 'rising', 'ピーク': 'peak', '現在地': 'declining', '収束': 'declining'}
+    phase_css    = _PHASE_CSS.get(story_phase, '')
+    phase_badge  = (f'<span class="phase-badge phase-{phase_css}">{_PHASE_LABEL[story_phase]}</span>'
+                    if story_phase in _PHASE_LABEL else '')
     last_upd   = (meta.get('lastUpdated') or '')[:10] or ''
     _lat = int(meta.get('lastArticleAt') or 0)
     date_published = (datetime.utcfromtimestamp(_lat).strftime('%Y-%m-%dT%H:%M:%SZ') if _lat else last_upd)
