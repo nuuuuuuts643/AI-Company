@@ -24,28 +24,40 @@ _CHUNK_COMMON = {'大統領', '首相', '大臣', '政府', '国会', '議員', 
                  '発表', '開始', '実施', '決定', '対応', '影響', '問題', '検討', '対策'}
 
 def _chunk_sim(a: str, b: str) -> float:
-    """カタカナ連続(3字以上)・漢字2-3文字 n-gram をチャンクとして抽出しJaccard類似度を計算。
+    """カタカナ連続(3字以上)・漢字連続(2字以上)をチャンクとして抽出しJaccard類似度を計算。
     スペースなし日本語タイトル同士の比較に使用する（word-level が 0 の場合のみ呼ばれる）。
-    固有語(非汎用語)を2語以上共有しない場合は 0 を返す（誤クラスタ防止）。"""
+    固有語(非汎用語)を2語以上共有しない場合は 0 を返す（誤クラスタ防止）。
+    「晩餐会」と「晩餐会会場」のようなサブストリング関係も一致として扱う。"""
     def _chunks(text):
         text = _LIVE_PREFIX.sub('', text)
         text = re.sub(r'[0-9\s　・！？!?「」【】（）()]+', ' ', text)
         kana  = {SYNONYMS.get(t, t) for t in _KATAKANA_RUN.findall(text)}
-        # 漢字連続部分から 2-3 文字の重複 n-gram を取得（「晩餐会」と「晩餐会会場」が共通部分を持てる）
-        kanji_ngrams: set = set()
-        for run in _KANJI_RUN.findall(text):
-            for n in (2, 3):
-                for i in range(len(run) - n + 1):
-                    kanji_ngrams.add(run[i:i+n])
-        return kana | kanji_ngrams
-    sa, sb = _chunks(a), _chunks(b)
-    if not sa or not sb:
-        return 0.0
-    shared = sa & sb
+        kanji = {SYNONYMS.get(t, t) for t in _KANJI_RUN.findall(text)}
+        return kana, kanji
+
+    kana_a, kanji_a = _chunks(a)
+    kana_b, kanji_b = _chunks(b)
+
+    # カタカナ: 完全一致
+    shared_kana = kana_a & kana_b
+
+    # 漢字: 完全一致またはサブストリング関係（「晩餐会」⊂「晩餐会会場」）
+    shared_kanji: set = set()
+    for r in kanji_a:
+        for s in kanji_b:
+            if r == s or (len(r) >= 3 and r in s) or (len(s) >= 3 and s in r):
+                shared_kanji.add(r if len(r) <= len(s) else s)  # 短い方を正規形として採用
+
+    shared = shared_kana | shared_kanji
     specific = shared - _CHUNK_COMMON
     if len(specific) < 2:
         return 0.0  # 固有語を2語以上共有していなければ誤クラスタリスク大
-    return len(shared) / len(sa | sb)
+
+    # Jaccard: 全チャンク数に対する共有数
+    sa = kana_a | kanji_a
+    sb = kana_b | kanji_b
+    union_sz = len(sa | sb)
+    return len(shared) / union_sz if union_sz else 0.0
 
 
 def normalize(text):
