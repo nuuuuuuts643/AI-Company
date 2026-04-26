@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T161 mypageボトムナビ赤バッジ | frontend/app.js, frontend/style.css | 2026-04-26 23:50 |
