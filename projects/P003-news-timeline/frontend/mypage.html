@@ -1305,11 +1305,11 @@
         <div class="mp-display-name">${displayName}</div>
         <div class="mp-handle">${safeEsc(handleText)}</div>
         <div class="mp-stats-row">
-          <div class="mp-stat" style="cursor:default;">
+          <div class="mp-stat" style="cursor:default;display:none;">
             <span class="mp-stat-num">0</span>
             <span class="mp-stat-label">フォロー</span>
           </div>
-          <div class="mp-stat" style="cursor:default;">
+          <div class="mp-stat" style="cursor:default;display:none;">
             <span class="mp-stat-num">0</span>
             <span class="mp-stat-label">フォロワー</span>
           </div>
@@ -1330,7 +1330,7 @@
         <button class="mp-tab" data-tab="comments">💬 コメント</button>
         <button class="mp-tab" data-tab="history">📖 履歴</button>
         <button class="mp-tab" data-tab="notifs" id="tab-notifs">🔔 通知</button>
-        <button class="mp-tab" data-tab="timeline">📡 タイムライン</button>
+        <button class="mp-tab" data-tab="timeline" style="display:none;">📡 タイムライン</button>
         <button class="mp-tab" data-tab="account">⚙️ 設定</button>
       </div>
 
@@ -1368,7 +1368,7 @@
       </div>
 
       <!-- タイムラインパネル -->
-      <div class="mp-panel" id="panel-timeline">
+      <div class="mp-panel" id="panel-timeline" style="display:none;">
         <div class="mp-card">
           <div class="mp-timeline-empty">
             <div class="mp-timeline-empty-icon">📡</div>
