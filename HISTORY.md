@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T134 fetcher orphan条件にstoryPhase追加）
+- ✅ **T134 fetcher handler.py orphan候補条件にstoryPhase欠損チェック追加** — orphan_candidates の条件に`and (t.get('storyPhase') or t.get('summaryMode') == 'minimal' or articleCount <= 2)`を追加。storyPhaseが欠落したトピックが定期的にpending_ai.jsonに追加され、次回のprocessor実行でstoryPhase再生成が実行される。T130(proc_storage)との相乗効果でstoryPhaseカバレッジ50%→改善期待。
+
 ### 完了済み（2026-04-26 T133 terms/privacy/contact/storymap テーマ切替ボタン追加）
 - ✅ **T133 4ページにテーマ切替ボタン追加** — terms.html・privacy.html・contact.html・storymap.htmlのヘッダーに`<button id="theme-toggle-btn">`を追加。これらのページでユーザーがダーク/ライト/システムテーマを切り替えられるようになった。theme.jsはT124で追加済みだったがボタンが未追加だったため切替不可だった。
 
