@@ -39,3 +39,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
 | T110 profile.htmlアバター表示バグ | frontend/profile.html | 2026-04-26 |
+| T111 「なぜ広がったか」分析強化 | lambda/processor/proc_ai.py | 2026-04-26 |
