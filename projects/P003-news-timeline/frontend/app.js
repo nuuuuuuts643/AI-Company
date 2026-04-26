@@ -264,7 +264,10 @@ function renderCardMeta(t) {
     : '';
 
   const deltaLabel = (t._deltaCnt > 0)
-    ? `<span class="new-articles-delta" title="前回訪問から増加">+${t._deltaCnt}件</span>` : '';
+    ? `<span class="new-articles-delta" title="前回訪問から増加">+${t._deltaCnt}件</span>`
+    : (t.articleCountDelta > 0)
+        ? `<span class="new-articles-delta" title="過去24時間で増加">📈 +${t.articleCountDelta}件</span>`
+        : '';
   const phaseLabel = t._phaseChanged
     ? `<span class="phase-change-badge">🔄 展開</span>` : '';
   const genres = t.genres || [t.genre || '総合'];
