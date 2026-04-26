@@ -644,7 +644,8 @@ async function refreshTopics() {
     renderTrendingGenres();
     if (typeof syncFavSeenTimes === 'function') syncFavSeenTimes(allTopics);
     showOnboardingTip();
-    showGenreOnboarding();
+    // 初回onboardingが表示されない場合のみ genre sheet を直接表示（2回目以降訪問でgenre未選択の場合）
+    if (localStorage.getItem('flotopic_onboarded')) showGenreOnboarding();
   } catch(e) {
     console.error(e);
     showErrorBanner('データの読み込みに失敗しました。しばらくしてから再度お試しください。');
@@ -700,6 +701,8 @@ window.flotopicDismissOnboarding = function() {
   localStorage.setItem('flotopic_onboarded', '1');
   const el = document.getElementById('onboarding-tip');
   if (el) el.style.display = 'none';
+  // onboarding dismissal → genre selection sheet（連続フロー）
+  showGenreOnboarding();
 };
 
 function showGenreOnboarding() {
@@ -738,8 +741,10 @@ window.flotopicSelectGenre = function(genre) {
   localStorage.setItem('flotopic_genre_selected', '1');
   currentGenre = genre;
   savePrefs({...loadPrefs(), genre: currentGenre});
+  if (typeof syncGenreToCloud === 'function') syncGenreToCloud(currentGenre);
   document.querySelectorAll('.genre-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.genre === currentGenre));
   currentPage = 1;
+  updateIndexOGP(currentGenre);
   renderTopics(allTopics);
   dismissGenreOnboarding();
 };
