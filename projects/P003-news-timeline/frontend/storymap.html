@@ -203,6 +203,13 @@
     }
     .sm-back:hover { background: rgba(255,255,255,.16); color: #e2e8f0; }
 
+    /* ===== Entity tag ===== */
+    .sm-entity-tag {
+      font-size: .62rem; padding: 1px 6px; border-radius: 999px; font-weight: 600;
+      background: #eff6ff; color: #2563eb;
+    }
+    [data-theme="dark"] .sm-entity-tag { background: rgba(37,99,235,.18); color: #93c5fd; }
+
     /* ===== Responsive ===== */
     @media (max-width: 520px) {
       .sm-branch-grid { grid-template-columns: 1fr 1fr; }
@@ -248,10 +255,6 @@
     </div>
   </div>
 </main>
-
-<footer style="text-align:center;padding:20px;color:#94a3b8;font-size:.8rem;margin-top:32px;">
-  <a href="privacy.html" style="color:#94a3b8;text-decoration:underline;">プライバシーポリシー</a>
-</footer>
 
 <script src="config.js"></script>
 <script>
@@ -390,7 +393,7 @@ function renderBranchCard(t, showStatus, idx) {
   const startAgo = startedAt ? fmtAgo(startedAt) : '';
   const status = t.lifecycleStatus || '';
   const entities = extractEntities(title).slice(0,2);
-  const entityHtml = entities.map(e => `<span style="background:#eff6ff;color:#2563eb;font-size:.62rem;padding:1px 6px;border-radius:999px;font-weight:600;">${esc(e)}</span>`).join(' ');
+  const entityHtml = entities.map(e => `<span class="sm-entity-tag">${esc(e)}</span>`).join(' ');
   const stepLabel = idx === 0 ? '発端' : (status === 'active' ? '継続中' : status === 'cooling' ? '収束' : '');
   const stepHtml = stepLabel ? `<span style="font-size:.6rem;font-weight:700;color:#6366f1;background:rgba(99,102,241,.1);padding:1px 6px;border-radius:999px;margin-right:4px;">${stepLabel}</span>` : '';
 
