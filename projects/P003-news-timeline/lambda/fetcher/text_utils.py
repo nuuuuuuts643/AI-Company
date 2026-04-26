@@ -108,6 +108,10 @@ def extract_rss_image(item):
     return None
 
 
+# 特定性の高いジャンル: キーワード1件でも分類。広義ジャンル(グルメ・くらし・ビジネス)は2件維持。
+_SINGLE_HIT_GENRES = frozenset({'テクノロジー', 'スポーツ', '政治', '社会', '健康', '国際', '株・金融', '科学', 'エンタメ'})
+
+
 def dominant_genres(articles, max_genres=2):
     all_titles = ' '.join(a['title'] for a in articles)
     scores = {}
@@ -118,10 +122,11 @@ def dominant_genres(articles, max_genres=2):
         if hit >= 1:
             scores[genre] = hit * 3
 
-    # 通常キーワード: 2件以上でスコア計上（強固スコアがあれば加算）
+    # 通常キーワード: 特定性の高いジャンルは1件、広義ジャンルは2件以上でスコア計上
     for genre, keywords in GENRE_KEYWORDS.items():
         hit = sum(1 for kw in keywords if kw in all_titles)
-        if hit >= 2:
+        threshold = 1 if genre in _SINGLE_HIT_GENRES else 2
+        if hit >= threshold:
             scores[genre] = scores.get(genre, 0) + hit
 
     if scores:
@@ -131,6 +136,11 @@ def dominant_genres(articles, max_genres=2):
             key=lambda g: (-scores[g], priority_rank.get(g, 99)),
         )[:max_genres]
         return top
+
+    # フォールバック: RSSフィードのジャンルから最頻値を使用（'総合'除く）
+    feed_genres = [a.get('genre', '総合') for a in articles if a.get('genre', '総合') != '総合']
+    if feed_genres:
+        return [Counter(feed_genres).most_common(1)[0][0]]
     return ['総合']
 
 
