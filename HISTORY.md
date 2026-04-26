@@ -4,6 +4,10 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T021/T026）
+- ✅ **T021 fetcher 384s→高速化** — cluster()でnormalize()/regex呼び出しをO(n²)→O(n)に削減（4.3M回→2070回）。_chunk_sim用チャンクも事前計算。DynamoDB書き込みを2970件逐次→batch_writer並列(20workers)に変更。S3 topic書き込み218件を並列化。各フェーズに[TIMING]ログ追加。
+- ✅ **T026 MAX_API_CALLS設定根拠コメント** — proc_config.py に「35×4=140calls/day。カバレッジ80%未満になったら150に戻す」コメント追加。設定値35は変更なし。
+
 ### 完了済み（2026-04-26 T017）
 - ✅ **T017 fetcher O(n²)削減** — handler.py の `topics_active` 上限を `[:1000]` → `[:500]` に変更。`find_related_topics()` は転置インデックス方式で既実装済み。`detect_topic_hierarchy()` も O(n²) → O(n·k) に inverted-index 変換（entity→topicId集合の積集合で候補絞り込み）。CloudWatch推定: 229秒→60秒以下へ改善見込み。
 
