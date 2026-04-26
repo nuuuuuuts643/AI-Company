@@ -24,15 +24,20 @@ _CHUNK_COMMON = {'大統領', '首相', '大臣', '政府', '国会', '議員', 
                  '発表', '開始', '実施', '決定', '対応', '影響', '問題', '検討', '対策'}
 
 def _chunk_sim(a: str, b: str) -> float:
-    """カタカナ連続(3字以上)・漢字連続(2字以上)をチャンクとして抽出しJaccard類似度を計算。
+    """カタカナ連続(3字以上)・漢字2-3文字 n-gram をチャンクとして抽出しJaccard類似度を計算。
     スペースなし日本語タイトル同士の比較に使用する（word-level が 0 の場合のみ呼ばれる）。
-    共通語が全て _CHUNK_COMMON の汎用語なら 0 を返す（誤クラスタ防止）。"""
+    固有語(非汎用語)を2語以上共有しない場合は 0 を返す（誤クラスタ防止）。"""
     def _chunks(text):
         text = _LIVE_PREFIX.sub('', text)
         text = re.sub(r'[0-9\s　・！？!?「」【】（）()]+', ' ', text)
         kana  = {SYNONYMS.get(t, t) for t in _KATAKANA_RUN.findall(text)}
-        kanji = {SYNONYMS.get(t, t) for t in _KANJI_RUN.findall(text)}
-        return kana | kanji
+        # 漢字連続部分から 2-3 文字の重複 n-gram を取得（「晩餐会」と「晩餐会会場」が共通部分を持てる）
+        kanji_ngrams: set = set()
+        for run in _KANJI_RUN.findall(text):
+            for n in (2, 3):
+                for i in range(len(run) - n + 1):
+                    kanji_ngrams.add(run[i:i+n])
+        return kana | kanji_ngrams
     sa, sb = _chunks(a), _chunks(b)
     if not sa or not sb:
         return 0.0
