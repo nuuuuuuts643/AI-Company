@@ -31,6 +31,7 @@ import re
 import time
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from urllib.parse import unquote
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
@@ -94,11 +95,18 @@ CORS_HEADERS = {
 }
 
 
+def _json_serial(obj):
+    if isinstance(obj, Decimal):
+        f = float(obj)
+        return int(f) if f == int(f) else f
+    return str(obj)
+
+
 def resp(code: int, body: dict):
     return {
         'statusCode': code,
         'headers':    CORS_HEADERS,
-        'body':       json.dumps(body, ensure_ascii=False, default=str),
+        'body':       json.dumps(body, ensure_ascii=False, default=_json_serial),
     }
 
 
