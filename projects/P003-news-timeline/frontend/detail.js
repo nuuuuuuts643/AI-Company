@@ -736,7 +736,7 @@ function renderDiscovery(meta) {
             const cnt   = t.articleCount || 0;
             const dot   = t.lifecycleStatus === 'active' ? '🔴' : t.lifecycleStatus === 'cooling' ? '🟡' : '⚪';
             const badgeHtml = badge ? `<span class="disc-badge disc-badge-${badge.cls}">${esc(badge.label)}</span>` : '';
-            const safeThumb = t.imageUrl ? (typeof safeImgUrl === 'function' ? safeImgUrl(t.imageUrl) : t.imageUrl.replace(/['"<>]/g, '')) : '';
+            const safeThumb = t.imageUrl ? esc(typeof safeImgUrl === 'function' ? safeImgUrl(t.imageUrl) : t.imageUrl.replace(/['"<>]/g, '')) : '';
             const thumbHtml = safeThumb
               ? `<img class="disc-card-thumb" src="${safeThumb}" alt="" loading="lazy" referrerpolicy="origin-when-cross-origin" onerror="this.style.display='none'">`
               : '';
