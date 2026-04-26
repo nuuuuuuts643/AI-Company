@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T103 get_all_topics二重減衰修正 | lambda/fetcher/storage.py | 2026-04-26 |

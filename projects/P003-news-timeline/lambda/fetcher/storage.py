@@ -37,10 +37,6 @@ def get_all_topics():
             data = json.loads(resp['Body'].read())
             items = data.get('topics', [])
             if items:
-                for item in items:
-                    raw_score = int(item.get('score', 0) or 0)
-                    last_ts   = int(item.get('lastArticleAt', 0) or 0)
-                    item['score'] = apply_time_decay(raw_score, last_ts)
                 items.sort(key=lambda x: int(x.get('score', 0) or 0), reverse=True)
                 return items
         except s3.exceptions.NoSuchKey:
@@ -60,10 +56,6 @@ def get_all_topics():
         items.extend(r.get('Items', []))
         if not r.get('LastEvaluatedKey'): break
         kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
-    for item in items:
-        raw_score = int(item.get('score', 0) or 0)
-        last_ts   = int(item.get('lastArticleAt', 0) or 0)
-        item['score'] = apply_time_decay(raw_score, last_ts)
     items.sort(key=lambda x: int(x.get('score', 0) or 0), reverse=True)
     return items
 
