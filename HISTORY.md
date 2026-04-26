@@ -1162,3 +1162,11 @@ bash projects/P003-news-timeline/deploy.sh
 
 ### 完了済み（2026-04-27 T189 シェアURL体験設計）
 - ✅ **T189** — `detail.js:updateOGP()`: OGPフォールバック文言を「Flotopicでトピックの推移をAIが分析」→「AIがニュースの経緯をストーリー化。話の始まりから今日まで時系列で追える。」に変更（サービス価値を明示）。phaseTextをPHASE_LABEL_OGPマップで日本語親しみやすい語（拡散→広まってる等）に変換してOGP descriptionに含める。`storymapContainer`の非分岐トピックの誘導テキストを「このストーリーの全体像を見る →」→「このストーリーを始まりから追う →」に変更し、シェア経由ユーザーへの文脈説明を改善。
+
+### 完了済み（2026-04-27 T192/T193 フェーズラベル統一・backgroundContext保存修正）
+- ✅ **T192** — detail.js:フェーズバー内のにマップを追加し発端→始まり等に統一。storymap.html:PHASE_LABELマップを同じT187テキストに統一。全5ファイルで表記が一致。
+- ✅ **T193** — proc_storage.py:T180で追加したbackgroundContextフィールドがDynamoDB()・S3 JSON()・静的HTML()のいずれにも保存されていなかった。全3箇所に追加。次回AI処理実行から反映。
+
+### 完了済み（2026-04-27 T192/T193 フェーズラベル統一・backgroundContext保存修正）
+- ✅ **T192** — detail.jsフェーズバーのai-phase-step-labelにPHASE_TEXTマップを追加し発端→始まり等に統一。storymap.htmlのPHASE_LABELマップを同じT187テキストに統一。全5ファイルで表記が一致。
+- ✅ **T193** — proc_storage.py: T180で追加したbackgroundContextフィールドがDynamoDB(update_topic_with_ai)・S3 JSON(update_topic_s3_file)・静的HTML(generate_static_topic_html)のいずれにも保存されていなかった。全3箇所に追加。次回AI処理実行から反映。

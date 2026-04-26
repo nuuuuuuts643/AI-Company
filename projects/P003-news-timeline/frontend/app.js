@@ -663,6 +663,7 @@ async function refreshTopics() {
     updateFreshnessDisplay();
     renderHeroStoryPreview(allTopics);
     renderHotStrip(allTopics);
+    renderReturnStrip(allTopics);
     renderFavStrip(allTopics);
     renderQuickNews(allTopics);
     updateMypageBadge(allTopics);
@@ -831,6 +832,30 @@ function renderHotStrip(topics) {
         return `<a href="topic.html?id=${esc(t.topicId)}" class="hot-chip">${esc(t.generatedTitle || t.title)}${cnt ? `（${cnt}件）` : ''}</a>`;
       }).join('')}
     </div>`;
+}
+
+// 前回訪問から新着があったトピックを強調するストリップ（返ってきたユーザー向け）
+function renderReturnStrip(topics) {
+  const existing = document.getElementById('return-strip');
+  if (existing) existing.remove();
+  if (!Object.keys(_prevSnap).length) return; // 初回訪問はスキップ
+  const moved = (topics || [])
+    .filter(t => (t._deltaCnt || 0) > 0 && t.lifecycleStatus !== 'archived')
+    .sort((a, b) => (b._deltaCnt || 0) - (a._deltaCnt || 0))
+    .slice(0, 3);
+  if (!moved.length) return;
+  const hotEl = document.getElementById('hot-strip');
+  const grid  = document.getElementById('topics-grid');
+  if (!grid) return;
+  const strip = document.createElement('section');
+  strip.id = 'return-strip';
+  strip.className = 'hot-strip return-strip';
+  strip.innerHTML = `
+    <div class="hot-strip-header">📣 前回から新着あり</div>
+    <div class="hot-strip-chips">
+      ${moved.map(t => `<a href="topic.html?id=${esc(t.topicId)}" class="hot-chip return-chip">+${t._deltaCnt}件 ${esc(t.generatedTitle || t.title)}</a>`).join('')}
+    </div>`;
+  grid.parentNode.insertBefore(strip, hotEl || grid);
 }
 
 // お気に入りトピックの最新動向ストリップ（更新があれば表示）
