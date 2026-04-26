@@ -127,7 +127,6 @@ def get_pending_topics(max_topics=100):
             Attr('pendingAI').eq(True) |
             Attr('aiGenerated').ne(True) |
             ~Attr('storyTimeline').exists() |
-            Attr('storyTimeline').eq([]) |
             ~Attr('imageUrl').exists()
         )
     )
