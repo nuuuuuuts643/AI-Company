@@ -998,6 +998,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setupCommentForm(topicId);
     setInterval(() => loadComments(topicId), 3 * 60 * 1000);
   } else if (document.getElementById('topics-grid')) {
+    // URLパラメータ ?q= からの検索クエリを初期値として設定（Google SearchAction対応）
+    const urlQ = new URLSearchParams(location.search).get('q');
+    if (urlQ) {
+      currentSearch = urlQ.trim();
+      const si = document.getElementById('search-input');
+      if (si) si.value = currentSearch;
+    }
     buildFilters();
     setupSearch();
     setupFavsToggle();
