@@ -134,6 +134,22 @@ def dominant_genres(articles, max_genres=2):
     return ['総合']
 
 
+_OVERRIDE_GENRE_RULES = [
+    ('株・金融', ['株価', '日経平均', '日経平均株価', 'TOPIX', '為替レート', '日銀', '円安', '円高', 'ドル円']),
+    ('政治',    ['首相', '総理大臣', '国会審議', '内閣府', '解散', '組閣', '参院選', '衆院選']),
+    ('国際',    ['ミサイル発射', '核実験', '制裁措置', 'NATO首脳', 'ウクライナ侵攻']),
+    ('スポーツ', ['オリンピック', '五輪', 'ワールドカップ', 'W杯']),
+]
+
+
+def override_genre_by_title(combined_titles: str):
+    """クラスター全タイトルに強固キーワードが1件でもあればジャンルを強制上書き。なければNone。"""
+    for genre, keywords in _OVERRIDE_GENRE_RULES:
+        if any(kw in combined_titles for kw in keywords):
+            return genre
+    return None
+
+
 def dominant_lang(articles):
     return Counter(a.get('lang', 'ja') for a in articles).most_common(1)[0][0]
 

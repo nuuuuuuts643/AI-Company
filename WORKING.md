@@ -38,5 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T113 カテゴリー分類精度向上 | lambda/fetcher/text_utils.py, lambda/fetcher/handler.py | 2026-04-26 |
 | T114 AI処理中バッジ表示 | frontend/app.js, frontend/index.html | 2026-04-26 |
