@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T190 信頼性表示追加）
+- ✅ **T190 detail.js AI要約に「N件の記事を分析」フッター追加** — 根本原因: AI生成コンテンツであることは明示しているが「どのソースから集めたか・何件の記事を読んだか」の透明性がなく、ユーザーが「AIが適当に作った文章かも」と感じると信頼が下がる。修正: ①`trustFooterHtml` をminimal/standard/full全モードに追加 ②`meta.articleCount`がある場合に「N件の記事を分析」を表示 ③`meta.sources`がある場合はアコーディオンで情報源ドメイン一覧（小タグ形式）を展開表示 ④style.cssにai-trust-footer/sources用スタイル追加。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T179 グラフ/記事数不一致修正）
 - ✅ **T179 detail.js グラフ最終点をmeta.articleCountで補正** — 根本原因: グラフはDynamoDB SNAPのarticleCount（スナップショット時点の値）を使い、カード表示はtopics.jsonのarticleCount（最新ライブ値）を使うため、lifecycle整理後に両者がずれて不一致が生じていた。修正: buildCharts()内でmediaCnts配列の最終要素をmeta.articleCount（topics.jsonの権威ある現在値）で上書き補正。既存の全レンジ（24h/7d/全期間/集計モード）に対応。npm test 42件全パス。
 
