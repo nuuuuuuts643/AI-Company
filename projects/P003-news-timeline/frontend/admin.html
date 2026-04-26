@@ -277,6 +277,14 @@ section h2{font-size:.9rem;font-weight:600;color:#8b949e;text-transform:uppercas
       </div>
     </section>
 
+    <!-- サービス管理 -->
+    <section>
+      <h2>サービス管理</h2>
+      <div class="panel">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px" id="service-cards"></div>
+      </div>
+    </section>
+
   </div><!-- /#dashboard -->
 </main>
 
@@ -950,6 +958,62 @@ function renderRevenue() {
     </a>`).join('');
 }
 
+// ─── サービス管理カード ────────────────────────────────────────────────────
+function renderServiceLinks() {
+  const SERVICES = [
+    {
+      name:  'AWS Console',
+      note:  'ap-northeast-1 / Lambda・DynamoDB・S3・SES',
+      url:   'https://ap-northeast-1.console.aws.amazon.com/console/home?region=ap-northeast-1',
+      color: '#f89820',
+    },
+    {
+      name:  'Anthropic Console',
+      note:  'Claude API キー・使用量・請求',
+      url:   'https://console.anthropic.com/',
+      color: '#d4a574',
+    },
+    {
+      name:  'GitHub',
+      note:  'ai-company リポジトリ・Actions・Issues',
+      url:   'https://github.com/OWNER/ai-company',
+      color: '#58a6ff',
+    },
+    {
+      name:  'Google AdSense',
+      note:  '審査中 — 収益レポート・広告ユニット管理',
+      url:   'https://www.google.com/adsense/',
+      color: '#4285f4',
+    },
+    {
+      name:  '忍者 AdMax',
+      note:  '掲載中広告の管理・レポート',
+      url:   'https://admax.ninja//',
+      color: '#e06c75',
+    },
+    {
+      name:  'もしもアフィリエイト',
+      note:  'a_id=1188659 / Amazon・楽天・Yahoo! 一括管理',
+      url:   'https://af.moshimo.com/',
+      color: '#3fb950',
+    },
+    {
+      name:  '楽天アフィリエイト',
+      note:  '申請後 AFFILIATE_RAKUTEN_ID を config.js に設定',
+      url:   'https://affiliate.rakuten.co.jp/',
+      color: '#bf3b3b',
+    },
+  ];
+  document.getElementById('service-cards').innerHTML = SERVICES.map(s => `
+    <a href="${s.url}" target="_blank" rel="noopener noreferrer" style="display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px 16px;text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='${s.color}'" onmouseout="this.style.borderColor='#30363d'">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${s.color};flex-shrink:0"></span>
+        <span style="font-weight:600;font-size:.9rem;color:#e6edf3">${s.name}</span>
+      </div>
+      <p style="font-size:.78rem;color:#8b949e;margin:0;line-height:1.5">${s.note}</p>
+    </a>`).join('');
+}
+
 // ─── セクション登録（新セクション追加はここに関数を追記） ─────────────────
 // 引数: (metrics, topics, analyticsMap, analyticsData, cfData)
 const SECTIONS = [
@@ -999,6 +1063,7 @@ const Dashboard = {
       SECTIONS.forEach(fn => fn(m, topics, analyticsMap, analyticsData, cfData));
       renderContacts();
       renderRevenue();
+      renderServiceLinks();
       U.setText('last-fetch', '更新: ' + new Date().toLocaleTimeString('ja-JP'));
       document.getElementById('loading').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
