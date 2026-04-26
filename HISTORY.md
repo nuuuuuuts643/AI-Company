@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T143 detail.js 混在コンテンツ修正）
+- ✅ **T143 detail.js HTTP→HTTPS変換追加** — トピックページのヒーロー背景画像URLに `http://` が含まれると混在コンテンツとしてブラウザがブロックする問題を修正。`meta.imageUrl` を `safeImgUrl()`（app.jsで定義、`http://`→`https://`変換）経由で処理するよう変更。app.jsより後にdetail.jsが読み込まれるためtypeof確認付き。
+
 ### 完了済み（2026-04-26 T142 静的HTML storyPhaseバッジ + 記事数表示追加）
 - ✅ **T142 proc_storage.py 静的HTMLに storyPhase バッジ + 記事数表示** — 静的SEO HTMLにstoryPhaseバッジ（`.phase-rising/peak/declining`）と記事数テキスト（「N件の記事」）を追加。ページがより情報豊富になりクリック率向上期待。CSS: `.phase-badge`クラス + `.phase-rising`(赤系) / `.phase-peak`(アンバー系) / `.phase-declining`(グレー系)。
 
