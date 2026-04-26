@@ -643,6 +643,7 @@ async function refreshTopics() {
     renderTopics(allTopics);
     renderTrendingGenres();
     if (typeof syncFavSeenTimes === 'function') syncFavSeenTimes(allTopics);
+    showOnboardingTip();
   } catch(e) {
     console.error(e);
     showErrorBanner('データの読み込みに失敗しました。しばらくしてから再度お試しください。');
@@ -687,6 +688,18 @@ function renderHeroStoryPreview(topics) {
     <p class="hero-story-tagline">速報じゃなく、<strong>経緯</strong>がわかる</p>`;
   el.style.display = '';
 }
+
+function showOnboardingTip() {
+  if (localStorage.getItem('flotopic_onboarded')) return;
+  const el = document.getElementById('onboarding-tip');
+  if (el) el.style.display = '';
+}
+
+window.flotopicDismissOnboarding = function() {
+  localStorage.setItem('flotopic_onboarded', '1');
+  const el = document.getElementById('onboarding-tip');
+  if (el) el.style.display = 'none';
+};
 
 function renderHotStrip(topics) {
   let strip = document.getElementById('hot-strip');

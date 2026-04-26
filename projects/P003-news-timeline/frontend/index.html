@@ -245,7 +245,7 @@
   <div class="inner header-inner">
     <a href="index.html" class="header-logo-link">
       <h1>Flotopic</h1>
-      <p>話題の流れをAIで追う</p>
+      <p>ニュースの&#34;流れ&#34;を、AIがストーリーにする</p>
     </a>
     <div class="header-right">
       <div id="weather-widget" class="weather-widget"></div>
@@ -279,6 +279,18 @@
     </div>
     <button id="fav-toggle-btn" class="fav-toggle-btn icon-only" title="お気に入りのみ表示">★</button>
     <a href="catchup.html" class="catchup-icon-btn" title="リワインド：離れていた間のニュースをまとめて確認">🕰️ <span class="catchup-btn-label">リワインド</span></a>
+  </div>
+  <div id="hero-story-preview" style="display:none;"></div>
+  <div id="onboarding-tip" style="display:none;">
+    <div class="ob-body">
+      <p class="ob-title">はじめての方へ — カードの見かた</p>
+      <div class="ob-items">
+        <div class="ob-item"><span class="ob-icon">🔥</span><span><strong>スコア</strong>：トレンドの強さ。数字が大きいほど今注目が集まっている</span></div>
+        <div class="ob-item"><span class="ob-icon">📄</span><span><strong>記事N件</strong>：そのトピックを構成する記事の本数</span></div>
+        <div class="ob-item"><span class="ob-icon">📖</span><span><strong>フェーズバッジ</strong>：ストーリーが発生・拡大・収束どの段階にあるか</span></div>
+      </div>
+      <button class="ob-dismiss" onclick="flotopicDismissOnboarding()">わかった！</button>
+    </div>
   </div>
   <div id="keyword-strip" class="keyword-strip"></div>
   <div id="status-filter" class="filter-tabs"></div>
