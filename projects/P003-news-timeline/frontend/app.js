@@ -168,6 +168,7 @@ function apiUrl(path) { return API_BASE + path + '.json'; }
  */
 async function loadTopics() {
   const r = await fetch(apiUrl('topics'));
+  if (!r.ok) throw new Error(`topics fetch failed: HTTP ${r.status}`);
   const data = await r.json();
   renderKeywordStrip(data.trendingKeywords || []);
   return data.topics || [];
@@ -510,7 +511,10 @@ function buildFilters() {
       sbar.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active'); currentStatus = btn.dataset.status;
       savePrefs({...loadPrefs(), status: currentStatus});
-      currentPage = 1; renderTopics(allTopics);
+      currentPage = 1;
+      currentSearch = '';
+      const si = document.getElementById('search-input'); if (si) si.value = '';
+      renderTopics(allTopics);
     }));
   }
   const gbar = document.getElementById('genre-filter');
