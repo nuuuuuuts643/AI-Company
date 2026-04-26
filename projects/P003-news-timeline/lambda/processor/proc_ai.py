@@ -251,7 +251,7 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 500,
+            'max_tokens': 700,
             'messages': [{'role': 'user', 'content': prompt}],
         })
         result = _parse_story_json(data['content'][0]['text'].strip())
