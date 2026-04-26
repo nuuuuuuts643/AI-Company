@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T075）
+- ✅ **T075 Bluesky自動投稿 S3_BUCKET修正** — `bluesky-agent.yml` の `env:` に `S3_BUCKET: p003-news-946554699567` が未設定で、スクリプトのデフォルト `flotopic-public`（存在しないバケット）を参照して毎回失敗していた。正しいバケット名を追加して修正。JST 08:00/12:00/18:00 スケジュールが次回から正常動作するはず。
+
 ### 完了済み（2026-04-26 T074）
 - ✅ **T074 admin.html サービス管理セクション追加** — AWS Console・Anthropic Console・GitHub・Google AdSense・忍者AdMax・もしもアフィリエイト・楽天アフィリエイトの7リンクカードを「サービス管理」セクションとして追加。各カードにサービスカラーのドットインジケーターとホバー時のボーダー変色を実装。`renderServiceLinks()` 関数 + `Dashboard.load()` からの呼び出し。
 
