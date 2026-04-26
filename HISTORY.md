@@ -4,6 +4,11 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T059/T061/T062）
+- ✅ **T059 auth.js ログインモーダル文言修正** — 「@メンション通知」→「ジャンル設定をどのデバイスでも引き継ぎ」に変更。未実装機能を特典として宣伝するのをやめた。
+- ✅ **T061 app.js ?filter URLパラメータ対応** — `?filter=rising` を初期化時に解析してcurrentStatusにセット。manifest.jsonのPWAショートカット「急上昇トピック」が正常動作するようになった。
+- ✅ **T062 robots.txt Disallow: /js/auth.js 削除** — Googlebot が JS をDisallowされると CSRレンダリング不可でSEO低下するため削除。
+
 ### 完了済み（2026-04-27 T057/T058/T059確認/T060）
 - ✅ **T057 admin.html 収益管理パネル追加** — 「収益管理」セクションを追加。忍者AdMax(稼働中)/AdSense(審査中)/Amazon/楽天 の4カードで各ダッシュボードへのリンク + ステータスバッジ表示。AdSense審査通過後に切り替えやすい設計。
 - ✅ **T058 ICONS-NEEDED.md 削除** — `frontend/ICONS-NEEDED.md` を削除。開発ドキュメントが本番S3に公開配信されていた問題を解消。
