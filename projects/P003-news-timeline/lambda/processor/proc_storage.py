@@ -722,16 +722,14 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
     if timeline:
         items_html = []
         for ev in timeline:
-            ev_title    = _html_esc(ev.get('title', ''))
-            ev_desc     = _html_esc(ev.get('description', ''))
-            ev_date     = _html_esc(str(ev.get('pubDate', ev.get('date', '')))[:10])
+            ev_event    = _html_esc(ev.get('event', ''))
+            ev_date     = _html_esc(str(ev.get('date', '')))
             ev_trans    = _html_esc(ev.get('transition', ''))
             trans_part  = f'<p class="tr">{ev_trans}</p>' if ev_trans else ''
             items_html.append(
                 f'<div class="ev">'
                 f'<span class="ev-date">{ev_date}</span>'
-                f'<strong>{ev_title}</strong>'
-                f'<p>{ev_desc}</p>'
+                f'<strong>{ev_event}</strong>'
                 f'{trans_part}'
                 f'</div>'
             )
