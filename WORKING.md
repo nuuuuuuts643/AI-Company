@@ -41,3 +41,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | T094 processor minimal卒業バグ | lambda/processor/handler.py | 2026-04-26 |
 | T093 クラスタリング根本バグ | lambda/fetcher/handler.py | 2026-04-26 |
 | T095 GENRE_PRIORITY順序バグ | lambda/fetcher/config.py | 2026-04-26 |
+| T096 NHK published_ts=0バグ | lambda/fetcher/score_utils.py | 2026-04-26 |

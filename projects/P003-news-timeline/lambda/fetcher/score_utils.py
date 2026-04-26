@@ -30,7 +30,12 @@ def _parse_pubdate_ts(pubdate: str) -> int:
         return 0
     try:
         tpl = parsedate_tz(pubdate)
-        return mktime_tz(tpl) if tpl else 0
+        if tpl:
+            return mktime_tz(tpl)
+    except Exception:
+        pass
+    try:
+        return int(datetime.fromisoformat(pubdate.replace('Z', '+00:00')).timestamp())
     except Exception:
         return 0
 

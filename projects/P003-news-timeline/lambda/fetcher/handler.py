@@ -275,6 +275,10 @@ def lambda_handler(event, context):
     # Step 6: メインループ（外部 I/O なし・DynamoDB はバッファに蓄積）
     _t_loop = time.time()
     for g, tid in group_tids:
+        # new_urls との交差がないグループ（古い記事のみ）はスキップ
+        # Union-Find 推移性による無関係記事の永続混入を防ぐ
+        if not any(a['url'] in new_urls for a in g):
+            continue
         cnt    = len(g)
         genres = dominant_genres(g)
         genre  = genres[0]

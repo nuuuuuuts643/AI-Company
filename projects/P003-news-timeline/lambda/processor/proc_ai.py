@@ -70,11 +70,12 @@ def generate_title(articles):
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 60,
+            'max_tokens': 100,
             'messages': [{'role': 'user', 'content': prompt}],
         }, timeout=12)
         title = data['content'][0]['text'].strip()
-        if len(title) > 40 or any(w in title for w in _REFUSAL):
+        unmatched_bracket = title.count('「') != title.count('」') or title.count('【') != title.count('】')
+        if len(title) > 50 or unmatched_bracket or any(w in title for w in _REFUSAL):
             print(f'generate_title: 無効な応答を除外: {title[:40]}')
             return None
         return title if title else None
