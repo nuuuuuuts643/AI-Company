@@ -37,6 +37,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 ## 現在着手中
 
 | タスク名 | 変更予定ファイル | 開始 JST |
-|---|---|---|| T200 ジャンルタブスクロールヒント | projects/P003-news-timeline/frontend/style.css | 2026-04-27 12:10 |
-
-| T193 前回から新着ストリップ | projects/P003-news-timeline/frontend/app.js, style.css | 2026-04-27 12:00 |
+|---|---|---|
+| T200 ジャンルタブスクロールヒント | projects/P003-news-timeline/frontend/style.css | 2026-04-27 12:10 |
+| T199 お気に入り登録後ログイン誘導 | projects/P003-news-timeline/frontend/app.js | 2026-04-27 12:30 |

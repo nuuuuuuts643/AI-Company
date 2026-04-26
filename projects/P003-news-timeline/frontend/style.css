@@ -293,6 +293,16 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
 }
 .filter-tabs::-webkit-scrollbar { display: none; }
 .genre-tabs { border-bottom: none; margin-bottom: 8px; }
+.genre-tabs-container { position: relative; }
+.genre-tabs-container::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 44px;
+  background: linear-gradient(to right, transparent, var(--surface2, #f5f6f8));
+  pointer-events: none;
+  z-index: 1;
+}
 
 /* keep .filter-bar as alias for old code elsewhere */
 .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
