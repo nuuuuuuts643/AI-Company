@@ -703,11 +703,13 @@
       <label class="profile-setup-label" for="setup-age">年齢層</label>
       <select class="profile-setup-select" id="setup-age">
         <option value="">回答しない</option>
+        <option value="10代未満">10代未満</option>
         <option value="10代">10代</option>
         <option value="20代">20代</option>
         <option value="30代">30代</option>
         <option value="40代">40代</option>
-        <option value="50代以上">50代以上</option>
+        <option value="50代">50代</option>
+        <option value="60代以上">60代以上</option>
       </select>
     </div>
 
@@ -715,9 +717,9 @@
       <label class="profile-setup-label" for="setup-gender">性別</label>
       <select class="profile-setup-select" id="setup-gender">
         <option value="">回答しない</option>
-        <option value="男性">男性</option>
-        <option value="女性">女性</option>
-        <option value="その他">その他</option>
+        <option value="male">男性</option>
+        <option value="female">女性</option>
+        <option value="other">その他</option>
       </select>
     </div>
 
@@ -1408,20 +1410,22 @@
                 <span class="mp-nickname-label" style="display:block;margin-bottom:4px;">年齢層</span>
                 <select class="mp-nickname-input" id="mp-age-select" style="border:1.5px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:.84rem;width:100%;">
                   <option value="">回答しない</option>
+                  <option value="10代未満"${profile.ageGroup==='10代未満'?' selected':''}>10代未満</option>
                   <option value="10代"${profile.ageGroup==='10代'?' selected':''}>10代</option>
                   <option value="20代"${profile.ageGroup==='20代'?' selected':''}>20代</option>
                   <option value="30代"${profile.ageGroup==='30代'?' selected':''}>30代</option>
                   <option value="40代"${profile.ageGroup==='40代'?' selected':''}>40代</option>
-                  <option value="50代以上"${profile.ageGroup==='50代以上'?' selected':''}>50代以上</option>
+                  <option value="50代"${profile.ageGroup==='50代'?' selected':''}>50代</option>
+                  <option value="60代以上"${profile.ageGroup==='60代以上'?' selected':''}>60代以上</option>
                 </select>
               </div>
               <div style="flex:1;">
                 <span class="mp-nickname-label" style="display:block;margin-bottom:4px;">性別</span>
                 <select class="mp-nickname-input" id="mp-gender-select" style="border:1.5px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:.84rem;width:100%;">
                   <option value="">回答しない</option>
-                  <option value="男性"${profile.gender==='男性'?' selected':''}>男性</option>
-                  <option value="女性"${profile.gender==='女性'?' selected':''}>女性</option>
-                  <option value="その他"${profile.gender==='その他'?' selected':''}>その他</option>
+                  <option value="male"${profile.gender==='male'?' selected':''}>男性</option>
+                  <option value="female"${profile.gender==='female'?' selected':''}>女性</option>
+                  <option value="other"${profile.gender==='other'?' selected':''}>その他</option>
                 </select>
               </div>
             </div>
