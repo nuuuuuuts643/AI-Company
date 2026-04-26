@@ -456,10 +456,12 @@ function renderDetail(data) {
     }
   }
 
-  if (meta.childTopics && meta.childTopics.length > 0) {
-    const storymapContainer = document.getElementById('storymap-link-container');
-    if (storymapContainer) {
+  const storymapContainer = document.getElementById('storymap-link-container');
+  if (storymapContainer) {
+    if (meta.childTopics && meta.childTopics.length > 0) {
       storymapContainer.innerHTML = `<a href="storymap.html?id=${esc(meta.topicId)}" class="storymap-btn">🗺 このストーリーの分岐を見る (${meta.childTopics.length}件)</a>`;
+    } else if (meta.storyPhase || (Array.isArray(meta.storyTimeline) && meta.storyTimeline.length > 0)) {
+      storymapContainer.innerHTML = `<a href="storymap.html?id=${esc(meta.topicId)}" class="storymap-banner">📖 このストーリーの全体像を見る →</a>`;
     }
   }
 
