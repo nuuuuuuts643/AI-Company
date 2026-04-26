@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T111「なぜ広がったか」分析強化）
+- ✅ **T111 spreadReason分析観点拡充** — `proc_ai.py` の standard/full 両モードで spreadReason プロンプトを更新。分析軸を4つ明示（①トリガーイベント②なぜ今か③誰が注目④他ニュースとの関連）。standard:1〜2文→2文、full:2〜3文→3文。fullのmax_tokens:900→1000。次回AI処理(JST 01:00/07:00/13:00/19:00)から新記事に適用。
+
 ### 完了済み（2026-04-26 admin.html contacts表示修正）
 - ✅ **admin.html contacts table 送信者列追加・topicIdリンク修正** — contacts APIがDB保存するようになったnameフィールドをテーブルに表示するため「送信者」列を追加（5→6列）。topicIdリンクを`/topics/{tid}`→`/topics/{tid}.html`のcanonical URLに修正。全colspanを6に更新。
 

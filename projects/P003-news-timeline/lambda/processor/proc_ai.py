@@ -292,7 +292,7 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         '}\n\n'
         '【各フィールドのルール】\n'
         'aiSummary: 改行・箇条書き・見出し禁止。1段落。メディア名不要。\n'
-        'spreadReason: なぜ今・なぜこのトピックが広がったかの構造分析。推測の場合は「〜と見られる」で。\n'
+        'spreadReason: 3文で深く分析。①〜④の観点から該当するものを組み合わせる。推測の場合は「〜と見られる」で。\n'
         'forecast: 「今後〜が予想される」「〜の可能性がある」で終える。根拠のない予測禁止。\n'
         'timeline: 3〜6件。重要な転換点のみ。\n'
         'timeline[].event: 体言止め。具体的な出来事を40文字以内で。固有名詞を使って具体的に書く。\n'
@@ -304,7 +304,7 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 900,
+            'max_tokens': 1000,
             'messages': [{'role': 'user', 'content': prompt}],
         })
         result = _parse_story_json(data['content'][0]['text'].strip())
