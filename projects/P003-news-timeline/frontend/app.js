@@ -101,6 +101,7 @@ let currentPage = 1;
 let lastFetchTime = null;
 let _nativeAdIdx = -1;
 let _pendingHeroHighlight = false;
+const _prevSnap = JSON.parse(localStorage.getItem('ftpc_snap') || '{}');
 
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -262,11 +263,15 @@ function renderCardMeta(t) {
     ? `<span class="parent-indicator" title="大きなトピックから派生">↳ 派生</span>`
     : '';
 
+  const deltaLabel = (t._deltaCnt > 0)
+    ? `<span class="new-articles-delta" title="前回訪問から増加">+${t._deltaCnt}件</span>` : '';
+  const phaseLabel = t._phaseChanged
+    ? `<span class="phase-change-badge">🔄 展開</span>` : '';
   const genres = t.genres || [t.genre || '総合'];
   return `
     <div class="topic-meta">
-      <span class="article-count">📄 ${t.articleCount}件 · 約${readMins}分</span>
-      ${srcLabel}
+      <span class="article-count">📄 ${t.articleCount}件 · 約${readMins}分</span>${deltaLabel}
+      ${phaseLabel}${srcLabel}
       ${hatenaLabel}
       ${branchLabel}
       ${parentLabel}
@@ -643,6 +648,14 @@ async function refreshTopics() {
       if (sc !== 0) return sc;
       return (b.lastUpdated || '').localeCompare(a.lastUpdated || '');
     });
+    for (const t of allTopics) {
+      const prev = _prevSnap[t.topicId];
+      if (prev) {
+        const d = (t.articleCount || 0) - (prev.cnt || 0);
+        t._deltaCnt = d > 0 ? d : 0;
+        t._phaseChanged = !!(prev.phase && t.storyPhase && prev.phase !== t.storyPhase);
+      }
+    }
     lastFetchTime = Date.now();
     updateFreshnessDisplay();
     renderHeroStoryPreview(allTopics);
@@ -651,6 +664,11 @@ async function refreshTopics() {
     renderQuickNews(allTopics);
     updateMypageBadge(allTopics);
     renderTopics(allTopics);
+    try {
+      const snap = {};
+      for (const t of allTopics) snap[t.topicId] = { cnt: t.articleCount || 0, phase: t.storyPhase || '' };
+      localStorage.setItem('ftpc_snap', JSON.stringify(snap));
+    } catch(e) {}
     renderTrendingGenres();
     if (typeof syncFavSeenTimes === 'function') syncFavSeenTimes(allTopics);
     showOnboardingTip();
