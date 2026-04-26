@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T113 カテゴリー分類精度向上）
+- ✅ **T113 override_genre_by_title() によるジャンル上書き実装** — `text_utils.py` に `override_genre_by_title(combined_titles)` を追加。株価/日経平均→株・金融、首相/総理/国会→政治、ミサイル発射→国際、オリンピック→スポーツ など高確度キーワードで1件でもジャンルを強制上書き。`handler.py` で `dominant_genres()` の直後に呼び出し、異なる場合はログ出力して上書き。Google News混入記事のジャンル誤分類を抑制。
+
 ### 完了済み（2026-04-26 T112 リワインドフィルター基準firstArticleAt化）
 - ✅ **T112 catchup.html フィルターをfirstArticleAt基準に変更** — 期間フィルターが`lastUpdated >= cutoff`（最終更新日）だったため、fetcher4回/日環境でほぼ全アクティブトピックが通過しホームと同じ表示になっていた。`firstArticleAt * 1000 >= cutoff`（トピック誕生日）に変更して「選んだ期間内に初めて出現したトピック」を表示するように修正。ソートのtiebreakerも`lastUpdated`→`firstArticleAt`DESCに変更。ヒーロー説明文も更新。
 
