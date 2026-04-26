@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T166 storymapリスト latestEvent空白バグ修正）
+- ✅ **T166 storymap.html renderStorymapList latestEvent→summarySnippet** — 根本原因: `renderStorymapList` がストーリーカードの説明文として `storyTimeline[last].event`（latestEvent）を表示しようとしていたが、`storyTimeline` は fetcher の `_INTERNAL` 除外フィールドのため `topics.json` に含まれず常に空文字。結果としてカード内の説明テキストが一切表示されなかった。修正: フィルター条件から dead code の `storyTimeline` 分岐を削除（`storyPhase` のみ）、`latestEvent` を `cleanSummary(generatedSummary).slice(0,55)` スニペットに差し替え。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T165 heroプレビューstoryTimeline→storyPhase修正）
 - ✅ **T165 app.js renderHeroStoryPreview: storyTimeline → storyPhase** — 根本原因: T158で実装したheroプレビューが `t.storyTimeline` フィールドの有無でフィルタリングしていたが、`storyTimeline` は fetcher の `_INTERNAL` 除外フィールドのため `topics.json` に含まれず常に `undefined`。結果としてheroプレビューは常に非表示（`display:none`）になっていた。修正: フィルタ条件を `t.storyPhase`（topics.jsonに含まれる）に変更。storyTimelineの最新beatイベントの代わりに `storyPhase` をフェーズバッジで表示（「現在フェーズ: 🔥 ピーク」等）。npm test 42件全パス。
 
