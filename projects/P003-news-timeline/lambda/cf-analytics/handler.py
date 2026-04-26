@@ -177,7 +177,9 @@ def fetch_comment_stats() -> dict:
 
 def fetch_favorites_stats() -> dict:
     # flotopic-favorites: PK=userId, SK=topicId
-    items    = scan_table(FAVORITES_TABLE, 'userId, topicId, createdAt')
+    # HISTORY# と PREFS# プレフィクスのアイテムは除外して実際のお気に入りのみカウント
+    items    = [i for i in scan_table(FAVORITES_TABLE, 'userId, topicId, createdAt')
+                if not i.get('topicId', '').startswith(('HISTORY#', 'PREFS#'))]
     total    = len(items)
     cutoff7  = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     new_7d   = sum(1 for i in items if (i.get('createdAt') or '') >= cutoff7)
