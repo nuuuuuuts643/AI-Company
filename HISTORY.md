@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T158 heroストーリープレビュー）
+- ✅ **T158 index.html/app.js/style.css heroでFlotopic差別化を体験させる** — heroタグライン「ニュースの"流れ"を、AIがストーリーにする」に変更。heroエリア直下に「今日最も動きのあったストーリー」を1件プレビュー表示（velocityScore最高のstoryTimeline持ちトピックを自動選択）。タイトル＋最新beatイベント＋「経緯をすべて見る →」CTAでstorymap.htmlへ誘導。`renderHeroStoryPreview(allTopics)` 関数追加、style.cssに `.hero-story-card/.label/.title/.beat/.cta/.tagline` のダークグラデCSS追加。Yahoo/Google Newsとの差別化「速報じゃなく、経緯がわかる」をtaglineで訴求。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T152 過去24h急展開セクション追加）
 - ✅ **T152 app.js/style.css 「⚡ 過去24時間の急展開」セクションをトップに追加** — 毎日訪問する理由として「昨日から何が変わったか」を可視化。`renderQuickNews(topics)` を追加し、`lastArticleAt` が過去24h以内かつ `velocityScore >= HOT_STRIP_MIN_VELOCITY` かつ `generatedSummary` ありのトピックをvelocityScore降順で最大3件表示。各カードに「📄 N件 · X時間前更新」のメタ情報＋トピックタイトル＋要約スニペット(55字)を表示。既存hot-strip（タイトルチップのみ）との差別化: こちらは文脈付き縦カード形式。style.cssに `.quick-news-strip` / `.qn-item` / `.qn-meta` / `.qn-title` / `.qn-snippet` のライト/ダーク両モードCSS追加。renderFavStrip直後に呼び出し、hot-strip→fav-strip→quick-news→topic-gridの順で表示。npm test 42件全パス。
 
