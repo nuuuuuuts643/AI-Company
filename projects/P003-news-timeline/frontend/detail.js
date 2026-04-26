@@ -221,6 +221,18 @@ function renderDetail(data) {
 
     const PHASE_COLOR = { '発端':'#f59e0b','拡散':'#3b82f6','ピーク':'#ef4444','現在地':'#10b981','収束':'#64748b' };
     const PHASE_ICON  = { '発端':'🌱','拡散':'📡','ピーク':'🔥','現在地':'📍','収束':'✅' };
+    const ALL_PHASES  = ['発端','拡散','ピーク','現在地','収束'];
+    const currentIdx  = phase ? ALL_PHASES.indexOf(phase) : -1;
+    const phaseBarHtml = phase ? `<div class="ai-phase-bar">${ALL_PHASES.map((p,i)=>{
+      const cls = i===currentIdx ? 'active' : i<currentIdx ? 'past' : '';
+      return `<div class="ai-phase-step ${cls}" style="background:${PHASE_COLOR[p]||'#6366f1'}"><span class="ai-phase-step-icon">${PHASE_ICON[p]||'📍'}</span><span class="ai-phase-step-label">${p}</span></div>`;
+    }).join('')}</div>` : '';
+    const buildBeatsHtml = (bts) => bts.map((b,i)=>{
+      const isLast = i===bts.length-1;
+      const dotCls = isLast ? 'ai-beat-dot ai-beat-dot-last' : 'ai-beat-dot';
+      const transition = !isLast && b.transition ? `<span class="ai-beat-transition">${esc(b.transition)}</span>` : '';
+      return `<div class="ai-beat"><div class="ai-beat-dot-col"><div class="${dotCls}"></div>${!isLast?'<div class="ai-beat-vline"></div>':''}</div><div class="ai-beat-content"><span class="ai-beat-date">${esc(b.date||'')}</span><div class="ai-beat-event">${esc(b.event||'')}</div>${transition}</div></div>`;
+    }).join('');
 
     if (hasSummary) {
       // ── minimal: 1〜2件記事 → シンプルな1段落表示（見出しなし）
@@ -242,21 +254,11 @@ function renderDetail(data) {
             <div class="ai-section-label">なぜ広がったか</div>
             <p class="ai-section-body">${esc(spreadReason)}</p>
           </div>` : '';
-        const phaseChip = phase
-          ? `<span class="ai-phase-chip" style="background:${PHASE_COLOR[phase]||'#6366f1'}">${PHASE_ICON[phase]||'📍'} ${esc(phase)}</span>`
-          : '';
-        const beatsHtml = beats.map((b, i) => {
-          const isLast = i === beats.length - 1;
-          const transition = !isLast && b.transition ? esc(b.transition) : '';
-          return `<div class="ai-beat">
-             <span class="ai-beat-date">${esc(b.date||'')}</span>
-             <span class="ai-beat-event">${esc(b.event||'')}</span>
-           </div>${!isLast ? `<div class="ai-beat-connector">${transition ? `<span class="ai-beat-transition">${transition}</span>` : ''}</div>` : ''}`;
-        }).join('');
-        const sect3 = (phaseChip || beatsHtml) ? `
+        const beatsHtml = beats.length ? buildBeatsHtml(beats) : '';
+        const sect3 = (phaseBarHtml || beatsHtml) ? `
           <div class="ai-section">
             <div class="ai-section-label">今どの段階か</div>
-            ${phaseChip}
+            ${phaseBarHtml}
             ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
           </div>` : '';
         aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2}${sect3}</div>`;
@@ -275,22 +277,12 @@ function renderDetail(data) {
             <div class="ai-section-label">② なぜ広がったか</div>
             <p class="ai-section-body">${esc(spreadReason)}</p>
           </div>` : '';
-        // ③ 今どの段階か（フェーズ + タイムライン）
-        const phaseChip = phase
-          ? `<span class="ai-phase-chip" style="background:${PHASE_COLOR[phase]||'#6366f1'}">${PHASE_ICON[phase]||'📍'} ${esc(phase)}</span>`
-          : '';
-        const beatsHtml = beats.map((b, i) => {
-          const isLast = i === beats.length - 1;
-          const transition = !isLast && b.transition ? esc(b.transition) : '';
-          return `<div class="ai-beat">
-             <span class="ai-beat-date">${esc(b.date||'')}</span>
-             <span class="ai-beat-event">${esc(b.event||'')}</span>
-           </div>${!isLast ? `<div class="ai-beat-connector">${transition ? `<span class="ai-beat-transition">${transition}</span>` : ''}</div>` : ''}`;
-        }).join('');
-        const sect3 = (phaseChip || beatsHtml) ? `
+        // ③ 今どの段階か（フェーズ進捗バー + タイムライン）
+        const beatsHtml = beats.length ? buildBeatsHtml(beats) : '';
+        const sect3 = (phaseBarHtml || beatsHtml) ? `
           <div class="ai-section">
             <div class="ai-section-label">③ 今どの段階か</div>
-            ${phaseChip}
+            ${phaseBarHtml}
             ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
           </div>` : '';
         // ④ 今後どうなるか

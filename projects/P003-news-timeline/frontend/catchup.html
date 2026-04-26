@@ -570,8 +570,10 @@ function buildCard(topic) {
   const lcTexts  = { active: '進行中', cooling: '沈静化中', archived: '終息' };
 
   const PHASE_BADGE = { '発端':'🌱 発端', '拡散':'📡 拡散', 'ピーク':'🔥 ピーク', '現在地':'📍 現在地', '収束':'✅ 収束' };
+  const PHASE_BADGE_COLOR = { '発端':'#f59e0b','拡散':'#3b82f6','ピーク':'#ef4444','現在地':'#10b981','収束':'#64748b' };
+  const phaseColor = PHASE_BADGE_COLOR[topic.storyPhase] || '#6366f1';
   const phaseBadge = topic.storyPhase && PHASE_BADGE[topic.storyPhase]
-    ? `<span class="badge-phase">${PHASE_BADGE[topic.storyPhase]}</span>` : '';
+    ? `<span class="badge-phase" style="background:${phaseColor};color:#fff">${PHASE_BADGE[topic.storyPhase]}</span>` : '';
 
   const badges = `
     <div class="badge-row">
