@@ -726,3 +726,9 @@ bash projects/P003-news-timeline/deploy.sh
 - comments/handler.py: `default=str` → `_json_serial` に変更
 - likeCount/dislikeCount などDecimal値が文字列で返ってきていたバグ修正（DynamoDB返却時のDecimal→文字列→数値型不一致）
 - favorites/auth/analyticsは返す値に数値Decimalなしため変更不要を確認
+
+### 完了済み（2026-04-26）admin.html storyTimeline→storyPhase修正
+→ HISTORY.mdに記録 15:40 JST
+- hasTimeline: `t.storyTimeline && t.storyTimeline.length > 0` → `t.storyPhase` に変更
+- storyTimelineはtopics.jsonに含まれず常に0%の無意味なメトリクスだった
+- 表示ラベルも「storyTimeline 有」→「storyPhase 有」に統一
