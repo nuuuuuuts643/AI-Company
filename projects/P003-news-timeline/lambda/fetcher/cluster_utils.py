@@ -45,7 +45,7 @@ def _chunk_sim(a: str, b: str) -> float:
     shared_kanji: set = set()
     for r in kanji_a:
         for s in kanji_b:
-            if r == s or (len(r) >= 3 and r in s) or (len(s) >= 3 and s in r):
+            if r == s or (len(r) >= 2 and r in s) or (len(s) >= 2 and s in r):
                 shared_kanji.add(r if len(r) <= len(s) else s)  # 短い方を正規形として採用
 
     shared = shared_kana | shared_kanji
