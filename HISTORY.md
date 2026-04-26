@@ -508,3 +508,20 @@ bash projects/P003-news-timeline/deploy.sh
 - `style.css` body の `min-height: 100vh` の直後に `min-height: 100dvh` を追加
 - `100dvh`（dynamic viewport height）はモバイル仮想キーボード表示時に動的に変動し、bottom-navやスティッキーCTAバーが隠れる問題を防ぐ
 - `100vh` は古いブラウザ向けフォールバックとして残存
+
+→ T040 APIエラー黙殺修正（16:15 JST）
+- `loadTopics()` で `r.ok` チェックを追加（`throw new Error('topics fetch failed: HTTP ${r.status}')`）
+- 非200レスポンス時に `refreshTopics()` の catch で `showErrorBanner()` が呼ばれるようになり、空白画面でユーザーが原因不明になるバグを解消
+- テスト: `npm test` 42件全パス
+
+→ T041 フィルター変更時の検索キーワード残存バグ修正（16:15 JST）
+- ステータスフィルター・ジャンルフィルターのクリックハンドラに `currentSearch = ''; search-input.value = '';` を追加
+- フィルター変更後に検索キーワードが残ったまま二重絞り込みされるバグを修正
+- テスト: `npm test` 42件全パス
+
+→ T043 トップページOGP動的更新（16:15 JST）
+- `updateIndexOGP(genre)` 関数を追加（`buildFilters()` の直前に定義）
+- ジャンルが「総合」以外の場合は「${genre}のニュースをAIがまとめて時間軸で可視化…」という説明に変更
+- `meta[name="description"]` / `meta[property="og:description"]` / `meta[name="twitter:description"]` を querySelectorAll で一括更新
+- ジャンルボタンクリック時に `updateIndexOGP(currentGenre)` を呼び出し
+- テスト: `npm test` 42件全パス・構文チェックOK
