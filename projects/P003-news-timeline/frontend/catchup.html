@@ -523,8 +523,9 @@ function getFilteredTopics() {
 
 // ── カード生成 ────────────────────────────────────────────────────────────────
 function buildTimelineText(topic) {
-  const created  = topic.createdAt  ? formatDate(topic.createdAt)  : null;
-  const updated  = topic.updatedAt  ? formatDate(topic.updatedAt)  : null;
+  const createdAt = topic.firstArticleAt ? new Date(topic.firstArticleAt * 1000).toISOString() : null;
+  const created  = createdAt ? formatDate(createdAt) : null;
+  const updated  = topic.lastUpdated ? formatDate(topic.lastUpdated) : null;
   const cnt      = parseInt(topic.articleCount || 0);
   const velocity = parseInt(topic.velocityScore || 0);
 
@@ -557,8 +558,8 @@ function buildCard(topic) {
   const cnt     = parseInt(topic.articleCount || 0);
   const genre   = topic.genre || '総合';
   const tid     = topic.topicId || '';
-  const updated = topic.updatedAt || '';
-  const created = topic.createdAt || '';
+  const updated = topic.lastUpdated || '';
+  const created = topic.firstArticleAt ? new Date(topic.firstArticleAt * 1000).toISOString() : '';
   const url     = `topic.html?id=${encodeURIComponent(tid)}`;
   const velocity = parseInt(topic.velocityScore || 0);
 
