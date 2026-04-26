@@ -757,3 +757,6 @@ bash projects/P003-news-timeline/deploy.sh
 ### 完了済み（2026-04-26 DynamoDB肥大化対策）
 - ✅ **lifecycle SNAPカットオフ 30日→7日** — fetcher の SNAP_TTL_DAYS=7 と整合。TTL属性未設定の古いSNAPも lifecycle 週次削除（月曜 02:00 UTC）で除去できるようになった。808K件 → 次週から大幅減見込み。
 - ✅ **T071 tracker VIEW#アイテムにTTL 90日追加** — VIEW#{date}が無期限蓄積していた問題を修正。新規書き込み時に `ttl = now + 90*86400` を設定。DynamoDB が自動削除する。
+
+### 完了済み（2026-04-26 T073調査）
+- ✅ **T073 ファッション・美容フィルタ調査** — app.js L410 の `_GENRE_ALIAS = {'ファッション':'ファッション・美容'}` で既に対応済み。DynamoDBも0件修正済み（T048完了）。topics.jsonは次回processor実行で自動更新。実装不要と判断。
