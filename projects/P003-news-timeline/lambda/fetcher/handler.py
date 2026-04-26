@@ -218,7 +218,6 @@ def lambda_handler(event, context):
                 'body': json.dumps({'articles': len(all_articles), 'new': 0, 'skipped': True})}
 
     print(f'新規記事: {len(new_urls)}件 / 既知: {len(seen_urls)}件')
-    save_seen_articles(current_urls)
 
     groups = cluster(all_articles)
     print(f'トピック数: {len(groups)}')
@@ -521,7 +520,12 @@ def lambda_handler(event, context):
         # カード表示・検索用フィールドのみ公開。詳細ページ専用フィールドは除外してサイズ削減
         # spreadReason/forecast/storyTimeline は api/topic/{id}.json から取得するので不要
         _INTERNAL = {'SK', 'pendingAI', 'spreadReason', 'forecast', 'storyTimeline'}
-        topics_public = [{k: v for k, v in t.items() if k not in _INTERNAL} for t in topics_deduped]
+        def _pub(t):
+            d = {k: v for k, v in t.items() if k not in _INTERNAL}
+            if d.get('generatedSummary'):
+                d['generatedSummary'] = d['generatedSummary'][:120]
+            return d
+        topics_public = [_pub(t) for t in topics_deduped]
 
         write_s3('api/topics.json', {
             'topics':          topics_public,

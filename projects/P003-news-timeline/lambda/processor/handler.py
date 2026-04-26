@@ -157,7 +157,12 @@ def lambda_handler(event, context):
                     if upd.get('aiGenerated'):               t['aiGenerated']      = True
                     if upd.get('imageUrl') and not t.get('imageUrl'): t['imageUrl'] = upd['imageUrl']
             ts_iso = datetime.now(timezone.utc).isoformat()
-            topics_pub = [{k: v for k, v in t.items() if k not in _PROC_INTERNAL} for t in topics]
+            def _trim(t):
+                d = {k: v for k, v in t.items() if k not in _PROC_INTERNAL}
+                if d.get('generatedSummary'):
+                    d['generatedSummary'] = d['generatedSummary'][:120]
+                return d
+            topics_pub = [_trim(t) for t in topics]
             write_s3('api/topics.json', {
                 'topics':           topics_pub,
                 'trendingKeywords': trending_keywords,
