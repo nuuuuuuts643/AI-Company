@@ -53,8 +53,11 @@ cat WORKING.md
 
 **implementer セッションの動き方：**
 1. `cat TASKS.md` で未着手タスクを確認
-2. WORKING.md に宣言 → 実装 → 完了後 HISTORY.md に移動
-3. TASKS.md の当該行を削除する（追加はしない）
+2. WORKING.md に宣言 → 実装
+3. 完了後は **必ず `bash done.sh T000` を実行**（WORKING.md・TASKS.md削除＋commit＋pushを一括処理）
+4. その後 HISTORY.md に詳細を追記する
+
+> **done.sh を使う理由**: 手動でWORKING.md・TASKS.md・commitを個別にやるとクラッシュで途中止まる。done.shは冪等（何度実行しても同じ結果）なので再実行で確実に完了できる。
 
 ---
 
