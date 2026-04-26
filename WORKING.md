@@ -38,4 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T147 静的HTMLにアフィリエイト追加 | lambda/processor/proc_storage.py | 2026-04-26 21:50 |
+| T149 affiliate-label CSS二重定義 + JS重複ラベル修正 | frontend/js/affiliate.js, frontend/style.css | 2026-04-26 22:45 |
