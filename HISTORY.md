@@ -746,3 +746,10 @@ bash projects/P003-news-timeline/deploy.sh
 - _needs_timeline = cnt > 2 フラグ追加、pending_ai条件で(not _needs_timeline or _has_timeline)に変更
 - 164件のmini-modeトピックが毎回pendingAI=Trueになる無限ループ解消
 - MAX_API_CALLS=150に対してqueue=322件→実効処理量改善
+
+### 完了済み（2026-04-26）T070 minimalモードorphanループ完全修正
+→ HISTORY.mdに記録
+- T069の修正に抜け穴: orphan候補ループがstoryTimeline=[]のminimalトピックを毎回再追加
+- fetcher handler.py: orphan candidates条件にsummaryMode='minimal'またはarticleCount<=2を追加
+- processor proc_storage.py: needs_ai_processingでis_minimal判定追加、timeline有無を問わず処理済みとみなす
+- processor handler.py: needs_storyでis_minimal判定追加、minimal+aiGenerated済みなら再生成不要
