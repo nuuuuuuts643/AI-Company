@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T040 APIエラー黙殺修正 | frontend/app.js | 2026-04-26 16:00 |
