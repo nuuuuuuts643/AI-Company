@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T153 初回ジャンル選択ボトムシート）
+- ✅ **T153 app.js/style.css 初回ジャンル選択ボトムシート追加** — `flotopic_genre_selected` localStorageフラグなし＋genre未設定 or '総合'の場合、topics読み込み後にボトムシートを表示。13ジャンルのチップボタンを表示し、選択時に `savePrefs` でgenere保存・`currentGenre`更新・`renderTopics`再描画・genre-filterバー同期。スキップ可能。オーバーレイクリックでもスキップ。style.cssに `.go-overlay/.go-sheet/.go-title/.go-sub/.go-chips/.go-chip/.go-skip` のスライドアップアニメーションCSS追加。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T164 storymap.html summaryマークダウン除去）
 - ✅ **T164 storymap.html cleanSummary適用** — `parent.generatedSummary` を hero summary に表示する際、AI生成サマリーのマークダウン記法（`##`見出し・`- `箇条書き）が文字通りに表示されていた。`cleanSummary()` 関数を追加して hero description に適用。npm test 42件全パス。
 
