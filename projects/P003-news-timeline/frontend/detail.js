@@ -328,7 +328,18 @@ function renderDetail(data) {
       }
       canvas.style.display='block'; if(vCanvas) vCanvas.style.display='block'; if(noData) noData.style.display='none';
 
+      const getChartColors = () => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        return {
+          grid:     isDark ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.06)',
+          gridZero: isDark ? 'rgba(255,255,255,.3)'  : 'rgba(0,0,0,.3)',
+          tick:     isDark ? '#9ba3c4' : '#666',
+        };
+      };
+      let _chartRange = 24;
+
       const buildCharts = (rangeHours) => {
+        _chartRange = rangeHours;
         const now = Date.now();
         const cutoff = rangeHours ? now - rangeHours * 3600 * 1000 : 0;
         const filtered = rangeHours ? timeline.filter(s => new Date(s.timestamp).getTime() >= cutoff) : timeline;
@@ -358,6 +369,7 @@ function renderDetail(data) {
         const vAbsolute = viewsSorted.map(v => v.count);
         const vDelta    = viewsSorted.map((v, i) => i === 0 ? 0 : v.count - viewsSorted[i-1].count);
 
+        const cc = getChartColors();
         const zoomOpts = meta.status === 'archived' ? {} : {
           zoom: { wheel:{enabled:true}, pinch:{enabled:true}, mode:'x' },
           pan:  { enabled:true, mode:'x' },
@@ -365,7 +377,7 @@ function renderDetail(data) {
         const makeScaleY0 = (data) => {
           const vals = data.filter(v => v !== null);
           const max = vals.length ? Math.max(...vals) : 10;
-          return { min:0, max: max + Math.max(max * 0.2, 1), ticks:{ precision:0, maxTicksLimit:5 }, grid:{ color:'rgba(0,0,0,.06)' } };
+          return { min:0, max: max + Math.max(max * 0.2, 1), ticks:{ precision:0, maxTicksLimit:5, color: cc.tick }, grid:{ color: cc.grid } };
         };
         const makeScaleDelta = (data) => {
           const vals = data.filter(v => v !== null);
@@ -374,8 +386,8 @@ function renderDetail(data) {
           const pad = Math.max(Math.abs(max - min) * 0.2, 1);
           return {
             min: min < 0 ? min - pad : 0, max: max + pad,
-            ticks: { precision:0, maxTicksLimit:5 },
-            grid: { color: ctx => ctx.tick.value === 0 ? 'rgba(0,0,0,.3)' : 'rgba(0,0,0,.06)', lineWidth: ctx => ctx.tick.value === 0 ? 2 : 1 },
+            ticks: { precision:0, maxTicksLimit:5, color: cc.tick },
+            grid: { color: ctx => ctx.tick.value === 0 ? cc.gridZero : cc.grid, lineWidth: ctx => ctx.tick.value === 0 ? 2 : 1 },
           };
         };
 
@@ -397,7 +409,7 @@ function renderDetail(data) {
           options: {
             responsive: true, maintainAspectRatio: false,
             interaction: { mode:'index', intersect:false },
-            plugins: { legend: { display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}} }, zoom: zoomOpts },
+            plugins: { legend: { display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}, color: cc.tick} }, zoom: zoomOpts },
             scales: { y: makeScaleY0(mediaCnts) },
           },
         });
@@ -421,7 +433,7 @@ function renderDetail(data) {
             options: {
               responsive: true, maintainAspectRatio: false,
               interaction: { mode:'index', intersect:false },
-              plugins: { legend: { display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}} }, zoom: zoomOpts },
+              plugins: { legend: { display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}, color: cc.tick} }, zoom: zoomOpts },
               scales: { y: makeScaleY0(scores) },
             },
           });
@@ -429,6 +441,9 @@ function renderDetail(data) {
       };
 
       buildCharts(24);
+      new MutationObserver(() => buildCharts(_chartRange)).observe(
+        document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }
+      );
       document.querySelectorAll('.tr-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           document.querySelectorAll('.tr-btn').forEach(b => b.classList.remove('active'));
