@@ -242,11 +242,21 @@ function renderDetail(data) {
     }).join('');
 
     if (hasSummary) {
+      const _artCnt = meta.articleCount || 0;
+      const _srcs   = Array.isArray(meta.sources) ? meta.sources : [];
+      const trustFooterHtml = _artCnt ? (() => {
+        const cntText = `${_artCnt}件の記事を分析`;
+        if (!_srcs.length) return `<div class="ai-trust-footer">${cntText}</div>`;
+        const srcItems = _srcs.map(s => `<span class="ai-trust-source">${esc(s)}</span>`).join('');
+        return `<details class="ai-trust-footer"><summary>${cntText} <span class="ai-trust-toggle">（情報源を見る）</span></summary><div class="ai-trust-sources">${srcItems}</div></details>`;
+      })() : '';
+
       // ── minimal: 1〜2件記事 → シンプルな1段落表示（見出しなし）
       if (summaryMode === 'minimal') {
         aiAnalysisEl.innerHTML = `
           <div class="ai-analysis-inner ai-analysis-minimal">
             <p class="ai-summary-simple">${esc(summary)}</p>
+            ${trustFooterHtml}
           </div>`;
 
       // ── standard: 3〜5件記事 → 概要 + なぜ広がったか + 短いタイムライン
@@ -274,7 +284,7 @@ function renderDetail(data) {
             ${originHtml}
             ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
           </div>` : '';
-        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sectBg}${sect2}${sect3}</div>`;
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sectBg}${sect2}${sect3}${trustFooterHtml}</div>`;
 
       // ── full: 6件以上 → フル4セクション（従来通り）
       } else {
@@ -311,7 +321,7 @@ function renderDetail(data) {
             <div class="ai-section-label">${backgroundContext ? '⑤' : '④'} 今後どうなるか <span class="ai-hypothesis-badge">仮説</span></div>
             <p class="ai-section-body">${esc(forecast)}</p>
           </div>` : '';
-        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2bg}${sect2}${sect3}${sect4}</div>`;
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2bg}${sect2}${sect3}${sect4}${trustFooterHtml}</div>`;
       }
 
       aiAnalysisEl.style.display = 'block';

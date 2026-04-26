@@ -1055,6 +1055,12 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .ai-summary-simple { font-size: .88rem; color: var(--text-secondary); line-height: 1.7; margin: 0; }
 .ai-pending { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--text-muted); padding: 10px 0; }
 .ai-pending-icon { font-size: 1.1rem; }
+.ai-trust-footer { font-size: .75rem; color: var(--text-muted); margin-top: 4px; cursor: pointer; }
+.ai-trust-footer summary { list-style: none; display: flex; align-items: center; gap: 4px; }
+.ai-trust-footer summary::-webkit-details-marker { display: none; }
+.ai-trust-toggle { color: var(--primary, #6366f1); text-decoration: underline; text-underline-offset: 2px; }
+.ai-trust-sources { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.ai-trust-source { background: var(--surface2, rgba(255,255,255,.06)); padding: 2px 7px; border-radius: 12px; font-size: .7rem; color: var(--text-secondary); }
 
 .headline-item {
   padding: 6px 0; border-bottom: 1px solid var(--surface2);
