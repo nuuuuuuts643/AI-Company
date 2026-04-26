@@ -232,6 +232,7 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
         '【出力フォーマット（JSON以外出力禁止）】\n'
         '{\n'
         '  "aiSummary": "何が起きたか。誰が・何をして・何が起き・なぜ注目されたかを事実ベースで1段落",\n'
+        '  "backgroundContext": "なぜ起きたか。この問題の背景にある構造的・社会的・経済的・政治的要因を1文で分析。推測は「〜と見られる」で",\n'
         '  "spreadReason": "なぜ広がったか。①トリガーイベント（引き金となった出来事）②なぜ今か（時事・政治・経済文脈）③誰が注目しているか（注目層・立場）④他ニュースとの関連のうち該当する観点を2文で分析",\n'
         '  "timeline": [\n'
         '    {"date": "M/D形式または空文字", "event": "何が起きたか（40文字以内の体言止め）", "transition": "次への因果・接続（25文字以内）"},\n'
@@ -242,6 +243,7 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
         '}\n\n'
         '【ルール】\n'
         'aiSummary: 改行・箇条書き禁止。1段落。メディア名不要。\n'
+        'backgroundContext: 1文。表面の出来事ではなく背景にある構造的要因を書く。「〜という構造的背景がある」「〜が長年の課題となっていた」等。\n'
         'spreadReason: 2文で分析。①〜④の観点から該当するものを選ぶ。推測は「〜と見られる」で。\n'
         'timeline: 2〜3件のみ。重要な転換点のみ。\n'
         'timeline[].event: 体言止め。具体的な出来事を40文字以内で。\n'
@@ -252,7 +254,7 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 700,
+            'max_tokens': 900,
             'messages': [{'role': 'user', 'content': prompt}],
         })
         result = _parse_story_json(data['content'][0]['text'].strip())
@@ -260,12 +262,13 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
             return None
         valid_phases = ('発端', '拡散', 'ピーク', '現在地', '収束')
         return {
-            'aiSummary':    result['aiSummary'].strip(),
-            'spreadReason': str(result.get('spreadReason') or '').strip(),
-            'forecast':     '',
-            'timeline':     _sanitize_timeline(result.get('timeline'), max_items=3),
-            'phase':        result.get('phase') if result.get('phase') in valid_phases else '現在地',
-            'summaryMode':  'standard',
+            'aiSummary':         result['aiSummary'].strip(),
+            'backgroundContext': str(result.get('backgroundContext') or '').strip(),
+            'spreadReason':      str(result.get('spreadReason') or '').strip(),
+            'forecast':          '',
+            'timeline':          _sanitize_timeline(result.get('timeline'), max_items=3),
+            'phase':             result.get('phase') if result.get('phase') in valid_phases else '現在地',
+            'summaryMode':       'standard',
         }
     except Exception as e:
         print(f'generate_story (standard) error: {e}')
@@ -282,8 +285,9 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         + '【出力フォーマット（JSON以外出力禁止）】\n'
         '{\n'
         '  "aiSummary": "①何が起きたか。誰が・何をして・何が起き・なぜ注目されたかを事実ベースで1段落",\n'
-        '  "spreadReason": "②なぜ広がったか。①トリガーイベント（引き金となった出来事）②なぜ今か（時事・政治・経済文脈）③誰が注目しているか（注目層・立場）④他ニュースとの関連のうち該当する観点を3文で深く分析",\n'
-        '  "forecast": "③今後どうなるか。記事内容を根拠にした仮説を2文。断定せず「〜が見込まれる」「〜の可能性がある」で締める",\n'
+        '  "backgroundContext": "②なぜ起きたか。この問題の背景にある構造的・社会的・経済的・政治的要因を2文で分析。表面の出来事ではなく根本にある構造や文脈を掘り下げる。推測は「〜と見られる」で",\n'
+        '  "spreadReason": "③なぜ広がったか。①トリガーイベント（引き金となった出来事）②なぜ今か（時事・政治・経済文脈）③誰が注目しているか（注目層・立場）④他ニュースとの関連のうち該当する観点を3文で深く分析",\n'
+        '  "forecast": "④今後どうなるか。記事内容を根拠にした仮説を2文。断定せず「〜が見込まれる」「〜の可能性がある」で締める",\n'
         '  "timeline": [\n'
         '    {"date": "M/D形式または空文字", "event": "何が起きたか（40文字以内の体言止め）", "transition": "次のステップへの因果・接続（25文字以内。例: これを受けて、/その結果、/翌日、）"},\n'
         '    ...\n'
@@ -293,6 +297,7 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         '}\n\n'
         '【各フィールドのルール】\n'
         'aiSummary: 改行・箇条書き・見出し禁止。1段落。メディア名不要。\n'
+        'backgroundContext: 2文。表面の出来事ではなく背景の構造的要因を書く。「〜という構造的背景がある」「〜が長年の課題となっていた」「〜という政策的文脈がある」等。\n'
         'spreadReason: 3文で深く分析。①〜④の観点から該当するものを組み合わせる。推測の場合は「〜と見られる」で。\n'
         'forecast: 「今後〜が予想される」「〜の可能性がある」で終える。根拠のない予測禁止。\n'
         'timeline: 3〜6件。重要な転換点のみ。\n'
@@ -305,7 +310,7 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 1000,
+            'max_tokens': 1200,
             'messages': [{'role': 'user', 'content': prompt}],
         })
         result = _parse_story_json(data['content'][0]['text'].strip())
@@ -313,12 +318,13 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
             return None
         valid_phases = ('発端', '拡散', 'ピーク', '現在地', '収束')
         return {
-            'aiSummary':    result['aiSummary'].strip(),
-            'spreadReason': str(result.get('spreadReason') or '').strip(),
-            'forecast':     str(result.get('forecast')     or '').strip(),
-            'timeline':     _sanitize_timeline(result.get('timeline'), max_items=6),
-            'phase':        result.get('phase') if result.get('phase') in valid_phases else '現在地',
-            'summaryMode':  'full',
+            'aiSummary':         result['aiSummary'].strip(),
+            'backgroundContext': str(result.get('backgroundContext') or '').strip(),
+            'spreadReason':      str(result.get('spreadReason') or '').strip(),
+            'forecast':          str(result.get('forecast')     or '').strip(),
+            'timeline':          _sanitize_timeline(result.get('timeline'), max_items=6),
+            'phase':             result.get('phase') if result.get('phase') in valid_phases else '現在地',
+            'summaryMode':       'full',
         }
     except Exception as e:
         print(f'generate_story (full) error: {e}')
