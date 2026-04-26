@@ -500,7 +500,7 @@ function renderTopics(topics) {
     btn.addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
-      const url = `https://flotopic.com/topic.html?id=${btn.dataset.shareId}`;
+      const url = `https://flotopic.com/topics/${btn.dataset.shareId}.html`;
       const title = btn.dataset.shareTitle || 'Flotopic';
       if (navigator.share) {
         navigator.share({ title, url }).catch(() => {});

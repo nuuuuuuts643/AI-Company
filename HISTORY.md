@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T107 app.js/catchup.html シェアURL canonical化）
+- ✅ **T107 app.js/catchup.html シェアURLをcanonical URLに統一** — `app.js` のカードシェアボタンURL（topic.html?id=→topics/{tid}.html）と `catchup.html` のトピックリンク（topic.html?id=→topics/{tid}.html）をcanonical静的URLに変更。T106の続き。
+
 ### 完了済み（2026-04-26 T106 detail.js canonical URL修正）
 - ✅ **T106 detail.js シェア/OGP URLをcanonicalに修正** — `topic.html?id={tid}`（SPA URL）から`topics/{tid}.html`（canonical静的URL）に統一。対象: og:url・canonical link・JSON-LD url/mainEntityOfPage・BreadcrumbList item・X/はてな/Threads/LINE の4つのシェアボタン。ソーシャルシェアが正規URLを指すようになりSEO・PageRank集約が改善。
 
