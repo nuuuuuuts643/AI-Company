@@ -4,6 +4,10 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T127+T128 contact/terms/privacy ダークモード修正）
+- ✅ **T127 contact.html フォームダークモード対応** — `.contact-form`・`input/select/textarea`・`.info-section`・`.alert`に`[data-theme="dark"]`オーバーライド追加。CSS変数（--bg-card, --bg-page, --border, --text-primary, --text-secondary, --text-muted）使用。
+- ✅ **T128 terms.html・privacy.html テキスト色ダークモード修正** — `.privacy-container p/ul/h2/.updated`の`#374151`ハードコードに`[data-theme="dark"]`オーバーライド追加（var(--text-primary)/(--text-secondary)/(--text-muted)）。
+
 ### 完了済み（2026-04-26 T126 Chart.jsグラフ ダークモード対応）
 - ✅ **T126 detail.js Chart.jsグラフ ダークモード対応** — `getChartColors()`を追加（isDarkで`grid:'rgba(255,255,255,.12)'`, `tick:'#9ba3c4'`に切替）。`makeScaleY0()`・`makeScaleDelta()`のgrid.colorとticks.colorをCC変数化。legendラベルにも`color: cc.tick`を適用。`MutationObserver`でdata-theme変更を監視して`buildCharts(_chartRange)`を自動再実行（テーマ切替時のリアルタイム再描画）。
 

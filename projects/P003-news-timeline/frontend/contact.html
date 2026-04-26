@@ -141,6 +141,19 @@
     @media (max-width: 600px) {
       .contact-form { padding: 18px; }
     }
+    [data-theme="dark"] .contact-form { background: var(--bg-card); border-color: var(--border); }
+    [data-theme="dark"] .form-group label { color: var(--text-secondary); }
+    [data-theme="dark"] .form-group input,
+    [data-theme="dark"] .form-group select,
+    [data-theme="dark"] .form-group textarea {
+      background: var(--bg-page); border-color: var(--border);
+      color: var(--text-primary);
+    }
+    [data-theme="dark"] .info-section { background: var(--bg-card); border-color: var(--border); color: var(--text-secondary); }
+    [data-theme="dark"] .info-section h2 { color: var(--text-primary); }
+    [data-theme="dark"] .contact-container .subtitle { color: var(--text-muted); }
+    [data-theme="dark"] .alert.success { background: rgba(34,197,94,.1); border-color: rgba(34,197,94,.3); color: #4ade80; }
+    [data-theme="dark"] .alert.error  { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.3); color: #f87171; }
   </style>
 </head>
 <body>
