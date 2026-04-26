@@ -732,3 +732,17 @@ bash projects/P003-news-timeline/deploy.sh
 - hasTimeline: `t.storyTimeline && t.storyTimeline.length > 0` → `t.storyPhase` に変更
 - storyTimelineはtopics.jsonに含まれず常に0%の無意味なメトリクスだった
 - 表示ラベルも「storyTimeline 有」→「storyPhase 有」に統一
+
+### 完了済み（2026-04-26）T068 ジャンル分類精度改善
+→ HISTORY.mdに記録
+- ファッションから過広キーワード(ダイエット/健康法/トレンド)削除→健康ジャンルへ移動
+- GENRE_STRONG_KEYWORDS追加: 国際(北朝鮮/ミサイル/NATO等)・スポーツ(五輪/ボクシング等)は1件ヒットで強制分類
+- GENRE_PRIORITY追加: 同スコア時に国際>スポーツ>ファッション優先でタイブレーク
+- スポーツにボクシング/格闘技/UFC/MMA追加、国際にミサイル/核/軍事/爆撃/戦争追加
+
+### 完了済み（2026-04-26）T069 pendingAI無限再キュー修正
+→ HISTORY.mdに記録
+- cnt<=2(minimal mode)はstoryTimeline不要なのに要求していたバグ
+- _needs_timeline = cnt > 2 フラグ追加、pending_ai条件で(not _needs_timeline or _has_timeline)に変更
+- 164件のmini-modeトピックが毎回pendingAI=Trueになる無限ループ解消
+- MAX_API_CALLS=150に対してqueue=322件→実効処理量改善
