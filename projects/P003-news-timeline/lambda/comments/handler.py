@@ -308,8 +308,9 @@ HANDLE_RE = re.compile(r'^[A-Za-z0-9_]{1,20}$')
 
 def handle_like(event) -> dict:
     """
-    PUT /comments/like?topicId=xxx&commentId=yyy&userHash=zzz[&type=like|dislike]
-    冪等性: likedBy / dislikedBy DynamoDB String Set に userHash を ADD。
+    PUT /comments/like?topicId=xxx&commentId=yyy&userHash=zzz[&type=like|dislike|unlike|undislike]
+    like/dislike: ADD count, ADD to set (冪等: already-in-set で弾く)
+    unlike/undislike: ADD count -1, DELETE from set (冪等: not-in-set で弾く)
     """
     qs         = event.get('queryStringParameters') or {}
     topic_id   = (qs.get('topicId')   or '').strip()
@@ -317,15 +318,45 @@ def handle_like(event) -> dict:
     user_hash  = (qs.get('userHash')  or '').strip()
     like_type  = (qs.get('type')      or 'like').strip()
 
-    if like_type not in ('like', 'dislike'):
+    if like_type not in ('like', 'dislike', 'unlike', 'undislike'):
         like_type = 'like'
     if not topic_id or not comment_id or not user_hash:
         return resp(400, {'error': 'topicId, commentId, userHash が必要です'})
     if len(user_hash) > 32 or not re.match(r'^[0-9a-f]+$', user_hash):
         return resp(400, {'error': 'userHash が不正です'})
 
-    count_field = 'likeCount'    if like_type == 'like' else 'dislikeCount'
-    set_field   = 'likedBy'      if like_type == 'like' else 'dislikedBy'
+    is_undo     = like_type in ('unlike', 'undislike')
+    base_type   = 'like'     if like_type in ('like', 'unlike') else 'dislike'
+    count_field = 'likeCount'    if base_type == 'like' else 'dislikeCount'
+    set_field   = 'likedBy'      if base_type == 'like' else 'dislikedBy'
+
+    if is_undo:
+        try:
+            result = table.update_item(
+                Key={'topicId': topic_id, 'SK': comment_id},
+                UpdateExpression=f'ADD {count_field} :neg_one DELETE {set_field} :uset',
+                ConditionExpression=f'attribute_exists(topicId) AND contains({set_field}, :uhash)',
+                ExpressionAttributeValues={
+                    ':neg_one': -1,
+                    ':uset':    {user_hash},
+                    ':uhash':   user_hash,
+                },
+                ReturnValues='ALL_NEW',
+            )
+            attrs = result['Attributes']
+            return resp(200, {
+                'likeCount':    max(0, int(attrs.get('likeCount', 0))),
+                'dislikeCount': max(0, int(attrs.get('dislikeCount', 0))),
+                'type': base_type, 'acted': True, 'action': 'undo',
+            })
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+                return resp(200, {'type': base_type, 'acted': False, 'alreadyActed': False})
+            print(f'handle_like undo error: {e}')
+            return resp(500, {'error': 'リアクション取消に失敗しました'})
+        except Exception as e:
+            print(f'handle_like undo error: {e}')
+            return resp(500, {'error': 'リアクション取消に失敗しました'})
 
     try:
         result = table.update_item(
