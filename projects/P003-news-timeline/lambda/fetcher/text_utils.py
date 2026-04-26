@@ -137,10 +137,6 @@ def dominant_genres(articles, max_genres=2):
         )[:max_genres]
         return top
 
-    # フォールバック: RSSフィードのジャンルから最頻値を使用（'総合'除く）
-    feed_genres = [a.get('genre', '総合') for a in articles if a.get('genre', '総合') != '総合']
-    if feed_genres:
-        return [Counter(feed_genres).most_common(1)[0][0]]
     return ['総合']
 
 
