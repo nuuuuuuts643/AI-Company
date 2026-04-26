@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T075 Bluesky S3_BUCKET修正 | .github/workflows/bluesky-agent.yml | 2026-04-26 18:30 |
