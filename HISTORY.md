@@ -1121,3 +1121,6 @@ bash projects/P003-news-timeline/deploy.sh
 ### 完了済み（2026-04-27 T177/T181 ジャンル修正・Lambda検証強化）
 - ✅ **T177** — `admin.html:379,833,857` で `t.genre` → `(t.genres && t.genres[0]) || t.genre || '総合'` に修正。ジャンル別集計・表が旧legacyフィールドを参照しており、グルメ/ファッション等の新ジャンルが集計に反映されていなかった。
 - ✅ **T181** — `comments/handler.py` の `topic_id = parts[1]` 直後に `re.match(r'^[0-9a-f]{16}$', topic_id)` バリデーションを追加。`increment_topic_comment_count()` に `ConditionExpression='attribute_exists(topicId)'` を追加して幽霊METAレコード生成を防止。`favorites/handler.py` に `import re` を追加し、POST/DELETE /favorites の topic_id 抽出後に同形式バリデーションを追加。`update_topic_fav_count()` の delta > 0 パスにも `ConditionExpression='attribute_exists(topicId)'` を追加。任意文字列topicIdへの書き込みによるコンテンツインジェクションとDynamoDB幽霊レコード生成を修正。
+
+### 完了済み（2026-04-27 T186 needs_ai_processing 1件記事修正）
+- ✅ **T186** — `proc_storage.py:needs_ai_processing()`冒頭に`if int(item.get('articleCount', 0) or 0) < 2: return False`を追加。T175でprocessor handlerにcnt<2早期skipを追加したが`needs_ai_processing()`は1件記事トピックにTrueを返し続けていた。これによりpending_ai.jsonに1件記事トピックが永遠に残留し、毎実行でDynamoDBを個別lookupするパフォーマンス劣化が発生。2件目の記事が来た際はfetcherがpendingAI=Trueをセットし直すため機能は維持される。
