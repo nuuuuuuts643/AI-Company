@@ -579,7 +579,7 @@ function renderStorymapList(topics) {
     .filter(t => t.lifecycleStatus !== 'archived')
     .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0));
 
-  const PHASE_LABEL = { '発端': '📌 発端', '拡散': '📢 拡散中', 'ピーク': '🔥 ピーク', '現在地': '📍 現在地', '収束': '🌀 収束' };
+  const PHASE_LABEL = { '発端': '🌱 始まり', '拡散': '📡 広まってる', 'ピーク': '🔥 急上昇', '現在地': '📍 進行中', '収束': '✅ ひと段落' };
 
   const cardsHtml = stories.length === 0
     ? `<p style="color:#94a3b8;font-size:.85rem;text-align:center;padding:20px 0;">現在ストーリーを追跡中のトピックはありません。</p>`
