@@ -4,6 +4,10 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T079/T080）
+- ✅ **T079 アフィリエイトキーワード品質フィルタ** — affiliate.js に NEWS_PATS チェック追加。20文字超かつ報道パターン含むタイトルはジャンル名フォールバックへ切り替え。
+- ✅ **T080 topic.html 重複広告修正** — 同一admaxIDが2スロットで重複。2つ目（グラフ直前）を削除。SPで同じバナーが2回表示される問題を解消。
+
 ### 完了済み（2026-04-26 T077）
 - ✅ **T077 静的HTML JSON-LD に datePublished・author 追加** — `proc_storage.py` の `generate_static_topic_html()` で生成する Article 構造化データに `datePublished`（lastArticleAt Unix秒→ISO文字列）と `author`（Organization: Flotopic）を追加。Google Search Console のリッチリザルト対応。次回 processor 実行時から新規生成ファイルに反映。
 
