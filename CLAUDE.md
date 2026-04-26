@@ -6,53 +6,47 @@ Claude Codeセッションを開始したら、何も聞かずに以下を順番
 # 1. git lockファイルがあれば削除
 rm -f /Users/murakaminaoya/ai-company/.git/index.lock
 
-# 2. 未コミットの変更を全てコミット＆push（別セッションがpushしている場合はrebaseして追従）
+# 2. 未コミットの変更を全てコミット＆push
 cd /Users/murakaminaoya/ai-company
 git add -A
-git commit -m "chore: sync Cowork session changes $(date '+%Y-%m-%d')" || echo "nothing to commit"
+git commit -m "chore: sync $(date '+%Y-%m-%d %H:%M')" || echo "nothing to commit"
 git pull --rebase origin main || echo "rebase failed, continuing"
 git push || echo "push failed, continuing"
+
+# 3. CLAUDE.md の変更を検知（変更あれば「再読必須」警告が出る）
+git log --oneline -5 -- CLAUDE.md
+
+# 4. 作業競合チェック
+cat WORKING.md
 ```
 
-エラーが出ても止まらず最後まで実行する。完了後に「✅ 起動チェック完了」と報告してからユーザーの指示を待つ。
+- `git log --oneline -5 -- CLAUDE.md` に今日の日付のコミットが表示された場合 → **CLAUDE.md の冒頭〜「絶対ルール」セクションまでを全文再読してから続行する（スキップ禁止）**
+- `WORKING.md` に自分が着手しようとするファイルが記載されている → そのタスクはスキップ
+- エラーが出ても止まらず最後まで実行する
+- 完了後に「✅ 起動チェック完了」と報告してからユーザーの指示を待つ。
 
-## ⚡ 作業前後ルール（2026-04-25 制定）
+## ⚡ 作業前後ルール（2026-04-26 改訂）
 
-**作業開始前に必ずやること：**
-1. 下記「定期状況確認コマンド」を実行する
-2. `P003 技術状態スナップショット` テーブルを読む
-3. これからやろうとしていることが ✅ になっていないか確認する
-4. ✅ なら「すでに完了済み」として**スキップ**し、次の未完了タスクに移る
-5. `現在着手中` セクションに **タスク名・開始時刻・変更予定ファイル** を記入してから作業開始
+> 着手中管理は **WORKING.md** で行う。CLAUDE.md には書かない。
 
-**作業完了後に必ずやること：**
-1. `P003 技術状態スナップショット` テーブルを最新状態に更新する
-2. `次フェーズのタスク` の完了済み項目を **HISTORY.md** に移動し、CLAUDE.md には痕跡1行を残す（「完了済みタスク管理ルール」参照）
-3. `現在着手中` から完了タスクを削除する
-4. CLAUDE.md・HISTORY.md の変更を含めて `git add -A && git commit && git push` する
-
-**定期状況確認コマンド（タスク開始前・30分ごとに実行）：**
+**タスク開始前（必須・毎回）：**
 ```bash
-cd /Users/murakaminaoya/ai-company
 git pull --rebase origin main
-git log --oneline -5
-grep -A 10 "現在着手中" CLAUDE.md | head -12
-# メモリファイルの更新も確認（別セッションが追加したルールを把握する）
-cat /Users/murakaminaoya/.claude/projects/-Users-murakaminaoya-ai-company/memory/MEMORY.md
+git log --oneline -5 -- CLAUDE.md   # 今日の変更があれば CLAUDE.md 全文再読（スキップ禁止）
+cat WORKING.md                       # 重複ファイルがあればそのタスクはスキップ
 ```
+→ 空きを確認したら WORKING.md に追記 → 即 `git add WORKING.md && git commit -m "wip: [タスク名]" && git push`
 
-**重複作業を避けるルール：**
-- ファイルを編集するたびに PreToolUse フック（~/.claude/settings.json）が自動チェックする
-  - `⚠️ 他セッションの未取り込みコミットが N 件` → 即 `git pull --rebase` してから再開
-  - `📋 CLAUDE.md のルールが更新されています` → pull後に CLAUDE.md 全セクションを再読してから続行
-- フックは警告のみ（ブロックしない）。でも無視せずに必ず対処する
-- `現在着手中` に同じファイルが記載されていたら絶対に触らない
-- 他セッションが同じ作業を完了していたら即スキップして次のタスクに移る
+**タスク完了後（必須）：**
+1. WORKING.md から自分の行を削除する
+2. `P003 技術状態スナップショット` テーブルを最新状態に更新する
+3. 完了タスクを **HISTORY.md** に移動し、CLAUDE.md には痕跡1行を残す（「完了済みタスク管理ルール」参照）
+4. `git add -A && git commit && git push`
 
-**「現在着手中」記入フォーマット：**
-```
-- **[タスク名]**（開始: YYYY-MM-DD HH:MM JST | 変更予定: path/to/file.py, path/to/file2.js）
-```
+**CLAUDE.md 変更検知ルール（重要）：**
+- PreToolUse フックが `📋 CLAUDE.md のルールが更新されています` を出したら → **即作業を止めて CLAUDE.md 冒頭〜「絶対ルール」を全文再読してから再開（無視禁止）**
+- `⚠️ 他セッションの未取り込みコミットが N 件` → 即 `git pull --rebase` してから再開
+- フックが出なくても、git pull で取り込んだコミットに CLAUDE.md の変更が含まれていれば同様に再読する
 
 ## 完了済みタスク管理ルール（2026-04-25 制定）
 
@@ -330,12 +324,9 @@ cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run
 - ✅ flotopic.comドメイン自動更新 → 意図的にOFF（手動管理）
 - ✅ Notion自動同期 → GitHub Actions（notion-sync.yml / notion-revenue-daily.yml）が毎日09:00 JSTに自動実行
 
-## 現在着手中（このセクションにある作業は別セッションがやらないこと）
+## 現在着手中
 
-> セッション開始時に必ずここを確認。着手中の作業があればスキップして次の未完了タスクへ。
-> 作業完了したらすぐに「完了済み」セクションへ移動し、このセクションを空にする。
-
-- **[about.html 内容充実（AdSense審査対策）]**（開始: 2026-04-26 JST | 変更予定: frontend/about.html）
+→ **[WORKING.md](./WORKING.md) を参照**（このセクションには書かない）
 
 ## 次フェーズのタスク（優先度順）
 
