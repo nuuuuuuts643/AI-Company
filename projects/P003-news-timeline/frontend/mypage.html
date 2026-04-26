@@ -1097,6 +1097,7 @@
     try {
       const apiBase = (typeof API_BASE !== 'undefined') ? API_BASE : '';
       const r = await fetch(apiBase + 'topics.json');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
       const all = data.topics || [];
       _topicTitleMap = {};
@@ -1171,6 +1172,7 @@
     }
     try {
       const r = await fetch(`${_APIGW}/notifications/${encodeURIComponent(handle)}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
       const notifs = data.notifications || [];
       if (!notifs.length) {
@@ -1214,6 +1216,7 @@
     try {
       const apiBase = (typeof API_BASE !== 'undefined') ? API_BASE : '';
       const r = await fetch(apiBase + 'topics.json');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
       const all = data.topics || [];
       favTopics = all.filter(t => favIds.includes(t.topicId));
