@@ -319,9 +319,11 @@ function renderTopicCard(t, i) {
     return `<span class="cooling-age">${label}</span>`;
   })();
 
-  const summaryHtml = t.generatedSummary
-    ? `<p class="card-summary">${esc(cleanSummary(t.generatedSummary))}</p>`
-    : `<p class="card-summary"><span class="badge-processing">AI処理中</span></p>`;
+  const _clean = cleanSummary(t.generatedSummary || '');
+  const _snip  = _clean.length > 52 ? _clean.slice(0, 50) + '…' : _clean;
+  const summaryHtml = _snip
+    ? `<p class="card-snippet">${esc(_snip)}</p>`
+    : '';
   const phaseHtml = t.storyPhase && PHASE_BADGE[t.storyPhase]
     ? `<span class="card-phase-badge ${PHASE_CLASS[t.storyPhase] || ''}">${PHASE_BADGE[t.storyPhase]}</span>`
     : '';
