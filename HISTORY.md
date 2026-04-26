@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T162 スマホアフィリエイト表示バグ修正）
+- ✅ **T162 detail.js chart.js CDN失敗時のエラー伝播を修正** — 根本原因: `buildCharts()`内で `new Chart(...)` を呼ぶが、モバイルでchart.js CDN読み込み失敗時に `TypeError: Chart is not defined` がスローされ、try-catchなしで `renderDetail` 全体を中断させていた。その結果 `renderAffiliate(meta)` が呼ばれずアフィリエイトセクションが `style="display:none;"` のままになっていた（モバイルで再現性高い理由: CDN failureがモバイルで多い）。修正: `buildCharts(24)` 呼び出しと関連イベントハンドラをtry-catchで囲み、chart描画失敗時はchartCardを非表示にしてrenderDetailを継続。renderAffiliate/renderDiscoveryが常に実行されるよう保証。npm test 42件全パス。
+
 ### 完了済み（2026-04-26 T160 カードAI要約スニペット表示）
 - ✅ **T160 app.js/style.css カードにAI要約スニペット50字表示** — トップカードがタイトル・件数・ジャンルだけで何の話か分からず離脱しやすかった問題を修正。`generatedSummary`の先頭50文字を`.card-snippet`としてカード下部に1行表示。未生成トピックは「AI処理中」バッジ非表示でカードすっきり統一。npm test 42件全パス。
 
