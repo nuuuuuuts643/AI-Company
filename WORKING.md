@@ -37,4 +37,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 ## 現在着手中
 
 | タスク名 | 変更予定ファイル | 開始 JST |
-|---|---|---|
+|---|---|---|| T186 カード差分表示（昨日から+N件） | lambda/fetcher/handler.py, lambda/api/handler.py, frontend/app.js, frontend/style.css | 2026-04-27 11:20 |
+
