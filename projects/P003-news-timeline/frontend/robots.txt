@@ -6,7 +6,6 @@ User-agent: *
 Allow: /
 Disallow: /api/
 Disallow: /admin.html
-Disallow: /js/auth.js
 Crawl-delay: 10
 Sitemap: https://flotopic.com/sitemap.xml
 Sitemap: https://flotopic.com/news-sitemap.xml

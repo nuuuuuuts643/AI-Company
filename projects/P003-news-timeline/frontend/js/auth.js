@@ -128,7 +128,7 @@ function openAuthModal() {
       '<ul style="list-style:none;padding:0;margin:0;text-align:left;font-size:.82rem;color:inherit;">' +
       '<li style="padding:3px 0;">⭐ お気に入りトピックを保存</li>' +
       '<li style="padding:3px 0;">📱 閲覧履歴をどのデバイスでも同期</li>' +
-      '<li style="padding:3px 0;">🔔 コメント返信・@メンション通知を受け取る</li>' +
+      '<li style="padding:3px 0;">🎯 ジャンル設定をどのデバイスでも引き継ぎ</li>' +
       '</ul>';
     desc.dataset.enhanced = '1';
   }
