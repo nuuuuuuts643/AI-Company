@@ -42,3 +42,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | T178 topic.html CDN async追加 | projects/P003-news-timeline/frontend/topic.html | 2026-04-27 |
 | T179 グラフ/記事数補正 | projects/P003-news-timeline/frontend/detail.js | 2026-04-27 |
 | T183 Bluesky自動投稿継続確認 | CLAUDE.md | 2026-04-27 |
+| T186 needs_ai_processing 1件記事永久残留修正 | lambda/processor/proc_storage.py | 2026-04-27 09:00 |
