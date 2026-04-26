@@ -262,9 +262,9 @@ section h2{font-size:.9rem;font-weight:600;color:#8b949e;text-transform:uppercas
       <div class="panel" style="overflow-x:auto">
         <table class="data-table">
           <thead><tr>
-            <th>日時</th><th>種別</th><th>内容</th><th>トピックID</th><th>操作</th>
+            <th>日時</th><th>種別</th><th>送信者</th><th>内容</th><th>トピックID</th><th>操作</th>
           </tr></thead>
-          <tbody id="table-contacts"><tr><td colspan="5" style="color:#8b949e;padding:16px">読み込み中...</td></tr></tbody>
+          <tbody id="table-contacts"><tr><td colspan="6" style="color:#8b949e;padding:16px">読み込み中...</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -874,23 +874,25 @@ async function renderContacts() {
     const res = await fetch(CONFIG.contactsApiBase + '/contacts?_=' + Date.now(), {
       headers: token ? { 'Authorization': 'Bearer ' + token } : {},
     });
-    if (!res.ok) { document.getElementById('table-contacts').innerHTML = '<tr><td colspan="5" style="color:#8b949e">取得できません（API未実装）</td></tr>'; return; }
+    if (!res.ok) { document.getElementById('table-contacts').innerHTML = '<tr><td colspan="6" style="color:#8b949e">取得できません（API未実装）</td></tr>'; return; }
     const data = await res.json();
     const list = data.contacts || [];
     const badge = document.getElementById('contact-badge');
     if (list.length > 0) { badge.textContent = list.length; badge.style.display = 'inline'; }
     if (list.length === 0) {
-      document.getElementById('table-contacts').innerHTML = '<tr><td colspan="5" style="color:#8b949e;padding:16px">お問い合わせはありません</td></tr>';
+      document.getElementById('table-contacts').innerHTML = '<tr><td colspan="6" style="color:#8b949e;padding:16px">お問い合わせはありません</td></tr>';
       return;
     }
     const rows = list.map(c => {
       const dt = new Date(c.createdAt * 1000).toLocaleString('ja-JP');
       const label = LABELS[c.category] || c.category;
       const msg = U.esc((c.message||'').slice(0, 80)) + (c.message?.length > 80 ? '…' : '');
-      const tid = c.topicId ? `<a href="/topics/${U.esc(c.topicId)}" target="_blank" style="color:#58a6ff">${U.esc(c.topicId.slice(0,8))}</a>` : '—';
+      const tid = c.topicId ? `<a href="/topics/${U.esc(c.topicId)}.html" target="_blank" style="color:#58a6ff">${U.esc(c.topicId.slice(0,8))}</a>` : '—';
+      const sender = [c.name ? U.esc(c.name) : '', c.email ? `<span class="muted">${U.esc(c.email)}</span>` : ''].filter(Boolean).join('<br>') || '—';
       return `<tr>
         <td class="muted" style="white-space:nowrap">${dt}</td>
         <td><span class="tag">${label}</span></td>
+        <td>${sender}</td>
         <td>${msg}</td>
         <td>${tid}</td>
         <td><button onclick="archiveTopic('${U.esc(c.topicId||'')}','${U.esc(c.contactId)}')" style="font-size:.75rem;padding:3px 8px;background:#21262d;border:1px solid #30363d;color:#cdd9e5;border-radius:4px;cursor:pointer">archived化</button></td>
@@ -898,7 +900,7 @@ async function renderContacts() {
     });
     document.getElementById('table-contacts').innerHTML = rows.join('');
   } catch(e) {
-    document.getElementById('table-contacts').innerHTML = `<tr><td colspan="5" style="color:#f85149">${e.message}</td></tr>`;
+    document.getElementById('table-contacts').innerHTML = `<tr><td colspan="6" style="color:#f85149">${e.message}</td></tr>`;
   }
 }
 

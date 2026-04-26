@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T103 get_all_topics二重減衰修正）
+- ✅ **T103 get_all_topics() スコア二重減衰修正** — `lambda/fetcher/storage.py:get_all_topics()` がS3のtopics.jsonから読んだスコアに `apply_time_decay` を再適用していた。fetcherがすでに `apply_time_decay` 済みのスコアを書いているため24h古いトピックは0.30倍のはずが0.09倍になっていた。S3パスとDynamoDBフォールバックパス両方の `apply_time_decay` 呼び出し（4行）を削除し、読んだスコアをそのままソートに使うよう修正。
+
 ### 完了済み（2026-04-26 T108 性別・年齢プロフィール保存バグ修正）
 - ✅ **T108 gender/ageGroup フロント-バックエンド値不一致修正** — frontend が `男性`/`女性`/`その他` を送信していたが backend の `VALID_GENDERS={'male','female','other','prefer_not',''}` に不一致で全ユーザーの性別保存が失敗していた。mypage.html の設定モーダル・編集モーダル両方で `value="male"/"female"/"other"` に変更（表示テキストは日本語のまま）。年齢も `50代以上` → `50代` に変更し `10代未満`・`60代以上` を追加。バックエンドの VALID_AGE_GROUPS/VALID_GENDERS は既に正しいため変更不要。
 
