@@ -339,10 +339,13 @@ def lambda_handler(event, context):
         # aiGenerated=True でも storyTimeline がなければ再処理させる（再発防止）
         _has_timeline = bool(existing.get('storyTimeline') and isinstance(existing.get('storyTimeline'), list) and len(existing.get('storyTimeline', [])) > 0)
         _existing_cnt = int(existing.get('articleCount', 0) or 0)
+        # proc_ai.py と同じ閾値: cnt<=2 は minimal モード（storyTimeline不生成）なので不要
+        _needs_timeline = cnt > 2
         # 急上昇中(velocity>40)かつ新記事が増えている場合は再処理（ストーリーを最新状態に保つ）
         _force_reprocess = velocity_score > 40 and existing.get('aiGenerated') and cnt > _existing_cnt
         pending_ai = _force_reprocess or not bool(
-            existing.get('aiGenerated') and existing.get('generatedSummary') and not _is_old_extractive and _has_timeline
+            existing.get('aiGenerated') and existing.get('generatedSummary') and not _is_old_extractive
+            and (not _needs_timeline or _has_timeline)
         )
 
         image_url = (
