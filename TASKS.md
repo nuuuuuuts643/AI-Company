@@ -11,7 +11,6 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| T004 | 低 | **セッション自動ロール判定の追加**（PO指示）。CLAUDE.md のセッション開始時に「WORKING.mdに何も書かれていない場合はfinderロールで動作する / 書かれている場合は空きタスクを取るimplementerロールで動作する」というルールを追加 | CLAUDE.md | 2026-04-26 |
 | T008 | 中 | **長期停滞トピックのarchived化**。velocityScore=0 かつ 30日以上 active のトピックを lifecycle で archived にする。ARCHIVE_DAYS 調整または score_utils.py に停滞判定追加 | lambda/lifecycle/handler.py または lambda/fetcher/score_utils.py | 2026-04-26 |
 | T010 | 高 | **tokushoho.html を再リダイレクト化**。commit 56e1be6 が廃止済みページを完全版に復活させた。noindex リダイレクトに戻す。再発防止のため CLAUDE.md に明記 | frontend/tokushoho.html, CLAUDE.md | 2026-04-26 |
 | T011 | 高 | **`get_topic_detail()` 無制限クエリ修正**。`table.query()` の Limit なし全件読み込みを `get_item(META)` + `query(Limit=30,ScanIndexForward=False)` の2ステップに変更。DynamoDB読み取りコストを月$10超→大幅削減 | lambda/fetcher/storage.py | 2026-04-26 |
