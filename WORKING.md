@@ -38,3 +38,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T040 APIエラー黙殺修正 | frontend/app.js | 2026-04-26 16:20 |
+| T041 フィルター変更時検索キーワード残存バグ | frontend/app.js | 2026-04-26 16:20 |
+| T043 トップページOGP動的更新 | frontend/index.html, frontend/app.js | 2026-04-26 16:20 |
