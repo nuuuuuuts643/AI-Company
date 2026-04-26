@@ -849,3 +849,9 @@ bash projects/P003-news-timeline/deploy.sh
 - 変更後: `'genre': '総合'`（4フィード）
 - 理由: Google検索フィードはクエリマッチ記事を返すが別ジャンルの記事が混入する。ソースジャンルを'総合'にしてキーワード分類に委ねることで誤分類を防ぐ
 - 効果: グルメ/ファッションキーワードを含む記事は正しく分類され、含まない記事は'総合'になる（フィード強制よりも正確）
+
+### 完了済み（2026-04-26 T086/T088/T089/T091 バグ修正4件）
+- ✅ **T086** — `config.js`に`const _GW = _APIGW;`を追加。`app.js:992`が`_GW`参照するが未定義でDynamoDBフォールバックが無効だった。S3に存在しない古いトピック詳細ページで正常フォールバックするようになった。
+- ✅ **T088** — `proc_storage.py`の`except s3.exceptions.NoSuchKey`が実際のClientErrorをキャッチできていなかった。`except Exception as e: if hasattr(e,'response') and e.response['Error']['Code']=='NoSuchKey'`に変更。StaticHTML生成で毎回11件が「失敗」と誤記録されるログノイズ解消。
+- ✅ **T089** — `bluesky_agent.py`の`make_link_embed`で`client is None`のときに`fetch_image_blob`をスキップするよう修正。dry-run時にAttributeErrorが発生していたが本番投稿には影響なかった。
+- ✅ **T091** — `lifecycle/handler.py`に`topics/*.html`孤立ファイル削除ブロックを追加。`s3-topic-cleanup`と同様のDynamoDB batch_get_itemで有効トピック確認→孤立HTML削除。500件超の削除済みトピックHTMLがGooglebotにクロールされ続けるSEO品質問題を週次自動修正。
