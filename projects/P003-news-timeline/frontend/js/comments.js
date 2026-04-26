@@ -444,6 +444,7 @@ async function loadComments(topicId) {
   if (!url) return;
   try {
     const r    = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     const myHash = await getMyCommentHash();
     renderComments(data.comments || [], topicId, myHash);
