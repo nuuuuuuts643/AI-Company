@@ -326,17 +326,28 @@ def post_daily(client, dry_run=False):
     tid       = topic.get('topicId', '')
     cnt       = int(topic.get('articleCount', 0) or 0)
     image_url = topic.get('imageUrl') or ''
+    phase     = topic.get('storyPhase', '')
     tag     = genre_tag(topic)
     url     = f'{SITE_URL}/topics/{tid}.html'  # 静的HTML（OGPメタタグ完備）
-    label   = time_label()
 
-    summary_line = f'{truncate(summary, 110)}\n\n' if summary else ''
+    # storyPhaseに応じた問いかけ形式（ロングテールSEO狙い）
+    _t = truncate(title, 36)
+    if phase == '発端':
+        hook = f'📰 速報: {_t}\n今何が起きているのか？'
+    elif phase == '拡散':
+        hook = f'📢 注目: {_t}\nなぜこれほど広がっているのか、背景と経緯'
+    elif phase == 'ピーク':
+        hook = f'🔥 急上昇中: {_t}\nなぜ今これほど話題になっているのか'
+    elif phase == '収束':
+        hook = f'📋 まとめ: {_t}\n何が起きたのか、全容を振り返る'
+    else:
+        hook = f'🔥 急上昇: {_t}\nとは何か・なぜ注目される？'
+
+    summary_line = f'{truncate(summary, 95)}\n\n' if summary else ''
     post_text = (
-        f'🔥 {label}の急上昇トピック\n\n'
-        f'{truncate(title, 40)}\n\n'
+        f'{hook}\n\n'
         f'{summary_line}'
-        f'📄 {cnt}件の記事\n'
-        f'{tag} #Flotopic'
+        f'📄 {cnt}件の記事 {tag} #Flotopic'
     )
     post_text = post_text[:BSKY_MAX_CHARS]
 
