@@ -131,7 +131,7 @@ def dominant_genres(articles, max_genres=2):
             key=lambda g: (-scores[g], priority_rank.get(g, 99)),
         )[:max_genres]
         return top
-    return [Counter(a['genre'] for a in articles).most_common(1)[0][0]]
+    return ['総合']
 
 
 def dominant_lang(articles):

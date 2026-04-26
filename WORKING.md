@@ -38,4 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T084 アフィリエイトKW根本修正 | frontend/js/affiliate.js | 2026-04-26 18:25 |
+| T085 ジャンル分類根本修正 | lambda/fetcher/config.py, text_utils.py, handler.py | 2026-04-26 18:27 |
