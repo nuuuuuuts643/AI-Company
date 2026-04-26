@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T031 ファイル分割（affiliate分離） | frontend/detail.js, frontend/js/affiliate.js, frontend/topic.html | 2026-04-26 15:45 |
