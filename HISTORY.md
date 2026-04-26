@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T112 リワインドフィルター基準firstArticleAt化）
+- ✅ **T112 catchup.html フィルターをfirstArticleAt基準に変更** — 期間フィルターが`lastUpdated >= cutoff`（最終更新日）だったため、fetcher4回/日環境でほぼ全アクティブトピックが通過しホームと同じ表示になっていた。`firstArticleAt * 1000 >= cutoff`（トピック誕生日）に変更して「選んだ期間内に初めて出現したトピック」を表示するように修正。ソートのtiebreakerも`lastUpdated`→`firstArticleAt`DESCに変更。ヒーロー説明文も更新。
+
 ### 完了済み（2026-04-26 T112 アカウント削除時localStorage未クリアバグ修正）
 - ✅ **T112 doDeleteAccount() で flotopic_avatar / flotopic_profile / flotopic_profile_set / flotopic_saved_comments が未削除** — `mypage.html:doDeleteAccount()` のローカルデータ削除リストに4キーが漏れており、アカウント削除後も別ユーザーが同じブラウザでサインインした場合に前ユーザーのアバター・プロフィールが表示される恐れがあった。削除リストに追加して修正。
 

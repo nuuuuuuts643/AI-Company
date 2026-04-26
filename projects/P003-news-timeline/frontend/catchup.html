@@ -402,7 +402,7 @@
 <!-- ヒーロー：期間セレクター -->
 <div class="catchup-hero">
   <h1>リワインド ✦</h1>
-  <p>あなたが離れていた間のニュースを時系列でお届けします</p>
+  <p>この期間内に初めて出現したトピックをお届けします</p>
 
   <div class="period-selector" id="periodSelector">
     <button class="period-btn" data-days="1">昨日（1日）</button>
@@ -515,17 +515,17 @@ function getFilteredTopics() {
       // lifecycleStatusフィルタ
       const lc = t.lifecycleStatus || 'active';
       if (!activeLCSet.has(lc)) return false;
-      // 期間フィルタ
-      const lastUp = t.lastUpdated ? new Date(t.lastUpdated).getTime() : 0;
-      return lastUp >= cutoff;
+      // 期間フィルタ: トピック誕生日(firstArticleAt)が選択期間内のものだけ表示
+      const born = t.firstArticleAt ? t.firstArticleAt * 1000 : 0;
+      return born >= cutoff;
     })
     .sort((a, b) => {
-      // velocity降順、同率なら最終更新が新しい順
+      // velocity降順、同率ならトピック誕生日が新しい順
       const vDiff = parseInt(b.velocityScore || 0) - parseInt(a.velocityScore || 0);
       if (vDiff !== 0) return vDiff;
-      const aUp = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
-      const bUp = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
-      return bUp - aUp;
+      const aBorn = a.firstArticleAt || 0;
+      const bBorn = b.firstArticleAt || 0;
+      return bBorn - aBorn;
     });
 }
 
