@@ -113,7 +113,7 @@ function renderDetail(data) {
   if (meta.imageUrl) {
     const heroEl = document.querySelector('.topic-hero');
     if (heroEl) {
-      const safeUrl = meta.imageUrl.replace(/'/g, '%27');
+      const safeUrl = (typeof safeImgUrl === 'function' ? safeImgUrl(meta.imageUrl) : meta.imageUrl.replace(/^http:\/\//i, 'https://')).replace(/'/g, '%27');
       // 暗いオーバーレイ(0.82→0.68)で可読性を保ちつつ画像を見せる
       heroEl.style.backgroundImage = `linear-gradient(rgba(15,23,42,0.82) 0%, rgba(15,23,42,0.68) 60%, rgba(15,23,42,0.82) 100%), url('${safeUrl}')`;
       heroEl.style.backgroundSize = 'cover';
