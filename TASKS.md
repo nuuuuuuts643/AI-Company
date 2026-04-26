@@ -12,7 +12,6 @@
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
 | T019 | 中 | **SES本番アクセス申請後のLambda環境変数設定**（ナオヤ手動） | — | 2026-04-26 |
-| T076 | 高 | **SLACK_WEBHOOK 設定でエラー通知を有効化**（ナオヤ手動） — ①GitHub Secrets に `SLACK_WEBHOOK` を追加（Bluesky・weekly-digest等のGH Actions通知） ②p003-fetcher/processor/lifecycle の Lambda環境変数に `SLACK_WEBHOOK` を追加（スパイク通知・エラー通知）。設定しないとどのコンポーネントが壊れても無音。Slack Incomingウェブフック URL は https://api.slack.com/messaging/webhooks で取得 | — (ナオヤ手動) | 2026-04-26 |
 | T056 | 低 | **フォロー/フォロワー機能**（将来・ユーザー増えてから） | — | 2026-04-26 |
 
 ## 進行中
