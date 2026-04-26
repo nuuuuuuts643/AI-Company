@@ -69,6 +69,8 @@ def needs_ai_processing(item):
                   or int(item.get('articleCount', 0) or 0) <= 2)
     if not is_minimal and (not timeline or (isinstance(timeline, list) and len(timeline) == 0)):
         return True
+    if not is_minimal and not item.get('storyPhase'):
+        return True
     if not item.get('imageUrl'):
         return True
     return False
@@ -130,6 +132,7 @@ def get_pending_topics(max_topics=100):
             Attr('pendingAI').eq(True) |
             Attr('aiGenerated').ne(True) |
             ~Attr('storyTimeline').exists() |
+            ~Attr('storyPhase').exists() |
             ~Attr('imageUrl').exists()
         )
     )
