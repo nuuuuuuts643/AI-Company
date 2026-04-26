@@ -422,7 +422,7 @@ def generate_and_upload_rss(topics):
         tid = t.get('topicId', '')
         title = xml_escape(t.get('generatedTitle') or t.get('title') or 'Flotopic')
         desc  = xml_escape((t.get('generatedSummary') or '')[:200])
-        link  = f'https://flotopic.com/topic.html?id={tid}'
+        link  = f'https://flotopic.com/topics/{tid}.html'
         pub   = to_rfc822(t.get('lastArticleAt') or t.get('lastUpdated'))
         genre = xml_escape((t.get('genres') or [t.get('genre', '総合')])[0])
         items.append(

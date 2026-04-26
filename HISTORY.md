@@ -4,6 +4,10 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T103/T104）
+- ✅ **T103 RSS link非canonical修正** — `proc_storage.py` line 425の`link`を`topic.html?id={tid}`（SPAリンク）から`topics/{tid}.html`（canonical静的URL）に変更。RSSリーダーからのPageRankが正規URLに集約される。
+- ✅ **T104 lifecycle rstrip修正** — `lifecycle/handler.py` line 237の`key.rstrip('.json')`（文字集合除去）を`key[len('api/topic/'):-len('.json')]`（明示的サフィックス除去）に変更。UUID topicIdでは実害なかったが意味的に正しい実装に修正。
+
 ### 完了済み（2026-04-26 T098/T099/T100/T101/T102）
 - ✅ **T098 imageUrl欠損トピック再処理** — `fetcher/handler.py` の `orphan_candidates` フィルタに `and t.get('imageUrl')` を追加。imageUrlなしトピックが「処理済み」と誤判定されて永久に pending_ai に入らない問題を修正。
 - ✅ **T099 contact name未保存** — `contact/handler.py` の `save_to_dynamodb()` の put_item に `'name': data['name']` を追加。管理画面で送信者名が表示されるようになった。
