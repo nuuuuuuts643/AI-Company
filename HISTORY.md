@@ -4,6 +4,12 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T050新/T048新/T054/T055確認）
+- ✅ **T050 ノイズトピックフィルタリング強化** — `lambda/fetcher/filters.py` の `_DIGEST_SKIP_PATS` にゲーム攻略wiki・レシピ系パターン9件追加。「レシピ$」「料理一覧」「攻略wiki」「キャラ編成一覧」「入手方法」「スキル一覧」「育成方法」など。fetcher 次回実行から有効。
+- ✅ **T048 ファビコン修正（SVG→PNG優先）** — 全10HTMLファイルから `<link rel="icon" type="image/svg+xml" href="/icon-flotopic.svg">` を削除。PNG（dropletロゴ）のみ残し、ブラウザタブに正しいアイコン表示。
+- ✅ **T054 Admin「AI要約%」誤表示修正** — `admin.html` L348 の `aiDone` 計算を `generatedSummary || generatedTitle` → `generatedSummary` のみに修正。タイトルだけ生成済みのトピックが100%に誤カウントされるバグ解消。
+- ✅ **T055 storyTimeline実装確認** — detail.js に既実装済み。`meta.storyTimeline` beats を「③ 今どの段階か」セクション（ai-analysis内）に日付+イベント形式でレンダリング。追加実装不要。
+
 ### 完了済み（2026-04-26 T047残件+T048）
 - ✅ **T047残件 リワインド統一** — sw.jsから`/legacy.html`を削除。legacy.htmlは既にnoindex+catchup.htmlリダイレクト済み。クロニクル→リワインド統一完了。
 - ✅ **T048残件 ジャンル表記** — DynamoDB確認0件。topics.jsonの8件は旧キャッシュ。次processor実行で自動解消。

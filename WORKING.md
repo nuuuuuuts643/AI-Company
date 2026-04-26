@@ -38,6 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T050 ノイズトピックフィルタリング強化 | lambda/fetcher/filters.py | 2026-04-27 00:00 |
-| T048 ファビコン修正（SVG→PNG優先） | frontend/*.html | 2026-04-27 00:00 |
-| T054 Admin AI要約%誤表示修正 | frontend/admin.html | 2026-04-27 00:00 |
