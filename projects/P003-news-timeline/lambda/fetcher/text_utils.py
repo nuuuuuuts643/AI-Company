@@ -6,7 +6,8 @@ import urllib.parse
 from collections import Counter
 
 from config import (
-    MEDIA_NS, SOURCE_NAME_MAP, GENRE_KEYWORDS, ENTITY_PATTERNS,
+    MEDIA_NS, SOURCE_NAME_MAP, GENRE_KEYWORDS, GENRE_STRONG_KEYWORDS,
+    GENRE_PRIORITY, ENTITY_PATTERNS,
 )
 
 
@@ -110,12 +111,25 @@ def extract_rss_image(item):
 def dominant_genres(articles, max_genres=2):
     all_titles = ' '.join(a['title'] for a in articles)
     scores = {}
+
+    # 強固キーワード: 1件ヒットでも高スコア（×3）として計上
+    for genre, keywords in GENRE_STRONG_KEYWORDS.items():
+        hit = sum(1 for kw in keywords if kw in all_titles)
+        if hit >= 1:
+            scores[genre] = hit * 3
+
+    # 通常キーワード: 2件以上でスコア計上（強固スコアがあれば加算）
     for genre, keywords in GENRE_KEYWORDS.items():
         hit = sum(1 for kw in keywords if kw in all_titles)
         if hit >= 2:
-            scores[genre] = hit
+            scores[genre] = scores.get(genre, 0) + hit
+
     if scores:
-        top = sorted(scores, key=scores.get, reverse=True)[:max_genres]
+        priority_rank = {g: i for i, g in enumerate(GENRE_PRIORITY)}
+        top = sorted(
+            scores,
+            key=lambda g: (-scores[g], priority_rank.get(g, 99)),
+        )[:max_genres]
         return top
     return [Counter(a['genre'] for a in articles).most_common(1)[0][0]]
 
