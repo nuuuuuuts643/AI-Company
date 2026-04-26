@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T112 アカウント削除時localStorage未クリアバグ修正）
+- ✅ **T112 doDeleteAccount() で flotopic_avatar / flotopic_profile / flotopic_profile_set / flotopic_saved_comments が未削除** — `mypage.html:doDeleteAccount()` のローカルデータ削除リストに4キーが漏れており、アカウント削除後も別ユーザーが同じブラウザでサインインした場合に前ユーザーのアバター・プロフィールが表示される恐れがあった。削除リストに追加して修正。
+
 ### 完了済み（2026-04-26 T111「なぜ広がったか」分析強化）
 - ✅ **T111 spreadReason分析観点拡充** — `proc_ai.py` の standard/full 両モードで spreadReason プロンプトを更新。分析軸を4つ明示（①トリガーイベント②なぜ今か③誰が注目④他ニュースとの関連）。standard:1〜2文→2文、full:2〜3文→3文。fullのmax_tokens:900→1000。次回AI処理(JST 01:00/07:00/13:00/19:00)から新記事に適用。
 
