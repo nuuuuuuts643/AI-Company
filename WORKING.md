@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T160 カードAI要約スニペット表示 | frontend/app.js, frontend/style.css | 2026-04-27 00:20 |
