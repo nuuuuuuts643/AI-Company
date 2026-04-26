@@ -38,3 +38,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T122 広告ラベル2重表示修正 | frontend/js/affiliate.js | 2026-04-26 |
+| T121 catchup.htmlダークテーマ固定修正 | frontend/catchup.html | 2026-04-26 |
