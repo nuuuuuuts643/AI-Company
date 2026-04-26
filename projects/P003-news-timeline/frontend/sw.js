@@ -24,6 +24,7 @@ const NETWORK_FIRST_ASSETS = [
   '/js/auth.js',
   '/js/comments.js',
   '/js/favorites.js',
+  '/js/history.js',
   '/js/notifications.js',
   '/js/theme.js',
   '/js/utils.js',
