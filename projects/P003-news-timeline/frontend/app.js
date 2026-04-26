@@ -729,6 +729,11 @@ const LS_VIEWED = 'flotopic_viewed';
 let viewedTopics = new Set();
 function loadViewedTopics() {
   try { viewedTopics = new Set(JSON.parse(localStorage.getItem(LS_VIEWED) || '[]')); } catch {}
+  // flotopic_history からも既読IDをマージ（別ルートで記録された閲覧履歴を反映）
+  try {
+    const hist = JSON.parse(localStorage.getItem(LS_KEYS.HISTORY) || '[]');
+    for (const h of hist) if (h && h.topicId) viewedTopics.add(h.topicId);
+  } catch {}
 }
 function markViewed(topicId) {
   viewedTopics.add(topicId);
