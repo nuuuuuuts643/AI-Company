@@ -1135,3 +1135,6 @@ bash projects/P003-news-timeline/deploy.sh
 - ✅ **T183** — GitHub Actions `bluesky-agent.yml`の直近10件全てsuccess確認。1日3回(JST 08:00/12:00/18:00)スケジュール稼働中。CLAUDE.mdスナップショット更新。
 - ✅ **T187** — `app.js:59,690` と `catchup.html:599` の `PHASE_BADGE` 表示文言を直感的な言葉に変更: 発端→🌱始まり、拡散→📡広まってる、ピーク→🔥急上昇、現在地→📍進行中、収束→✅ひと段落。内輪用語から一般ユーザーに伝わる文言へ。
 - ✅ **T188** — `app.js:dismissGenreOnboarding()` に onboarding完了後のhero-story-preview ハイライト処理を追加。`style.css` に `@keyframes hero-pulse` アニメーション追加。ジャンル選択/スキップ後300ms後にhero-story-cardが3回パルス発光しFlotopicの独自価値（ストーリー追跡）へ誘導。
+
+### 完了済み（2026-04-27 T186(UX) カード「前回から+N件」差分表示・フェーズ変化バッジ）
+- ✅ **T186(UX)** — `app.js`: localStorageキー`ftpc_snap`に前回訪問時のarticleCount・storyPhaseをトピック別に保存。topics読込後に各トピックへ`_deltaCnt`/`_phaseChanged`注釈を付与。`renderCardMeta()`で前回から記事が増えた場合は`+N件`(.new-articles-delta 緑)、storyPhaseが変化した場合は`🔄展開`(.phase-change-badge 橙)バッジを表示。初回訪問はデルタなし。バックエンド変更なし。
