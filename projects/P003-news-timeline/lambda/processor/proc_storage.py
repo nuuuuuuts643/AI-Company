@@ -713,7 +713,7 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
         '健康': '健康・医療ニュース まとめ',
         '国際': '国際ニュース 経緯・最新情報まとめ',
         'グルメ': 'グルメ情報まとめ',
-        'ファッション・美容': 'ファッション・美容 最新情報まとめ',
+        'ファッション': 'ファッション・美容 最新情報まとめ',
     }
     seo_suffix = _GENRE_SUFFIX.get(genres_raw[0], '最新情報・経緯まとめ')
     seo_title  = _html_esc(f'{meta.get("generatedTitle") or meta.get("title", "")} — {seo_suffix}')
