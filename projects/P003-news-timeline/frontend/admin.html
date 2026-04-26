@@ -371,7 +371,7 @@ function computeMetrics(topics) {
 
   // AI詳細
   const aiGenerated = topics.filter(t => t.aiGenerated).length;
-  const hasTimeline = topics.filter(t => t.storyTimeline && t.storyTimeline.length > 0).length;
+  const hasTimeline = topics.filter(t => t.storyPhase).length;
   const hasImageUrl = topics.filter(t => t.imageUrl).length;
   const hasCustomOgp = topics.filter(t => (t.imageUrl||'').startsWith('https://flotopic.com')).length;
 
@@ -761,20 +761,20 @@ function renderCharts(m) {
     ${UI.progressBar(m.aiGenerated, m.total, 'fill-green')}
     <div style="margin-top:12px;border-top:1px solid #21262d;padding-top:10px">
       <div style="font-size:.78rem;color:#8b949e;margin-bottom:4px;display:flex;justify-content:space-between">
-        <span>storyTimeline 有</span><span style="color:#39d3aa;font-weight:600">${tlPct}%</span>
+        <span>storyPhase 有</span><span style="color:#39d3aa;font-weight:600">${tlPct}%</span>
       </div>
       ${UI.progressBar(m.hasTimeline, m.total, 'fill-teal')}
     </div>
     <div style="margin-top:10px;display:flex;gap:16px;font-size:.78rem;color:#8b949e">
       <span>未処理: <strong style="color:#e6edf3">${m.total - m.aiGenerated}件</strong></span>
-      <span>timeline欠: <strong style="color:#e6edf3">${m.total - m.hasTimeline}件</strong></span>
+      <span>phase欠: <strong style="color:#e6edf3">${m.total - m.hasTimeline}件</strong></span>
     </div>`;
 
   // AI処理パイプライン（funnel）
   const pipelineSteps = [
     { label: '全トピック',          val: m.total,         color: '#58a6ff' },
     { label: 'aiGenerated',        val: m.aiGenerated,   color: '#3fb950' },
-    { label: 'storyTimeline 有',   val: m.hasTimeline,   color: '#39d3aa' },
+    { label: 'storyPhase 有',      val: m.hasTimeline,   color: '#39d3aa' },
     { label: 'imageUrl 有',         val: m.hasImageUrl,   color: '#f78166' },
     { label: 'カスタムOGP生成済',   val: m.hasCustomOgp,  color: '#d2a8ff' },
   ];
