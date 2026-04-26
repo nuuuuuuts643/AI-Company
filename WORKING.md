@@ -37,5 +37,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 ## 現在着手中
 
 | タスク名 | 変更予定ファイル | 開始 JST |
-|---|---|---|
+|---|---|---|| T190 信頼性表示（N件の記事を分析・ソース一覧） | projects/P003-news-timeline/frontend/detail.js | 2026-04-27 10:30 |
+
 | T186 カードが「続きが気になる」設計 | projects/P003-news-timeline/frontend/app.js, style.css | 2026-04-27 |
