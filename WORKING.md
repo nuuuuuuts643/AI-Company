@@ -38,7 +38,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T180 AI要約 原因深掘りセクション追加 | lambda/processor/proc_ai.py, frontend/detail.js | 2026-04-27 09:15 |
+| T179 グラフ/記事数不一致修正 | projects/P003-news-timeline/frontend/detail.js | 2026-04-27 09:50 |
 | T186 needs_ai_processing 1件記事永久残留修正 | lambda/processor/proc_storage.py | 2026-04-27 09:00 |
 | T183 Bluesky自動投稿継続確認 | CLAUDE.md | 2026-04-27 |
 | T187 フェーズバッジ文言改善 | projects/P003-news-timeline/frontend/app.js | 2026-04-27 |
