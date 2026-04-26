@@ -26,6 +26,8 @@ from proc_storage import (
     batch_generate_static_html,
 )
 
+_PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline'}
+
 
 def lambda_handler(event, context):
     start_time = time.time()
@@ -40,7 +42,6 @@ def lambda_handler(event, context):
     if event.get('regenerateSitemap'):
         try:
             topics, trending_keywords = get_all_topics_for_s3()
-            _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline'}
             ts_iso = datetime.now(timezone.utc).isoformat()
             topics_pub = [{k: v for k, v in t.items() if k not in _PROC_INTERNAL} for t in topics]
             write_s3('api/topics.json', {
@@ -143,9 +144,6 @@ def lambda_handler(event, context):
 
         try:
             topics, trending_keywords = get_all_topics_for_s3()
-            # topics.json はカード表示・検索用。詳細ページ専用フィールドは除外してサイズ削減
-            # detail page は api/topic/{id}.json（個別ファイル）から取得するので問題なし
-            _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline'}
             for t in topics:
                 upd = ai_updates.get(t.get('topicId', ''))
                 if upd:
