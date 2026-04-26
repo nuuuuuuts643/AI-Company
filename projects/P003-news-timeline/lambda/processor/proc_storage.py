@@ -696,6 +696,32 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
     image_url  = _html_esc(meta.get('imageUrl') or 'https://flotopic.com/icons/icon-512.png')
     canonical  = f'https://flotopic.com/topics/{tid}.html'
     interactive = f'https://flotopic.com/topic.html?id={tid}'
+
+    # アフィリエイトリンク（ジャンル別キーワード → もしもアフィリエイト経由）
+    _GENRE_KW = {
+        'テクノロジー': 'ガジェット 最新', 'グルメ': 'お取り寄せ グルメ',
+        'ファッション': 'ファッション アイテム', 'スポーツ': 'スポーツ 用品',
+        'エンタメ': 'エンタメ グッズ', '健康': '健康 サプリ',
+        'ビジネス': 'ビジネス 書籍', '科学': '科学 本',
+        'くらし': 'くらし 雑貨', '社会': 'くらし 便利グッズ',
+        '国際': '旅行 グッズ', '株・金融': '投資 書籍', '政治': 'ビジネス 書籍',
+    }
+    _aff_kw  = _GENRE_KW.get(genres_raw[0], 'おすすめ 人気')
+    import urllib.parse as _up
+    _q       = _up.quote(_aff_kw)
+    _aid     = '1188659'
+    _amz_url = _up.quote(f'https://www.amazon.co.jp/s?k={_q}')
+    _rkt_url = _up.quote(f'https://search.rakuten.co.jp/search/mall/{_q}/')
+    _yhs_url = _up.quote(f'https://shopping.yahoo.co.jp/search?p={_q}')
+    _affiliate_html = f'''<section class="aff-section">
+<p class="aff-label">広告 — この話題に関連する商品</p>
+<div class="aff-links">
+<a href="https://af.moshimo.com/af/c/click?a_id={_aid}&amp;p_id=170&amp;pc_id=185&amp;pl_id=4062&amp;url={_amz_url}" target="_blank" rel="noopener sponsored" class="aff-btn aff-amz">🛒 Amazonで探す</a>
+<a href="https://af.moshimo.com/af/c/click?a_id={_aid}&amp;p_id=54&amp;pc_id=53&amp;pl_id=616&amp;url={_rkt_url}" target="_blank" rel="noopener sponsored" class="aff-btn aff-rkt">楽天市場で探す</a>
+<a href="https://af.moshimo.com/af/c/click?a_id={_aid}&amp;p_id=1225&amp;pc_id=2254&amp;pl_id=7610&amp;url={_yhs_url}" target="_blank" rel="noopener sponsored" class="aff-btn aff-yhs">Y! ショッピングで探す</a>
+</div>
+<p class="aff-note">※ アフィリエイトリンクを含みます。購入者様の費用は変わりません。キーワード: {_html_esc(_aff_kw)}</p>
+</section>'''
     timeline   = meta.get('storyTimeline') or []
     story_phase = meta.get('storyPhase', '')
     article_count = int(meta.get('articleCount', 0) or 0)
