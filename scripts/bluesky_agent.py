@@ -73,40 +73,37 @@ REGION               = os.environ.get('AWS_DEFAULT_REGION', 'ap-northeast-1')
 # DynamoDB テーブル
 TOPICS_TABLE         = 'p003-topics'
 BLUESKY_POSTS_TABLE  = 'ai-company-bluesky-posts'  # 投稿済みトピックIDを記録（重複投稿防止・TTL 30日）
+S3_BUCKET            = os.environ.get('S3_BUCKET', 'flotopic-public')
 
 SITE_URL = 'https://flotopic.com'
 
 # BlueSky 文字数制限
 BSKY_MAX_CHARS = 300
 
-# ── DynamoDB ─────────────────────────────────────────────────────────────────
+# ── AWS クライアント ───────────────────────────────────────────────────────────
 dynamodb = boto3.resource('dynamodb', region_name=REGION)
+s3       = boto3.client('s3', region_name=REGION)
 
 
-def get_topics_from_dynamodb(limit=50, sort_by='velocity'):
+def get_topics_from_s3(limit=50, sort_by='velocity'):
     """
-    DynamoDB p003-topics から最新の META アイテムを取得。
+    S3 api/topics.json から最新のトピック一覧を取得。
+    DynamoDB フルスキャンより大幅にコスト削減（月$2.5削減）。
     sort_by='velocity' → velocityScore 降順（日次用）
     sort_by='score'    → score 降順（週次・月次用）
     """
-    table  = dynamodb.Table(TOPICS_TABLE)
-    items  = []
-    kwargs = {
-        'FilterExpression':          'SK = :m',
-        'ExpressionAttributeValues': {':m': 'META'},
-    }
-    while True:
-        resp = table.scan(**kwargs)
-        items.extend(resp.get('Items', []))
-        if not resp.get('LastEvaluatedKey'):
-            break
-        kwargs['ExclusiveStartKey'] = resp['LastEvaluatedKey']
+    try:
+        resp  = s3.get_object(Bucket=S3_BUCKET, Key='api/topics.json')
+        data  = json.loads(resp['Body'].read())
+        items = data.get('topics', [])
+    except Exception as e:
+        print(f'[bluesky_agent] S3読み取り失敗、フォールバックなし: {e}')
+        return []
 
-    # ソート
     if sort_by == 'velocity':
-        items.sort(key=lambda x: int(x.get('velocityScore', 0) or 0), reverse=True)
+        items.sort(key=lambda x: float(x.get('velocityScore', 0) or 0), reverse=True)
     else:
-        items.sort(key=lambda x: int(x.get('score', 0) or 0), reverse=True)
+        items.sort(key=lambda x: float(x.get('score', 0) or 0), reverse=True)
 
     return items[:limit]
 
@@ -291,7 +288,7 @@ def post_daily(client, dry_run=False):
       [ジャンルハッシュタグ] #Flotopic
     """
     print('[bluesky_agent] 日次投稿 開始')
-    topics     = get_topics_from_dynamodb(limit=50, sort_by='velocity')
+    topics     = get_topics_from_s3(limit=50, sort_by='velocity')
     posted_ids = get_posted_ids()
 
     # active かつ未投稿のトップ1件
@@ -305,14 +302,28 @@ def post_daily(client, dry_run=False):
         print('[bluesky_agent] 投稿対象トピックなし（全件投稿済みまたはトピック不足）')
         return
 
-    topic     = candidates[0]
+    # 静的HTMLが存在するトピックのみ投稿（OGPリンクカードが正しく表示される）
+    topic = None
+    for c in candidates:
+        _tid = c.get('topicId', '')
+        try:
+            s3.head_object(Bucket=S3_BUCKET, Key=f'topics/{_tid}.html')
+            topic = c
+            break
+        except Exception:
+            continue
+
+    if not topic:
+        print('[bluesky_agent] 静的HTMLが存在するトピックなし（静的ページ生成待ち）')
+        return
+
     title     = topic.get('generatedTitle') or topic.get('title', '')
     summary   = topic.get('generatedSummary') or topic.get('extractiveSummary', '')
     tid       = topic.get('topicId', '')
     cnt       = int(topic.get('articleCount', 0) or 0)
     image_url = topic.get('imageUrl') or ''
     tag     = genre_tag(topic)
-    url     = f'{SITE_URL}/topic.html?id={tid}'
+    url     = f'{SITE_URL}/topics/{tid}.html'  # 静的HTML（OGPメタタグ完備）
     label   = time_label()
 
     summary_line = f'{truncate(summary, 110)}\n\n' if summary else ''
@@ -351,7 +362,7 @@ def post_weekly(client, dry_run=False):
     文字数計算: 見出し30 + 5行×30文字 + フッター60 ≒ 240文字（300文字以内）
     """
     print('[bluesky_agent] 週次投稿 開始')
-    topics = get_topics_from_dynamodb(limit=100, sort_by='score')
+    topics = get_topics_from_s3(limit=100, sort_by='score')
 
     # 過去7日以内に更新されたトピックに絞る
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
@@ -413,7 +424,7 @@ def post_monthly(client, dry_run=False):
     文字数計算: 見出し20 + 3行×35文字 + ジャンルコメント50 + フッター50 ≒ 225文字
     """
     print('[bluesky_agent] 月次投稿 開始')
-    topics = get_topics_from_dynamodb(limit=200, sort_by='score')
+    topics = get_topics_from_s3(limit=200, sort_by='score')
 
     # 過去30日以内に更新されたトピックに絞る
     cutoff = datetime.now(timezone.utc) - timedelta(days=30)
