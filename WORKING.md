@@ -38,5 +38,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T047 リワインド統一(legacy.html+sw.js) | frontend/legacy.html, frontend/sw.js | 2026-04-26 23:10 |
-| T048残件 ジャンル表記8件修正 | DynamoDB p003-topics | 2026-04-26 23:10 |
+| T050 ノイズトピックフィルタリング強化 | lambda/fetcher/config.py, lambda/fetcher/handler.py | 2026-04-27 00:00 |
+| T051 storyTimeline detail画面表示 | frontend/topic.html | 2026-04-27 00:00 |
