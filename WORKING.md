@@ -37,3 +37,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T015+T016 広告表記+Bluesky hashtag | frontend/topic.html, frontend/privacy.html, scripts/bluesky_agent.py | 2026-04-26 13:50 |
