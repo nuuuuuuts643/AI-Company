@@ -4,6 +4,13 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T098/T099/T100/T101/T102）
+- ✅ **T098 imageUrl欠損トピック再処理** — `fetcher/handler.py` の `orphan_candidates` フィルタに `and t.get('imageUrl')` を追加。imageUrlなしトピックが「処理済み」と誤判定されて永久に pending_ai に入らない問題を修正。
+- ✅ **T099 contact name未保存** — `contact/handler.py` の `save_to_dynamodb()` の put_item に `'name': data['name']` を追加。管理画面で送信者名が表示されるようになった。
+- ✅ **T100 analytics S3バケット誤デフォルト** — `analytics/handler.py` 行25の `S3_BUCKET` デフォルトを `'flotopic-data'`（存在しない）から `'p003-news-946554699567'` に修正。Lambda環境変数未設定時のキャッシュ書き込み失敗を解消。
+- ✅ **T101 tokeninfo aud未チェック** — `auth/handler.py`・`comments/handler.py`・`favorites/handler.py` の `verify_google_token()` に `aud == GOOGLE_CLIENT_ID` チェックを追加。他アプリ向けトークンでのログインを防止。`GOOGLE_CLIENT_ID` 環境変数未設定時はチェックをスキップ（後方互換）。
+- ✅ **T102 comments scan Limit問題** — `comments/handler.py` の `get_user_comments()` で `Limit=500`（スキャン上限）を外してLastEvaluatedKeyページネーションに変更。ユーザーのコメントがテーブルの後半にあっても正しく取得できるようになった。
+
 ### 完了済み（2026-04-26 T079/T080）
 - ✅ **T079 アフィリエイトキーワード品質フィルタ** — affiliate.js に NEWS_PATS チェック追加。20文字超かつ報道パターン含むタイトルはジャンル名フォールバックへ切り替え。
 - ✅ **T080 topic.html 重複広告修正** — 同一admaxIDが2スロットで重複。2つ目（グラフ直前）を削除。SPで同じバナーが2回表示される問題を解消。
