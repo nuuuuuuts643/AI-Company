@@ -227,6 +227,12 @@ function renderDetail(data) {
       const cls = i===currentIdx ? 'active' : i<currentIdx ? 'past' : '';
       return `<div class="ai-phase-step ${cls}" style="background:${PHASE_COLOR[p]||'#6366f1'}"><span class="ai-phase-step-icon">${PHASE_ICON[p]||'📍'}</span><span class="ai-phase-step-label">${p}</span></div>`;
     }).join('')}</div>` : '';
+    const originHtml = (beats.length >= 2 && beats[0] && beats[0].event) ? `
+      <div class="story-origin-highlight">
+        <span class="story-origin-label">📅 この話の始まり${beats[0].date ? '（' + esc(beats[0].date) + '）' : ''}</span>
+        <div class="story-origin-event">${esc(beats[0].event)}</div>
+      </div>` : '';
+
     const buildBeatsHtml = (bts) => bts.map((b,i)=>{
       const isLast = i===bts.length-1;
       const dotCls = isLast ? 'ai-beat-dot ai-beat-dot-last' : 'ai-beat-dot';
@@ -259,6 +265,7 @@ function renderDetail(data) {
           <div class="ai-section">
             <div class="ai-section-label">今どの段階か</div>
             ${phaseBarHtml}
+            ${originHtml}
             ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
           </div>` : '';
         aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2}${sect3}</div>`;
@@ -283,6 +290,7 @@ function renderDetail(data) {
           <div class="ai-section">
             <div class="ai-section-label">③ 今どの段階か</div>
             ${phaseBarHtml}
+            ${originHtml}
             ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
           </div>` : '';
         // ④ 今後どうなるか
