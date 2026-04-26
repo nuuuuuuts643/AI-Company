@@ -50,6 +50,7 @@ MAX_BODY_LEN       = 200
 MAX_NICK_LEN       = 30
 MAX_PER_TOPIC      = 100
 GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token='
+GOOGLE_CLIENT_ID     = os.environ.get('GOOGLE_CLIENT_ID', '')
 
 AVATAR_KEY_PREFIX = 'avatars/'
 AVATAR_PRESIGN_TTL = 300
