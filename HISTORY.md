@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T161 mypageボトムナビ赤バッジ）
+- ✅ **T161 ボトムナビ マイページアイコンに「新着あり」赤ドット追加** — T157(お気に入り新着グルーピング)の延長として、マイページを開かなくても新着があるとわかるように改善。app.js に `updateMypageBadge(topics)` を追加し、topics.json ロード後に `flotopic_last_mypage_visit`（localStorage、秒単位）と各favトピックの `lastUpdated` を比較。1件でも新しければ `bn-mypage` に `.has-badge` クラスを付与。style.css に `.bn-item.has-badge::after` で赤8px丸ドット（`position:absolute; background:#ef4444; border: 1.5px solid card-bg`で白縁付き）を追加。`flotopic_last_mypage_visit`未設定の場合は表示しない（初回訪問ユーザーへの誤表示防止）。npm test 42件全パス。
+
 ### 完了済み（2026-04-26 T155 detail.js 発端ハイライト追加）
 - ✅ **T155 detail.js 「この話の始まり」ハイライト追加** — ユーザーが最新記事から詳細ページに着地した際、ストーリーの発端（最古イベント）が下にスクロールしないと見えない問題を修正。`storyTimeline`の最初のbeatを `<div class="story-origin-highlight">` として ai-beats の上部に常時表示。`beats.length >= 2` かつ `beats[0].event` がある場合のみ表示し、単発トピックには影響しない。`summaryMode = 'standard'` と `'full'` 両モードの「③今どの段階か」セクションに挿入。style.css に `.story-origin-highlight` / `.story-origin-label` / `.story-origin-event` のライト/ダーク両モードCSS追加。インジゴ左ボーダーで発端を視覚的に強調。npm test 42件全パス。
 
