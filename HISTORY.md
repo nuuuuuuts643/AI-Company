@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T131 mypage.html ダークモード完全対応）
+- ✅ **T131 mypage.html ダークモード完全対応** — ログイン前カード・プロフィールカード・タブ・コンテンツカード・アカウント設定・削除モーダル等すべての要素に`[data-theme="dark"]`オーバーライド追加。`#fff`→`#1e2035`、`#f3f4f6`→`#252840`、テキスト色→CSS変数相当のダーク色に変換。mypage.htmlは0オーバーライドだったが50行超のダーク対応を追加。
+
 ### 完了済み（2026-04-26 T130 storyPhase カバレッジ修正）
 - ✅ **T130 proc_storage.py・handler.py storyPhase未設定トピック再処理対応** — `needs_ai_processing()`に`not is_minimal and not item.get('storyPhase')`条件追加。DynamoDBフルスキャンfilterに`~Attr('storyPhase').exists()`追加。`handler.py`の`needs_story`条件に`and (topic.get('storyPhase') or _is_minimal)`を追加。`storyTimeline`があっても`storyPhase`がないトピックが永遠に再処理されないバグを修正（storyPhaseカバレッジ50%の主因）。
 
