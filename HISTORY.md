@@ -4,6 +4,12 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T057/T058/T059確認/T060）
+- ✅ **T057 admin.html 収益管理パネル追加** — 「収益管理」セクションを追加。忍者AdMax(稼働中)/AdSense(審査中)/Amazon/楽天 の4カードで各ダッシュボードへのリンク + ステータスバッジ表示。AdSense審査通過後に切り替えやすい設計。
+- ✅ **T058 ICONS-NEEDED.md 削除** — `frontend/ICONS-NEEDED.md` を削除。開発ドキュメントが本番S3に公開配信されていた問題を解消。
+- ✅ **T059 auth.js 確認** — 前セッション実装済み。「コメント返信・@メンション通知を受け取る」に修正済み。追加実装不要。
+- ✅ **T060 twitter-card.png 削除** — ogp.pngと同一ファイル(MD5一致)。全HTMLのtwitter:imageはogp.pngを参照済みのため安全に削除。
+
 ### 完了済み（2026-04-27 T050新/T048新/T054/T055確認）
 - ✅ **T050 ノイズトピックフィルタリング強化** — `lambda/fetcher/filters.py` の `_DIGEST_SKIP_PATS` にゲーム攻略wiki・レシピ系パターン9件追加。「レシピ$」「料理一覧」「攻略wiki」「キャラ編成一覧」「入手方法」「スキル一覧」「育成方法」など。fetcher 次回実行から有効。
 - ✅ **T048 ファビコン修正（SVG→PNG優先）** — 全10HTMLファイルから `<link rel="icon" type="image/svg+xml" href="/icon-flotopic.svg">` を削除。PNG（dropletロゴ）のみ残し、ブラウザタブに正しいアイコン表示。
