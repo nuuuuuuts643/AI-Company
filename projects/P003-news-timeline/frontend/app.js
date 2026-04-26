@@ -672,19 +672,20 @@ function updateFreshnessDisplay() {
 function renderHeroStoryPreview(topics) {
   const el = document.getElementById('hero-story-preview');
   if (!el) return;
+  // storyTimeline は topics.json の _INTERNAL 除外フィールドのため常に undefined
+  // storyPhase は topics.json に含まれるため代替として使用
   const candidate = (topics || [])
-    .filter(t => Array.isArray(t.storyTimeline) && t.storyTimeline.length >= 1 && t.lifecycleStatus !== 'archived')
+    .filter(t => t.storyPhase && t.lifecycleStatus !== 'archived')
     .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0))[0];
   if (!candidate) { el.style.display = 'none'; return; }
-  const beats = candidate.storyTimeline;
-  const latest = beats[beats.length - 1];
-  const latestEvent = latest && latest.event ? esc(latest.event) : '';
+  const _PHASE_BADGE = { '発端':'🌱 発端', '拡散':'📡 拡散', 'ピーク':'🔥 ピーク', '現在地':'📍 現在地', '収束':'✅ 収束' };
+  const phaseLabel = _PHASE_BADGE[candidate.storyPhase] || candidate.storyPhase;
   const title = esc(candidate.generatedTitle || candidate.title);
   el.innerHTML = `
     <a href="storymap.html?id=${esc(candidate.topicId)}" class="hero-story-card">
       <div class="hero-story-label">📖 今日最も動きのあったストーリー</div>
       <div class="hero-story-title">${title}</div>
-      ${latestEvent ? `<div class="hero-story-beat">最新: ${latestEvent}</div>` : ''}
+      <div class="hero-story-beat">現在フェーズ: ${esc(phaseLabel)}</div>
       <div class="hero-story-cta">経緯をすべて見る →</div>
     </a>
     <p class="hero-story-tagline">速報じゃなく、<strong>経緯</strong>がわかる</p>`;
