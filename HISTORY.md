@@ -659,3 +659,10 @@ bash projects/P003-news-timeline/deploy.sh
   「クロニクル」→「リワインド」、フッターの「アーカイブ(legacy.html)」リンク削除
 - about.html: 機能名「しばらくぶりモード」→「リワインド」、FAQ更新
 - sw.js: NETWORK_FIRST_ASSETS から重複 `/legacy.html` エントリを削除
+
+### 完了済み（2026-04-26）T065 ストーリー表示強化
+→ HISTORY.mdに記録 14:35 JST
+- detail.js: storyPhase全5段階の横進捗バー（発端→拡散→ピーク→現在地→収束）を実装。現在地を明輝化、過去ステップ半透明。
+- detail.js: beats を dot+縦ライン付きカード形式に刷新（ai-beat-dot-col / ai-beat-vline / ai-beat-content 構造）。最後のdotは緑色。
+- style.css: ai-phase-bar / ai-phase-step / ai-beat-dot-col 等の新規スタイル追加。旧ai-beat-connector削除。
+- catchup.html: storyPhaseバッジをフェーズ固有色（🌱黄/📡青/🔥赤/📍緑/✅グレー）の塗りつぶしに変更。
