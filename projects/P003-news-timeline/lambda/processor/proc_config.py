@@ -40,18 +40,6 @@ SYNONYMS = {
     'chatgpt': 'ai', 'gpt': 'ai', 'claude': 'ai', 'gemini': 'ai',
 }
 
-ENTITY_PATTERNS = [
-    r'アメリカ|米国', r'中国|中華人民共和国', r'ロシア|ロシア連邦',
-    r'イラン', r'イスラエル', r'韓国|大韓民国', r'北朝鮮',
-    r'ウクライナ', r'台湾', r'インド',
-    r'石油|原油|エネルギー', r'株価|日経|TOPIX',
-    r'円安|円高|為替', r'AI|人工知能', r'半導体',
-    r'金利|利上げ|利下げ', r'GDP|景気|インフレ',
-    r'選挙|大統領|首相|首脳', r'軍事|戦争|攻撃|爆撃|ミサイル',
-    r'地震|台風|災害', r'大谷|翔平', r'トランプ', r'プーチン', r'習近平',
-]
-
-
 def normalize(text):
     text = re.sub(r'[【】「」『』（）()\[\]！？!?\s　・]+', ' ', text.lower())
     words = set()
@@ -61,9 +49,3 @@ def normalize(text):
     return words
 
 
-def extract_entities(text):
-    entities = set()
-    for pattern in ENTITY_PATTERNS:
-        if re.search(pattern, text):
-            entities.add(pattern.split('|')[0])
-    return entities
