@@ -7,6 +7,9 @@
 ### 完了済み（2026-04-26 T155 detail.js 発端ハイライト追加）
 - ✅ **T155 detail.js 「この話の始まり」ハイライト追加** — ユーザーが最新記事から詳細ページに着地した際、ストーリーの発端（最古イベント）が下にスクロールしないと見えない問題を修正。`storyTimeline`の最初のbeatを `<div class="story-origin-highlight">` として ai-beats の上部に常時表示。`beats.length >= 2` かつ `beats[0].event` がある場合のみ表示し、単発トピックには影響しない。`summaryMode = 'standard'` と `'full'` 両モードの「③今どの段階か」セクションに挿入。style.css に `.story-origin-highlight` / `.story-origin-label` / `.story-origin-event` のライト/ダーク両モードCSS追加。インジゴ左ボーダーで発端を視覚的に強調。npm test 42件全パス。
 
+### 完了済み（2026-04-26 T159 MAX_API_CALLS 150→200 AI要約カバレッジ改善）
+- ✅ **T159 proc_config.py MAX_API_CALLS 150→200** — storyPhase 46.1% / summary 70.5%（2026-04-26）でカバレッジ不足。MIN_ARTICLES_FOR_SUMMARY は既に1（タスク目標3より積極的）。MAX_API_CALLS を 200 に増量して処理漏れトピックを削減。APIコスト増は月数百円程度。npm test 42件全パス。
+
 ### 完了済み（2026-04-26 T157 mypage お気に入り新着グルーピング）
 - ✅ **T157 mypage.html お気に入り「新着あり/変化なし」グルーピング** — お気に入りリストが静的リストで「その後どうなったか」がわからず戻る動機がなかった問題を修正。`flotopic_last_mypage_visit`（localStorage）を読み出し、各favトピックの`lastUpdated`と比較して「🔔 新着あり (N件)」と折りたたみ可能な「変化なし 」グループに分類。ページを開くたびに訪問時刻を更新。NEW バッジをサブテキストに追加し新着を視覚的に強調。localStorage完結（API不要）。ボトムナビ赤バッジは別途T158として実装予定。
 
