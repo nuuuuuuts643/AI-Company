@@ -9,7 +9,9 @@ from config import STOP_WORDS, SYNONYMS, JACCARD_THRESHOLD, MAX_CLUSTER_SIZE
 
 
 _LIVE_PREFIX = re.compile(r'^【(中継|速報|更新|独自|詳報|続報|緊急|号外)[^】]*】')
-_KATAKANA_LONG = re.compile(r'^[゠-ヿ]{5,}$')  # 5文字以上のカタカナ固有名詞
+_KATAKANA_ENTITY = re.compile(r'^[゠-ヿ]{3,}$')  # 3文字以上のカタカナ固有名詞（トランプ/プーチン等）
+_ENTITY_MERGE_THRESHOLD = 0.12  # 固有名詞1語共有の場合の緩和閾値
+_ENTITY_MERGE_MAX_WORDS  = 5    # 対象は短い記事のみ
 
 def normalize(text):
     text = _LIVE_PREFIX.sub('', text).strip()  # 【中継】【速報】等のプレフィックスを除去してから比較
@@ -66,12 +68,22 @@ def cluster(articles):
             wi = normalize(articles[i]['title']) - STOP_WORDS
             wj = normalize(articles[j]['title']) - STOP_WORDS
             shared = wi & wj
-            # 5文字以上のカタカナ固有名詞を共有する場合は1単語でも結合候補
-            has_strong_entity = any(_KATAKANA_LONG.match(w) for w in shared)
-            min_shared = 1 if has_strong_entity else 2
-            if len(shared) < min_shared:
+            union_sz = len(wi | wj)
+            # カタカナ固有名詞（3文字以上）を1語共有し、かつ両記事が短い場合は緩和閾値で結合
+            katakana_entities = {w for w in shared if _KATAKANA_ENTITY.match(w)}
+            if (len(shared) == 1 and katakana_entities
+                    and len(wi) <= _ENTITY_MERGE_MAX_WORDS
+                    and len(wj) <= _ENTITY_MERGE_MAX_WORDS
+                    and union_sz > 0
+                    and 1.0 / union_sz >= _ENTITY_MERGE_THRESHOLD):
+                pass  # → merge below
+            elif len(shared) < 2:
                 continue
-            if len(shared) / len(wi | wj) >= JACCARD_THRESHOLD:
+            if union_sz == 0:
+                continue
+            jac = len(shared) / union_sz
+            threshold = _ENTITY_MERGE_THRESHOLD if (len(shared) == 1 and katakana_entities) else JACCARD_THRESHOLD
+            if jac >= threshold:
                 new_size = cluster_size.get(ri, 1) + cluster_size.get(rj, 1)
                 union(i, j)
                 cluster_size[find(i)] = new_size
