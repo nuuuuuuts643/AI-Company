@@ -314,6 +314,12 @@ function renderTopicCard(t, i) {
     ? `<span class="card-phase-badge">${PHASE_BADGE[t.storyPhase]}</span>`
     : '';
 
+  const velocity = Number(t.velocityScore || 0);
+  const velPct = Math.min(100, Math.round(velocity * 5));
+  const velBarHtml = (displayStatus === 'rising' || displayStatus === 'peak') && velocity > 0
+    ? `<div class="velocity-bar-wrap ${displayStatus}"><div class="velocity-bar" style="width:${velPct}%"></div></div>`
+    : '';
+
   return `
     <div class="topic-card-wrapper" style="position:relative;">
       ${renderBadges(t)}
@@ -321,6 +327,7 @@ function renderTopicCard(t, i) {
         ${thumbHtml}
         <div class="card-body">
           <div class="topic-status ${displayStatus}">${STATUS_LABEL[displayStatus] || displayStatus}${coolingAgeHtml}${phaseHtml}</div>
+          ${velBarHtml}
           <h3>${esc(t.generatedTitle || t.title)}</h3>
           ${summaryHtml}
           ${renderCardMeta(t)}
