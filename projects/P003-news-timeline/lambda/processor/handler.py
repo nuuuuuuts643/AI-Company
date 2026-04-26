@@ -93,8 +93,10 @@ def lambda_handler(event, context):
                 print(f'  [Claude タイトル] {tid[:8]}... → {new_title[:30]}')
 
         gen_story = None
+        _is_minimal = (topic.get('summaryMode') == 'minimal' or cnt <= 2)
         needs_story = (cnt >= MIN_ARTICLES_FOR_SUMMARY
-                       and not (topic.get('aiGenerated') and topic.get('storyTimeline')))
+                       and not (topic.get('aiGenerated')
+                                and (topic.get('storyTimeline') or _is_minimal)))
         if needs_story and api_calls < MAX_API_CALLS:
             new_story = generate_story(articles, article_count=cnt)
             api_calls += 1
