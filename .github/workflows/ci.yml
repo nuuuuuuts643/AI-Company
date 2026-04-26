@@ -31,6 +31,12 @@ jobs:
           fi
           echo "✅ 全JSファイル 構文OK"
 
+      - name: ユニットテスト（node:test）
+        run: |
+          echo "=== P003 ユニットテスト ==="
+          cd projects/P003-news-timeline && npm test
+          echo "✅ 全テストパス"
+
       - name: HTML 基本チェック（必須要素の確認）
         run: |
           echo "=== HTML 基本チェック ==="
