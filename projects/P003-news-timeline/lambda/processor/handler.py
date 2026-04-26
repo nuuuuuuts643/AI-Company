@@ -135,15 +135,16 @@ def lambda_handler(event, context):
         processed += 1
         articles_cache[tid] = articles
         ai_updates[tid] = {
-            'generatedTitle':   gen_title,
-            'generatedSummary': gen_story['aiSummary']      if gen_story else None,
-            'spreadReason':     gen_story['spreadReason']   if gen_story else None,
-            'forecast':         gen_story['forecast']       if gen_story else None,
-            'storyTimeline':    gen_story['timeline']       if gen_story else None,
-            'storyPhase':       gen_story['phase']          if gen_story else None,
-            'summaryMode':      gen_story['summaryMode']    if gen_story else None,
-            'aiGenerated':      ai_succeeded,
-            'imageUrl':         ogp_url,
+            'generatedTitle':    gen_title,
+            'generatedSummary':  gen_story['aiSummary']         if gen_story else None,
+            'spreadReason':      gen_story['spreadReason']       if gen_story else None,
+            'forecast':          gen_story['forecast']           if gen_story else None,
+            'storyTimeline':     gen_story['timeline']           if gen_story else None,
+            'storyPhase':        gen_story['phase']              if gen_story else None,
+            'summaryMode':       gen_story['summaryMode']        if gen_story else None,
+            'backgroundContext': gen_story['backgroundContext']   if gen_story else None,
+            'aiGenerated':       ai_succeeded,
+            'imageUrl':          ogp_url,
         }
 
     elapsed = time.time() - start_time
