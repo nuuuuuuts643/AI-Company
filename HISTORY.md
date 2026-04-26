@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T194 ストーリー読了後の導線）
+- ✅ **T194 storymap.html 読了後の同ジャンルストーリー表示** — 根本原因: 読了後ユーザーが「戻る」か「閉じる」しかなく迷子になっていた。修正: renderStorymap()末尾に「📡 {ジャンル}で今動いているストーリー」セクションを追加。allTopicsから同ジャンル・articleCount≥2のトピックをvelocityScore順で最大3件抽出しリンクカードとして表示。CSS（sm-next-card/sm-next-cards/sm-see-all）も追加。APIコスト増なし（topics.jsonのクライアント側フィルタリングのみ）。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T186 カード差分表示）
 - ✅ **T186 fetcher+api+app.js: 24h記事数差分バッジ追加** — 根本原因: カードは静的な記事数のみ表示でトピックの動きが伝わらなかった。修正: ①fetcher/handler.pyでMETA書き込み時にarticleCountDelta（24hローリングベースライン）を計算・保存。ベースライン超過時に自動リセット。追加DynamoDB queryなし ②api/handler.pyのProjectionExpressionにarticleCountDeltaを追加 ③app.js renderCardMeta()で_deltaCnt（前回訪問）が0のときにサーバー側24h差分を「📈 +N件」で表示。初回訪問者にもトピックの動きが伝わる。Python構文チェック・npm test 42件全パス。
 
@@ -1134,6 +1137,9 @@ bash projects/P003-news-timeline/deploy.sh
 - ✅ **T177** — `admin.html:379,833,857` で `t.genre` → `(t.genres && t.genres[0]) || t.genre || '総合'` に修正。ジャンル別集計・表が旧legacyフィールドを参照しており、グルメ/ファッション等の新ジャンルが集計に反映されていなかった。
 - ✅ **T181** — `comments/handler.py` の `topic_id = parts[1]` 直後に `re.match(r'^[0-9a-f]{16}$', topic_id)` バリデーションを追加。`increment_topic_comment_count()` に `ConditionExpression='attribute_exists(topicId)'` を追加して幽霊METAレコード生成を防止。`favorites/handler.py` に `import re` を追加し、POST/DELETE /favorites の topic_id 抽出後に同形式バリデーションを追加。`update_topic_fav_count()` の delta > 0 パスにも `ConditionExpression='attribute_exists(topicId)'` を追加。任意文字列topicIdへの書き込みによるコンテンツインジェクションとDynamoDB幽霊レコード生成を修正。
 
+### 完了済み（2026-04-27 T194 ストーリー読了後の導線）
+- ✅ **T194 storymap.html 読了後の同ジャンルストーリー表示** — 根本原因: 読了後ユーザーが「戻る」か「閉じる」しかなく迷子になっていた。修正: renderStorymap()末尾に「📡 {ジャンル}で今動いているストーリー」セクションを追加。allTopicsから同ジャンル・articleCount≥2のトピックをvelocityScore順で最大3件抽出しリンクカードとして表示。CSS（sm-next-card/sm-next-cards/sm-see-all）も追加。APIコスト増なし（topics.jsonのクライアント側フィルタリングのみ）。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T186 needs_ai_processing 1件記事修正）
 - ✅ **T186** — `proc_storage.py:needs_ai_processing()`冒頭に`if int(item.get('articleCount', 0) or 0) < 2: return False`を追加。T175でprocessor handlerにcnt<2早期skipを追加したが`needs_ai_processing()`は1件記事トピックにTrueを返し続けていた。これによりpending_ai.jsonに1件記事トピックが永遠に残留し、毎実行でDynamoDBを個別lookupするパフォーマンス劣化が発生。2件目の記事が来た際はfetcherがpendingAI=Trueをセットし直すため機能は維持される。
 
@@ -1142,8 +1148,14 @@ bash projects/P003-news-timeline/deploy.sh
 - ✅ **T187** — `app.js:59,690` と `catchup.html:599` の `PHASE_BADGE` 表示文言を直感的な言葉に変更: 発端→🌱始まり、拡散→📡広まってる、ピーク→🔥急上昇、現在地→📍進行中、収束→✅ひと段落。内輪用語から一般ユーザーに伝わる文言へ。
 - ✅ **T188** — `app.js:dismissGenreOnboarding()` に onboarding完了後のhero-story-preview ハイライト処理を追加。`style.css` に `@keyframes hero-pulse` アニメーション追加。ジャンル選択/スキップ後300ms後にhero-story-cardが3回パルス発光しFlotopicの独自価値（ストーリー追跡）へ誘導。
 
+### 完了済み（2026-04-27 T194 ストーリー読了後の導線）
+- ✅ **T194 storymap.html 読了後の同ジャンルストーリー表示** — 根本原因: 読了後ユーザーが「戻る」か「閉じる」しかなく迷子になっていた。修正: renderStorymap()末尾に「📡 {ジャンル}で今動いているストーリー」セクションを追加。allTopicsから同ジャンル・articleCount≥2のトピックをvelocityScore順で最大3件抽出しリンクカードとして表示。CSS（sm-next-card/sm-next-cards/sm-see-all）も追加。APIコスト増なし（topics.jsonのクライアント側フィルタリングのみ）。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T186(UX) カード「前回から+N件」差分表示・フェーズ変化バッジ）
 - ✅ **T186(UX)** — `app.js`: localStorageキー`ftpc_snap`に前回訪問時のarticleCount・storyPhaseをトピック別に保存。topics読込後に各トピックへ`_deltaCnt`/`_phaseChanged`注釈を付与。`renderCardMeta()`で前回から記事が増えた場合は`+N件`(.new-articles-delta 緑)、storyPhaseが変化した場合は`🔄展開`(.phase-change-badge 橙)バッジを表示。初回訪問はデルタなし。バックエンド変更なし。
+
+### 完了済み（2026-04-27 T194 ストーリー読了後の導線）
+- ✅ **T194 storymap.html 読了後の同ジャンルストーリー表示** — 根本原因: 読了後ユーザーが「戻る」か「閉じる」しかなく迷子になっていた。修正: renderStorymap()末尾に「📡 {ジャンル}で今動いているストーリー」セクションを追加。allTopicsから同ジャンル・articleCount≥2のトピックをvelocityScore順で最大3件抽出しリンクカードとして表示。CSS（sm-next-card/sm-next-cards/sm-see-all）も追加。APIコスト増なし（topics.jsonのクライアント側フィルタリングのみ）。npm test 42件全パス。
 
 ### 完了済み（2026-04-27 T186 カード差分表示）
 - ✅ **T186 fetcher+api+app.js: 24h記事数差分バッジ追加** — 根本原因: カードは静的な記事数のみ表示でトピックの動きが伝わらなかった。修正: ①fetcher/handler.pyでMETA書き込み時にarticleCountDelta（24hローリングベースライン）を計算・保存。ベースライン超過時に自動リセット。追加DynamoDB queryなし ②api/handler.pyのProjectionExpressionにarticleCountDeltaを追加 ③app.js renderCardMeta()で_deltaCnt（前回訪問）が0のときにサーバー側24h差分を「📈 +N件」で表示。初回訪問者にもトピックの動きが伝わる。Python構文チェック・npm test 42件全パス。
