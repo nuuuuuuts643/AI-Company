@@ -1196,7 +1196,13 @@
           </div>`;
       }).join('');
       // 既読にする
-      fetch(`${_APIGW}/notifications/${encodeURIComponent(handle)}/read`, {method:'PUT'}).catch(()=>{});
+      if (user && user.token && user.userId) {
+        fetch(`${_APIGW}/notifications/${encodeURIComponent(handle)}/read`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({idToken: user.token, userId: user.userId}),
+        }).catch(() => {});
+      }
       const badge = document.getElementById('notif-badge');
       if (badge) badge.style.display = 'none';
     } catch {
