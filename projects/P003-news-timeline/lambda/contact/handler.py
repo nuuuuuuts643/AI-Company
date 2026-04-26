@@ -107,6 +107,7 @@ def save_to_dynamodb(data):
         'category':  data['category'],
         'createdAt': now,
         'email':     data['email'],
+        'name':      data['name'],
         'message':   data['message'],
         'topicId':   data['topicId'],
         'status':    'pending',
