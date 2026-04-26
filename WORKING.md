@@ -39,4 +39,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
 | T150 初回onboarding | frontend/index.html, frontend/app.js, frontend/style.css | 2026-04-27 01:00 |
-| T163 catchup.htmlジャンル&summaryバグ修正 | frontend/catchup.html | 2026-04-27 01:10 |
