@@ -36,4 +36,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 ## 現在着手中
 
-（なし）
+| タスク名 | 変更予定ファイル | 開始 JST |
+|---|---|---|
+| T028 グルメ・ファッションGENRES追加 | frontend/app.js, frontend/legacy.html | 2026-04-26 14:20 |
+| T029 legacy/catchup/mypageに広告追加 | frontend/legacy.html, frontend/catchup.html | 2026-04-26 14:20 |
