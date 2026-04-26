@@ -39,3 +39,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
 | T029 mypage.htmlに広告追加（残作業） | frontend/mypage.html | 2026-04-26 14:20 |
+| T035 位置情報ダイアログをログインユーザー限定 | frontend/app.js | 2026-04-26 14:40 |
