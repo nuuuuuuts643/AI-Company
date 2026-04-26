@@ -205,12 +205,12 @@ header p { color: var(--text-muted); font-size: .75rem; margin-top: 1px; font-we
 
 /* 天気ウィジェット */
 .weather-widget {
-  display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
-  flex-shrink: 0;
+  display: flex; flex-direction: row; align-items: center; gap: 5px;
+  flex-shrink: 0; white-space: nowrap;
 }
-.weather-city { font-size: .65rem; color: var(--text-muted); }
-.weather-desc { font-size: .8rem; color: var(--text-secondary); white-space: nowrap; }
-.weather-temp { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.trend-genre-label { font-size: .75rem; color: var(--text-secondary); }
+.trend-genre-label strong { color: var(--text-primary); font-weight: 700; }
+.trend-genre-count { font-size: .72rem; font-weight: 700; color: #dc2626; background: #fef2f2; border-radius: 999px; padding: 1px 7px; }
 @media (max-width: 600px) { .weather-widget { display: none; } }
 
 /* ===== SEARCH ROW ===== */
