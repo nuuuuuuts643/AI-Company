@@ -38,4 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T115+T117 velocity表示ラベル化+catchupリンク修正 | frontend/catchup.html, frontend/app.js, frontend/style.css | 2026-04-26 |

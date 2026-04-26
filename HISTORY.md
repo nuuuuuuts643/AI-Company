@@ -4,6 +4,10 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T115+T117 velocity表示ラベル化+catchupリンク修正）
+- ✅ **T115 velocityスコアをラベル表示に変更** — `catchup.html`の`buildVelocityBar()`を改修。「velocity 23」の数値表示を廃止し、v>30→`🔥 急上昇`、v>10→`📈 上昇中`、それ以外→非表示に。`style.css`に`.velocity-label`スタイル追加。
+- ✅ **T117 catchup.htmlリンクをSPA URLに変更** — `buildCard()`のURLを`topics/${tid}.html`（静的SEO専用）→`topic.html?id=${tid}`（SPA）に変更。リワインドからのお気に入り・コメント・閲覧履歴機能が利用可能になる。
+
 ### 完了済み（2026-04-26 T116 dominant_genres少記事総合誤分類修正）
 - ✅ **T116 dominant_genres() 少記事クラスターの'総合'誤分類修正** — `text_utils.py` で `if hit >= 2` → `テクノロジー/スポーツ/政治/社会/健康/国際/株・金融/科学/エンタメ` の特定性高いジャンルは `hit >= 1` に変更（広義ジャンルのグルメ・くらし・ビジネスは据え置き）。また `scores` が空の場合のフォールバックを `['総合']` → RSS feedの `a['genre']` 最頻値に変更。記事1〜2件のトピックで「AI」「株価」が1回しか出ない場合でも正しくジャンル分類できるようになる。
 
