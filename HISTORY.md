@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T167 静的SEO HTML マークダウン混入修正）
+- ✅ **T167 proc_storage.py _strip_md() 追加** — 根本原因: `generate_static_topic_html()` が `generatedSummary`/`spreadReason`/`forecast` を `_html_esc` のみ適用（マークダウン除去なし）していたため、AI生成サマリーに含まれる `## 見出し`・`- 箇条書き` が静的HTML `<p>` タグおよび `<meta name="description">` にそのまま混入。Googleの検索スニペットにも `## ` 等が表示されていた。修正: `_strip_md(s)` ヘルパーを追加し `_html_esc` 適用前にマークダウン記号を除去して1行プレーンテキスト化。`summary`/`spread`/`forecast` の3フィールドに適用。Python構文チェック・npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T166 storymapリスト latestEvent空白バグ修正）
 - ✅ **T166 storymap.html renderStorymapList latestEvent→summarySnippet** — 根本原因: `renderStorymapList` がストーリーカードの説明文として `storyTimeline[last].event`（latestEvent）を表示しようとしていたが、`storyTimeline` は fetcher の `_INTERNAL` 除外フィールドのため `topics.json` に含まれず常に空文字。結果としてカード内の説明テキストが一切表示されなかった。修正: フィルター条件から dead code の `storyTimeline` 分岐を削除（`storyPhase` のみ）、`latestEvent` を `cleanSummary(generatedSummary).slice(0,55)` スニペットに差し替え。npm test 42件全パス。
 
