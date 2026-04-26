@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T147 静的SEO HTMLにアフィリエイトリンク追加）
+- ✅ **T147 静的HTML topics/{tid}.html にアフィリエイトリンク追加** — 根本問題: モバイルユーザーがGoogle検索から topics/{tid}.html（静的SEOページ）に着地した場合、アフィリエイトセクションが topic.html にしか存在しないためアフィリリンクが見えなかった。proc_storage.py の `generate_static_topic_html()` にジャンル別キーワードマッピング(_GENRE_KW)を追加し、Amazon/楽天市場/Yahoo!ショッピングへのもしもアフィリエイトリンクを静的HTMLに埋め込むよう修正。CSSも <style> ブロックに追記。次回processor実行（JST 01:00/07:00/13:00/19:00）で既存500件の静的HTMLが更新される。
+
 ### 完了済み（2026-04-26 T148 card-phase-badge インラインスタイルをCSSクラス化）
 - ✅ **T148 card-phase-badge ダークモード修正** — app.js の `renderTopicCard()` が `<span class="card-phase-badge" style="background:...;color:...">` でインラインスタイルを付与していたため、T135で追加した `[data-theme="dark"] .card-phase-badge` CSS（特異性0,2,0,0）がインライン特異性（1,0,0,0）に負けて適用されない状態だった。`PHASE_COLOR` を廃止して `PHASE_CLASS`（phase-start/spread/peak/now/end）に置換し、style.css にフェーズ別ライト/ダーク両モードのCSSクラスを追加。ダークモードでアンバー→#fbbf24、青→#60a5fa、赤→#f87171、緑→#34d399、グレー→#94a3b8 と適切にレンダリングされるよう修正。
 
