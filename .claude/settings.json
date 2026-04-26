@@ -1,4 +1,11 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(.git/**)",
+      "Bash(rm -f /Users/murakaminaoya/ai-company/.git/index.lock)",
+      "Bash(rm -f /Users/murakaminaoya/ai-company/.git/HEAD.lock)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {
