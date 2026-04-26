@@ -2,6 +2,7 @@
 score_utils.py — スコア計算・時間減衰・ライフサイクル判定の純関数群
 """
 import json
+import math
 import time
 import urllib.request
 import urllib.parse
@@ -66,7 +67,6 @@ def apply_velocity_decay(velocity_score: float, last_updated_iso: str) -> float:
       - 今回の fetcher run で更新されたトピックには適用しないこと
         （handler.py 側で current_run_tids を除外して呼ぶ）
     """
-    import math
     vs = float(velocity_score or 0)
     if vs == 0 or not last_updated_iso:
         return vs
@@ -130,7 +130,6 @@ def calc_score(articles):
                     pass
 
     # はてなブックマークは上限30点・対数スケールで加算（テック偏重を防止）
-    import math
     hb_score = min(int(math.log1p(hb) * 6), 30) if hb > 0 else 0
     base = media * 10 + hb_score
 
