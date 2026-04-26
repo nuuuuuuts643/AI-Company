@@ -4,6 +4,10 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T028/T029-partial）
+- ✅ **T028 グルメ・ファッションGENRESフィルター追加** — app.js L72とlegacy.html L189にグルメ/ファッションを追加。GENRE_EMOJIも対応（🍽️/👗）。
+- ✅ **T029-partial legacy.html・catchup.htmlに広告追加** — shinobiスクリプト+ad-728-scale-wrapper（728×90 PC + 320×50 SP）追加。mypage.htmlは残作業。
+
 ### 完了済み（2026-04-26 T022/T023/T024/T025）
 - ✅ **T022 モバイル広告320×50追加** — topic.html・index.htmlの728×90をPC専用（ad-pc-only）に変更し、モバイル用320×50スロット（ad-sp-only）を追加。同admax-idで320×50を試みる。効果確認後にPOがAdMaxで専用ID発行（T027）。
 - ✅ **T023 UIコピー「ふりかえり→クロニクル」** — 12ファイル（mypage.html除く）でボトムナビ・JSON-LD・タイトルを一括変更。catchup.htmlのヒーロー: 「しばらくぶりですね👋」→「クロニクル ✦」・title/OGP/descも更新。manifest.jsonのショートカット名も変更。
