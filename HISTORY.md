@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T146 コメント欄 cx-mention/cx-save-btn dark mode 修正）
+- ✅ **T146 style.css コメント欄 @メンション・保存ボタン active 色のダークモード欠落修正** — `@media(prefers-color-scheme:dark)` ブロックには `.cx-mention{color:#6366f1}` `.cx-save-btn.saved{color:#38bdf8}` があったが `[data-theme="dark"]` ブロックに同等ルールがなかった。手動ダークモード時に `#2563eb`（暗い青）がそのまま使われ暗背景で約2.9:1（WCAG AA失格）だった。`[data-theme="dark"]` ブロック末尾の2行追加で修正。
+
 ### 完了済み（2026-04-26 T144/T145 phase badge日本語キー修正 + catchup HTTP混在修正）
 - ✅ **T144 proc_storage.py phase badge キーミスマッチ修正** — T142で追加した静的HTMLのstoryPhaseバッジが `_PHASE_LABEL = {'rising':..., 'peak':..., 'declining':...}` という英語キーを使っていたが、proc_ai.pyが実際に格納する値は `'発端','拡散','ピーク','現在地','収束'` という日本語。keyが絶対に一致しないためバッジが常に空になっていた。`_PHASE_LABEL` を日本語キーに修正し、CSS class用マッピング `_PHASE_CSS`（発端/拡散→rising, ピーク→peak, 現在地/収束→declining）を追加。
 - ✅ **T145 catchup.html 画像URL HTTP混在コンテンツ修正** — `buildCard()` 内の `topic.imageUrl` をHTMLに直接埋め込む際、HTTP→HTTPS変換を行っていなかった。HTTPSサイトでHTTP画像URLはブラウザによってブロックされる。`replace(/^http:\/\//i, 'https://')` を追加して修正。
