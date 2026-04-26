@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T170 キーワードチップgenre上書きバグ修正）
+- ✅ **T170 app.js renderKeywordStrip: savePrefs削除** — 根本原因: キーワードチップクリック時に `savePrefs({genre:'総合'})` を呼んでいたため、ジャンル設定が恒久的に「総合」に上書きされていた（233f3ee のテキスト検索修正と不整合）。修正: `savePrefs` 呼び出しを削除し、コメントを「一時的に総合にする（prefs保存しない）」に変更。検索クリア時は既存の `setupSearch` の restore ロジックが適用される。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T171 proc_ai.py _format_pub_date truncationバグ修正）
 - ✅ **T171 proc_ai.py _format_pub_date** — 根本原因: `datetime.strptime(str(raw_date)[:len(fmt)], fmt)` がフォーマット文字列の literal 文字数（例: `len('%Y-%m-%dT%H:%M:%S%z')` = 19）で入力を切り詰めていたため、全ての文字列日付フォーマット（RFC 2822: `'Mon, 15 Jan...'`・ISO 8601: `'2026-01-15T...'`）でパースが常に失敗し空文字を返していた。AI プロンプトの見出しに日付が含まれず storyTimeline beats の日付生成精度が低下。修正: `[:len(fmt)]` を削除し `s = str(raw_date)` として全文字列を strptime に渡す。Python構文チェック・手動テスト全フォーマット通過・npm test 42件全パス。
 
