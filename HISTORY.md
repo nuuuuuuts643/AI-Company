@@ -699,3 +699,13 @@ bash projects/P003-news-timeline/deploy.sh
 → HISTORY.mdに記録 17:10 JST
 - AI要約カバレッジを実測値に更新: summary69%(316/455)・storyPhase43%(199/455)・imageUrl62%(286/455)
 - storyTimeline=0%(topics.json) → 個別ファイルにのみ存在（意図的設計）と注記追加
+
+### 完了済み（2026-04-26）T067 CLAUDE.mdスナップショット更新
+→ HISTORY.mdに記録 15:10 JST
+- AI要約カバレッジ行: 既に最新値（summary69%/phase43%/imageUrl62%）が反映されていたことを確認
+- T065/T066/T057の完了をスナップショットテーブルに追記
+- TASKS.mdからT067削除済み
+
+### 完了済み（2026-04-26）T058/T060 開発ファイル確認
+→ HISTORY.mdに記録 15:10 JST  
+- ICONS-NEEDED.md / twitter-card.pngはすでにリポジトリに存在しないことを確認（別セッションで削除済み or 未追跡）
