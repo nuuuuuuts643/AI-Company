@@ -65,9 +65,6 @@ function mergeServerProfile(data) {
   } catch {}
 }
 
-// 後方互換エイリアス
-function mergeServerHandle(serverHandle) { mergeServerProfile({ handle: serverHandle }); }
-
 // ── 認証UI更新 ────────────────────────────────────────────────
 function updateAuthUI() {
   const signInBtn    = document.getElementById('auth-signin-btn');
