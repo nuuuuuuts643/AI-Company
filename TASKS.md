@@ -13,10 +13,12 @@
 |---|---|---|---|---|
 | T019 | 中 | **SES本番アクセス申請後のLambda環境変数設定**。AWSコンソール → Lambda `p003-contact` → 環境変数 → `TO_EMAIL` に受信メールアドレスを設定。SES本番承認後に実施（PO手動） | — | 2026-04-26 |
 | T027 | 高 | **モバイル専用広告枠追加（320×50）**。admax-id=`570fe6c87677ba7c5417119c60ca979d`取得済み。index.html・topic.htmlにモバイル専用スロット追加、既存728×90は`@media(min-width:768px)`のみ表示に変更。shinobiスクリプトはページ1回のみ読み込む点に注意 | frontend/index.html, topic.html, style.css | 2026-04-26 |
-| T028 | 高 | **グルメ・ファッションをGENRESフィルターに追加**。fetcher config.pyにはグルメ(6フィード)・ファッション(5フィード)があるがapp.jsのGENRESリストに未追加。フィルターUIに表示されずトピックが埋もれている。app.js L72とlegacy.htmlのGENRESに2ジャンル追加するだけ | frontend/app.js, legacy.html | 2026-04-26 |
-| T029 | 中 | **legacy.html・catchup.html・mypage.htmlに広告追加**。現在admax広告はindex.html・topic.htmlのみで他3ページは広告ゼロ。shinobiスクリプトとad-728-scale-wrapperを追加。実装時はファイル分割・保守性を意識（広告コンポーネントをjsで共通化も検討）| frontend/legacy.html, catchup.html, mypage.html | 2026-04-26 |
+| T029 | 高 | **mypage.htmlに広告追加（残作業）**。legacy.html・catchup.htmlは実装済み。mypage.htmlのみ未対応。shinobiスクリプトとad-728-scale-wrapper（728×90 PC用 + 320×50 SP用）を追加 | frontend/mypage.html | 2026-04-26 |
 | T030 | 中 | **トレンド可視化強化**。「どれが流行か分かりにくい」課題。velocityスコアをカードに視覚表示（バー・色・サイズ差）し一目でトレンドが分かるUIに改善。既存の🔥ストリップを補完する形で実装 | frontend/app.js, style.css | 2026-04-26 |
 | T031 | 低 | **ファイル分割・保守性向上**。app.js(大)・detail.js(大)が肥大化。広告・アフィリエイト・通知・履歴など機能別にjsファイルを分割し、将来の拡張・テストを容易にする。実装時に段階的に分割 | frontend/app.js, detail.js | 2026-04-26 |
+| T032 | 高 | **CLAUDE.md棚卸し（コンテキスト軽量化）**。P003技術状態スナップショットテーブルが200行超で肥大化。完了済みコンポーネント行をHISTORY.mdへ移動し、現在も変動中の行のみ残す。セッション品質向上・コンテキスト窓の節約が目的 | CLAUDE.md, HISTORY.md | 2026-04-26 |
+| T033 | 高 | **SEO対策: AIタイトルのロングテールキーワード改善**。現在のAIタイトルは「〇〇が△△」形式が多い。検索意図に合わせ「〇〇とは」「〇〇の経緯・背景」「〇〇まとめ」形式のタイトルを生成するようプロンプト改修。proc_ai.py の generate_title プロンプトを更新 | lambda/processor/proc_ai.py | 2026-04-26 |
+| T034 | 中 | **SEO対策: 内部リンク強化（関連トピック表示改善）**。topic.htmlの「関連トピック」セクションに表示件数が少ない・リンクが目立たない問題。関連トピック4件→6件に増やし、リンクのクリック誘導UIを改善（サムネイル+タイトル+経過時間表示） | frontend/detail.js, style.css | 2026-04-26 |
 
 ## 進行中
 → WORKING.md で管理（実装セッションが記入）
