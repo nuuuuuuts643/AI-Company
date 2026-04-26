@@ -497,3 +497,9 @@ bash projects/P003-news-timeline/deploy.sh
 - **favorites.js**: syncGenreToCloud(genre) / loadGenreFromCloud() 追加（PUT /prefs・GET /prefs/{userId} を呼ぶ）
 - **app.js**: ジャンル選択時に syncGenreToCloud() 呼び出し追加、ログイン後の初期化時に loadGenreFromCloud() で保存ジャンルを復元してfilterとrenderTopcis再適用
 - テスト: `npm test` 42件全パス・Python構文チェックOK
+
+→ T031 ファイル分割・保守性向上（15:45 JST）
+- `renderAffiliate()` を `detail.js` から `frontend/js/affiliate.js` へ分離（61行）
+- `topic.html` に `<script src="js/affiliate.js">` を追加（app.js の後、detail.js の前）
+- detail.js は 867→806行に削減
+- テスト: `npm test` 42件全パス・構文チェックOK
