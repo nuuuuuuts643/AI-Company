@@ -35,7 +35,7 @@ def all_topics():
     kwargs = {
         'FilterExpression': 'SK = :m',
         'ExpressionAttributeValues': {':m': 'META'},
-        'ProjectionExpression': 'topicId, title, #s, articleCount, lastUpdated, sources',
+        'ProjectionExpression': 'topicId, title, #s, articleCount, articleCountDelta, lastUpdated, sources',
         'ExpressionAttributeNames': {'#s': 'status'},
     }
     while True:
