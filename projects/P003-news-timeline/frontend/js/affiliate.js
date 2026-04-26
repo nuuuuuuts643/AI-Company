@@ -15,12 +15,6 @@ function renderAffiliate(meta) {
   const topicGenres = meta.genres || (meta.genre ? [meta.genre] : []);
   if (!topicGenres.some(g => AFFILIATE_GENRES.includes(g))) return;
 
-  const rawTitle = meta.generatedTitle || meta.title || '';
-
-  // ニュース見出し型タイトル（20文字超 + 報道パターン含む）は商品検索に不向き
-  const NEWS_PATS = ['：', 'が予測', 'をめぐる', 'について', 'に関して', 'で発表', 'が判明'];
-  const isNewsHeadline = rawTitle.length > 20 && NEWS_PATS.some(p => rawTitle.includes(p));
-
   const GENRE_KEYWORD = {
     'テクノロジー': 'ガジェット 最新',
     'グルメ': 'お取り寄せ グルメ',
@@ -33,12 +27,7 @@ function renderAffiliate(meta) {
     'くらし': 'くらし 雑貨',
   };
 
-  let keyword;
-  if (isNewsHeadline) {
-    keyword = GENRE_KEYWORD[topicGenres[0]] || '';
-  } else {
-    keyword = rawTitle.replace(/[【】「」『』（）()【】\[\]]/g, '').trim().slice(0, 40);
-  }
+  const keyword = GENRE_KEYWORD[topicGenres[0]] || '';
   if (!keyword) return;
 
   const q    = encodeURIComponent(keyword);
