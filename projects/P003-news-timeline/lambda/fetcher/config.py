@@ -1,12 +1,11 @@
 import os
 import boto3
 
-TABLE_NAME        = os.environ.get('TABLE_NAME', 'p003-topics')
-S3_BUCKET         = os.environ.get('S3_BUCKET', '')
-REGION            = os.environ.get('REGION', 'ap-northeast-1')
-ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
-SLACK_WEBHOOK     = os.environ.get('SLACK_WEBHOOK', '')
-SITE_URL          = os.environ.get('SITE_URL', 'https://flotopic.com')
+TABLE_NAME    = os.environ.get('TABLE_NAME', 'p003-topics')
+S3_BUCKET     = os.environ.get('S3_BUCKET', '')
+REGION        = os.environ.get('REGION', 'ap-northeast-1')
+SLACK_WEBHOOK = os.environ.get('SLACK_WEBHOOK', '')
+SITE_URL      = os.environ.get('SITE_URL', 'https://flotopic.com')
 
 from botocore.config import Config as BotocoreConfig
 _boto_cfg = BotocoreConfig(max_pool_connections=50)
