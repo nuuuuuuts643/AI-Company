@@ -59,7 +59,13 @@ def needs_ai_processing(item):
     - storyTimeline が空または未設定（4セクション形式未生成）
     - pendingAI=True（fetcher が新記事を検知してフラグを立てた）
     - imageUrl が未設定（OGP画像未生成）
+
+    Note: articleCount<2 のトピックはフロントエンドで非表示（processor もスキップ）のため
+    False を返して pending_ai.json から自動クリーンアップされるようにする。
+    2件目の記事が来た際は fetcher が pendingAI=True をセットし直す。
     """
+    if int(item.get('articleCount', 0) or 0) < 2:
+        return False
     if item.get('pendingAI'):
         return True
     if not item.get('aiGenerated'):
