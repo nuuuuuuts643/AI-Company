@@ -38,7 +38,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T099 contact name保存 | lambda/contact/handler.py | 2026-04-26 |
-| T100 analytics S3バケット修正 | lambda/analytics/handler.py | 2026-04-26 |
-| T101 tokeninfo aud検証 | lambda/auth/handler.py, lambda/comments/handler.py, lambda/favorites/handler.py | 2026-04-26 |
-| T102 comments履歴scanのLimit削除 | lambda/comments/handler.py | 2026-04-26 |
