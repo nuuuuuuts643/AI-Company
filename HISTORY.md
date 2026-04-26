@@ -862,3 +862,6 @@ bash projects/P003-news-timeline/deploy.sh
 ### 完了済み（2026-04-26 T090/T092 API実装・ルート追加）
 - ✅ **T090** — `GET /contacts`・`POST /contacts/resolve` ルートは API GW に既存。真因: Lambda invoke 権限が `POST /contact` のみで `GET /contacts` と `POST /contacts/resolve` パスが許可されていなかった。`lambda add-permission` で2ルートを追加 → 403（要管理者token）で正常動作確認。
 - ✅ **T092** — `GET /prefs/{userId}` と `PUT /prefs` ルートは既に API GW に存在（RouteId: l2xib69, 14b64mq）。実際には動作していた（curl 200確認）。finder の誤検知。
+
+### 完了済み（2026-04-26 T087 detail JSON欠損自動補完）
+- ✅ **T087** — `processor/handler.py` の通常フローに `backfill_missing_detail_json()` 呼び出しを追加。この関数は既に `proc_storage.py` に実装済みだったが `event.get('backfillDetailJson')` の手動トリガーのみで自動実行されていなかった。processor 4x/day の各実行末尾で topics.json に存在するが S3 に `api/topic/{tid}.json` が無いトピックを DynamoDB から自動補完するようになった。`head_object` で存在確認 → なければ DynamoDB から META + SNAP を読んで S3 に書く。
