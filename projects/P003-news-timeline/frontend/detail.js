@@ -646,32 +646,6 @@ function fmtElapsed(isoOrTs) {
   } catch { return ''; }
 }
 
-function discCard(topic, badge) {
-  const title = topic.generatedTitle || topic.title || '';
-  const ago   = fmtElapsed(topic.lastArticleAt || topic.lastUpdated || 0);
-  const cnt   = topic.articleCount || 0;
-  const dot   = topic.lifecycleStatus === 'active' ? '🔴' : topic.lifecycleStatus === 'cooling' ? '🟡' : '⚪';
-  const badgeHtml = badge ? `<span class="disc-badge disc-badge-${badge.cls}">${esc(badge.label)}</span>` : '';
-  return `
-    <a href="topic.html?id=${esc(topic.topicId)}" class="disc-card">
-      ${badgeHtml}
-      <div class="disc-card-title">${esc(title)}</div>
-      <div class="disc-card-meta">${dot} ${cnt}件${ago ? ` · ${esc(ago)}` : ''}</div>
-    </a>`;
-}
-
-function coordsToRegion(lat, lon) {
-  if (lat > 41.5)                       return { name: '北海道', kw: '北海道' };
-  if (lat > 38.5)                       return { name: '東北',   kw: '東北' };
-  if (lat > 36.5 && lon >= 140.5)       return { name: '関東北部', kw: '栃木' };
-  if (lat > 35.4 && lon >= 138.5)       return { name: '関東',   kw: '東京' };
-  if (lat > 35.0 && lon < 137.0)        return { name: '関西',   kw: '大阪' };
-  if (lat > 35.0 && lon >= 137.0)       return { name: '東海',   kw: '名古屋' };
-  if (lat > 33.5 && lon < 132.0)        return { name: '中国',   kw: '広島' };
-  if (lat > 33.5)                        return { name: '四国',   kw: '愛媛' };
-  return { name: '九州', kw: '福岡' };
-}
-
 function renderDiscovery(meta) {
   const section = document.getElementById('discovery-section');
   if (!section) return;
