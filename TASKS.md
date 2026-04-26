@@ -13,7 +13,6 @@
 |---|---|---|---|---|
 | T019 | 中 | **SES本番アクセス申請後のLambda環境変数設定**。AWSコンソール → Lambda `p003-contact` → 環境変数 → `TO_EMAIL` に受信メールアドレスを設定。SES本番承認後に実施（PO手動） | — | 2026-04-26 |
 | T031 | 低 | **ファイル分割・保守性向上**。app.js(大)・detail.js(大)が肥大化。広告・アフィリエイト・通知・履歴など機能別にjsファイルを分割し、将来の拡張・テストを容易にする。実装時に段階的に分割 | frontend/app.js, detail.js | 2026-04-26 |
-| T038 | 中 | **ジャンル設定クラウド同期**。ジャンルフィルター設定が現在localStorageのみ。ログインユーザーはDynamoDB flotopic-favoritesのPK=userId/SK=PREFS#genreに保存、ログイン時に復元。✅完了条件: 別ブラウザ/デバイスでログインしたとき同じジャンル選択が復元されること | frontend/app.js, frontend/js/favorites.js, lambda/favorites/handler.py | 2026-04-26 |
 
 ## 進行中
 → WORKING.md で管理（実装セッションが記入）

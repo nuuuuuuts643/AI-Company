@@ -491,3 +491,9 @@ bash projects/P003-news-timeline/deploy.sh
 - `refreshTopics()` 内で毎回呼び出すため未ログインでも表示
 - CSS: `.weather-widget` をrow方向flex・`.trend-genre-label/.count` 追加
 - テスト: `npm test` 42件全パス
+
+→ T038 ジャンル設定クラウド同期（15:30 JST）
+- **Lambda** (handler.py): PREFS_SK_GENRE='PREFS#genre' 追加、get_prefs/save_prefs関数追加、GET /prefs/{userId}・PUT /prefs エンドポイント追加（idToken認証あり）
+- **favorites.js**: syncGenreToCloud(genre) / loadGenreFromCloud() 追加（PUT /prefs・GET /prefs/{userId} を呼ぶ）
+- **app.js**: ジャンル選択時に syncGenreToCloud() 呼び出し追加、ログイン後の初期化時に loadGenreFromCloud() で保存ジャンルを復元してfilterとrenderTopcis再適用
+- テスト: `npm test` 42件全パス・Python構文チェックOK
