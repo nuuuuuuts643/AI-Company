@@ -477,7 +477,7 @@ function formatDate(isoStr) {
 
 function isWithinDays(isoStr, days) {
   if (!isoStr) return false;
-  const cutoff = Date.now() - days * 24 * 60 * 3600 * 1000;
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
   return new Date(isoStr).getTime() >= cutoff;
 }
 
