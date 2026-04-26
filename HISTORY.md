@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T017）
+- ✅ **T017 fetcher O(n²)削減** — handler.py の `topics_active` 上限を `[:1000]` → `[:500]` に変更。`find_related_topics()` は転置インデックス方式で既実装済み。`detect_topic_hierarchy()` も O(n²) → O(n·k) に inverted-index 変換（entity→topicId集合の積集合で候補絞り込み）。CloudWatch推定: 229秒→60秒以下へ改善見込み。
+
 ### 完了済み（2026-04-26 T015/T016）
 - ✅ **T015 広告表記（景品表示法対応）** — topic.htmlのアフィリエイトウィジェットラベルを `PR` → `広告` に変更。privacy.htmlのアフィリエイト開示（第5条）は既実装確認。tokushoho.html氏名記入はPO手動タスクとして残存。
 - ✅ **T016 Blueskyジャンルハッシュタグ追加** — bluesky_agent.py の GENRE_HASHTAGS に `くらし`/`社会`/`グルメ`/`ファッション` を追加。
