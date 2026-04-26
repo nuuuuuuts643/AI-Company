@@ -635,6 +635,7 @@ async function fetchAllTopicsOnce() {
   if (_allTopicsCache) return _allTopicsCache;
   try {
     const r = await fetch(apiUrl('topics'));
+    if (!r.ok) return [];
     const d = await r.json();
     _allTopicsCache = d.topics || [];
     return _allTopicsCache;
