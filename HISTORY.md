@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T163 catchup.htmlジャンル&summaryバグ修正）
+- ✅ **T163 catchup.html genres[]使用・cleanSummary適用** — `buildCard()` で `topic.genre`（旧単一フィールド）のみ参照していたため、`genres[]`配列のみ持つトピックのジャンル表示が常に「総合」になっていた。`(topic.genres && topic.genres[0]) || topic.genre || '総合'` に修正。また AI 生成サマリーにマークダウン記法（`##`見出し・`- `箇条書き）が含まれる場合に文字通りに表示されていたため `cleanSummary()` 関数を追加して適用。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T158 heroストーリープレビュー）
 - ✅ **T158 index.html/app.js/style.css heroでFlotopic差別化を体験させる** — heroタグライン「ニュースの"流れ"を、AIがストーリーにする」に変更。heroエリア直下に「今日最も動きのあったストーリー」を1件プレビュー表示（velocityScore最高のstoryTimeline持ちトピックを自動選択）。タイトル＋最新beatイベント＋「経緯をすべて見る →」CTAでstorymap.htmlへ誘導。`renderHeroStoryPreview(allTopics)` 関数追加、style.cssに `.hero-story-card/.label/.title/.beat/.cta/.tagline` のダークグラデCSS追加。Yahoo/Google Newsとの差別化「速報じゃなく、経緯がわかる」をtaglineで訴求。npm test 42件全パス。
 
