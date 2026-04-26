@@ -812,7 +812,7 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
         '@context': 'https://schema.org',
         '@type': 'Article',
         'headline': meta.get('generatedTitle') or meta.get('title', ''),
-        'description': meta.get('generatedSummary', '')[:200],
+        'description': _strip_md(meta.get('generatedSummary', ''))[:200],
         'image': meta.get('imageUrl') or 'https://flotopic.com/icons/icon-512.png',
         'datePublished': date_published,
         'dateModified': last_upd,
