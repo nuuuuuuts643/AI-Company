@@ -279,6 +279,10 @@ function fmtAgo(isoOrTs) {
 function apiUrl(path) {
   return (typeof API_BASE !== 'undefined' ? API_BASE : '') + path + '.json';
 }
+function cleanSummary(s) {
+  if (!s) return '';
+  return s.replace(/^#{1,3}\s+.+?\n+/gm,'').replace(/^[-*]\s+/gm,'').replace(/^\d+\.\s+/gm,'').replace(/\n{2,}/g,' ').replace(/\n/g,' ').trim();
+}
 
 // ===== Entity detection (mirrors Lambda) =====
 const ENTITY_PATTERNS = [
@@ -469,7 +473,7 @@ function renderStorymap(parent, allTopics) {
 
   // ---- Summary (2-line clamp) ----
   const summaryHtml = parent.generatedSummary
-    ? `<p class="sm-hero-summary">${esc(parent.generatedSummary)}</p>`
+    ? `<p class="sm-hero-summary">${esc(cleanSummary(parent.generatedSummary))}</p>`
     : '';
 
   // ---- Branch cards ----
