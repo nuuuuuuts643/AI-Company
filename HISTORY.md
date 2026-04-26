@@ -4,6 +4,17 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T202/T199/T195/T200/T203/T196 UX・バグ修正）
+- ✅ **T202 _prevSnap IIFE try/catch化** — 根本原因: app.js:104のlocalStorageパースがtry/catch外にありSyntaxErrorでapp.js全体が壊れる可能性。修正: IIFE化してcatchで{}を返す。
+- ✅ **T199 お気に入りローカル保存+ログイン誘導トースト** — 根本原因: 未ログインでfav-btnを押すと即auth modalが開き、localStorageに保存されなかった。修正: favorites.js `toggleFavorite`で未ログイン時もlocalStorageに保存し、初回登録時のみ「💾 ログインで別デバイスでも同期できます」トースト＋ログインボタンを5秒表示。_favLoginToastShown変数でセッション内1回のみ制御。
+- ✅ **T195 初訪問時quick-news-stripスキップ** — 根本原因: hot-stripとquick-news-stripが初訪問でも両方表示されてカードまでのスクロールが深かった。修正: _prevSnapが空（初訪問）の場合はrenderQuickNewsをスキップ、再訪問時のみ表示。
+- ✅ **T200 ジャンルタブグラデーション** — `.genre-tabs-container::after`は既に実装済みと確認。
+- ✅ **T203 検索ナビ?focus=search化** — 根本原因: storymap.htmlら全ページの「検索」bottom-navが`index.html#search-input`で遷移先で検索欄にフォーカスが当たらなかった。修正: 全8ページを`index.html?focus=search`に変更し、app.jsに`?focus=search`ハンドラ（600ms後にscrollIntoView+focus）を追加。
+- ✅ **T196 Chart.js未ロード時defer再試行** — 根本原因: Chart.jsがCDN遅延でundefinedのまま初期化が走りcatchでグラフカード非表示になる。修正: `_initCharts()`ヘルパーで`typeof Chart === 'undefined'`を確認、未ロード時はwindow.loadイベントで再試行（once）。npm test 42件全パス。
+
+### 完了済み（2026-04-27 T194b about.htmlフェーズ表記統一）
+- ✅ **T194b about.html フェーズ説明をT187新表記に統一** — 根本原因: T187で発端/拡散/ピーク/現在地/収束→始まり/広まってる/急上昇/進行中/ひと段落に変更したが、about.htmlのJSON-LD FAQ・機能説明・フェーズ解説段落・FAQ回答の4箇所が旧表記のままだった。修正: 4箇所すべてを新表記（絵文字付き）に統一。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T194 ストーリー読了後の導線）
 - ✅ **T194 storymap.html 読了後の同ジャンルストーリー表示** — 根本原因: 読了後ユーザーが「戻る」か「閉じる」しかなく迷子になっていた。修正: renderStorymap()末尾に「📡 {ジャンル}で今動いているストーリー」セクションを追加。allTopicsから同ジャンル・articleCount≥2のトピックをvelocityScore順で最大3件抽出しリンクカードとして表示。CSS（sm-next-card/sm-next-cards/sm-see-all）も追加。APIコスト増なし（topics.jsonのクライアント側フィルタリングのみ）。npm test 42件全パス。
 
