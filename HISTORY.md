@@ -525,3 +525,11 @@ bash projects/P003-news-timeline/deploy.sh
 - `meta[name="description"]` / `meta[property="og:description"]` / `meta[name="twitter:description"]` を querySelectorAll で一括更新
 - ジャンルボタンクリック時に `updateIndexOGP(currentGenre)` を呼び出し
 - テスト: `npm test` 42件全パス・構文チェックOK
+
+→ T040/T041/T043 APIエラー修正・フィルターバグ修正・OGP動的更新（16:20 JST）
+- T040: `app.js` topic詳細フォールバックのsilent catchを除去。renderDetail失敗時はshowError()呼び出し、fetch失敗時はconsole.errorでログ記録。空白画面バグを防止
+- T041: `app.js` ジャンルフィルター変更時に`currentSearch=''`と`searchInput.value=''`をリセット。フィルター切り替え後に検索キーワードが残存していた動作を修正
+- T043: `app.js` `updateIndexOGP(genre)`関数を追加。ジャンル変更時にog:description/twitter:descriptionを動的書き換え
+
+→ T042 モバイルキーボード表示時のレイアウト崩れ修正（16:10 JST）
+- `style.css` body `min-height: 100vh` の次行に `min-height: 100dvh` を追加（dynamic viewport height対応）
