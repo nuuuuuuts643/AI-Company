@@ -341,13 +341,14 @@ def update_topic_s3_file(tid, upd, articles=None):
         data['meta'] = meta
         new_body = json.dumps(data, default=dec_convert, ensure_ascii=False).encode('utf-8')
         new_etag = '"' + hashlib.md5(new_body).hexdigest() + '"'
-        if new_etag != old_etag:
+        json_changed = new_etag != old_etag
+        if json_changed:
             s3.put_object(
                 Bucket=S3_BUCKET, Key=key, Body=new_body,
                 ContentType='application/json', CacheControl='max-age=60',
             )
-        # 静的SEO用HTML生成（ai要約があれば常に更新。aiGenerated条件を外してOGPのみ更新時も再生成）
-        if meta.get('aiGenerated') or meta.get('generatedSummary'):
+        # 静的SEO用HTML生成: JSON変更時のみ再生成（変更なしはスキップしてS3 PUT削減）
+        if json_changed and (meta.get('aiGenerated') or meta.get('generatedSummary')):
             generate_static_topic_html(tid, meta, articles or data.get('articles', []))
     except Exception:
         pass
