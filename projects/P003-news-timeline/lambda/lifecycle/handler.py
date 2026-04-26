@@ -234,9 +234,11 @@ def lambda_handler(event, context):
             for obj in page.get('Contents', []):
                 key = obj['Key']
                 # api/topic/{topicId}.json
-                parts = key.rstrip('.json').rsplit('/', 1)
-                if len(parts) == 2 and parts[1]:
-                    all_s3_tids.append((parts[1], key))
+                if not key.endswith('.json'):
+                    continue
+                tid = key[len('api/topic/'):-len('.json')]
+                if tid:
+                    all_s3_tids.append((tid, key))
         # DynamoDB batch_get_item で存在確認
         existing_tids = set()
         for i in range(0, len(all_s3_tids), 100):
