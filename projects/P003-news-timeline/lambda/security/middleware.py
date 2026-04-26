@@ -3,13 +3,11 @@ Flotopic セキュリティミドルウェア
 全Lambdaで共通使用するセキュリティ関数群
 """
 import json
-import hashlib
 import time
 import os
 import urllib.request
 
 import boto3
-from boto3.dynamodb.conditions import Key, Attr
 
 REGION = os.environ.get('REGION', 'ap-northeast-1')
 dynamodb = boto3.resource('dynamodb', region_name=REGION)
