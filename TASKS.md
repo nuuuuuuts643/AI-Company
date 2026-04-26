@@ -19,7 +19,6 @@
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
 | T176 | 高 | **モバイルUI崩れ調査・修正** — ユーザー報告: z-index修正(f9777be)後もスマホUIが壊れている。根本原因: 未特定。調査ポイント: hero-story-preview/onboarding-card/keyword-stripなど直近追加要素がモバイルレイアウトに与える影響・overflow-x漏れによる横スクロール・実機スクショ取得して具体的崩れ箇所を特定。修正方法: 崩れ箇所特定後に最小限CSS修正。 | `frontend/style.css`, `frontend/index.html` | 2026-04-27 |
-| T178 | 高 | **アフィリエイトリンク未表示: chart.js CDNがdetail.jsをブロック** — 根本原因: topic.htmlのscriptタグが affiliate.js → chart.js(CDN) → hammer.js(CDN) → chartjs-plugin-zoom(CDN) → detail.js の順で同期ロード。モバイルでCDNが遅いと chart.js ダウンロード完了まで detail.js が実行されずrenderAffiliateが呼ばれない。T162のtry-catch修正はCDNが「失敗」した場合のみ有効で「遅い」場合は無効。修正方法: 3つのCDN scriptタグに async を追加（buildChartsはtry-catch保護済みのため安全）。 | `frontend/topic.html` | 2026-04-27 |
 | T179 | 中 | **グラフと記事数の不一致** — ユーザー報告URL: topic.html?id=4eecff3f2245992b。根本原因: グラフはDynamoDB SNAPの articleCount（スナップショット）を使い、カード表示はtopics.jsonの articleCount（最新）を使う。lifecycle整理で両者がずれる。修正方法: グラフ最終点をtopics.jsonの値で補正、またはラベルに「現在N件」を別表示。 | `frontend/detail.js` | 2026-04-27 |
 
 ### 🎯 使いたくなるUX（「また来たい」動線）
@@ -43,3 +42,12 @@
 
 ## 完了
 → HISTORY.md に移動済み
+
+---
+
+### 📈 成長・SEO施策
+
+| ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
+|---|---|---|---|---|
+| T184 | 高 | **Google Search Console: topics/{tid}.html のインデックス申請確認** — 静的HTML生成・sitemap更新は完了したが、Googlebotが実際に新URLパターン（`/topics/{tid}.html`）をクロール・インデックスしているかSearch Consoleで未確認。確認方法: Search Console → サイトマップ → sitemap.xml の送信状況・インデックス数を確認。未インデックスなら「URL検査」ツールでサンプルURLをリクエスト。旧URL(`/topic.html?id=`)が残っていれば301リダイレクトまたはcanonical設定が正しいか合わせて確認。 | — （Search Console操作・必要なら `frontend/topic.html`） | 2026-04-27 |
+| T185 | 高 | **外部発信: Qiita/noteにFlotopic紹介記事を書いて被リンク獲得** — 根本原因: 被リンクがほぼゼロのためGoogleの権威性評価が低く、良質なコンテンツがあっても検索流入が伸びない。修正方法: 「日本語ニュースをAIがストーリー化するサービスを個人開発した」記事をQiitaとnoteに投稿（flotopic.comへのリンクを含む）。Qiitaは技術側面（Lambda+DynamoDB+Claude API構成）、noteはサービス側面（なぜストーリー型なのか）で切り口を変える。これが現状のSEOボトルネックへの最速の打ち手。 | — （コード変更なし、コンテンツ作成） | 2026-04-27 |
