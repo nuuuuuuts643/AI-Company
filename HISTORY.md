@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-26 T105 通知既読認証）
+- ✅ **T105 PUT /notifications/{handle}/read 認証追加** — コメント backend で idToken+userId が body に含まれる場合のみ verify_google_token + handle一致確認を実施。frontend (mypage.html) を同時更新して token/userId を body に含めるように変更。認証情報なしの呼び出しは後方互換のためスルー（段階移行）。
+
 ### 完了済み（2026-04-26 T103/T104）
 - ✅ **T103 RSS link非canonical修正** — `proc_storage.py` line 425の`link`を`topic.html?id={tid}`（SPAリンク）から`topics/{tid}.html`（canonical静的URL）に変更。RSSリーダーからのPageRankが正規URLに集約される。
 - ✅ **T104 lifecycle rstrip修正** — `lifecycle/handler.py` line 237の`key.rstrip('.json')`（文字集合除去）を`key[len('api/topic/'):-len('.json')]`（明示的サフィックス除去）に変更。UUID topicIdでは実害なかったが意味的に正しい実装に修正。

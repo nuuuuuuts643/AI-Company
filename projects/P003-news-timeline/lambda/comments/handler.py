@@ -548,6 +548,23 @@ def lambda_handler(event, context):
         handle_param = parts[1]
         if not HANDLE_RE.match(handle_param):
             return resp(400, {'error': '不正なhandle形式です'})
+        try:
+            body_data = json.loads(event.get('body') or '{}')
+        except Exception:
+            body_data = {}
+        id_token = (body_data.get('idToken') or '').strip()
+        user_id  = (body_data.get('userId')  or '').strip()
+        if id_token and user_id:
+            g_payload = verify_google_token(id_token)
+            if not g_payload or g_payload.get('sub') != user_id:
+                return resp(401, {'error': 'トークンの検証に失敗しました'})
+            try:
+                u = dynamodb.Table(USERS_TABLE).get_item(Key={'userId': user_id}).get('Item', {})
+                if u.get('handle', '').lower() != handle_param.lower():
+                    return resp(403, {'error': 'handleが一致しません'})
+            except Exception as e:
+                print(f'notifications/read auth error: {e}')
+                return resp(500, {'error': 'サーバーエラー'})
         mark_notifications_read(handle_param)
         return resp(200, {'status': 'ok'})
 
