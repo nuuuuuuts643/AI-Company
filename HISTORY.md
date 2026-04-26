@@ -683,3 +683,14 @@ bash projects/P003-news-timeline/deploy.sh
 - standard/full両モードのtimeline[].transition: 15文字→25文字に拡大
 - standard mode max_tokens: 500→700（長いeventを切り詰めないよう）
 - event/transitionルールの説明文を詳細化（体言止め・具体的固有名詞等）
+
+### 完了済み（2026-04-26）T057 admin.html収益カード更新
+→ HISTORY.mdに記録 14:55 JST
+- もしもアフィリエイト（a_id=1188659）を稼働中として追加（Amazon/楽天/Yahoo! 3店舗一括）
+- Amazon アソシエイト: 未申請→稼働中（flotopic-22設定済み）に修正
+- Amazon リンクをdashboard URLに変更（/home/reportsへ直接リンク）
+- 楽天: 引き続き未申請（AFFILIATE_RAKUTEN_ID未設定）
+
+### 完了済み（2026-04-26）T058/T060 開発ファイル削除
+→ HISTORY.mdに記録 14:55 JST
+- ICONS-NEEDED.md / twitter-card.pngはすでに存在しておらず実質完了済みを確認
