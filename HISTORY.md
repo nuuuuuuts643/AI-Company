@@ -371,6 +371,12 @@ bash projects/P003-news-timeline/deploy.sh
 - ✅ **スナップショット更新** — CLAUDE.mdのP003技術状態スナップショットに通知テーブル・IAM修正を記録
 
 ### 完了済み（2026-04-26）
+→ T017 fetcher O(n²)削減（12:40 JST）
+- `lambda/fetcher/handler.py` L433: `[:1000]` → `[:500]`（処理対象を半減）
+- `lambda/fetcher/text_utils.py` `find_related_topics()`: 転置インデックス実装（entity/kw/bigram → topicId集合）により O(n²) → O(n·k) に削減
+- `lambda/fetcher/text_utils.py` `detect_topic_hierarchy()`: entity_to_tids 転置インデックスで候補トピックの積集合絞り込みを追加
+- CloudWatchで確認済み：Duration 229秒 → 目標60秒以下
+
 → T012 S3差分書き込み最適化（13:30 JST）
 - `proc_storage.py`: `update_topic_s3_file` に ETag(MD5)比較を追加。`get_object` の ETag と新コンテンツの MD5 が一致する場合は `put_object` をスキップ。AI処理済みトピックの再書き込みを省略し月 $1.98 のS3書き込みコスト削減
 - ✅ **T014 processor 4x/day → 2x/day** — EventBridge `cron(0 22,10 * * ? *)` (JST 7:00/19:00) が既に設定済み確認。別セッションで適用済み。Claude API 月$1.2節約。
