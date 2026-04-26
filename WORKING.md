@@ -37,6 +37,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
-| T010 tokushoho.html再リダイレクト化 | frontend/tokushoho.html, CLAUDE.md | 2026-04-26 13:10 |
-| T011+T013 get_topic_detail修正+Bluesky3問題 | lambda/fetcher/storage.py, scripts/bluesky_agent.py | 2026-04-26 13:15 |
 | T012 S3差分書き込み最適化 | lambda/processor/proc_storage.py | 2026-04-26 13:30 |

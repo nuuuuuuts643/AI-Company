@@ -1,4 +1,5 @@
 """DynamoDB / S3 アクセス層と Slack 通知。"""
+import hashlib
 import io
 import json
 import os
@@ -307,13 +308,16 @@ def write_s3(key, data):
 def update_topic_s3_file(tid, upd, articles=None):
     """個別トピックS3ファイルのmetaにAIフィールドをマージ（pendingAI解除含む）。
     articles が渡された場合は静的SEO用HTMLも生成する。
+    ETag(MD5)比較で内容変更がない場合はPUTをスキップしてコスト削減。
     """
     if not S3_BUCKET:
         return
     key = f'api/topic/{tid}.json'
     try:
         resp = s3.get_object(Bucket=S3_BUCKET, Key=key)
-        data = json.loads(resp['Body'].read())
+        old_etag = resp.get('ETag', '')
+        raw = resp['Body'].read()
+        data = json.loads(raw)
         meta = data.get('meta', {})
         meta.pop('pendingAI', None)
         if upd.get('generatedTitle'):
@@ -335,7 +339,13 @@ def update_topic_s3_file(tid, upd, articles=None):
         if upd.get('imageUrl') and not meta.get('imageUrl'):
             meta['imageUrl'] = upd['imageUrl']
         data['meta'] = meta
-        write_s3(key, data)
+        new_body = json.dumps(data, default=dec_convert, ensure_ascii=False).encode('utf-8')
+        new_etag = '"' + hashlib.md5(new_body).hexdigest() + '"'
+        if new_etag != old_etag:
+            s3.put_object(
+                Bucket=S3_BUCKET, Key=key, Body=new_body,
+                ContentType='application/json', CacheControl='max-age=60',
+            )
         # 静的SEO用HTML生成（ai要約があれば常に更新。aiGenerated条件を外してOGPのみ更新時も再生成）
         if meta.get('aiGenerated') or meta.get('generatedSummary'):
             generate_static_topic_html(tid, meta, articles or data.get('articles', []))

@@ -99,11 +99,21 @@ def validate_topics_exist(topics, skip_tids=None):
 
 
 def get_topic_detail(tid):
-    r     = table.query(KeyConditionExpression=Key('topicId').eq(tid))
-    items = r.get('Items', [])
-    meta  = next((i for i in items if i['SK'] == 'META'), None)
-    snaps = sorted([i for i in items if i['SK'].startswith('SNAP#')], key=lambda x: x['SK'])
-    views = sorted([i for i in items if i['SK'].startswith('VIEW#')], key=lambda x: x['SK'])
+    meta_resp = table.get_item(Key={'topicId': tid, 'SK': 'META'})
+    meta = meta_resp.get('Item')
+
+    snaps_resp = table.query(
+        KeyConditionExpression=Key('topicId').eq(tid) & Key('SK').begins_with('SNAP#'),
+        ScanIndexForward=False, Limit=30,
+    )
+    snaps = sorted(snaps_resp.get('Items', []), key=lambda x: x['SK'])
+
+    views_resp = table.query(
+        KeyConditionExpression=Key('topicId').eq(tid) & Key('SK').begins_with('VIEW#'),
+        ScanIndexForward=False, Limit=90,
+    )
+    views = sorted(views_resp.get('Items', []), key=lambda x: x['SK'])
+
     return meta, snaps, views
 
 
