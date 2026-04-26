@@ -21,6 +21,7 @@ DynamoDB テーブル: flotopic-favorites
 import base64
 import json
 import os
+import re
 from datetime import datetime, timezone
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
@@ -50,6 +51,7 @@ def update_topic_fav_count(topic_id: str, delta: int):
             topics_table.update_item(
                 Key={'topicId': topic_id, 'SK': 'META'},
                 UpdateExpression='ADD favoriteCount :d',
+                ConditionExpression='attribute_exists(topicId)',
                 ExpressionAttributeValues={':d': delta},
             )
         else:
@@ -331,6 +333,8 @@ def lambda_handler(event, context):
 
         if not user_id or not id_token or not topic_id:
             return resp(400, {'error': 'userId, idToken, topicId は必須です'})
+        if not re.match(r'^[0-9a-f]{16}$', topic_id):
+            return resp(400, {'error': 'invalid topicId'})
 
         # Google トークン検証
         payload = verify_google_token(id_token)
