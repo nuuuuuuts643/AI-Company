@@ -922,7 +922,7 @@ const Dashboard = {
         fetch(CONFIG.cfAnalyticsUrl + '?_=' + Date.now()),
       ]);
 
-      if (topicsRes.status === 'rejected') throw new Error('topics.json 取得失敗');
+      if (topicsRes.status === 'rejected' || !topicsRes.value.ok) throw new Error('topics.json 取得失敗');
       const raw    = await topicsRes.value.json();
       const topics = Array.isArray(raw) ? raw : (raw.topics || []);
 
