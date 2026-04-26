@@ -4,6 +4,12 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T193follow-up/T204 バグ修正・小改善）
+- ✅ **T193follow-up: handler.py ai_updatesにbackgroundContext追加** — 根本原因: T193でproc_storage.pyのupdate_topic_s3_fileにbackgroundContext保存を追加したが、handler.pyのai_updates辞書にはbackgroundContextが含まれていなかった。upd.get('backgroundContext')が常にNoneになりS3 JSONに書き込まれなかった。修正: ai_updates[tid]にbackgroundContextフィールドを追加。DynamoDB(update_topic_with_ai)は既にgen_story経由で保存済みで問題なし。
+- ✅ **favorites.js _showFavLoginToast innerHTML安全化** — 根本原因: インラインのonclick属性でopenAuthModalを呼ぶパターンはCSPに引っかかる可能性。修正: DOM要素をcreateElement/appendChildで構築し、addEventListener('click')に変更。
+- ✅ **app.js renderHeroStoryPreviewの_PHASE_BADGE重複排除** — 関数内定義をモジュールレベルPHASE_BADGE定数に統合。
+- ✅ **storymap.html 同ジャンルセクションphase表示バグ** — 根本原因: renderStorymapのsm-next-cardにtPhase = t.storyPhaseをそのまま表示していた（raw key '発端'等）。PHASE_LABELはrenderStorymapListスコープで定義されており利用不可。修正: renderStorymap内に_PLローカル定数を追加してマップ変換を実施。npm test 42件全パス。
+
 ### 完了済み（2026-04-27 T202/T199/T195/T200/T203/T196 UX・バグ修正）
 - ✅ **T202 _prevSnap IIFE try/catch化** — 根本原因: app.js:104のlocalStorageパースがtry/catch外にありSyntaxErrorでapp.js全体が壊れる可能性。修正: IIFE化してcatchで{}を返す。
 - ✅ **T199 お気に入りローカル保存+ログイン誘導トースト** — 根本原因: 未ログインでfav-btnを押すと即auth modalが開き、localStorageに保存されなかった。修正: favorites.js `toggleFavorite`で未ログイン時もlocalStorageに保存し、初回登録時のみ「💾 ログインで別デバイスでも同期できます」トースト＋ログインボタンを5秒表示。_favLoginToastShown変数でセッション内1回のみ制御。
