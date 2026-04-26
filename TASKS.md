@@ -18,14 +18,20 @@
 ### 🎯 使いたくなるUX（「また来たい」動線）
 
 > 安定性改善と並行して進める。Flotopicの差別化はストーリー追跡体験にある。それが伝わる動線を作る。
+> **根本課題**: 「ストーリーを追う体験」がFlotopicの差別化なのに、トップページはニュース一覧で終わる。Yahoo/Google Newsと見た目が変わらず、初見ユーザーが「なぜここを使うか」に辿り着けない。
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| T151 | 高 | **ストーリーマップ（storymap.html）への動線を強化** — 根本原因: Flotopicの最大の差別化機能（ニュースの経緯をタイムラインで追う）がトップから辿りにくい。Yahoo/Google Newsにない機能なのに初見ユーザーが気づかない。修正方法: ①トップのボトムナビかヘッダーに「ストーリー」タブを追加 ②トピックカードに「📖 経緯を読む」リンクを追加 ③detail.htmlの上部に「ストーリーで全体を把握する →」バナー（storymap.htmlへ遷移）を追加。 | `frontend/index.html`, `frontend/app.js`, `frontend/detail.js`, `frontend/style.css` | 2026-04-26 |
+| T158 | 高 | **トップページheroでFlotopicの差別化を体験させる** — 根本原因: heroテキスト「今話題になっていること、まるごとわかる」はYahoo Newsと区別がつかない。Flotopicがなぜ違うのか1秒で伝わらない。修正方法: ①hero副見出しを「ニュースの"流れ"を、AIがストーリーにする」に変更 ②heroエリアに「今日最も動きのあったストーリー」を1件だけプレビュー表示（タイトル＋storyTimelineの最新1イベント）。クリックでstorymapへ。③「Yahoo/Google Newsとの違い」を一行説明（「速報ではなく、経緯がわかる」）。ファーストビューでストーリー体験を見せることが目的。 | `frontend/index.html`, `frontend/app.js`, `frontend/style.css` | 2026-04-26 |
+| T159 | 高 | **AI要約カバレッジ低下の改善（現状35〜56%）** — 根本原因: `MIN_ARTICLES_FOR_SUMMARY=5`・`MAX_API_CALLS=150`・4回/day実行で、記事数の少ないトピックや処理キュー溢れで未処理のまま残るトピックが多い。影響: 半数のトピックに要約・ストーリーがなく「AI分析中」のまま。修正方法: ①`MIN_ARTICLES_FOR_SUMMARY`を5→3に下げる（記事3件あればAI要約を生成） ②キューの処理漏れを防ぐため`MAX_API_CALLS`を150→200に増やす（APIコスト月+数百円程度）。バグ再発防止ルール確認: フォールバックなし・DynamoDB既存データの処理改善。違反なし。 | `lambda/processor/proc_config.py` | 2026-04-26 |
+| T160 | 高 | **トップカードにAI要約の冒頭一行を表示（スキャン性改善）** — 根本原因: トップのカードはタイトル・件数・ジャンルだけで、何の話かスキャンしにくい。クリックするかどうか判断できない。修正方法: `generatedSummary`の先頭40〜50文字をカード下部にグレーテキストで表示（未生成なら非表示）。T150（オンボーディング）の前提として先に実装すべき。ユーザーが「気になる」「関係ない」を一覧でジャッジできるようにする。 | `frontend/app.js`, `frontend/style.css` | 2026-04-26 |
+
+| ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
+|---|---|---|---|---|
 | T152 | 高 | **「昨日から何が変わったか」を毎日トップに表示** — 根本原因: 毎日訪問する理由が薄い。「また来ても同じかも」という印象が離脱につながる。修正方法: hot-stripとは別に「⚡ 過去24時間の急展開」セクションをトップに追加。velocityScore上位3件＋各トピックの最新記事タイトル1行を表示。「昨日から動きのあった話」として日次の変化を可視化する。 | `frontend/app.js`, `frontend/index.html`, `frontend/style.css` | 2026-04-26 |
 | T153 | 中 | **初回訪問時のジャンル選択（パーソナライズ起点）** — 根本原因: 全ジャンル混在のトップを初見で見ても「自分向けか？」判断できず離脱しやすい。修正方法: 初回訪問時（localStorageフラグなし）にボトムシートで「興味あるジャンルを選んでください」→ 選択をlocalStorageに保存 → 次回以降のデフォルトフィルターに反映。スキップ可能。T150のオンボーディングと合わせて実装。 | `frontend/app.js`, `frontend/index.html`, `frontend/style.css` | 2026-04-26 |
 | T155 | 中 | **detail.htmlに「この話の発端」ハイライト** — 根本原因: ユーザーは最新記事から入るので文脈が掴めない。storyTimelineの最古イベントを見れば発端がわかるがスクロールしないと見えない。修正方法: detail.htmlのstoryTimelineセクション先頭に「📅 この話の始まり（〇月〇日）」として最古イベントを常時展開で表示。最新イベントと発端の2点を押さえれば「流れ」がわかる。 | `frontend/detail.js`, `frontend/style.css` | 2026-04-26 |
-| T157 | 高 | **お気に入りに「新着あり/変化なし」の分類表示** — 根本原因: お気に入りリストは静的なリストで「その後どうなったか」が一切わからない。登録しても見に戻る動機が生まれない。修正方法: ①`mypage.html`のfavs描画時にlocalStorageから`flotopic_last_mypage_visit`を読み出し、各favトピックの`lastUpdated`と比較 ②`lastUpdated > lastVisit`のトピックを「🔔 新着あり」グループとして上部に表示（記事件数・経過時間を添える） ③動きのないトピックは「変化なし（〇日前）」グループとして下に折りたたみ可能で表示 ④マイページを開いたタイミングで`flotopic_last_mypage_visit`を更新 ⑤`index.html`・`topic.html`等のボトムナビのマイページアイコンに「新着あり」の赤バッジを出す（同じlocalStorageキーを参照）。注意: 未ログインユーザーでも動作するようにlocalStorageのみで完結させること（API不要）。 | `frontend/mypage.html`, `frontend/app.js`, `frontend/style.css` | 2026-04-26 |
+| T161 | 中 | **mypageボトムナビに「新着あり」赤バッジ表示** — 根本原因: T157でお気に入り新着グルーピングを実装したが、マイページを開いて初めて新着がわかる。ボトムナビのマイページアイコンに「新着あり」の赤バッジを表示することで、アプリ起動時に「見に来る動機」を作れる。修正方法: `app.js`の初期化時に`flotopic_last_mypage_visit`とtopics.jsonの各fav topicの`lastUpdated`を比較、1件でも新しければボトムナビ `bn-mypage` に`.has-badge`クラスを付与。style.cssに`.has-badge::after { content:''; position:absolute; width:8px; height:8px; border-radius:50%; background:#ef4444; top:2px; right:2px; }`を追加。 | `frontend/app.js`, `frontend/style.css` | 2026-04-26 |
 | T154 | 中 | **お気に入りトピックへの新展開をWeb Push通知** — 根本原因: お気に入り登録しても次の展開を見に戻る動機がない。修正方法: ServiceWorkerにWeb Push受信を追加。fetcherが既存お気に入りtidへの新記事を検知→DynamoDB notification_queueに積む→Lambda(notifier)が1日2回処理。ユーザー増加後の優先施策。 | `frontend/sw.js`, `frontend/mypage.html`, 新Lambda | 2026-04-26 |
 
 ## 進行中
