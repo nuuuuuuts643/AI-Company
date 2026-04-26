@@ -96,10 +96,11 @@ def _format_pub_date(raw_date) -> str:
             return f'{dt.month}/{dt.day}'
     except (TypeError, ValueError):
         pass
+    s = str(raw_date)
     for fmt in ('%Y-%m-%dT%H:%M:%S%z', '%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%dT%H:%M:%S',
                 '%Y-%m-%d', '%a, %d %b %Y %H:%M:%S %z', '%a, %d %b %Y %H:%M:%S GMT'):
         try:
-            dt = datetime.strptime(str(raw_date)[:len(fmt)], fmt)
+            dt = datetime.strptime(s, fmt)
             return f'{dt.month}/{dt.day}'
         except ValueError:
             continue
