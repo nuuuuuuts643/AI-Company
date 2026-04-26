@@ -812,3 +812,22 @@ bash projects/P003-news-timeline/deploy.sh
 - 変更後: ジャンル固定キーワード（例: テクノロジー→「ガジェット 最新」）のみ使用
 - 効果: Amazonで「〇〇大臣の汚職疑惑」で検索する無意味な状態を解消、購買意図のある商品検索に統一
 - コード12行削減（rawTitle取得・NEWS_PATS定義・isNewsHeadline判定・else分岐を全て削除）
+
+### 完了済み（2026-04-26 GC/クリーンアップ・Bluesky修正）
+
+#### 未使用import削除（fetcher/storage.py）
+- `from datetime import datetime, timezone, timedelta` → `timedelta` は未使用のため削除
+
+#### CLAUDE.md 圧縮（319→301行）
+- 完了済みタスク管理ルールを12→3行に圧縮
+- P002 Flutterゲーム設計概要セクション削除（briefing.md へのポインタのみに）
+- セッション更新ルールセクション削除（自明なため）
+
+#### batch_generate_static_html バグ修正
+- 問題: `api/topic/*.json` の先頭500件(辞書順)を読んでいた → 5014件中の先頭500は大半が廃止IDで現在のtopicsに含まれない
+- 修正: `api/topics.json` を読んで現在のアクティブ500件のIDから逆引きして生成
+- 結果: topics.json/topics/{tid}.html の一致率 8% → 97%（489/500件）、Top50速度トピックの静的HTML 2/50 → 49/50
+
+#### Bluesky自動投稿 復旧確認
+- T075 S3_BUCKETバグ修正・静的HTML 97%生成により dry-run で正常投稿文生成を確認
+- 投稿例: 「🔥 急上昇: 秋田県、職員を岩手県大槌町へ派遣 山林火災受け」(166文字)
