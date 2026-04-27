@@ -90,3 +90,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0428-GSC GSC重複URL修正 (CF Function 301) | Code | projects/P003-news-timeline/infra/cf-redirect-function.js, .github/workflows/deploy-p003.yml | 2026-04-28 07:09 | yes |
