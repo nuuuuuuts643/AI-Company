@@ -246,6 +246,28 @@ def force_reset_pending_all() -> int:
     return count
 
 
+def _is_extractive_summary(text: str) -> bool:
+    """generatedSummary が fetcher 側 extractive_summary() フォールバックである可能性を判定。
+    text_utils.is_extractive_summary と同じロジック (processor lambda は fetcher の
+    text_utils をインポートしていないため複製)。
+    AI 未実行のまま見出し連結が generatedSummary に居座っているケースを救済する。"""
+    if not text:
+        return False
+    t = str(text)
+    if '複数の報道' in t and '関連して' in t:
+        return True
+    if 'また、「' in t and '」など' in t:
+        return True
+    if '最新では「' in t and '」と報じられている' in t:
+        return True
+    import re as _re
+    if _re.search(r'（[^（）]*ほか\s*\d+件）\s*$', t):
+        return True
+    if _re.search(r'（\s*\d+件）\s*$', t):
+        return True
+    return False
+
+
 def needs_ai_processing(item):
     """このトピックがAI処理を必要とするかを判定。
 
@@ -255,6 +277,7 @@ def needs_ai_processing(item):
     - pendingAI=True（fetcher が新記事を検知してフラグを立てた）
     - imageUrl が未設定（OGP画像未生成）
     - generatedTitle が「〇〇をめぐる最新の動き」等の曖昧パターンで終わる(2026-04-27)
+    - generatedSummary が extractive_summary フォールバックの形 (見出し連結) (2026-04-27 c1bbe0fe事件)
 
     Note: articleCount<2 のトピックはフロントエンドで非表示（processor もスキップ）のため
     False を返して pending_ai.json から自動クリーンアップされるようにする。
@@ -265,6 +288,9 @@ def needs_ai_processing(item):
     if item.get('pendingAI'):
         return True
     if not item.get('aiGenerated'):
+        return True
+    # T38: aiGenerated=True でも generatedSummary が extractive ならば未処理扱いで再処理させる
+    if _is_extractive_summary(item.get('generatedSummary', '')):
         return True
     timeline = item.get('storyTimeline')
     is_minimal = (item.get('summaryMode') == 'minimal'
