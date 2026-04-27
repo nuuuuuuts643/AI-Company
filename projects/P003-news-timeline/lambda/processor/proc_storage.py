@@ -81,6 +81,39 @@ def _is_low_quality_title(title: str) -> bool:
     return False
 
 
+def save_prediction_log(tid: str, gen_story: dict | None) -> bool:
+    """proc_ai が出した forecast/outlook を時系列で永続保存する。
+    SK='PRED#YYYYMMDDTHHMMSS' で p003-topics テーブルに記録。
+    将来「1ヶ月前の予測 vs 実際」を遡及検証するための土台 (Phase 3 の起点)。
+    今しか作れない時系列データなので proc_ai 実行ごとに必ず保存する。
+    Returns: 保存したか。"""
+    if not gen_story:
+        return False
+    forecast = (gen_story.get('forecast') or '').strip()
+    outlook = (gen_story.get('outlook') or '').strip()
+    if not forecast and not outlook:
+        return False  # 予測本体がない場合は保存しない
+    try:
+        ts_iso = datetime.now(timezone.utc).isoformat()
+        ts_key = ts_iso.replace(':', '').replace('-', '').split('.')[0]  # YYYYMMDDTHHMMSS
+        item = {
+            'topicId':    tid,
+            'SK':         f'PRED#{ts_key}',
+            'timestamp':  ts_iso,
+            'forecast':   forecast,
+            'outlook':    outlook,
+            'aiSummary':  (gen_story.get('aiSummary') or '')[:300],  # コンテキストとしての現状サマリー (検証時に必要)
+            'phase':      gen_story.get('phase'),
+            'topicTitle': gen_story.get('topicTitle'),
+            'ttl':        int(time.time()) + 365 * 86400,  # 1年保持 (1年前の予測を遡及検証できるよう)
+        }
+        table.put_item(Item=item)
+        return True
+    except Exception as e:
+        print(f'[save_prediction_log] {tid[:8]}... 失敗: {e}')
+        return False
+
+
 def auto_archive_incoherent(tid: str, gen_story: dict | None) -> bool:
     """AI が isCoherent=false と判定したトピックを lifecycleStatus='archived' に自動退避。
     指針(主語+目的語+一発理解)が定まる前にまとめられた雑なクラスタを視界から消すための仕組み。
