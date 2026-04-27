@@ -79,7 +79,7 @@
       <p>大きな流れを、1分で。</p>
     </a>
     <div class="header-right">
-      <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替">🌙</button>
+      <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替"><i data-lucide="moon" aria-hidden="true"></i></button>
       <div class="auth-area">
         <button id="auth-signin-btn" class="auth-btn" style="display:none;">ログイン</button>
         <div class="user-menu-wrap" id="user-menu-wrap" style="display:none;">
@@ -90,7 +90,7 @@
             <span class="user-menu-caret">▾</span>
           </button>
           <div class="user-dropdown" id="user-dropdown" role="menu">
-            <a href="mypage.html" class="user-dd-item" role="menuitem">👤 マイページ</a>
+            <a href="mypage.html" class="user-dd-item" role="menuitem"><i data-lucide="user" aria-hidden="true"></i> マイページ</a>
             <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem">ログアウト</button>
           </div>
         </div>
@@ -105,7 +105,7 @@
 <div id="auth-modal" class="auth-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="ログイン">
   <div class="auth-modal-inner">
     <button id="auth-modal-close" class="auth-modal-close" aria-label="閉じる">×</button>
-    <div class="auth-modal-logo">🌊 Flotopic</div>
+    <div class="auth-modal-logo"><i data-lucide="waves" aria-hidden="true"></i> Flotopic</div>
     <h2 class="auth-modal-title">ログイン / 新規登録</h2>
     <p class="auth-modal-desc">コメント・お気に入りを<br>どのデバイスでも同期</p>
     <div id="auth-modal-google-wrap" class="auth-modal-provider-wrap"></div>
@@ -126,32 +126,32 @@
 
   <div class="feature-grid">
     <div class="feature-card">
-      <div class="icon">🤖</div>
+      <div class="icon"><i data-lucide="bot" aria-hidden="true"></i></div>
       <h3>AI自動分析</h3>
-      <p>📐 なぜ起きたか（構造的背景）→ 📚 なぜ今この話題か → 📡 なぜ広がったか → ⏱ 経緯と今どの段階か → 📍 現状（何が起きているか）→ 📰 メディアの見方のズレ → 🔮 今後どうなるか の7段階で整理します。「背景・課題・目的」が抜け落ちがちなニュースを、初見でも文脈ごと理解できる形に再構成します。</p>
+      <p><i data-lucide="ruler" aria-hidden="true"></i> なぜ起きたか（構造的背景）→ <i data-lucide="library" aria-hidden="true"></i> なぜ今この話題か → <i data-lucide="radio-tower" aria-hidden="true"></i> なぜ広がったか → <i data-lucide="timer" aria-hidden="true"></i> 経緯と今どの段階か → <i data-lucide="map-pin" aria-hidden="true"></i> 現状（何が起きているか）→ <i data-lucide="newspaper" aria-hidden="true"></i> メディアの見方のズレ → <i data-lucide="sparkles" aria-hidden="true"></i> 今後どうなるか の7段階で整理します。「背景・課題・目的」が抜け落ちがちなニュースを、初見でも文脈ごと理解できる形に再構成します。</p>
     </div>
     <div class="feature-card">
-      <div class="icon">📈</div>
+      <div class="icon"><i data-lucide="trending-up" aria-hidden="true"></i></div>
       <h3>推移を可視化</h3>
       <p>記事数・注目スコアを時系列グラフで表示。いつ話題になったかが一目でわかります。</p>
     </div>
     <div class="feature-card">
-      <div class="icon">🔄</div>
+      <div class="icon"><i data-lucide="refresh-cw" aria-hidden="true"></i></div>
       <h3>30分ごと自動更新</h3>
       <p>国内主要メディアのRSSを定期取得し、新しいトピックを自動で検出・追加します。</p>
     </div>
     <div class="feature-card">
-      <div class="icon">🕰️</div>
+      <div class="icon"><i data-lucide="clock" aria-hidden="true"></i>️</div>
       <h3>振り返る</h3>
       <p>数日間見ていなかったときに「その間に何が起きたか」をまとめて確認できます。</p>
     </div>
     <div class="feature-card">
-      <div class="icon">🔖</div>
+      <div class="icon"><i data-lucide="bookmark" aria-hidden="true"></i></div>
       <h3>お気に入り</h3>
       <p>気になるトピックをお気に入りに保存。Googleログインで複数デバイスから同期できます。</p>
     </div>
     <div class="feature-card">
-      <div class="icon">💬</div>
+      <div class="icon"><i data-lucide="message-circle" aria-hidden="true"></i></div>
       <h3>コメント</h3>
       <p>トピックに対してコメントを投稿できます。@メンションで他のユーザーに返信も可能です。</p>
     </div>
@@ -175,16 +175,16 @@
   <h2>AIはどうやってまとめを作るのか</h2>
   <p>Flotopicが使うAIは、Anthropic社が開発した大規模言語モデル「Claude」です。各記事のタイトルと概要文をまとめてClaudeに渡し、以下の7セクション構成で分析させています（思想フレーム: 背景→課題→目的→手段→結果→今後）。</p>
   <ul style="margin:0.6rem 0 0.8rem 1.2rem;line-height:1.9;">
-    <li><strong>📐 なぜ起きたか（構造的背景）</strong>——表面の出来事ではなく長期的な背景・歴史・制度</li>
-    <li><strong>📚 なぜ今この話題か</strong>——直近の政治・経済・国際情勢など、今浮上した直接の理由</li>
-    <li><strong>📡 なぜ広がったか</strong>——トリガー・注目層・他ニュースとの関連</li>
-    <li><strong>⏱ 経緯と今どの段階か</strong>——タイムラインと「始まり→広まってる→急上昇→進行中→ひと段落」の段階判定</li>
-    <li><strong>📍 現状（何が起きているか）</strong>——主語と目的語を明示した事実ベースの要約</li>
-    <li><strong>📰 メディアの見方のズレ</strong>——同じ事象でも社ごとに主語・着地点が違う場合の対比</li>
-    <li><strong>🔮 今後どうなるか</strong>——記事内容を根拠にした見通し（断定せず仮説として）</li>
+    <li><strong><i data-lucide="ruler" aria-hidden="true"></i> なぜ起きたか（構造的背景）</strong>——表面の出来事ではなく長期的な背景・歴史・制度</li>
+    <li><strong><i data-lucide="library" aria-hidden="true"></i> なぜ今この話題か</strong>——直近の政治・経済・国際情勢など、今浮上した直接の理由</li>
+    <li><strong><i data-lucide="radio-tower" aria-hidden="true"></i> なぜ広がったか</strong>——トリガー・注目層・他ニュースとの関連</li>
+    <li><strong><i data-lucide="timer" aria-hidden="true"></i> 経緯と今どの段階か</strong>——タイムラインと「始まり→広まってる→急上昇→進行中→ひと段落」の段階判定</li>
+    <li><strong><i data-lucide="map-pin" aria-hidden="true"></i> 現状（何が起きているか）</strong>——主語と目的語を明示した事実ベースの要約</li>
+    <li><strong><i data-lucide="newspaper" aria-hidden="true"></i> メディアの見方のズレ</strong>——同じ事象でも社ごとに主語・着地点が違う場合の対比</li>
+    <li><strong><i data-lucide="sparkles" aria-hidden="true"></i> 今後どうなるか</strong>——記事内容を根拠にした見通し（断定せず仮説として）</li>
   </ul>
   <p>AIは記事の全文を読んでいるわけではなく、各記事のタイトルと短い概要（RSSフィードに含まれる数百文字のテキスト）だけを入力として使います。全文スクレイピングは行わないため情報量に限界がありますが、複数メディアの記事タイトルを横断することで「どのメディアがどの角度で報じているか」をパターンとして読み取っています。</p>
-  <p>また、トピックには「フェーズ」が自動でラベル付けされます。<strong>🌱始まり</strong>（最初の報道が出た段階）→ <strong>📡広まってる</strong>（複数メディアが追いかけている段階）→ <strong>🔥急上昇</strong>（最も記事が集中している段階）→ <strong>📍進行中</strong>（報道が落ち着きつつある段階）→ <strong>✅ひと段落</strong>（話題が一段落した段階）の5段階をAIが自動判定します。このフェーズを見るだけで、今追いかけるべき話題かどうかを素早く判断できます。</p>
+  <p>また、トピックには「フェーズ」が自動でラベル付けされます。<strong><i data-lucide="sprout" aria-hidden="true"></i>始まり</strong>（最初の報道が出た段階）→ <strong><i data-lucide="radio-tower" aria-hidden="true"></i>広まってる</strong>（複数メディアが追いかけている段階）→ <strong><i data-lucide="flame" aria-hidden="true"></i>急上昇</strong>（最も記事が集中している段階）→ <strong><i data-lucide="map-pin" aria-hidden="true"></i>進行中</strong>（報道が落ち着きつつある段階）→ <strong><i data-lucide="check-circle-2" aria-hidden="true"></i>ひと段落</strong>（話題が一段落した段階）の5段階をAIが自動判定します。このフェーズを見るだけで、今追いかけるべき話題かどうかを素早く判断できます。</p>
 
   <h2>まとめサイトとの違い</h2>
   <p>Flotopicは、いわゆる「まとめサイト」とは根本的に設計が異なります。まとめサイトの多くは、掲示板やSNSの書き込みを転載・編集することで成り立っており、一次情報の出典が不明瞭なケースがあります。</p>
@@ -241,7 +241,7 @@
     </details>
     <details class="faq-item">
       <summary>「フェーズ」とは何ですか？</summary>
-      <p>トピックの進行状況を示すラベルです。「🌱始まり」（最初の報道）→「📡広まってる」（複数メディアが追随）→「🔥急上昇」（最も記事が集中）→「📍進行中」（報道が落ち着きはじめ）→「✅ひと段落」（話題が一段落）の5段階をAIが自動判定します。話題がどの段階にあるかを素早く把握するための目安としてお使いください。</p>
+      <p>トピックの進行状況を示すラベルです。「<i data-lucide="sprout" aria-hidden="true"></i>始まり」（最初の報道）→「<i data-lucide="radio-tower" aria-hidden="true"></i>広まってる」（複数メディアが追随）→「<i data-lucide="flame" aria-hidden="true"></i>急上昇」（最も記事が集中）→「<i data-lucide="map-pin" aria-hidden="true"></i>進行中」（報道が落ち着きはじめ）→「<i data-lucide="check-circle-2" aria-hidden="true"></i>ひと段落」（話題が一段落）の5段階をAIが自動判定します。話題がどの段階にあるかを素早く把握するための目安としてお使いください。</p>
     </details>
     <details class="faq-item">
       <summary>「振り返る」とは何ですか？</summary>
@@ -283,20 +283,23 @@
 
 <nav class="bottom-nav" id="bottom-nav" aria-label="ナビゲーション">
   <a href="index.html" class="bn-item" id="bn-home">
-    <span class="bn-icon">🏠</span><span>TOPICS</span>
+    <span class="bn-icon"><i data-lucide="home" aria-hidden="true"></i></span><span>TOPICS</span>
   </a>
   <a href="catchup.html" class="bn-item" id="bn-catchup">
-    <span class="bn-icon">🕐</span><span>振り返る</span>
+    <span class="bn-icon"><i data-lucide="clock" aria-hidden="true"></i></span><span>振り返る</span>
   </a>
   <a href="index.html?focus=search" class="bn-item">
-    <span class="bn-icon">🔍</span><span>SEARCH</span>
+    <span class="bn-icon"><i data-lucide="search" aria-hidden="true"></i></span><span>SEARCH</span>
   </a>
   <a href="mypage.html" class="bn-item" id="bn-mypage">
-    <span class="bn-icon">👤</span><span>HOME</span>
+    <span class="bn-icon"><i data-lucide="user" aria-hidden="true"></i></span><span>HOME</span>
   </a>
 </nav>
 
 <script src="config.js"></script>
 <script src="js/auth.js"></script>
+<!-- Lucide Icons (ISC license) -->
+<script defer src="https://cdn.jsdelivr.net/npm/lucide@1.11.0/dist/umd/lucide.min.js" crossorigin="anonymous"></script>
+<script>document.addEventListener("DOMContentLoaded",function(){if(window.lucide&&typeof lucide.createIcons==="function"){lucide.createIcons();}});</script>
 </body>
 </html>

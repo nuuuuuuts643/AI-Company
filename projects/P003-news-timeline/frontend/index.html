@@ -265,7 +265,7 @@
 <div id="error-banner" role="alert" aria-live="assertive" style="display:none;position:fixed;top:64px;left:50%;transform:translateX(-50%);background:var(--color-danger);color:#fff;padding:10px 20px;border-radius:8px;font-size:.88rem;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,0.2);white-space:nowrap;max-width:90vw;text-overflow:ellipsis;overflow:hidden;"></div>
 <!-- PWAインストールバナー（Chrome/Android） -->
 <div id="pwa-install-banner" role="banner" aria-label="アプリインストール案内">
-  <span class="pwa-banner-text">📱 ホーム画面に追加してFlotopicをアプリとして使う</span>
+  <span class="pwa-banner-text"><i data-lucide="smartphone" aria-hidden="true"></i> ホーム画面に追加してFlotopicをアプリとして使う</span>
   <div class="pwa-banner-actions">
     <button id="pwa-install-btn">インストール</button>
     <button id="pwa-dismiss-btn" aria-label="閉じる">×</button>
@@ -273,7 +273,7 @@
 </div>
 <!-- PWAインストールバナー（iOS Safari） -->
 <div id="pwa-ios-banner" role="banner" aria-label="iOSアプリインストール案内">
-  <span class="pwa-banner-text">📱 ホーム画面に追加: Safariの共有ボタン <strong>⎙</strong> →「ホーム画面に追加」</span>
+  <span class="pwa-banner-text"><i data-lucide="smartphone" aria-hidden="true"></i> ホーム画面に追加: Safariの共有ボタン <strong><i data-lucide="share" aria-hidden="true"></i></strong> →「ホーム画面に追加」</span>
   <button id="pwa-ios-dismiss-btn" aria-label="閉じる">×</button>
 </div>
 <header>
@@ -284,7 +284,7 @@
     </a>
     <div class="header-right">
       <div id="weather-widget" class="weather-widget"></div>
-      <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替">🌙</button>
+      <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替"><i data-lucide="moon" aria-hidden="true"></i></button>
       <div class="auth-area">
         <button id="auth-signin-btn" class="auth-btn" style="display:none;">ログイン</button>
         <div class="user-menu-wrap" id="user-menu-wrap" style="display:none;">
@@ -295,7 +295,7 @@
             <span class="user-menu-caret">▾</span>
           </button>
           <div class="user-dropdown" id="user-dropdown" role="menu">
-            <a href="mypage.html" class="user-dd-item" role="menuitem">👤 マイページ</a>
+            <a href="mypage.html" class="user-dd-item" role="menuitem"><i data-lucide="user" aria-hidden="true"></i> マイページ</a>
             <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem">ログアウト</button>
           </div>
         </div>
@@ -312,15 +312,15 @@
     <div class="search-bar">
       <input type="text" id="search-input" placeholder="キーワードで検索..." autocomplete="off">
     </div>
-    <button id="fav-toggle-btn" class="fav-toggle-btn icon-only" title="お気に入りのみ表示">★</button>
+    <button id="fav-toggle-btn" class="fav-toggle-btn icon-only" title="お気に入りのみ表示"><i data-lucide="star" class="lucide-fill" aria-hidden="true"></i></button>
   </div>
   <div id="onboarding-tip" style="display:none;">
     <div class="ob-body">
       <p class="ob-title">はじめての方へ — カードの見かた</p>
       <div class="ob-items">
-        <div class="ob-item"><span class="ob-icon">🔥</span><span><strong>スコア</strong>：トレンドの強さ。数字が大きいほど今注目が集まっている</span></div>
-        <div class="ob-item"><span class="ob-icon">📄</span><span><strong>記事N件</strong>：そのトピックを構成する記事の本数</span></div>
-        <div class="ob-item"><span class="ob-icon">📖</span><span><strong>「経緯を読む →」</strong>：話の始まりから現在まで、AIが時系列でまとめたストーリーを確認できます</span></div>
+        <div class="ob-item"><span class="ob-icon"><i data-lucide="flame" aria-hidden="true"></i></span><span><strong>スコア</strong>：トレンドの強さ。数字が大きいほど今注目が集まっている</span></div>
+        <div class="ob-item"><span class="ob-icon"><i data-lucide="file-text" aria-hidden="true"></i></span><span><strong>記事N件</strong>：そのトピックを構成する記事の本数</span></div>
+        <div class="ob-item"><span class="ob-icon"><i data-lucide="book-open" aria-hidden="true"></i></span><span><strong>「経緯を読む →」</strong>：話の始まりから現在まで、AIが時系列でまとめたストーリーを確認できます</span></div>
       </div>
       <button class="ob-dismiss" onclick="flotopicDismissOnboarding()">わかった！</button>
     </div>
@@ -347,16 +347,16 @@
 </footer>
 <nav class="bottom-nav" id="bottom-nav" aria-label="ナビゲーション">
   <a href="index.html" class="bn-item active" id="bn-home">
-    <span class="bn-icon">🏠</span><span>TOPICS</span>
+    <span class="bn-icon"><i data-lucide="home" aria-hidden="true"></i></span><span>TOPICS</span>
   </a>
   <a href="catchup.html" class="bn-item" id="bn-catchup">
-    <span class="bn-icon">🕐</span><span>振り返る</span>
+    <span class="bn-icon"><i data-lucide="clock" aria-hidden="true"></i></span><span>振り返る</span>
   </a>
   <button class="bn-item" id="bn-search">
-    <span class="bn-icon">🔍</span><span>SEARCH</span>
+    <span class="bn-icon"><i data-lucide="search" aria-hidden="true"></i></span><span>SEARCH</span>
   </button>
   <a href="mypage.html" class="bn-item" id="bn-mypage" style="position:relative;">
-    <span class="bn-icon">👤</span><span>HOME</span>
+    <span class="bn-icon"><i data-lucide="user" aria-hidden="true"></i></span><span>HOME</span>
     <span id="notif-badge" style="display:none;"></span>
   </a>
 </nav>
@@ -364,7 +364,7 @@
 <div id="auth-modal" class="auth-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="ログイン">
   <div class="auth-modal-inner">
     <button id="auth-modal-close" class="auth-modal-close" aria-label="閉じる">×</button>
-    <div class="auth-modal-logo">🌊 Flotopic</div>
+    <div class="auth-modal-logo"><i data-lucide="waves" aria-hidden="true"></i> Flotopic</div>
     <h2 class="auth-modal-title">ログイン / 新規登録</h2>
     <p class="auth-modal-desc">コメント・お気に入りを<br>どのデバイスでも同期</p>
     <div id="auth-modal-google-wrap" class="auth-modal-provider-wrap"></div>
@@ -379,5 +379,8 @@
 <script src="js/notifications.js"></script>
 <script src="app.js"></script>
 <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "35149d754c3a4903b9461c157568d392"}'></script><!-- End Cloudflare Web Analytics -->
+<!-- Lucide Icons (ISC license) -->
+<script defer src="https://cdn.jsdelivr.net/npm/lucide@1.11.0/dist/umd/lucide.min.js" crossorigin="anonymous"></script>
+<script>document.addEventListener("DOMContentLoaded",function(){if(window.lucide&&typeof lucide.createIcons==="function"){lucide.createIcons();}});</script>
 </body>
 </html>
