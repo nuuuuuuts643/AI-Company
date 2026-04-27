@@ -177,7 +177,7 @@ TECH_GENERAL_KEYWORDS = [
 ]
 
 JACCARD_THRESHOLD = 0.35
-MAX_CLUSTER_SIZE  = 20
+MAX_CLUSTER_SIZE  = 15
 
 STOP_WORDS = {
     'は','が','を','に','の','と','で','も','や','か','へ','より','から','まで',

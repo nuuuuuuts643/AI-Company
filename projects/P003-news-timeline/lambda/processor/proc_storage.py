@@ -368,6 +368,24 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
             if gen_story.get('outlook'):
                 update_expr += ', outlook = :otlk'
                 expr_values[':otlk'] = gen_story['outlook']
+            if gen_story.get('topicTitle'):
+                update_expr += ', topicTitle = :ttitle'
+                expr_values[':ttitle'] = gen_story['topicTitle']
+            if gen_story.get('latestUpdateHeadline'):
+                update_expr += ', latestUpdateHeadline = :luh'
+                expr_values[':luh'] = gen_story['latestUpdateHeadline']
+            if 'isCoherent' in gen_story:
+                update_expr += ', topicCoherent = :coherent'
+                expr_values[':coherent'] = bool(gen_story['isCoherent'])
+            if gen_story.get('topicLevel'):
+                update_expr += ', topicLevel = :tlevel'
+                expr_values[':tlevel'] = gen_story['topicLevel']
+            if gen_story.get('parentTopicTitle'):
+                update_expr += ', parentTopicTitle = :ptt'
+                expr_values[':ptt'] = gen_story['parentTopicTitle']
+            if 'relatedTopicTitles' in gen_story:
+                update_expr += ', relatedTopicTitles = :rtt'
+                expr_values[':rtt'] = gen_story.get('relatedTopicTitles') or []
         if gen_story and gen_story.get('genres'):
             ai_genres = gen_story['genres']
             update_expr += ', genres = :genres, genre = :genre'
@@ -493,6 +511,19 @@ def update_topic_s3_file(tid, upd, articles=None):
             meta['perspectives'] = upd['perspectives']
         if upd.get('outlook'):
             meta['outlook'] = upd['outlook']
+        # T220+1811e4b 統合(2026-04-27): topicTitle 系メタを S3 にも反映
+        if upd.get('topicTitle'):
+            meta['topicTitle'] = upd['topicTitle']
+        if upd.get('latestUpdateHeadline'):
+            meta['latestUpdateHeadline'] = upd['latestUpdateHeadline']
+        if upd.get('topicCoherent') is not None:
+            meta['topicCoherent'] = upd['topicCoherent']
+        if upd.get('topicLevel'):
+            meta['topicLevel'] = upd['topicLevel']
+        if upd.get('parentTopicTitle'):
+            meta['parentTopicTitle'] = upd['parentTopicTitle']
+        if upd.get('relatedTopicTitles') is not None:
+            meta['relatedTopicTitles'] = upd['relatedTopicTitles']
         if upd.get('aiGenerated'):
             meta['aiGenerated'] = True
         if upd.get('imageUrl') and not meta.get('imageUrl'):

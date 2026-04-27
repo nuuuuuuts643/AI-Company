@@ -2133,6 +2133,29 @@ details[open] .day-more-btn::before { content: '▼ '; }
   animation: new-pulse 2s ease-in-out infinite;
 }
 
+.card-update-headline {
+  font-size: .76rem;
+  color: var(--text-muted);
+  margin: 2px 0 5px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-new-dot-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4EC9C0;
+  z-index: 2;
+  box-shadow: 0 0 0 2px rgba(78,201,192,0.3);
+  animation: new-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
 /* ═══════════════════════════════════
    DARK MODE — Flotopic brand palette
    bg: #0D0D0F  accent: cyan→blue→purple gradient

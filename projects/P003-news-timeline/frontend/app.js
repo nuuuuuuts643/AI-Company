@@ -223,7 +223,9 @@ function toUnixSec(v) {
 function renderBadges(t) {
   const ts = toUnixSec(t.lastUpdated);
   const isNew = ts > 0 && ts >= Date.now() / 1000 - CONFIG.NEW_BADGE_HOURS * 3600;
-  const newBadge = isNew ? '<span class="card-new-badge">NEW</span>' : '';
+  const newBadge = isNew
+    ? (t.latestUpdateHeadline ? '<span class="card-new-dot-badge"></span>' : '<span class="card-new-badge">NEW</span>')
+    : '';
   const favUpdated = (typeof isFavUpdated === 'function' && isFavUpdated(t))
     ? '<span class="card-fav-updated-badge">♥ 更新</span>'
     : '';
@@ -364,7 +366,8 @@ function renderTopicCard(t, i) {
         <div class="card-body">
           <div class="topic-status ${displayStatus}">${STATUS_LABEL[displayStatus] || displayStatus}${coolingAgeHtml}${phaseHtml}</div>
           ${velBarHtml}
-          <h3>${esc(t.generatedTitle || t.title)}</h3>
+          <h3>${esc(t.topicTitle || t.generatedTitle || t.title)}</h3>
+          ${t.latestUpdateHeadline ? `<p class="card-update-headline">${esc(t.latestUpdateHeadline)}</p>` : ''}
           ${renderCardMeta(t)}
           ${renderReliabilitySignal(t)}
         </div>
@@ -418,8 +421,8 @@ function renderTopics(topics) {
       return title.includes(q) || summary.includes(q) || genres.includes(q);
     });
   }
-  // 記事1件かつスコア5未満のスタブトピックは品質が低いのでフィードから除外
-  list = list.filter(t => parseInt(t.articleCount) >= 2);
+  // 記事1件以下 or AI判定で内容が乖離しているトピックはフィードから除外
+  list = list.filter(t => parseInt(t.articleCount) >= 2 && t.topicCoherent !== false);
 
   // 子トピック（parentTopicId あり）は親がリストに存在する場合はメインリストから非表示
   // 検索・ジャンルフィルター中は非表示にしない（検索で見つけられるように）

@@ -141,21 +141,27 @@ def lambda_handler(event, context):
         processed += 1
         articles_cache[tid] = articles
         ai_updates[tid] = {
-            'generatedTitle':    gen_title,
-            'generatedSummary':  gen_story['aiSummary']         if gen_story else None,
-            'spreadReason':      gen_story['spreadReason']       if gen_story else None,
-            'forecast':          gen_story['forecast']           if gen_story else None,
-            'storyTimeline':     gen_story['timeline']           if gen_story else None,
-            'storyPhase':        gen_story['phase']              if gen_story else None,
-            'summaryMode':       gen_story['summaryMode']        if gen_story else None,
-            'backgroundContext': gen_story.get('backgroundContext') if gen_story else None,
-            'background':        gen_story.get('background')     if gen_story else None,
-            'perspectives':      gen_story.get('perspectives')   if gen_story else None,
-            'outlook':           gen_story.get('outlook')        if gen_story else None,
-            'genres':            gen_story.get('genres')         if gen_story else None,
-            'genre':             gen_story['genres'][0]          if gen_story and gen_story.get('genres') else None,
-            'aiGenerated':       ai_succeeded,
-            'imageUrl':          ogp_url,
+            'generatedTitle':       gen_title,
+            'generatedSummary':     gen_story['aiSummary']           if gen_story else None,
+            'spreadReason':         gen_story['spreadReason']         if gen_story else None,
+            'forecast':             gen_story['forecast']             if gen_story else None,
+            'storyTimeline':        gen_story['timeline']             if gen_story else None,
+            'storyPhase':           gen_story['phase']                if gen_story else None,
+            'summaryMode':          gen_story['summaryMode']          if gen_story else None,
+            'backgroundContext':    gen_story.get('backgroundContext') if gen_story else None,
+            'background':           gen_story.get('background')        if gen_story else None,
+            'perspectives':         gen_story.get('perspectives')      if gen_story else None,
+            'outlook':              gen_story.get('outlook')           if gen_story else None,
+            'topicTitle':           gen_story.get('topicTitle')              if gen_story else None,
+            'latestUpdateHeadline': gen_story.get('latestUpdateHeadline')    if gen_story else None,
+            'topicCoherent':        gen_story.get('isCoherent', True)        if gen_story else None,
+            'topicLevel':           gen_story.get('topicLevel')              if gen_story else None,
+            'parentTopicTitle':     gen_story.get('parentTopicTitle')        if gen_story else None,
+            'relatedTopicTitles':   gen_story.get('relatedTopicTitles', []) if gen_story else None,
+            'genres':               gen_story.get('genres')          if gen_story else None,
+            'genre':                gen_story['genres'][0]            if gen_story and gen_story.get('genres') else None,
+            'aiGenerated':          ai_succeeded,
+            'imageUrl':             ogp_url,
         }
 
     elapsed = time.time() - start_time
@@ -170,21 +176,27 @@ def lambda_handler(event, context):
             for t in topics:
                 upd = ai_updates.get(t.get('topicId', ''))
                 if upd:
-                    if upd.get('generatedTitle'):            t['generatedTitle']   = upd['generatedTitle']
-                    if upd.get('generatedSummary'):          t['generatedSummary'] = upd['generatedSummary']
-                    if upd.get('spreadReason'):              t['spreadReason']     = upd['spreadReason']
-                    if upd.get('forecast'):                  t['forecast']         = upd['forecast']
-                    if upd.get('storyTimeline') is not None: t['storyTimeline']    = upd['storyTimeline']
-                    if upd.get('storyPhase'):                t['storyPhase']       = upd['storyPhase']
-                    if upd.get('summaryMode'):               t['summaryMode']      = upd['summaryMode']
-                    if upd.get('background'):                t['background']       = upd['background']
-                    if upd.get('perspectives') is not None:  t['perspectives']     = upd['perspectives']
-                    if upd.get('outlook'):                   t['outlook']          = upd['outlook']
+                    if upd.get('generatedTitle'):                        t['generatedTitle']          = upd['generatedTitle']
+                    if upd.get('generatedSummary'):                      t['generatedSummary']        = upd['generatedSummary']
+                    if upd.get('spreadReason'):                          t['spreadReason']            = upd['spreadReason']
+                    if upd.get('forecast'):                              t['forecast']                = upd['forecast']
+                    if upd.get('storyTimeline') is not None:             t['storyTimeline']           = upd['storyTimeline']
+                    if upd.get('storyPhase'):                            t['storyPhase']              = upd['storyPhase']
+                    if upd.get('summaryMode'):                           t['summaryMode']             = upd['summaryMode']
+                    if upd.get('background'):                            t['background']              = upd['background']
+                    if upd.get('perspectives') is not None:              t['perspectives']            = upd['perspectives']
+                    if upd.get('outlook'):                               t['outlook']                 = upd['outlook']
+                    if upd.get('topicTitle'):                            t['topicTitle']              = upd['topicTitle']
+                    if upd.get('latestUpdateHeadline'):                  t['latestUpdateHeadline']    = upd['latestUpdateHeadline']
+                    if upd.get('topicCoherent') is not None:             t['topicCoherent']           = upd['topicCoherent']
+                    if upd.get('topicLevel'):                            t['topicLevel']              = upd['topicLevel']
+                    if upd.get('parentTopicTitle'):                      t['parentTopicTitle']        = upd['parentTopicTitle']
+                    if upd.get('relatedTopicTitles') is not None:        t['relatedTopicTitles']      = upd['relatedTopicTitles']
                     if upd.get('genres'):
                         t['genres'] = upd['genres']
                         t['genre']  = upd['genres'][0]
-                    if upd.get('aiGenerated'):               t['aiGenerated']      = True
-                    if upd.get('imageUrl') and not t.get('imageUrl'): t['imageUrl'] = upd['imageUrl']
+                    if upd.get('aiGenerated'):                           t['aiGenerated']             = True
+                    if upd.get('imageUrl') and not t.get('imageUrl'):    t['imageUrl']                = upd['imageUrl']
             ts_iso = datetime.now(timezone.utc).isoformat()
             def _trim(t):
                 d = {k: v for k, v in t.items() if k not in _PROC_INTERNAL}
