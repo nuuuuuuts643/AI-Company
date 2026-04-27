@@ -22,6 +22,7 @@
 | 8 | **keyPoint 充填率 (success-but-empty 検出)** | `curl -s .../topics.json \| jq '[.topics[] \| select(.articleCount>=3) \| select(.keyPoint != null)] \| length'` ÷ `[.articleCount>=3]` 件数 | 70% 未満で警告 | `freshness-check.yml` ai_fields step (2026-04-28 追加) | 外部観測 |
 | 9 | **perspectives 充填率** | 同 SLI 8 で `.perspectives` を対象 | 60% 未満で警告 | `freshness-check.yml` ai_fields step | 外部観測 |
 | 10 | **background 充填率** | 同 SLI 8 で `.background` または `.backgroundContext` を対象 | 60% 未満で警告 | `freshness-check.yml` ai_fields step | 外部観測 |
+| 11 | **sitemap URL 到達性** | `news-sitemap.xml` から topics/{tid}.html を抽出し HEAD 200 を 5 件サンプリング | 1 件でも非 200 で警告 | `freshness-check.yml` sitemap_reach step (2026-04-28 schedule-task で追加) | 外部観測 |
 
 ---
 

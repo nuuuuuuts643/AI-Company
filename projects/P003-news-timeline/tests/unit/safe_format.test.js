@@ -7,7 +7,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
-const SF = require('../frontend/js/safe_format.js');
+const SF = require('../../frontend/js/safe_format.js');
 
 // ============================================================
 // fmtElapsed: 0/null/undefined/empty は必ず '' を返す

@@ -278,3 +278,91 @@ jobs:
           print(json.dumps({'text': text, 'username': 'Flotopic AI Fields Monitor', 'icon_emoji': ':warning:'}))
           ")
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
+
+      # =====================================================================
+      # sitemap URL 到達性チェック (SLI 11)
+      # 背景 (2026-04-28 schedule-task で発見): news-sitemap.xml に登録した
+      #     https://flotopic.com/topics/{tid}.html が 50/50 件 404 を返していた。
+      #     SPA + 静的HTML 二系統運用で、SLI 1〜10 が topics.json 系のみだったため
+      #     「sitemap に書いたが本物が無い」事故を物理ゲートで防げなかった。
+      # 仕組み: news-sitemap.xml から URL を抽出 → ランダム 5 件 HEAD 200 確認。
+      #         1 件でも非 200 で fail + Slack 通知。
+      # 失敗時の分岐:
+      #   - 全件 404 → 静的HTML 生成系の本番パイプライン断絶 (lifecycle 誤削除等)
+      #   - 一部 404 → CloudFront キャッシュ TTL 内に S3 削除 → 鮮度問題
+      # 関連: lessons-learned.md「監視に乗らない機能 (新機能の SLI 漏れ) なぜなぜ」
+      # =====================================================================
+      - name: sitemap URL 到達性チェック (SLI 11)
+        id: sitemap_reach
+        continue-on-error: true
+        shell: bash
+        env:
+          SITEMAP_URL: https://flotopic.com/news-sitemap.xml
+          SAMPLE_N: '5'
+        run: |
+          set -u
+          SITEMAP=$(mktemp)
+          if ! curl -fsS --max-time 30 "$SITEMAP_URL" -o "$SITEMAP"; then
+            echo "::warning::sitemap_reach: news-sitemap.xml 取得失敗"
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # <loc>...</loc> から URL を抽出 (最初に出てくるものから順に)
+          URLS=$(grep -oE 'https://flotopic.com/[^<]+' "$SITEMAP" | grep -E '/topics/[a-z0-9]+\.html' | sort -u | shuf | head -n "$SAMPLE_N")
+          if [ -z "$URLS" ]; then
+            echo "::warning::sitemap_reach: news-sitemap.xml に topics/ URL が無い"
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          OK=0
+          NG=0
+          NG_LIST=""
+          while IFS= read -r U; do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$U" || echo '000')
+            if [ "$CODE" = "200" ]; then
+              OK=$((OK+1))
+            else
+              NG=$((NG+1))
+              NG_LIST="$NG_LIST\n$U => $CODE"
+            fi
+          done <<< "$URLS"
+          TOTAL=$((OK+NG))
+          echo "### sitemap URL 到達性 (SLI 11)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- sample: $TOTAL / OK: $OK / NG: $NG" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$NG" -gt 0 ]; then
+            echo "- 詳細:" >> "$GITHUB_STEP_SUMMARY"
+            echo -e "$NG_LIST" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          {
+            echo "ok_count=$OK"
+            echo "ng_count=$NG"
+            echo "total=$TOTAL"
+            echo "ng_status=$([ "$NG" -gt 0 ] && echo broken || echo ok)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: sitemap URL 到達性 NG で警告 (Slack)
+        if: steps.sitemap_reach.outputs.ng_status == 'broken'
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          OK: ${{ steps.sitemap_reach.outputs.ok_count }}
+          NG: ${{ steps.sitemap_reach.outputs.ng_count }}
+          TOTAL: ${{ steps.sitemap_reach.outputs.total }}
+        shell: bash
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::warning::sitemap_reach NG: $NG/$TOTAL"
+            exit 0
+          fi
+          PAYLOAD=$(OK="$OK" NG="$NG" TOTAL="$TOTAL" python3 -c "
+          import json, os
+          text = (
+              '🚨 *Flotopic sitemap URL 到達性 NG (SLI 11)*\n'
+              f'• sample: {os.environ[\"TOTAL\"]} / OK: {os.environ[\"OK\"]} / NG: {os.environ[\"NG\"]}\n'
+              '• news-sitemap.xml に書いた topics/{tid}.html が 200 を返していない\n'
+              '• Google Search Console でクロールエラー多発 → Google News 信頼度低下リスク\n'
+              '• 対処: processor regenerateStaticHtml を invoke / S3 lifecycle ログ確認'
+          )
+          print(json.dumps({'text': text, 'username': 'Flotopic Sitemap Monitor', 'icon_emoji': ':rotating_light:'}))
+          ")
+          curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
