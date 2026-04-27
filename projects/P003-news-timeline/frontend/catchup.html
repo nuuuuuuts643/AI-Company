@@ -544,8 +544,9 @@ function getFilteredTopics() {
 
   return allTopics
     .filter(t => {
-      // 1件記事のスタブは非表示
+      // 1件以下 or AI判定で内容が乖離しているトピックは非表示
       if (parseInt(t.articleCount || 0) < 2) return false;
+      if (t.topicCoherent === false) return false;
       // lifecycleStatusフィルタ
       const lc = t.lifecycleStatus || 'active';
       if (!activeLCSet.has(lc)) return false;
