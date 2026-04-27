@@ -45,12 +45,34 @@ def lambda_handler(event, context):
         return {'statusCode': 200, 'body': json.dumps({'filled': filled})}
 
     # 特殊モード: 全トピックの AI を強制再生成 (新プロンプト適用のため・2026-04-27)
-    # 使い方: aws lambda invoke --function-name p003-processor --payload '{"forceRegenerateAll":true}' /tmp/r.json
-    # 注意: 1回のinvokeで MAX_API_CALLS 件のみ処理。complete までPOが複数回 invoke 必要
+    # 使い方:
+    #   コスト確認(dry_run): aws lambda invoke --function-name p003-processor --payload '{"forceRegenerateAll":true,"dryRun":true}' /tmp/r.json
+    #   実行:                aws lambda invoke --function-name p003-processor --payload '{"forceRegenerateAll":true}' /tmp/r.json
+    # コスト試算: Haiku 4.5 で 1 call ≈ $0.0023。110 トピック → ~$0.25。1回のinvokeで MAX_API_CALLS=200 件まで処理。
+    # 注意: 一度しか実行しないこと。繰り返すとコストが積み上がる。
     if event.get('forceRegenerateAll'):
         from proc_storage import force_reset_pending_all
+        if event.get('dryRun'):
+            # DynamoDB scan のみで件数を返す (リセットしない)
+            from proc_config import table
+            from boto3.dynamodb.conditions import Attr
+            count = 0
+            scan_kwargs = {
+                'FilterExpression': Attr('SK').eq('META') & Attr('articleCount').gte(2),
+                'Select': 'COUNT',
+            }
+            while True:
+                r = table.scan(**scan_kwargs)
+                count += r.get('Count', 0)
+                if not r.get('LastEvaluatedKey'):
+                    break
+                scan_kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
+            est_cost_usd = round(count * 0.0023, 3)
+            print(f'[Processor] forceRegenerateAll dryRun: {count} 件対象 → 推定コスト ${est_cost_usd} (Haiku 4.5 出力料金ベース)')
+            return {'statusCode': 200, 'body': json.dumps({'dryRun': True, 'targetCount': count, 'estimatedCostUsd': est_cost_usd})}
         reset_count = force_reset_pending_all()
-        print(f'[Processor] forceRegenerateAll: {reset_count} 件を pendingAI=True にリセット → 通常処理に流す')
+        est_cost_usd = round(reset_count * 0.0023, 3)
+        print(f'[Processor] forceRegenerateAll: {reset_count} 件を pendingAI=True にリセット → 推定コスト ${est_cost_usd}。通常処理ルートに合流して MAX_API_CALLS={int(MAX_API_CALLS)} 件まで処理')
         # リセット後は通常のスケジュール処理ルートに合流して MAX_API_CALLS まで処理
         # 続きは次回手動 invoke or 次回スケジュール (4x/day)で
 
