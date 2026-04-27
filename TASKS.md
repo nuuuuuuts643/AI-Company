@@ -28,8 +28,11 @@
 ~~| T205 | 高 | サムネイル付きカードでタイトルテキストが右端で見切れる |~~ → 実装済み確認（2026-04-27 コード監査）: commit `cd40c02` で `.card-body { flex:1; min-width:0; overflow:hidden }` が `style.css:413` に追加済み。TASKS.mdの更新が漏れていただけで修正は完了している。
 ~~| T204 | 🔴緊急 | ナオヤ手動: git push |~~ → 完了（2026-04-27 確認: main への push 済み）→ HISTORY.md
 
-| T216 | 中 | **グラフ長期ボタン（1ヶ月〜全期間）データなし期間はグレーアウト** — topic.html のトレンドグラフに「24h 3日 7日 1ヶ月 3ヶ月 半年 1年 全期間」ボタンが表示されているが、データ蓄積期間が短い段階ではクリックしても空グラフ＋「データ蓄積中」が出る。ユーザーには「壊れている」に見える。修正方法: グラフデータ取得後、各期間のデータ件数が0件のボタンは `disabled` + グレースタイルにする。実装場所: `frontend/js/chart.js` または `frontend/detail.js` のグラフ描画部分。 | `frontend/js/chart.js` または `frontend/detail.js` | 2026-04-27 |
-| T217 | 低 | **about.html 開発開始年の矛盾確認（ナオヤ確認必須）** — about.html 217行目「2025年に開発を開始し」とあるが、フッターの著作権表記は「© 2024-2026」。どちらが正しいかナオヤに確認して統一する。 | `frontend/about.html` | 2026-04-27 |
+~~| T216 | 中 | グラフ長期ボタン データなし期間グレーアウト |~~ → 確認済み完了（2026-04-27 コード監査）: detail.js:580-592 で `_RANGE_H` と `btn.disabled = true` による grayout が既実装。firstArticleAt から経過時間を計算しデータがない期間のボタンを disabled にしている。TASKS.mdの更新が漏れていただけで実装は完了。 → HISTORY.md
+| T217 | 低 | **about.html 開発開始年の矛盾確認（ナオヤ確認必須）** — about.html 217行目「2025年に開発を開始し」とあるが、フッターの著作権表記は「© 2024-2026」。git initial commit は 2026-04-20 で、P003 関連の最初のコミットは 2026-04-24。実態に合わせるなら「2026年に開発を開始し」「© 2026 Flotopic」が正しいが、ブランド判断のためナオヤ確認。 | `frontend/about.html` 全 footer html | 2026-04-27 |
+| T218 | 高 | **大規模トピック (articles>=15) で AI 未生成のものが存在** — 2026-04-27 19:50 JST 時点 topics.json 監査: 全111件中17件 (15.3%) が aiGenerated=False。うち「関東に再び雨雲」(articles=17)、「福島・喜多方市で山林火災発生」(articles=19) のような大規模トピックも含まれる。T213 の pending queue 4段階優先度（tier-0=topics.json可視）が実装されたが、これら大規模未AIトピックがなぜ Tier-0 で処理されていないか調査が必要。CloudWatch ログで proc_ai の処理ログを確認し、MAX_API_CALLS=200 の上限到達 or fallback 処理失敗 or DynamoDB 保存失敗のいずれかを特定する。 | `lambda/processor/proc_ai.py`, `lambda/processor/proc_storage.py`（要 finder 確認） | 2026-04-27 |
+| T219 | 中 | **storyPhase「発端」が94件中57件 (61%) — 過剰判定の可能性** — 2026-04-27 19:50 JST 時点 topics.json 監査: storyPhase 分布は 発端=57 / 拡散=23 / ピーク=10 / 現在地=4。新しい話題ほど「発端」になりがちなのは自然だが、過半数が「発端」になるとフェーズ分類の判別力が低い。根本原因: phase 判定プロンプトが「初出から24h以内=発端」のような時系列ベースになっている可能性。修正案: 関連記事の SNAP 数や velocity を見て「拡散」「ピーク」を積極判定するロジックに変更。AI プロンプトに「複数 SNAP にまたがる場合は『拡散』を優先」などのガイダンスを追加。 | `lambda/processor/proc_ai.py`（要 finder 確認） | 2026-04-27 |
+| T220 | 中 | **新3フィールド backgroundContext / perspectives / outlook が main 未マージで本番未反映** — 2026-04-27 19:50 JST 時点 topics.json 監査: 全111件で backgroundContext=0/perspectives=0/outlook=0。commit `b61ddd5: feat: AI要約に background/perspectives/outlook の3フィールドを追加`（branch claude/stupefied-lamarr-3b72a0）が main にマージされていない。マージすれば AI 要約の情報量が増え、ユーザー体験が向上する。マージ前にローカルでスナップ的にデプロイして動作確認 → main にマージ → frontend (detail.js) 側のレンダリング実装も必要。 | `lambda/processor/proc_ai.py`, `frontend/detail.js`, branch `claude/stupefied-lamarr-3b72a0` のレビュー | 2026-04-27 |
 
 ### 🎯 使いたくなるUX（「また来たい」動線）
 
@@ -59,8 +62,8 @@
 
 | ID | 優先 | 根拠 | 乖離内容 | 変更予定ファイル |
 |---|---|---|---|---|
-| 再T208 | 高 | commit `eba2f55/c472122/d5c7962` で「ダークモード全面リデザイン」を実施したが、ライトモード用明示的オーバーライドの更新が漏れ | `style.css:2663` の `[data-theme="light"] { --primary: #e74c3c; --primary-light: #fdf2f2; }` が赤のまま。`:root`はシアン`#4EC9C0`に統一済みだが、ユーザーが手動でライトモードに切り替えると `filter-btn.active` のアンダーライン・`kw-chip`テキスト色・各種ボーダー等が赤/コーラル色になる。修正: `--primary: #4EC9C0; --primary-light: rgba(78,201,192,0.12);` に変更。`kw-chip`の `color: #e74c3c` も `var(--accent)` に変更。 | `frontend/style.css` |
-| 再T160 | 低 | HISTORY.md に「T160 カードにAI要約スニペット50字表示」として完了記録。その後 commit `50a97a1` でFeaturedカードのスニペットを非表示に | 通常トピックカード（`renderTopicCard`）には現在スニペットなし（実装後に削除）。`style.css:467` に `.card-snippet` CSSクラスが残存するがHTMLで使われておらずデッドコード。実害なし。CSSクリーンアップのみ必要。 | `frontend/style.css` |
+~~| 再T208 | 高 | ライトモード上書きの赤色を青(シアン)系に統一 |~~ → 確認済み完了（2026-04-27 コード監査）: style.css:2479 と 2573 の `[data-theme="light"]` ブロックが両方とも `--primary: #4EC9C0; --primary-light: #e0fafa` に統一済み。kw-chip も `#1a9890` (cyan系)。`#e74c3c` は frontend 配下から検出されず。実装は別セッションが完了済みでTASKS.md側の更新が漏れていた。 → HISTORY.md
+~~| 再T160 | 低 | .card-snippet CSSデッドコード削除 |~~ → 完了（2026-04-27）: `style.css:469-477` の `.card-snippet` ブロックを削除しコメントに置換。HTMLからの参照は0件で純粋なクリーンアップ。 → HISTORY.md
 
 **コード監査で「完了とTASKS.mdに残っていたが実は実装済み」と判明したもの:**
 - **T205**: `cd40c02`で修正済み（`style.css:413` `.card-body { min-width:0 }`）→ TASKS.mdの行を上記で完了済みマークに変更済み
