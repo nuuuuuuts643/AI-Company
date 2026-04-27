@@ -90,4 +90,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0428-Z infra/frontend hardening (DDB TTL + Lambda 設定 + app.js 整理 + formatter test + schema doc) | Code | projects/P003-news-timeline/{frontend/app.js,frontend/js/formatters.js,deploy.sh,tests/}, docs/dynamodb-schema.md | 2026-04-28 08:20 | yes |
