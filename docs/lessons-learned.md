@@ -23,6 +23,7 @@
 - 2026-04-28 仕組み化タスクが起票だけで実装されない（メタ・schedule-task 構造ガード v3）
 - 2026-04-28 06 success-but-empty を AI 生成側に横展開できず keyPoint 充填率 11.5% を素通りした (SLI 粒度の構造欠陥)
 - 2026-04-28 06 docs/system-status.md と実測の数値齟齬 (スナップショット二重管理問題)
+- 2026-04-28 08 scheduled-task-protocol とナオヤ前提 §8 の矛盾（保留禁止 vs 効果見えない時は保留 OK）
 
 ---
 
