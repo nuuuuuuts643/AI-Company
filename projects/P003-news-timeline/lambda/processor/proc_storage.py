@@ -97,7 +97,8 @@ def get_pending_topics(max_topics=100):
         items = []
         still_pending = []
         # 全IDを走査。削除済み・処理済みIDを取り除く（上限なし）。
-        # 収集アイテム数がmax_topics*3を超えても走査を続け、削除済みIDの清掃は常に行う。
+        # キャップなしで全件収集してから優先度ソートすることで、
+        # pending_ai.json 先頭の古いIDが新トピックをブロックする問題（T213）を解消。
         for tid in pending_ids:
             try:
                 r = table.get_item(
@@ -107,8 +108,7 @@ def get_pending_topics(max_topics=100):
                 item = r.get('Item')
                 if item and needs_ai_processing(item):
                     still_pending.append(tid)
-                    if len(items) < max_topics * 3:
-                        items.append(item)
+                    items.append(item)
                 # 存在しないIDまたは処理済みIDはstill_pendingに追加しない（自動クリーンアップ）
             except Exception:
                 still_pending.append(tid)
@@ -125,8 +125,20 @@ def get_pending_topics(max_topics=100):
             except Exception as e:
                 print(f'[get_pending_topics] pending_ai.json 更新失敗: {e}')
 
-        # velocityScore 優先（急上昇中のホットトピックを先に処理）、同値時は score で補助
-        items.sort(key=lambda x: (float(x.get('velocityScore', 0) or 0), int(x.get('score', 0) or 0)), reverse=True)
+        # 3段階優先度ソート（T213修正）:
+        # 1. pendingAI=True: fetcherが新記事を検知してフラグを立てた → 最優先
+        # 2. aiGenerated=False: 一度もAI処理されていない → 次優先
+        # 3. imageUrl/storyTimeline等の欠損補完 → 最後
+        # 各グループ内は velocityScore DESC（急上昇中を先に）、同値時は score で補助
+        def _sort_key(x):
+            if x.get('pendingAI'):
+                priority = 0
+            elif not x.get('aiGenerated'):
+                priority = 1
+            else:
+                priority = 2
+            return (priority, -float(x.get('velocityScore', 0) or 0), -int(x.get('score', 0) or 0))
+        items.sort(key=_sort_key)
         return items[:max_topics]
 
     # フォールバック: DynamoDBスキャン
@@ -153,7 +165,11 @@ def get_pending_topics(max_topics=100):
         kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
 
     items = [it for it in items if needs_ai_processing(it)]
-    items.sort(key=lambda x: (float(x.get('velocityScore', 0) or 0), int(x.get('score', 0) or 0)), reverse=True)
+    items.sort(key=lambda x: (
+        0 if x.get('pendingAI') else (1 if not x.get('aiGenerated') else 2),
+        -float(x.get('velocityScore', 0) or 0),
+        -int(x.get('score', 0) or 0),
+    ))
 
     # 発見したIDをpending_ai.jsonに保存して次回スキャンを省略
     if S3_BUCKET and items:
@@ -186,7 +202,11 @@ def get_topics_by_ids(topic_ids):
                 items.append(item)
         except Exception as e:
             print(f'get_topics_by_ids error [{tid}]: {e}')
-    items.sort(key=lambda x: (float(x.get('velocityScore', 0) or 0), int(x.get('score', 0) or 0)), reverse=True)
+    items.sort(key=lambda x: (
+        0 if x.get('pendingAI') else (1 if not x.get('aiGenerated') else 2),
+        -float(x.get('velocityScore', 0) or 0),
+        -int(x.get('score', 0) or 0),
+    ))
     return items
 
 
