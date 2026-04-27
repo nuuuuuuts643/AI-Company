@@ -349,57 +349,59 @@ function renderDetail(data) {
       // ── full: 6件以上 → フル4セクション（従来通り）
       } else {
         // ① 何が起きたか
-        const sect1 = `
-          <div class="ai-section">
-            <div class="ai-section-label">① 何が起きたか</div>
-            <p class="ai-section-body">${esc(summary)}</p>
-          </div>`;
-        // ② なぜ起きたか（背景・構造的原因）
+        // 思想に沿った順序: 背景 → なぜ今 → 経緯 → 現在 → メディア間ズレ → 今後 (2026-04-27)
+        // ① なぜ起きたか (構造的背景)
         const sect2bg = backgroundContext ? `
           <div class="ai-section">
-            <div class="ai-section-label">② なぜ起きたか（背景・構造的原因）</div>
+            <div class="ai-section-label">📐 なぜ起きたか（構造的背景）</div>
             <p class="ai-section-body">${esc(backgroundContext)}</p>
           </div>` : '';
-        // ③ なぜ広がったか
-        const sect2 = spreadReason ? `
-          <div class="ai-section">
-            <div class="ai-section-label">${backgroundContext ? '③' : '②'} なぜ広がったか</div>
-            <p class="ai-section-body">${esc(spreadReason)}</p>
-          </div>` : '';
-        // ④ 今どの段階か（フェーズ進捗バー + タイムライン）
-        const beatsHtml = beats.length ? buildBeatsHtml(beats) : '';
-        const sect3 = (phaseBarHtml || beatsHtml) ? `
-          <div class="ai-section">
-            <div class="ai-section-label">${backgroundContext ? '④' : '③'} 今どの段階か</div>
-            ${phaseBarHtml}
-            ${originHtml}
-            ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
-          </div>` : '';
-        // ⑤ なぜ今この話題か (background ≠ backgroundContext: bg は時事文脈、bg-context は構造的)
+        // ② なぜ今この話題か (時事文脈)
         const sectBgNowF = background ? `
           <div class="ai-section">
             <div class="ai-section-label">📚 なぜ今この話題か</div>
             <p class="ai-section-body">${esc(background)}</p>
           </div>` : '';
-        // ⑥ メディア立場の違い (perspectives がある場合のみ)
+        // ③ なぜ広がったか
+        const sect2 = spreadReason ? `
+          <div class="ai-section">
+            <div class="ai-section-label">📡 なぜ広がったか</div>
+            <p class="ai-section-body">${esc(spreadReason)}</p>
+          </div>` : '';
+        // ④ 経緯 (タイムライン+フェーズ)
+        const beatsHtml = beats.length ? buildBeatsHtml(beats) : '';
+        const sect3 = (phaseBarHtml || beatsHtml) ? `
+          <div class="ai-section">
+            <div class="ai-section-label">⏱ 経緯と今どの段階か</div>
+            ${phaseBarHtml}
+            ${originHtml}
+            ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
+          </div>` : '';
+        // ⑤ 何が起きたか (現状サマリー) — 背景・経緯を踏まえた現在の状態
+        const sect1 = `
+          <div class="ai-section">
+            <div class="ai-section-label">📍 現状（何が起きているか）</div>
+            <p class="ai-section-body">${esc(summary)}</p>
+          </div>`;
+        // ⑥ メディア間のズレ (Flotopic 独自価値)
         const sectPerspF = perspectives ? `
           <div class="ai-section">
-            <div class="ai-section-label">📰 メディアの立場の違い</div>
+            <div class="ai-section-label">📰 メディアの見方のズレ</div>
             <p class="ai-section-body">${esc(perspectives)}</p>
           </div>` : '';
-        // ⑤ 今後どうなるか
+        // ⑦ 今後どうなるか
         const sect4 = forecast ? `
           <div class="ai-section ai-section-forecast">
-            <div class="ai-section-label">${backgroundContext ? '⑤' : '④'} 今後どうなるか <span class="ai-hypothesis-badge">仮説</span></div>
+            <div class="ai-section-label">🔮 今後どうなるか <span class="ai-hypothesis-badge">仮説</span></div>
             <p class="ai-section-body">${esc(forecast)}</p>
           </div>` : '';
-        // ⑥ 短い見通し (outlook: 1文。forecast がない時の補完、または併記)
+        // ⑧ 短い見通し (forecast の代わり)
         const sectOlF = (outlook && !forecast) ? `
           <div class="ai-section ai-section-forecast">
             <div class="ai-section-label">🔮 見通し <span class="ai-hypothesis-badge">仮説</span></div>
             <p class="ai-section-body">${esc(outlook)}</p>
           </div>` : '';
-        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2bg}${sectBgNowF}${sect2}${sectPerspF}${sect3}${sect4}${sectOlF}${trustFooterHtml}${storyNavHtml}</div>`;
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect2bg}${sectBgNowF}${sect2}${sect3}${sect1}${sectPerspF}${sect4}${sectOlF}${trustFooterHtml}${storyNavHtml}</div>`;
       }
 
       aiAnalysisEl.style.display = 'block';
