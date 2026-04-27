@@ -81,7 +81,7 @@ function _showFavLoginToast() {
   msg.textContent = '💾 ログインで別デバイスでも同期できます';
   const btn = document.createElement('button');
   btn.textContent = 'ログイン';
-  btn.style.cssText = 'background:#6366f1;color:#fff;border:none;border-radius:8px;padding:4px 12px;font-size:.8rem;cursor:pointer;font-weight:700;';
+  btn.style.cssText = 'background:#4EC9C0;color:#fff;border:none;border-radius:8px;padding:4px 12px;font-size:.8rem;cursor:pointer;font-weight:700;';
   btn.addEventListener('click', () => {
     if (typeof openAuthModal === 'function') openAuthModal();
     el.style.opacity = '0';
