@@ -8,15 +8,15 @@
   <script async src="https://adm.shinobi.jp/st/t.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>振り返る | Flotopic</title>
-  <meta name="description" content="あなたが離れていた間のニュースをまとめて確認。過去N日間の新着トピックを一覧表示。">
+  <meta name="description" content="直近のニュースをキャッチアップ。過去N日間に話題になったトピックを一覧で確認できます。">
   <meta property="og:title" content="振り返る | Flotopic">
-  <meta property="og:description" content="あなたが離れていた間に勃発・急上昇したトピックを優先表示。文脈をすばやく取り戻せます。">
+  <meta property="og:description" content="過去N日間に話題になったトピックを一覧で確認。ニュースの流れを素早くキャッチアップ。">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://flotopic.com/catchup.html">
   <meta property="og:image" content="https://flotopic.com/ogp.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="振り返る | Flotopic">
-  <meta name="twitter:description" content="あなたが離れていた間に勃発・急上昇したトピックを優先表示。文脈をすばやく取り戻せます。">
+  <meta name="twitter:description" content="過去N日間に話題になったトピックを一覧で確認。ニュースの流れを素早くキャッチアップ。">
   <meta name="twitter:image" content="https://flotopic.com/ogp.png">
   <link rel="canonical" href="https://flotopic.com/catchup.html">
   <link rel="manifest" href="/manifest.json">
@@ -367,7 +367,7 @@
     "@context": "https://schema.org",
     "@type": "WebPage",
     "name": "振り返る | Flotopic",
-    "description": "あなたが離れていた間に勃発・急上昇したトピックを優先表示。文脈をすばやく取り戻せます。",
+    "description": "過去N日間に話題になったトピックを一覧で確認。ニュースの流れを素早くキャッチアップ。",
     "url": "https://flotopic.com/catchup.html",
     "isPartOf": {"@type": "WebSite", "name": "Flotopic", "url": "https://flotopic.com"},
     "breadcrumb": {
@@ -428,11 +428,11 @@
   <p>この期間内に初めて出現したトピックをお届けします</p>
 
   <div class="period-selector" id="periodSelector">
-    <button class="period-btn" data-days="1">昨日（1日）</button>
-    <button class="period-btn active" data-days="3">3日ぶり</button>
-    <button class="period-btn" data-days="7">1週間ぶり</button>
-    <button class="period-btn" data-days="14">2週間ぶり</button>
-    <button class="period-btn" data-days="30">1ヶ月ぶり</button>
+    <button class="period-btn" data-days="1">過去1日</button>
+    <button class="period-btn active" data-days="3">過去3日</button>
+    <button class="period-btn" data-days="7">過去1週間</button>
+    <button class="period-btn" data-days="14">過去2週間</button>
+    <button class="period-btn" data-days="30">過去1ヶ月</button>
   </div>
 </div>
 
@@ -728,6 +728,14 @@ document.getElementById('loadMoreBtn').addEventListener('click', () => {
   await fetchTopics();
   render();
 })();
+
+// 3秒後に広告が読み込まれていなければad-slotを非表示
+setTimeout(() => {
+  document.querySelectorAll('.ad-slot').forEach(slot => {
+    const hasAd = Array.from(slot.querySelectorAll('.admax-ads')).some(el => el.childElementCount > 0);
+    if (!hasAd) slot.style.display = 'none';
+  });
+}, 3000);
 </script>
 <footer class="site-footer">
   <div class="site-footer-links">
