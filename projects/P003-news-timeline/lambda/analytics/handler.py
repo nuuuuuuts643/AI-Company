@@ -323,4 +323,37 @@ def lambda_handler(event, context):
             print(f'User summary error: {e}')
             return err(500, 'ユーザーサマリーの取得に失敗しました')
 
+    # ── GET /analytics/views/{topicId} ───────────────────────────
+    # 過去30分間の page_view 件数を返す
+    if len(parts) >= 3 and parts[1] == 'views':
+        topic_id = parts[2]
+        if not topic_id or len(topic_id) != 16 or not all(c in '0123456789abcdef' for c in topic_id):
+            return err(400, 'invalid topicId')
+
+        try:
+            table = dynamodb.Table(ANALYTICS_TABLE)
+            since = int(time.time()) - 1800  # 30分前
+
+            count = 0
+            scan_kwargs = {
+                'FilterExpression': (
+                    Attr('topicId').eq(topic_id) &
+                    Attr('eventType').eq('page_view') &
+                    Attr('timestamp').gte(since)
+                ),
+                'Select': 'COUNT',
+            }
+            while True:
+                result = table.scan(**scan_kwargs)
+                count += result.get('Count', 0)
+                last = result.get('LastEvaluatedKey')
+                if not last:
+                    break
+                scan_kwargs['ExclusiveStartKey'] = last
+
+            return resp(200, {'topicId': topic_id, 'views30m': count})
+        except Exception as e:
+            print(f'Views30m error: {e}')
+            return err(500, '閲覧数の取得に失敗しました')
+
     return err(404, 'not found')

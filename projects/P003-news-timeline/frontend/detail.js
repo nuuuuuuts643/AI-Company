@@ -31,6 +31,22 @@ function trackView(topicId) {
   }).catch(() => {});
 }
 
+async function fetchAndShowViews30m(topicId) {
+  if (!topicId || typeof _GW === 'undefined') return;
+  try {
+    const r = await fetch(`${_GW}/analytics/views/${topicId}`);
+    if (!r.ok) return;
+    const data = await r.json();
+    const count = data.views30m || 0;
+    if (count < 2) return;
+    const badge = document.getElementById('views30m-badge');
+    if (badge) {
+      badge.textContent = `👁 過去30分 ${count}人が閲覧`;
+      badge.style.display = '';
+    }
+  } catch {}
+}
+
 function updateOGP(meta) {
   const title   = meta.generatedTitle || meta.title || 'Flotopic';
   const rawDesc = cleanSummary(meta.generatedSummary) || '';
@@ -120,6 +136,7 @@ function renderDetail(data) {
   if (!meta) return;
 
   recordTopicView(meta);
+  fetchAndShowViews30m(meta.topicId);
   document.title = `${meta.generatedTitle||meta.title} | Flotopic`;
   updateOGP(meta);
 
