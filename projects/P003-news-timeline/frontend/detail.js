@@ -637,6 +637,13 @@ function renderDetail(data) {
     });
     allArticles.sort((a, b) => new Date(b._snapTs) - new Date(a._snapTs));
 
+    // 全スナップのarticlesが空の場合（旧形式SNAPまたはSNAP期限切れ）はタイムラインカードを非表示
+    if (!allArticles.length) {
+      const storyCard = storyEl && storyEl.closest('.card');
+      if (storyCard) storyCard.style.display = 'none';
+      // related-articlesは後続ロジック(candidates=[])で自動的に非表示になる
+    }
+
     const totalCount = allArticles.length;
     let timelineOrder = 'desc';
     const fmtTl = (ts) => {
