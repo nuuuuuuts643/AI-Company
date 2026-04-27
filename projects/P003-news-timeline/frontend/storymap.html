@@ -136,6 +136,19 @@
     }
     .sm-branch-card-count { font-size: .7rem; color: #94a3b8; }
     .sm-branch-card-date  { font-size: .7rem; color: #94a3b8; }
+    .sm-branch-card-summary {
+      font-size: .76rem; line-height: 1.55; color: var(--text-secondary, #64748b);
+      margin: -2px 0 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    [data-theme="dark"] .sm-branch-card-summary { color: #94a3b8; }
+    .sm-branch-card-phase {
+      font-size: .68rem; font-weight: 600;
+      color: var(--accent, #4EC9C0);
+      background: rgba(78,201,192,0.08);
+      padding: 1px 7px; border-radius: 999px;
+    }
+    [data-theme="dark"] .sm-branch-card-phase { background: rgba(78,201,192,0.14); }
 
     /* Active line accent */
     .sm-branch-card.is-active { border-left: 3px solid var(--accent-cyan); }
@@ -401,7 +414,7 @@ function statusLabel(status) {
   return '';
 }
 
-function renderBranchCard(t, showStatus, idx) {
+function renderBranchCard(t, showStatus, idx, totalCount) {
   const title = t.generatedTitle || t.title || '';
   const count = parseInt(t.articleCount || 0, 10);
   const ago   = fmtAgo(t.lastArticleAt || t.lastUpdated || 0);
@@ -410,15 +423,32 @@ function renderBranchCard(t, showStatus, idx) {
   const status = t.lifecycleStatus || '';
   const entities = extractEntities(title).slice(0,2);
   const entityHtml = entities.map(e => `<span class="sm-entity-tag">${esc(e)}</span>`).join(' ');
+  // 順序ラベル: 1/N → 2/N → … でストーリーの流れを明示する
+  const ordinalHtml = (typeof idx === 'number')
+    ? `<span style="font-size:.62rem;font-weight:800;color:var(--accent,#4EC9C0);background:rgba(78,201,192,.12);padding:2px 7px;border-radius:999px;margin-right:5px;letter-spacing:.04em;">#${idx + 1}${totalCount ? `/${totalCount}` : ''}</span>`
+    : '';
   const stepLabel = idx === 0 ? '発端' : (status === 'active' ? '継続中' : status === 'cooling' ? '収束' : '');
-  const stepHtml = stepLabel ? `<span style="font-size:.6rem;font-weight:700;color:#4EC9C0;background:rgba(78,201,192,.1);padding:1px 6px;border-radius:999px;margin-right:4px;">${stepLabel}</span>` : '';
+  const stepHtml = stepLabel ? `<span style="font-size:.6rem;font-weight:700;color:var(--accent,#4EC9C0);background:rgba(78,201,192,.1);padding:1px 6px;border-radius:999px;margin-right:4px;">${stepLabel}</span>` : '';
+  // 1行要約: AI 生成済みなら最初の 60 字。これだけで「中身ぼ何か」が一目で分かる
+  const rawSummary = (t.generatedSummary || '').replace(/\s+/g, ' ').trim();
+  const summaryClamp = rawSummary
+    ? `<p class="sm-branch-card-summary">${esc(rawSummary.length > 60 ? rawSummary.slice(0, 60) + '…' : rawSummary)}</p>`
+    : '';
+  // storyPhase: 子カードでも段階を視認できるように
+  const _PHASE_BADGE = { '発端':'🌱', '拡散':'📡', 'ピーク':'🔥', '現在地':'📍', '収束':'✅' };
+  const phaseLabelMap = { '発端':'始まり', '拡散':'広まってる', 'ピーク':'急上昇', '現在地':'進行中', '収束':'ひと段落' };
+  const phaseHtml = t.storyPhase
+    ? `<span class="sm-branch-card-phase">${_PHASE_BADGE[t.storyPhase] || ''} ${esc(phaseLabelMap[t.storyPhase] || t.storyPhase)}</span>`
+    : '';
 
   return `
     <a href="topic.html?id=${esc(t.topicId)}" class="sm-branch-card ${statusClass(status)}">
-      <div class="sm-branch-card-title">${stepHtml}${esc(title)}</div>
+      <div class="sm-branch-card-title">${ordinalHtml}${stepHtml}${esc(title)}</div>
+      ${summaryClamp}
       ${entityHtml ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">${entityHtml}</div>` : ''}
       <div class="sm-branch-card-foot">
         <span class="sm-branch-card-count">📄 ${count}件</span>
+        ${phaseHtml}
         ${startAgo ? `<span class="sm-branch-card-date">開始 ${esc(startAgo)}</span>` : ''}
         ${ago && ago !== startAgo ? `<span class="sm-branch-card-date">最新 ${esc(ago)}</span>` : ''}
       </div>
@@ -493,10 +523,11 @@ function renderStorymap(parent, allTopics) {
   } else {
     const visible   = children.slice(0, SHOW_INITIAL);
     const hidden    = children.slice(SHOW_INITIAL);
-    const cardsHtml = visible.map((t, i) => renderBranchCard(t, true, i)).join('');
+    const total     = children.length;
+    const cardsHtml = visible.map((t, i) => renderBranchCard(t, true, i, total)).join('');
     const hiddenHtml = hidden.length > 0
       ? `<div id="sm-hidden-branches" style="display:none;">
-           <div class="sm-branch-grid">${hidden.map(t => renderBranchCard(t, true)).join('')}</div>
+           <div class="sm-branch-grid">${hidden.map((t, i) => renderBranchCard(t, true, SHOW_INITIAL + i, total)).join('')}</div>
          </div>
          <button class="sm-show-more" onclick="document.getElementById('sm-hidden-branches').style.display='block';this.style.display='none';">
            ▼ さらに ${hidden.length}件の分岐を見る
