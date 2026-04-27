@@ -1,601 +1,133 @@
 # ⚡ セッション開始時に必ず最初に実行すること
 
-Claude Codeセッションを開始したら、何も聞かずに以下を順番に実行する。
-
 ```bash
-# 1. git lockファイルがあれば削除
-rm -f /Users/OWNER/ai-company/.git/index.lock
+# 1. git lock を退避（FUSEで rm 不可な環境では mv で _garbage に逃がす）
+mkdir -p /Users/OWNER/ai-company/.git/_garbage
+mv /Users/OWNER/ai-company/.git/index.lock /Users/OWNER/ai-company/.git/_garbage/ 2>/dev/null
+mv /Users/OWNER/ai-company/.git/HEAD.lock /Users/OWNER/ai-company/.git/_garbage/ 2>/dev/null
 
-# 2. 未コミットの変更を全てコミット＆push
+# 2. 同期
 cd /Users/OWNER/ai-company
-git add -A
-git commit -m "chore: sync $(date '+%Y-%m-%d %H:%M')" || echo "nothing to commit"
-git pull --rebase origin main || echo "rebase failed, continuing"
-git push || echo "push failed, continuing"
+git add -A && git commit -m "chore: sync $(date '+%Y-%m-%d %H:%M')" || true
+git pull --rebase origin main || true
+git push || true
 
-# 3. CLAUDE.md の変更を検知（変更あれば「再読必須」警告が出る）
+# 3. CLAUDE.md の変更検知
 git log --oneline -5 -- CLAUDE.md
 ```
 
-- `git log --oneline -5 -- CLAUDE.md` に今日の日付のコミットが表示された場合 → **CLAUDE.md の冒頭〜「絶対ルール」セクションまでを全文再読してから続行する（スキップ禁止）**
-- エラーが出ても止まらず最後まで実行する
-- 完了後に「✅ 起動チェック完了」と報告する。
+直近の CLAUDE.md commit があれば本ファイルを再読してから続行する。完了後「✅ 起動チェック完了」と報告。
 
-## ⚡ 起動後の自動タスク実行（2026-04-28 制定）
+---
 
-起動チェック完了後、**ユーザーの指示を待たずに**以下を実行する：
+## ⚡ 起動後の自動タスク実行
 
-```bash
-cat /Users/OWNER/ai-company/TASKS.md
-```
+`cat /Users/OWNER/ai-company/TASKS.md` → 状態が「未着手」のタスクを優先度順で実行する。
 
-TASKS.mdを読み、**ステータスが未着手のタスクを優先度順に上から実行する**。
+各タスクで以下を順守:
 
-### タスク実行の必須手順（スキップ禁止）
-
-1. **WORKING.mdのstaleチェック**: 開始JSTから8時間超のエントリーを削除する
-2. **WORKING.mdに自分のエントリーを追記してからコードに触る**:
+1. **WORKING.md の stale (8h 超) を削除**
+2. **WORKING.md に自分の行を追記してから push**（記載なしでコード変更禁止 — 物理ルール）
    ```
-   | [Code] <タスクID> <タスク名> | Code | <変更予定ファイル> | <開始JST> |
+   | [Code|Cowork] <タスクID> <タスク名> | <種別> | <変更予定ファイル> | <開始JST> |
    ```
-   → 追記したら即 `git add WORKING.md && git commit -m "wip: <タスク名>" && git push`
 3. **実装する**
-4. **完了したらWORKING.mdから自分の行を削除**し `git add -A && git commit -m "done: <タスクID>" && git push`
+4. **完了したら WORKING.md から自分の行を削除し commit & push**
 
-> **WORKING.mdへの記載なしにコードを1行も変更してはいけない。これは物理的なルール。**
-> 記載を忘れた場合: 変更をstashし、WORKING.mdに記載してからunstashして再開する。
+POから新指示があれば優先。未着手なし → 「タスクなし、待機中」と報告して待機。
 
-- POからの新しい指示がある場合はそちらを優先する
-- TASKS.mdに未着手タスクがなければ「タスクなし、待機中」と報告してから待つ
+---
 
-## ⚡ 絶対に守る実装安全ルール（2026-04-27 改訂・単一チャット運用前提）
-
-> POからの指示は単一チャットで来る (セッションは切れることがある)。並行セッション制御は仕組みで担保し、ルールは最低限に。
+## ⚡ 絶対ルール（最低限・全プロジェクト共通）
 
 | ルール | 内容 |
 |---|---|
-| **scriptタグdefer/async禁止** | chart.js / config.js / app.js / detail.js のscriptタグにdefer/asyncを付けない。実行順序依存があるため。Lighthouse最適化でも例外なし。CIで物理ブロック (content-drift-guard ジョブ) |
-| **変更前に副作用確認** | コード変更前に「このファイルが何に依存されているか」を言語化してから変更する。確認できなければ変更しない |
-| **完了=動作確認済み** | 「pushした」は完了ではない。フロント=本番URL目視確認、Lambda=CloudWatchエラーなし確認が完了の定義。**done.sh に `lambda:<fn>` / `url:<https>` / `topic-ai:<id>` の verify_target を渡せば自動検証 (T39 後続)** |
-| **なぜなぜ分析は自発的に** | 問題発生時は指摘前に Why1〜Why5 構造化分析を実施しCLAUDE.mdに追記する。「甘かった」の一言総括禁止。**仕組み的対策3つ以上 + 実装済み証跡を含める。テーブル1行追記は再発防止と呼ばない** |
-| **新規 formatter 追加時 boundary test 必須** | 0/null/undefined/NaN/未来日付を全部 assert する unit test を同 commit で書く。`tests/safe_format.test.js` をテンプレに。CI 落ちる仕組みで物理担保 |
-| **Cowork git操作ルール（2026-04-28 改訂）** | Cowork セッションも git コマンドを実行してよい。ただし push 前に必ず `rm -f .git/index.lock .git/HEAD.lock` を実行してから git add/commit/push する。これにより Cowork が完結した作業を即 push できる。Codeセッションとの衝突はlock削除で解消する。 |
+| **完了 = 動作確認済み** | push しただけは未完了。フロント=本番URL目視 / Lambda=CloudWatchエラーなし。`done.sh <task_id> <verify_target>` で自動検証 |
+| **Verified 行 commit 必須** | `feat:` `fix:` `perf:` の commit には `Verified: <url>:<status>:<JST_timestamp>` 行を含める。pre-commit hook で物理ゲート (`scripts/git-hooks/pre-commit`)。`scripts/verified_line.sh <url>` でヘルパ |
+| **変更前に副作用確認** | 「このファイルが何に依存されているか」を声に出す。言えなければ変更しない |
+| **同名ファイル並行編集禁止** | WORKING.md 宣言なしで触らない |
+| **scriptタグ defer/async 禁止** | chart.js / config.js / app.js / detail.js。CI で物理ブロック |
+| **新規 formatter は boundary test 同梱** | 0/null/undefined/NaN/未来日付を全部 assert |
+| **PII / secrets コード直書き禁止** | env var か AWS Secrets Manager 必須 |
+| **対症療法ではなく根本原因** | 足回りで誤魔化さない。band-aid (lenient parsing 等) より API 設計修正 |
+| **なぜなぜ分析は構造化** | 問題発生時 Why1〜Why5 + 仕組み的対策 3 つ以上を `docs/lessons-learned.md` に追記。テーブル 1 行追記は再発防止と呼ばない。仕組み的対策には「外部観測」「物理ゲート」を最低 1 つ含める |
+| **Lambda 主ループ wallclock guard 必須** | 外部 API 呼び出しを伴うループは `context.get_remaining_time_in_millis()` で残り時間を測り break。回数ベース上限と時間予算を整合させる |
+| **新規外部システム統合の3ステップ** | ①公式ドキュメント通読 ②外部が独立に読みに来る全ファイルをリスト化 ③全部実装→外部管理画面で「Verified」確認 してから完了宣言 |
+| **CLAUDE.md は 250 行以内** | CI で物理ガード。超えたら `docs/lessons-learned.md` / `docs/rules/` / `docs/system-status.md` に外出しする |
+| **タスクID 採番** | `bash scripts/next_task_id.sh` で取得。日付ベース ID で衝突防止。CI で重複検出 |
+| **deploy.sh は直接実行しない** | デプロイは GitHub Actions 任せ。インフラ新規作成のみ例外でPO確認 |
 
 ---
 
-## ⚡ 作業前後ルール（2026-04-27 簡素化・単一チャット）
+## ⚡ 完了の流れ
 
-**タスク開始前：**
-```bash
-git pull --rebase origin main
-git log --oneline -5 -- CLAUDE.md   # 直近の変更があれば該当箇所を確認
-```
-
-**タスク完了後：**
-1. 完了タスクを HISTORY.md に追記 (CLAUDE.md には1行痕跡)
-2. `bash done.sh <task_id> [verify_target]` で動作確認込みで完了処理
-3. `git add -A && git commit && git push` (done.sh が実施)
-
-## 完了済みタスク管理ルール
-- 完了直後に HISTORY.md へ移動（時間を置かない）。CLAUDE.md には `→ HISTORY.md 移動済み HH:MM JST` の1行痕跡のみ残す
-- HISTORY.md は削除禁止（唯一の完了履歴。append フォーマット: `### 完了済み（日付）` ブロック末尾追記）
-- CLAUDE.md に蓄積するとコンテキスト窓圧迫で機能不全になるため即移動が必須
-
-## ⚠️ 品質改善の進め方（2026-04-26 制定）
-
-> finder・implementer どちらのロールも、この順番で動く。コードを先に見ない。
-
-**ステップ1: プロダクト品質チェック（ユーザー目線）**
-- スマホとPC（Web）の両軸でサイトを見る
-- 「このサービスを初めて使うユーザーが戸惑う点はどこか？」を列挙する
-- 「機能として動いているか」ではなく「使えるか・信頼できるか」を判断軸にする
-- UI要素の意味が伝わるか・フィルターが正確か・AI品質が均一かを確認する
-
-**ステップ2: 根本原因分析**
-- ステップ1で見つけた問題のコード上の原因を特定する
-- 「どこの何行目がなぜこうなっているか」まで掘り下げる
-- **実際のユーザー環境（モバイル・低速回線・CDN遅延・トークン期限切れ等）を想定した原因仮説を3つ以上列挙し、最も可能性の高いものを選んでから修正に入る**（症状だけを見て最初に思いついた原因で即修正すると、T162→T178のようなバグ再発ループに陥る）
-
-**ステップ3: 影響範囲確認**
-- その問題がPC/スマホのどのページ・どのユーザー行動に影響するか確認する
-
-**ステップ4: タスク記述（finderのみ）**
-- TASKS.mdに書く前に必ず「過去の設計ミスパターン」「バグ再発防止ルール」の両テーブルを全行確認する
-- 提案する修正方法がこれらのルールに違反していないか照合してから書く
-- 「フォールバック」「既存データ再利用」「RSS/外部データ信頼」を含む修正は特に慎重に
-- 違反する修正案は書かない。代替案のみを記述する
-
-**ステップ5: 修正（implementerのみ）**
-- 修正前にタスク記述の修正方法が「過去の設計ミスパターン」「バグ再発防止ルール」に違反していないか確認する
-- finder は TASKS.md に「根本原因・影響範囲・修正方法」を記録して終了
-- implementer は修正後に必ずステップ1に戻って確認する
+1. 完了タスクを `HISTORY.md` に追記。CLAUDE.md には1行痕跡のみ
+2. `bash done.sh <task_id> <verify_target>` で動作確認込みで完了処理
+3. commit メッセージに `Verified: <url>:<status>:<timestamp>` 行を含める
 
 ---
 
-## ⚠️ 設計・実装の根本ルール（2026-04-26 制定）
+## ⚡ 規則の置き場所（責務別 4 ファイル）
 
-> **「実装した」≠「動いている」。この前提がなければすべての機能は"理論上動く"状態で出荷される。**
-
-新機能を実装したら以下を必ず実施してから完了とする：
-
-1. **CloudWatchで実際のエラーログを確認**（エラーがないこと）
-2. **ユーザー視点でUIを直接操作**（管理者画面ではなく実際の画面を触る）
-3. **「時間が経ってから使う」ケースもテスト**（トークン期限切れ・キャッシュ等）
-4. **設計の前提を声に出して検証する**：例：「Google News検索フィード = ジャンル精選された記事が来る」→ 本当にそうか？ → 実際にフィードを取得して確認
-
-実装が機能の完成ではない。**実際にエンドユーザーが使えて初めて完了**。
-
-### 過去の設計ミスパターン（再発させない）
-
-| 機能 | 設計の前提（間違い） | 実際 |
-|---|---|---|
-| ジャンル分類 | Google News検索フィード = ジャンル精選記事 | Googleが別ジャンルの記事を混入 |
-| アフィリエイト | ニュース見出し = 商品検索クエリ | 「肝臓がんリスク」でAmazon検索になる |
-| Slack通知 | secret名が合っているはず | `SLACK_WEBHOOK_URL` vs `SLACK_WEBHOOK`でずっと404 |
-| Bluesky投稿 | S3_BUCKETは設定済みのはず | 未設定で一度も投稿できていなかった |
-| コメント削除 | 投稿直後に削除するはず | Googleトークン1時間失効後の削除を想定していなかった |
-| T116 RSSフォールバック | dominant_genres()スコアなし→article.genre(RSSフィード値)をフォールバックに使った | Google NewsのRSSはジャンル混在が既知問題。テクノロジークエリで取得した政治記事がgenre='テクノロジー'を持つため、フォールバックすると誤分類が確定してしまう。→ 総合に戻すのが正解 |
-| アフィリエイト配置（T206） | 「この話題をもっと知る」セクションにAmazon商品リンクを出せば収益になる | ニュース閲覧中のユーザーは商品を買いに来ていない。災害・事件記事でAmazon商品リンクが出ると信頼を損なう。**ニュース文脈でアフィリエイトを置く前に「このトピックで商品購入が自然か」を必ず確認する。** 「この話題をもっと知る」は関連トピックリンクに使う。アフィリエイトは「関連商品」として別セクションで明示する。 |
-| **ads.txt AdSense 行欠落（2026-04-27 発覚）** | AdSenseのpub-IDがindex.htmlのscriptタグにあるからads.txtも自動で読まれるはず | ads.txt は Google が独立にクロールする別ファイル。`google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0` 形式の行が無いと AdSense ステータスが「不明」のまま審査が通らない（commit `93837fb` で修正済み）。**5段階なぜなぜ・対策は下記「ads.txt欠落 なぜなぜ分析」セクション参照** |
-
----
-
-### なぜなぜ分析を「忘れる」現象自体のなぜなぜ（2026-04-27 制定・メタ事象）
-
-**起きたこと**: ads.txt 事件のなぜなぜ分析を私（Claude）が要求された時、テーブル1行追記で済ませて Why1〜Why5 構造化分析を書かなかった。POから「ちゃんとなぜなぜやったんだろうな？」と指摘されて初めてやり直した。
-
-| Why | 答え |
+| ファイル | 内容 |
 |---|---|
-| **Why1** なぜテーブル1行で済ませた？ | 「再発防止ルール=表に1行追記」という浅い解釈で完了とみなしてしまった |
-| **Why2** なぜそんな浅い解釈をした？ | CLAUDE.md の「再発防止ルール」テーブル形式を見て、これに1行加えれば形式的に整うと判断した。なぜなぜ分析の構造化(Why1〜Why5)が必須要件だと内面化していなかった |
-| **Why3** なぜ内面化していなかった？ | 既存ルールの記述が「なぜなぜ分析を実施しCLAUDE.mdに追記する」と緩く、「Why1〜Why5構造で」と明示的に書かれていなかった。構造化を省略しても規則違反に見えなかった |
-| **Why4** なぜ規則がそう緩く書かれていた？ | 過去のCLAUDE.md整備時には「なぜなぜしろ」が暗黙に「5段階で構造化しろ」を含むという前提だった。だが LLM (私) はその暗黙前提を読めず、表面的な解釈で動く |
-| **Why5** なぜLLM特有の挙動への対応が漏れていた？ | CLAUDE.md は人間運用前提で書かれ、LLMが規則を文字通り狭く解釈する性質に対する明示的なガード(「形式的に1行追記は再発防止と呼ばない」など) が組み込まれていなかった |
+| `CLAUDE.md` (本ファイル) | 起動チェック・絶対ルール（250 行以内） |
+| `docs/lessons-learned.md` | なぜなぜ事例集（append-only・Why1〜Why5 + 仕組み的対策） |
+| `docs/system-status.md` | プロジェクト状態スナップショット（毎セッション必読） |
+| `docs/rules/bug-prevention.md` | 再発防止ルール表（パターン×ルール） |
+| `docs/rules/design-mistakes.md` | 設計ミスパターン集 |
+| `docs/rules/quality-process.md` | 品質改善の進め方（finder/implementer 共通） |
+| `docs/rules/user-context-check.md` | 実装前ユーザー文脈チェック（4つの問い） |
+| `docs/flotopic-vision-roadmap.md` | プロダクトビジョン |
 
-**仕組み的な対策（「気をつける」ではなく仕組みで防ぐ）:**
-
-1. **CLAUDE.md ルール明文化 (実施済み・本コミット)**: 「再発防止ルール追記=Why1〜Why5構造+仕組み的対策が揃って初めて再発防止」「テーブル1行追記は再発防止ではない」を明記
-2. **構造テンプレート提示**: 既存事例 (ads.txt欠落・本セクション) を CLAUDE.md に複数残しておくことで、LLMが形式を真似しやすくする
-3. **チェックリスト化**: 再発防止 commit の前に自問する 4 項目:
-   - □ Why1〜Why5 を全部書いたか
-   - □ 各 Why に対して具体的な答えがあるか（「気を付ける」「注意する」は答えではない）
-   - □ 仕組み的な対策を3つ以上書いたか（CLAUDE.mdルール追加・CIチェック・テンプレ等）
-   - □ 「次に同じ事象が起きた時、この対策で本当に防げるか」を声に出して検証したか
+タスク開始時に上 4 つを確認し、必要に応じて他を参照する。
 
 ---
 
-### ads.txt 欠落 なぜなぜ分析（2026-04-27 制定）
+## ⚡ Cowork ↔ Code 連携ルール
 
-**起きたこと**: AdSense管理画面で「ads.txt: 不明」のまま審査が止まっていた。原因は ads.txt に AdSense の pub-id 行 (`google.com, pub-6754575901141756, DIRECT, f08c47fec0942fa0`) が無かったこと。本番には忍者AdMaxの行のみ存在。
+両方が同一リポジトリに git push する。役割分担:
 
-| Why | 答え |
-|---|---|
-| **Why1** なぜ AdSense ステータスが「不明」のままだった？ | ads.txt に AdSense の pub-id 行が無かった。Googleはads.txtを独立にクロールしてpub-id宣言を確認するため、行が無ければ宣言不存在となる |
-| **Why2** なぜ ads.txt に必要な行が無かった？ | AdSense を index.html に組み込んだ時 (script タグ追加した時)、ads.txt を一緒に更新しなかった |
-| **Why3** なぜ script タグだけ追加して ads.txt を更新しなかった？ | 「pub-id を script に書けば AdSense は自動的に読みに来る」と勘違いしていた。ads.txt が独立ファイルで Google が別途クロールする仕様を理解していなかった |
-| **Why4** なぜそれを理解していなかった？ | 広告ネットワーク統合の手順チェックリストが存在しなかった。新規ベンダー追加時に「①公式ドキュメントを通読 ②必要ファイル全部リスト化 ③全部実装してから完了宣言」というルールが無かった |
-| **Why5** なぜそういうルールが無かった？ | 広告ネットワーク統合は P003 で初めての種類のタスクだった。「新規外部システム統合」を一般化したルールが CLAUDE.md に存在せず、その都度の場当たり対応になっていた |
+**Code（Claude Code/CLI）**:
+- `lambda/` `frontend/` `scripts/` `.github/` のコード変更
+- テスト実行・Lambda 手動 invoke・デプロイ確認
+- TASKS.md ステータス更新（実装完了後）
 
-**仕組み的な対策（「気をつける」ではなく仕組みで防ぐ）:**
+**Cowork（スマホ/デスクトップアプリ）**:
+- `CLAUDE.md` `WORKING.md` `TASKS.md` `HISTORY.md` のドキュメント更新
+- CloudWatch 確認・S3 データ参照・ステータス報告
+- POとの会話・分析・計画立案
+- コードファイル編集も可（WORKING.md 明記してから）
+- git 操作も可（push 前に lock 退避: `mv .git/*.lock .git/_garbage/`）
 
-1. **新規外部システム統合時の必須3ステップ（CLAUDE.md ルール追加）:**
-   - **STEP1: 公式ドキュメント通読** — Anthropic, AdSense, AdMax, Bluesky 等の公式統合ドキュメントを最初から最後まで読む。「実装ガイド」「チェックリスト」「Verification」セクションを必ず確認
-   - **STEP2: 必須ファイル全リスト化** — 「index.html scriptタグ」「ads.txt」「robots.txt」「manifest.json」「policy.html」「security.txt」「sitemap.xml」など、外部システムが読みに来る全ファイルをリスト化
-   - **STEP3: 全部実装→外部管理画面で「Verified」確認**してから完了宣言
-
-2. **CI チェック追加候補（将来 PR で追加）:**
-   - `index.html` の `client=ca-pub-XXXXXX` から pub-id を抽出 → `ads.txt` に `google.com, pub-XXXXXX, DIRECT, f08c47fec0942fa0` 形式の行があるかチェック
-   - 同様に忍者AdMax `data-shinobi-id` 等もチェック
-
-3. **同種の「外部システムが独立に読みに来るファイル」を一覧化:**
-   - **広告関連**: ads.txt, app-ads.txt
-   - **検索エンジン関連**: robots.txt, sitemap.xml, llms.txt, llms-full.txt
-   - **PWA**: manifest.json, sw.js
-   - **検証ファイル**: google-site-verification, microsoft-search-verification 等の所有権確認 HTML
-   - **セキュリティ**: security.txt (RFC 9116), .well-known/
-   - これらを変更/追加する際は、外部の管理画面 (Search Console, AdSense, Bing Webmaster) で「認識された/Verified」を必ず確認
+> Cowork が実装〜push まで完結できる構造。lock 退避で競合を回避する。
 
 ---
 
-### クラスタリング過分割 なぜなぜ分析（2026-04-27 制定）
+## ⚡ Team Operating Rules
 
-**起きたこと**: ユーザー指摘「追加情報がトピックになってる。ストーリーではなく」「全記事トピックにしてる感」。実測で 78%(90/114) のトピックが 2-3 件しかなく、本来 1 ストーリーで追えるべき派生記事 (例: 北海道地震本体 と JR北海道運転見合わせ) が別トピックに分裂。Flotopic の核心価値「ストーリーで追える」が機能していない。
+**完了条件**: build/compile 通過 + 主要機能動作確認 + 全テストパス + フロントは本番 URL で目視 + Verified 行付き commit。
 
-| Why | 答え |
-|---|---|
-| **Why1** なぜ 78% が 2-3 件トピック？ | cluster_utils.py の閾値 (`JACCARD_THRESHOLD=0.35` / `_CHUNK_THRESHOLD=0.30`) が「同じ事象の派生」を別トピックと判定する。北海道地震 vs JR北海道運転見合わせ は共有 entity 数 2 / 統合 8 = 0.25 で 0.30 を下回り別トピック化される |
-| **Why2** なぜ閾値がそんなに厳しい？ | 過去に「異なる人名で別事件が誤マージ」事故を防ぐため高めに設定された経緯。エンティティパターン+主語チェックも入った今は緩めても安全だが再評価していない |
-| **Why3** なぜ閾値の再評価がされていない？ | クラスタリング品質を「マージ過剰 vs 分割過剰」のメトリクスで定量化する仕組みがない。目視で気づいてもログに残らず体感ベースで放置 |
-| **Why4** なぜ品質メトリクスがない？ | 「正解クラスタリング」は人間判断が必要で教師データ作成が重く PoC 段階で後回しにされた。本番化後もリビジットされていない |
-| **Why5** なぜリビジットされない？ | 既存品質の体系的計測は「重要だが緊急ではない」枠に入り、AdSense 審査・新機能投入が常に優先される。ユーザー指摘で初めて表面化する |
+**完了報告ルール**: 「できた」の前に①エラーログ確認②動作確認③警告修正。自力で直せない場合は「ここで詰まっている」と報告する。
 
-**仕組み的対策（CLAUDE.md ルール+CI+Observability の三層）:**
-
-1. **fetcher 出力に observability metric**: 各 fetch サイクル末尾で `print(f'[CLUSTER_QUALITY] avg_articles_per_topic={X} pct_2_3_articles={Y}%')` を CloudWatch 出力。governance worker が weekly に集計して 70% 超なら Slack 警告
-2. **CLAUDE.md ルール追加** (下のテーブル): クラスタリング閾値変更は staging で 1cycle 観測 + 粒度分布 before/after を commit メッセージに必須記載
-3. **post-cluster merge pass** (T36): 2-3 件トピックを近接巨大トピックに親子化する後処理。merge ではなく親子化なので情報を失わずに済む
-4. **CI ガード追加**: `JACCARD_THRESHOLD`/`_CHUNK_THRESHOLD` の値を変更する PR では commit メッセージに必ず "[cluster-tune]" タグと before/after 粒度分布を含めることを CI で検証 (将来追加)
+**共通原則**: 実装だけで完了扱いにしない。UI/文言を勝手に省略しない。自力で直せるエラーは直して再実行する。空報告禁止。証拠（ファイル変更・ログ・スクリーンショット）を必ず示す。
 
 ---
 
-### Claude API の `Expecting ',' delimiter` JSON 構文エラー なぜなぜ分析（2026-04-27 制定）
+## ⚡ プロジェクト状態 → `docs/system-status.md`
 
-**起きたこと**: forceRegenerateAll 実行中の CloudWatch ログで `generate_story (full) error: Expecting ',' delimiter: line 38 column 6` が頻発。Claude Haiku が JSON 出力で軽微な構文ミス (カンマ抜け、引用符忘れ等) を起こし、`json.loads` で fail → そのトピックの AI 処理がスキップされて perspectives/keyPoint/background 等が空のままになる。複数トピックで連発しているため AI 処理品質を実質的に劣化させていた。
+> 詳細スナップショット・残タスク・将来アイデアは外出し。
 
-| Why | 答え |
-|---|---|
-| **Why1** なぜ Claude が malformed JSON を返す？ | プレーンテキスト生成中に長い日本語文字列・引用符・括弧を扱う際、確率的に JSON 構文を崩す。LLM の本質的特性 |
-| **Why2** なぜ我々はそれを防がない？ | API 呼び出しを `messages: [{role:'user', content: prompt}]` の自由テキスト生成モードで使い、出力形式を「プロンプトの中で頼んでいる」だけで強制していない |
-| **Why3** なぜ強制していない？ | Anthropic は Tool Use (function calling) で JSON Schema による structured output を提供しているが、当初開発では「プロンプト指定で十分」と判断して実装が text-mode 止まり |
-| **Why4** なぜ Tool Use 移行が遅れた？ | 動作している間は再構築コストが見合わないという判断が継続。今回 c1bbe0fe verify で初めてブロッキング症状として表面化 |
-| **Why5** なぜブロッキングと判定する仕組みが無かった？ | JSON parse 失敗率を測定する metric が無く、CloudWatch ログを目視するまで顕在化しなかった。「出力が空」だけが見える状態 |
-
-**仕組み的対策（band-aid 排除・本格対応）:**
-
-1. **Anthropic Tool Use API 移行 (本コミット)**: `_call_claude_tool` ヘルパを新設し、generate_story の 3 mode を tool_use 経由で呼ぶように改修。tool input_schema で JSON Schema 厳格化 → malformed JSON は物理的に発生しない (Anthropic 側でバリデーション)
-2. **JSON parse 失敗率 CloudWatch metric**: `generate_story_*_error` の発生回数を `[METRIC]` ログに出して governance worker で集計。閾値超過で Slack 警告
-3. **band-aid 排除原則を CLAUDE.md に明記**: prefill による補助・lenient parsing による recovery は **使わない**。malformed が起きうる API 設計を放置せず Tool Use で根絶する
-4. **なぜなぜを書く目的の明文化**: 『なぜなぜは band-aid を避けて root cause + 仕組み対策を見つけるための強制装置』と CLAUDE.md 冒頭に追記。書かないまま fix する → band-aid に走るリスクが高い
+**現在着手中** → `WORKING.md`
+**完了済み** → `HISTORY.md`
+**未着手キュー** → `TASKS.md`
 
 ---
 
-### Claude が境界値テストを書かないままフォーマッタを書いてしまう、メタなぜなぜ（2026-04-27 制定）
+## ⚡ 絶対ルール（毎セッション遵守）
 
-**起きたこと**: 私 (Claude) が過去に書いた `fmtElapsed(0)` が `1970-01-01` 由来の `1/1` を返し本番に漏れた。POから指摘されて初めて気づき修正。fmtElapsed のような汎用フォーマッタは boundary case (0/null/undefined/NaN/未来日付) を全部試すべきだったのに、それを書かないまま push していた。
-
-| Why | 答え |
-|---|---|
-| **Why1** なぜ Claude が boundary 漏れを見逃した？ | 編集対象の immediate な意図 (経過時間表示) しか追わず、副作用となる falsy 値の挙動を網羅検証していなかった |
-| **Why2** なぜ網羅検証しない？ | 単発の関数追加・修正で「動いた」が確認できれば push する習慣で、テストファースト的に boundary を書く運用になっていなかった |
-| **Why3** なぜそういう習慣になっている？ | プロンプト・ルールに「フォーマッタを書いた時は boundary unit test を同 commit で書く」が明示されていなかった。code review のチェックリストにもなかった |
-| **Why4** なぜ明示ルールがない？ | これまでフォーマッタ系のバグが顕在化せずに済んでいたので、再発防止ルール化のトリガーが無かった |
-| **Why5** なぜルール化されないと Claude は動けない？ | LLM (私) は『目の前の指示』に最適化する傾向があり、目の前の指示が「fmtElapsed を直して」だと boundary 網羅まで自発的にやらない。仕組みで強制しないと抜ける |
-
-**仕組み的対策（ルール化が最終手段の原則に従う）:**
-
-1. **safe_format.js モジュール化** (本コミット): 個別プロジェクトの inline 関数ではなく汎用ライブラリに切り出す。`frontend/js/safe_format.js` に `fmtElapsed/formatCount/join/lifecycleDot` を集約。0/null/未来日付/NaN すべて空返却を明示
-2. **boundary unit test 並走** (本コミット): `tests/safe_format.test.js` で 0/null/undefined/'/NaN/1989年/未来 を全部 assert。CI で ブロックされる ので Claude が次にこのモジュールを編集しても境界が崩れたら main に landing できない
-3. **CI grep 追加** (次コミット): `fmtElapsed.*\\\|\\\|\\s*0` パターンを CI で検出。`x || 0` を date formatter に渡すコードは boundary 漏れの sign なので警告
-4. **メタルール (最終手段で記録)**: 新規フォーマッタ追加時は必ず 0/null/undefined/NaN/未来 5 ケースを test ファイルにアサートする。仕組み 1+2+3 で自動的に CI が落ちるので守らないと進めない
-
-汎用化の意義 (PO指摘): safe_format.js は P003 だけでなく将来の任意 Web プロジェクトで再利用可能なフォーマッタ集として設計。`if (!isoOrTs && isoOrTs !== 0) return ''` のような防御パターンが UI 全般で再利用できる。
-
----
-
-### Discovery セクション「0件 · 1/1」表示バグ なぜなぜ分析（2026-04-27 制定）
-
-**起きたこと**: ユーザー指摘『なんだこれ。。』 + スクリーンショットで topic detail の「🔗 この話に繋がる別の話」カード5枚が全部「0件 · 1/1」表示。1/1 は1970-01-01 の Date 由来。0件は articleCount 未取得の表示。
-
-| Why | 答え |
-|---|---|
-| **Why1** なぜ「0件 · 1/1」が出たか | fmtElapsed(0) が `new Date(0*1000)=1970-01-01` を返し `1/1` 表示。`t.articleCount=undefined` の `\|\| 0` フォールバックで `0件` 表示 |
-| **Why2** なぜ t に articleCount/lastArticleAt が無い？ | 子トピック ref `meta.childTopics: [{topicId,title}]` には articleCount/lastArticleAt が無く、tMap (topics.json由来) で見つからない場合 (子が archived 等で表示外) bare ref に fallback してしまっていた |
-| **Why3** なぜ tMap で見つからない子が出る？ | topics.json には active/cooling のみ載せる仕様 (archived は除外)。だが childTopics 関係は archive 後も保持されるので親 detail page から子を引きたい時にミスマッチ |
-| **Why4** なぜ fmtElapsed が 0 を 1/1 にする？ | 関数が `if isoOrTs == 0` のガードを持っていなかった。NaN ガードはあるが epoch=0 は valid Date として通る |
-| **Why5** なぜそういう脆弱な fallback が放置された？ | 子トピックの「title だけ持つ参照」 vs 「全フィールド持つ参照」の二種類が混在する設計が文書化されておらず、UI 側はどちらでも動くべきという暗黙前提だけで本番に出ていた |
-
-**仕組み的対策:**
-
-1. **fmtElapsed 防御強化**: `isoOrTs === 0/'0'` を early-return + 1990年以前の Date を無効化
-2. **disc-card フッター: 無効値は表示しない**: cnt=0 は非表示、ago='' は非表示、全部空ならフッター文言『続き読む →』にすり替え (空白表示の防止)
-3. **fetcher が childTopics に articleCount/lastArticleAt/lifecycleStatus を埋める**: `parent_to_children[tid_a].append(...)` に追加。これで tMap miss でも fallback ref が有効値を持つ
-4. **ルール追加**: 「list 系 ref は最低限 articleCount・lastArticleAt・title・topicId・lifecycleStatus を含むこと」を CLAUDE.md に明文化 (バグ再発防止表に1行追記)
-
----
-
-### perspectives 100% null なぜなぜ分析（2026-04-27 制定）
-
-**起きたこと**: 公開トピック 114 件すべての `perspectives` (📰 メディアの見方のズレ) フィールドが空。Flotopic の独自価値として打ち出している「メディア間ズレ可視化」が事実上未稼働。`background` (📚 なぜ今) と `outlook` (短形見通し) も同じく 0% 充填。
-
-| Why | 答え |
-|---|---|
-| **Why1** なぜ perspectives が常に null？ | proc_ai.py の prompt が「同じ手段を同じ結論で報じてるなら null」と明記しており、Claude Haiku が保守的に常に null を返している |
-| **Why2** なぜ Claude が常に null と判定する？ | 渡されている入力が記事タイトル + 概要短文だけで、媒体ごとの編集スタンスが見抜けない。「ズレあり」と判断する材料が不足 |
-| **Why3** なぜ記事本文を渡していない？ | コスト削減。本文を全件渡すとトークン数が 4-5 倍になり予算が約 4 倍要する |
-| **Why4** なぜ本文ありを許容しない？ | 1日 200 calls (`MAX_API_CALLS=200`) の AI 予算制約があり、ユーザー数が少ない現状では拡大判断ができない |
-| **Why5** なぜ予算がきつい？ | 広告収益 (AdSense 審査中) が確立していないため。収益が立つまでは予算拡大判断ができない構造 |
-
-**仕組み的対策:**
-
-1. **perspectives の null fallback** (T35): AI が null を返した場合、最低でも「主要 3 ソース名 + 報道社数」を perspectives_lite として埋める。完全空白を回避し「機能未稼働」見えを防ぐ
-2. **prompt リライト**: 「ズレが見えなくても主要 3 社の論点フォーカス (経済影響/政治影響/法的論点) を比較する 1-2 文」と要求変更。null を出させにくくする
-3. **AdSense 通過後の段階的本文付き**: 最重要トピック (article数 5+) のみ 1日 1 回本文渡し perspectives を生成。コスト増は限定的
-4. **CLAUDE.md「設計の前提」テーブルに追記**: 「perspectives は AI が null を返す保守バイアスがあるので、デフォルト null は『機能未稼働』に直結する」と前提共有
-
----
-
-### Lambda Timeout で in-flight 中断 → topics.json に aiGenerated=True が反映されない なぜなぜ分析（2026-04-28 制定）
-
-**起きたこと**: T218 で大規模トピック (articles>=15) と中規模トピック (articles 10-14) の合計 21 件が `aiGenerated=None/False` のまま topics.json に残存。CloudWatch ログを確認すると `Duration: 900000.00 ms ... Status: timeout` で Lambda が強制終了。Tier-0 優先度ロジック (proc_storage.py の topics.json可視+未生成を最優先) は実装済みだが、処理が走り切る前に Lambda が timeout で in-flight 中断 → S3 書き戻しフェーズ (`update_topic_s3_files_parallel` + `topics.json` 再生成) が実行されず、processed 件の `aiGenerated=True` がユーザーに見える topics.json に反映されないまま終わる。
-
-| Why | 答え |
-|---|---|
-| **Why1** なぜ aiGenerated=False が topics.json に残った？ | Lambda が 900秒 timeout で強制終了し、ループ後の S3 書き戻しフェーズ (`update_topic_s3_files_parallel` + topics.json 再生成 + sitemap) が走らないため、in-memory で処理した分の aiGenerated=True が S3 に反映されない |
-| **Why2** なぜ Lambda が timeout した？ | MAX_API_CALLS=200 (= 2 calls/topic × 100 topics) を消化しきる前に 900s 経過。Tool Use 化で 1 API call が 5-15 秒に膨張、200 × 平均 10s = 2000s となり Lambda の 15 分上限を確実に越える |
-| **Why3** なぜ API call が膨張した？ | Anthropic Tool Use の structured output は input_schema validation で server-side 処理時間が増える + max_tokens=1700 (full mode) のレスポンス生成時間が長い。テキストモード時代の sleep 1.5s を含む 5-7s/call 想定が崩れた |
-| **Why4** なぜそれを処理予算に反映していなかった？ | 主ループのガードが `MAX_API_CALLS` (回数ベース) のみ。Lambda Timeout (時間ベース) との突き合わせをしておらず、「200 calls 想定で 900s 上限」の整合性を誰も検算していなかった |
-| **Why5** なぜ単位の不整合が放置された？ | API モード変更 (text → Tool Use) が API call 時間という観測しづらい次元の制約を変えたため。回数ベースの予算管理だけ見ていると気付けない。「Lambda 残り時間」を測って break する wallclock guard が無いと、実装速度の変化が無音で予算超過に変わる |
-
-**仕組み的対策（band-aid 排除・本格対応）:**
-
-1. **Wallclock guard 実装 (本コミット)**: `handler.py` の主ループ先頭で `context.get_remaining_time_in_millis()` を測り、残り 120 秒未満なら break。break 後の S3 書き戻しフェーズ (~100 秒必要) に予算を残す。MAX_API_CALLS と二重制約。
-2. **CLAUDE.md ルール追加 (本コミット下記表)**: 「外部 API 呼び出しを伴う Lambda 主ループには wallclock guard を必須とする」を恒久ルール化。Lambda Timeout 値・1 call 想定時間・上限呼び出し回数の三者整合性を変更時にコメントで明示する。
-3. **CloudWatch metric 追加 (将来)**: 1 サイクルあたりの「processed 件数 / wallclock 残秒 / API call 平均所要秒」を `[METRIC]` ログで出力。governance worker で集計し、平均所要秒が想定 (5-7s) の倍を超えたら Slack 警告。
-4. **処理単位を時間ベースに正規化 (将来)**: MAX_API_CALLS を `MAX_WALLCLOCK_SECONDS` 派生にする。例: 900s timeout - 120s guard = 780s budget / 7s/call = 111 calls。回数ベースのハードコード値を時間予算から逆算するヘルパで管理。
-5. **forceRegenerateAll の分割実行を仕様明記**: 1 invoke で全部終わらないことを前提に、次回スケジュール (4x/day) で続きを処理する設計を `handler.py` のコメントに既記載済 → 実態を CLAUDE.md にも転記し「単発 invoke 上限 ≠ 全件処理時間」と明示。
-
----
-
-### Cowork↔Code 連携の構造的欠陥 メタなぜなぜ分析（2026-04-28 制定・スケジュールタスクで観測）
-
-**起きたこと**: 2026-04-28 01:14 JST のスケジュールタスク調査で `https://flotopic.com/api/topics.json` の `updatedAt` が 12 時間前のままだった。原因は T218 の Lambda wallclock guard 修正が `git status` で working dir に滞留しており（Cowork が作成したが push できないため）、その間 4 サイクル分のスケジュール (19:00/01:00 etc) が空振りしていた。**ユーザーから見ると本番が壊れているのに誰も気づいていなかった**。
-
-| Why | 答え |
-|---|---|
-| **Why1** なぜ topics.json が 12 時間古かった？ | T218 修正が working dir に滞留し、Lambda 本体が修正前バイナリで動き続け、各サイクルで 900s timeout → in-flight 中断 → topics.json が更新されない |
-| **Why2** なぜ修正が滞留した？ | 2026-04-28 制定の新ルール「Cowork は git を叩かない」で Cowork がコードを編集しても push できず、Code セッション起動まで本番に届かない構造になっている |
-| **Why3** なぜ Code 起動が遅れた？ | Cowork セッションが「修正完了」「あとは Code が push するだけ」とユーザーに伝えても、ユーザーが Code を開く動機（朝のメール・通知等）が無いため、ユーザーの自然な活動時間まで滞留する |
-| **Why4** なぜ滞留中の障害を別経路で検知できない？ | 「Lambda 個別の成功/失敗」を見る CloudWatch アラームはあるが、「ユーザーが見るデータが新鮮か」を直接モニタする SLI が無い。in-flight 中断で Lambda が成功扱いで終わると検知できない |
-| **Why5** なぜ SLI 設計が後回し？ | これまでの「再発防止ルール」は **コード変更時の自己チェック (negative rule)** に偏り、**運用時に外部から状態を観測する仕組み (positive monitoring)** が手薄だった。LLM (私) は規則を要求された時にコード内のチェックリストとして書くのが得意で、外部 SLI 設計を自発的に提案する習慣が無い |
-
-**仕組み的対策（ルールではなく構造で防ぐ）:**
-
-1. **topics.json 鮮度 SLI モニタ新設 (T242)**: 1 時間ごとに `(now - updatedAt) > 90 min` を Slack 警告。governance worker と独立に走らせ、governance 自身が壊れた時にも検知できる二重化。これは「外から見る」モニタで、in-flight 中断パターンを直接捕まえる
-2. **WORKING.md `needs-push` カラム追加 (T244)**: Cowork がコードファイル編集時に `needs-push: yes` を立て、Code セッション起動チェックスクリプトが「滞留 fix がある」を最優先告知。8 時間TTL とは別軸の「push 待機検出」
-3. **AI フィールド データフロー文書 (T245)**: `proc_ai → ai_updates → topics.json + per-topic.json + DynamoDB → frontend` の 5 層を明示し、新フィールド追加時の漏れ層を CI で検出。T193follow-up の「ai_updates 反映漏れ」と T220 の「topics.json で 0% 誤読」を同時に防ぐ
-4. **`Verified:` commit gate (T246)**: 完了 commit に `Verified: <url>:<status>:<timestamp>` を必須化。pre-commit hook で物理的に reject。「edit + push = done」マインドを構造で断ち切る
-5. **タスクID 衝突防止 (T243)**: `scripts/next_task_id.sh` で日付+短ID 採番、CI で重複検出。複数 Cowork 並行時の番号衝突 (本日 T221 が 2用途で並立) を構造で防ぐ
-
-**メタ観察 — なぜ Claude が "negative rule" に偏るか:**
-
-LLM (私) は「ユーザーから問題を指摘される」→「再発防止ルールを CLAUDE.md に追加する」というフィードバックループの上で動いている。問題が発覚した時点ではコード変更時の自己チェックが思いつきやすい (= 局所的・低コスト・書きやすい)。一方、SLI 設計や CI ガード追加は工数が大きく、思いついても「優先度低」として後回しになりがち。これを是正するには、**なぜなぜの仕組み的対策に「外部観測」「物理ゲート」を最低 1 つ含めることをテンプレートで強制する** のが有効。「コード内の if 文を増やす」だけの再発防止は構造的とは呼ばない。
-
----
-
-## ⚠️ バグ再発防止ルール（再発させない）
-
-| パターン | ルール |
-|---|---|
-| **ジャンル分類RSSフォールバック禁止** | `dominant_genres()`のキーワード不一致時に`article.genre`(RSS由来)を使ってはいけない。Google NewsのRSSは「テクノロジー」クエリで政治記事を返すことが既知。スコアなし→`['総合']`のみ許容。この規則を破ると特定ジャンルフィルターが汚染される |
-| sw.js CACHE_NAME | ソースは`flotopic-dev`のまま。CI が手動バージョン番号を検出して ERROR |
-| API URL重複 | `API_BASE`は`/api/`で終わる。`+'api/topics.json'`→二重パスになる。CIが検出 |
-| Lambda aiGenerated | 成功時のみ True。失敗時 True→「処理済み」誤認で永遠に再処理されない |
-| DynamoDB SK | FilterExpression に使えない。KeyConditionExpression で範囲絞り込み |
-| ARCHIVE_DAYS | 稼働期間の 1/3 目安（1ヶ月未満→7日, 3ヶ月→14日, 1年以上→30日） |
-| ゾンビ削除 | lifecycle 週次自動（月曜 02:00 UTC）。item数がtopics.json 20倍超→手動invoke |
-| CloudWatch | 最新ログストリームのみ確認。古いエラーは修正済みの可能性あり |
-| tokushoho.html | 廃止済み・復活禁止。footer/sitemap/sw.jsキャッシュに追加しない |
-| インフラ変更 | AWS CLI 直接可。ただしPO確認必須（deploy.sh 不要） |
-| pending_ai.json | processor が自動管理（zombie ID 除外）。手動クリアは processor 停止中のみ |
-| git push | 30分以上作業したら途中でも commit & push する |
-| **CSS意味色のハードコード禁止** | `#ef4444`(danger)・`#f43f5e`(heart)をCSSに直書きしない。`var(--color-danger)`・`var(--color-heart)` を使う。根本原因: 変数なしのハードコードは「どのカラーがどの意味か」が追跡できず、後から違う用途(badge→accent等)に誤用されても気づけない |
-| **新CSS追加→ダークモード目視確認必須** | `background`/`color`/`border-color` の新規CSSルールを書いたら、必ずダークモードでも視覚確認する。`[data-theme="dark"]` オーバーライドが存在しない場合、ダークモードで黒塗り・白塗り・不可視になる可能性がある。確認しないと「ライトモードでは正常、ダークモードで黒い空白」が本番に出る |
-| **UIプレースホルダー3ヶ月ルール** | 「近日公開」「準備中」「Coming Soon」等のラベルは実装予定が3ヶ月以内でなければ削除する。放置するとユーザーに「開発が止まっている」印象を与える。grep定期確認: `grep -rn "近日公開\|Coming Soon\|準備中" frontend/` |
-| **空コンテナ非表示ルール** | データが0件またはロード失敗の場合、h2ヘッダーを含むカードごと`display:none`にする。「関連記事（0件）」のような空見出しを絶対にユーザーに見せない。JS実装パターン: `if(!data.length){ el.closest('.card').style.display='none'; }` |
-| **同一ファイル並行編集禁止** | frontend・lambdaを問わず、同じファイルを複数タスクが同時に編集してはいけない。detail.js/app.js/topic.html/style.css/handler.py/proc_storage.py/proc_ai.py は特に危険。前のタスクのpush＋本番動作確認が完了してから次のタスクを開始する。 |
-| **scriptタグdefer/async禁止リスト** | chart.js / config.js / app.js / detail.js のscriptタグにdefer/asyncを付けない。これらは実行順序依存がある。Lighthouse最適化などでパフォーマンス改善する場合も、この4ファイルは対象外にする。 |
-| **クラスタリング閾値変更ルール** | `cluster_utils.py` の `JACCARD_THRESHOLD` / `_CHUNK_THRESHOLD` / `_ENTITY_MERGE_THRESHOLD` 等の閾値を変更する場合: (a) staging で 1cycle 実行 (b) 粒度分布 (article数バケット別件数) の before/after を commit メッセージに記載 (c) 「2-3件トピック比率」の絶対値を必ず記載。これがないと over-merge / over-split を見逃す。根本原因: クラスタリングは目視で気づきにくい品質特性で、定量比較なしに変更すると気づかない退行を生む |
-| **AI フィールド null 100% 検出** | `topics.json` を毎週 governance check で読み、`perspectives`/`background`/`outlook` のいずれかが 0% 充填なら Slack 警告を出す。「機能として動いているか」と「フィールドに値が入っているか」は別次元。AI prompt 改善後にこのチェックで実効性を測る |
-| **変更前に副作用確認必須** | コード変更前に「このファイルが何に依存されているか」「変更が何を壊しうるか」を言語化してから変更する。環境変数・DynamoDBスキーマ・S3パス・scriptロード順は特に影響範囲が広い。確認できなければ変更しない。 |
-| **完了=動作確認済み（全タスク共通）** | 「pushした」は完了ではない。フロントは本番URLで目視確認、Lambdaは最新CloudWatchでエラーなし確認、が完了の定義。自己申告の「できました」は使わない。 |
-| **なぜなぜ分析は自発的に** | 問題が発生したら、指摘される前に5段階のなぜなぜ分析を実施してCLAUDE.mdに追記する。「コントロールが甘かった」のような一言総括は書かない。構造的な原因と仕組みレベルの対策まで掘り下げる。**再発防止ルール追記=テーブル1行ではない。Why1〜Why5の構造化分析+仕組み的対策が成立してはじめて再発防止と呼べる。なぜなぜを書き忘れること自体が再発防止違反**（2026-04-27 ads.txt事件で発覚） |
-| **Lambda 主ループ wallclock guard 必須** | 外部 API 呼び出し (Anthropic / OpenAI / OGP生成 / S3 並列書き込み) を伴う Lambda 主ループには `context.get_remaining_time_in_millis()` ベースの wallclock guard を必須とする。回数ベース上限 (MAX_API_CALLS 等) は時間予算と整合させて算出する: `想定 calls = (Lambda Timeout - 後処理予算) / 1call当たり想定秒`。API モード変更 (text → Tool Use 等) で 1 call 所要時間が変わる場合、両方の値を必ず再検算してコメントに明記。根本原因: 回数ベースだけ見ていると、API レスポンス時間の変化を観測できず無音で Lambda timeout する (T218 で 2026-04-28 発覚) |
-
----
-
-## ⚠️ 実装前ユーザー文脈チェック（2026-04-27 制定）
-
-> **「機能として動くか」ではなく「このユーザーはこれを求めていたか」を問う。**
-> コードを書く前に、以下の問いに声に出して答えること。答えられない場合は実装しない。
-
-### 実装前に必ず答える4つの問い（スキップ禁止）
-
-1. **このユーザーは今何をしたくてここにいるか？**
-   - ニュース記事を読みに来た → 商品を売りに行かない
-   - 「経緯を追いたい」で来た → 関係ない広告やCTAを挟まない
-   - 「離れていた間のニュースを確認したい」で来た → その目的だけを助ける
-
-2. **この機能はその欲求に直接応えているか？**
-   - 「応えている」と言うためには、ユーザー行動の流れの中で当該機能がどこに位置するかを説明できなければならない
-   - 「技術的に実装できる」「タスク記述にあった」は理由にならない
-
-3. **この機能がない状態と比べて、ユーザーの体験は改善されるか？**
-   - 改善がゼロまたはマイナス（邪魔・混乱・不信感）なら実装しない
-   - 「いつか使う人がいるかもしれない」は実装の根拠にならない
-
-4. **このコンテンツ・ラベル・導線は誠実か（ユーザーを誤解させないか）？**
-   - ラベルと中身が一致しているか（「この話題をもっと知る」＝Amazonリンク → NG）
-   - 「広告」タグがついていても見出しが「関連情報」的ならユーザーを誤誘導している
-   - 「近日公開」のまま数ヶ月放置するボタン → 信頼を損なう。実装予定がないなら削除する
-
----
-
-### コード上で実際に見つかった文脈ミスマッチの具体例（2026-04-27 調査）
-
-以下は実際のコードを読んで確認した問題。修正時の判断基準として使うこと。
-
-#### ① アフィリエイト「この話題をもっと知る」 h2ラベル（topic.html 367行目）
-- **現状**: `<h2>この話題をもっと知る</h2>` の直下に Amazon/楽天/Yahoo!ショッピングのリンク
-- **問題**: 「もっと知る」はコンテンツ（解説・記事）を期待させる。商品リンクは期待を裏切る
-- **正解**: `<h2>関連商品</h2>` + 「広告」ラベルを同行に並べる。または見出しを `<h2>ショッピング</h2>` にする
-- **追加問題**: `GENRE_KEYWORD` マッピングで「国際」→「旅行グッズ」「社会」→「便利グッズ」「健康」→「サプリ」は、紛争・事件・疾患ニュースで不適切商品が出る。このマッピングは全ジャンルで「その話題で商品購入が自然か」を再確認してから使うこと
-
-#### ② 推移グラフの長期ボタン（topic.html 338-346行目）
-- **現状**: 「1ヶ月」「3ヶ月」「半年」「1年」「全期間」のボタンがある
-- **問題**: データが蓄積されていない期間のボタンを押すと空グラフ＋「データ蓄積中」メッセージが出る。ユーザーには「壊れている」に見える
-- **判断基準**: データが存在しない時間軸のボタンはグレーアウトするか非表示にすること。「近未来の機能を今日のUIに出す」は不誠実
-
-#### ③ AI分析「処理待ち」メッセージ（detail.js 340-348行目）
-- **現状**: `⏳ AI分析を生成中です（1日4回更新）。` のみ
-- **問題**: 「いつ来れば読めるか」がわからない。ユーザーは何度もページを開き直す羽目になる
-- **正解**: 次回更新予定時刻（JST）を表示する。例：「次の更新: 13:00 JST」
-
-#### ④ リワインド機能の「パーソナライズ感」と実態の乖離（catchup.html）
-- **現状**: 「あなたが離れていた間のニュース」というコピーだが、実態は「過去N日に初出したトピックの一覧」
-- **問題**: 非ログインユーザーには「あなたがいつ来たか」のデータがない。「3日ぶり」は「あなたが3日離れていた」ではなく「過去3日のトピック」でしかない
-- **判断基準**: ログイン/非ログインで見せ方を変えるか、コピーを「過去N日間のトピック」に正直に変える。パーソナライズ感の演出と実際の機能に乖離を作らない
-
-#### ⑤ Appleサインイン「近日公開」ボタン（index.html・topic.html 認証モーダル）
-- **現状**: `disabled` なボタンに「近日公開」バッジが常時表示
-- **問題**: 実装予定がないまま表示し続けると「このサービスは開発が止まっている」印象を与える
-- **判断基準**: 実装予定 = 3ヶ月以内 なら残す。それ以外は削除する
-
-#### ⑥ ヘッダーキャッチコピーの不統一（全ページ）
-- **現状**: index.html「ニュースの"流れ"を、AIがストーリーにする」/ topic.html+catchup.html「話題の流れをAIで追う」/ description「時間軸で推移を可視化。30分ごと自動更新。」
-- **問題**: 同じサービスの価値提案が3通りある。ユーザーはどのページから来ても「同じサービス」と認識できない
-- **判断基準**: コピーを変更するときは全ページの `<p>` タグ（ヘッダー内）と meta description を同時に変更する
-
-#### ⑦ 空コンテナにヘッダーだけ表示される問題（topic.html）
-- **現状**: `<div class="card"><h2>関連記事</h2><div id="related-articles"></div></div>` — データが0件でもカードが表示される
-- **判断基準**: コンテンツが0件のセクションはヘッダーごと非表示にする。「関連記事（0件）」をユーザーに見せない
-
-#### ⑧ アフィリエイトのジャンル別キーワードで「安全でないマッピング」を使わない
-- `'社会': 'くらし 便利グッズ'` → 事件・事故ニュースで日用品リンク → NG
-- `'国際': '旅行 グッズ'` → 紛争・外交ニュースで旅行グッズ → NG
-- `'健康': '健康 サプリ'` → がん・感染症ニュースでサプリ → 信頼を損なう
-- **判断基準**: 「このジャンルのニュースを読んでいる人が自然に商品を買いたくなるか」を確認する。センシティブなトピック（事件・事故・医療・政治）でアフィリエイトを表示する場合は、カテゴリを「書籍・教養系」のみに限定するか、セクション自体を非表示にする
-
----
-
-### 文脈チェックのショートカット（作業中に使う）
-
-機能を追加するたびに自問する：
-- **「このユーザーはなぜここにいるか」→「この機能はその理由に応えているか」**
-- ラベル・見出し・ボタンテキストは「その文言を見てユーザーが期待するもの」と「クリック後に見るもの」が一致しているか
-- 「データがない状態」「コンテンツが0件の状態」「ロード中の状態」のUIを必ず設計してから実装する。後付けでは対処しにくい
-- 「近日公開」「データ蓄積中」「処理待ち」は **いつ完了するかの情報とセットで出す**
-
----
-
-## ⚠️ deploy.sh は直接実行しない（2026-04-25 変更）
-
-**デプロイは GitHub Actions が自動で行う。Claude から deploy.sh を叩かないこと。**
-
-| 変更ファイル | 自動デプロイ |
-|---|---|
-| `projects/P003-news-timeline/frontend/**` | `.github/workflows/deploy-p003.yml` が S3+CloudFront を自動実行 |
-| `projects/P003-news-timeline/lambda/**` | `.github/workflows/deploy-lambdas.yml` が Lambda を自動実行 |
-
-**Claude のやること**: コードを変更 → `git add / commit / push` のみ。pushしたら GH Actions が本番に反映する（2〜4分後）。
-
-**例外**: インフラ新規作成（DynamoDB テーブル作成・Lambda 新規追加等）が必要な場合のみ `deploy.sh` を使ってよい。その場合はPOに確認してから実行する。
-
----
-
-# Team Operating Rules
-
-**完了条件**: build/compile通過 + 主要機能動作確認 + `cd projects/P003-news-timeline && npm test` 全42件パス + **フロントエンド変更は必ずCloudFrontキャッシュクリア後に実際のflotopic.comをブラウザで確認してから完了とする（S3同期だけでは本番に反映されない）**
-
-**完了報告ルール（必須）**: 「できた」と言う前に①エラーログ確認②動作確認③警告修正をすべて済ませること。自力で直せない場合は「ここで詰まっている」と報告する。
-
-**共通原則**: 実装だけで完了扱いにしない。変更後は必ず検証する。UI/文言を勝手に省略しない。自力で直せるエラーは直して再実行する。
-
----
-
-# AI-Company CEO システム状態（毎セッション必読）
-
-> このセクションはセッションをまたいで状態を引き継ぐための機械的な仕組み。
-> Coworkセッション開始時に必ずここを読んでから作業を始める。
-
-## 会社構造
-- **出資者・取締役**: PO（承認のみ、日常運営はCEOに委任）
-- **CEO**: Claude（自律的に会社を動かす）
-- **方針**: 指示を待たず毎日前進する。空報告禁止。実行した証拠がないものは完了扱いしない。
-
-## 現在のプロジェクト状態（最終更新: 2026-04-25 夜）
-
-| プロジェクト | 状態 | 備考 |
-|---|---|---|
-| P001 AI-Company自走システム | **保留** ⏸ | エージェント群のスケジュール停止中（API費用削減のため）。インフラは存在。ユーザー・収益が生まれたら再開。 |
-| P002 Flutterゲーム | **開発中** 🔧 | Flutter+Flameで実装済み（50+ファイル）。動作確認未実施。コンセプト: オートバトル×HD-2Dドット絵×ローグライト抽出。 |
-| P003 Flotopic | **本番稼働中** ✅ | flotopic.com。7日間240PV(JP92%)。AI要約4セクション形式。sitemap 202URL自動更新。CI全テスト通過。AdSense審査待ち。 |
-| P004 Slackボット | **保留** ⏸ | Lambdaデプロイ済みだがSlash Command未設定のため誰も使えない。優先度低。 |
-| P005 メモリDB | **保留** ⏸ | DynamoDB稼働中だがエージェント停止中で実質未使用。インフラは残存。 |
-
-## P003 技術状態スナップショット（セッション開始時に必ず確認）
-
-> このテーブルはセッションをまたいで整合性を保つための機械的な記録。
-> 作業完了のたびに更新すること。更新しないまま「完了」と言わない。
-
-| コンポーネント | 状態 | 最終更新 | 備考 |
-|---|---|---|---|
-| CI | ✅ 全テスト通過 | 2026-04-25 | `npm test` 42件全パス必須 |
-| processor AI要約 | ✅ 稼働中 | 2026-04-27 | **4x/day** JST 01:00/07:00/13:00/19:00。MAX_API_CALLS=200(T159) |
-| AI要約カバレッジ | 📉 要改善 | 2026-04-27 | 実測: 可視203件中aiGenerated=True 50件(24.6%)・storyPhase 48件(23.6%)。pending queue優先度問題(T213)が根本原因。topics.json単記事除外で次回fetch後に可視件数が203件へ安定する見込み |
-| DynamoDB SNAP | 📉 改善中 | 2026-04-26 | ~808K件→lifecycle週次で300件削除済み。TTL(7日)ENABLED |
-| Bluesky 自動投稿 | ✅ 継続稼働確認 | 2026-04-27 | 1日3回自動投稿(JST 08:00/12:00/18:00)。最終確認: 2026-04-26 T20:26 JST(schedule) 全success。T183完了 |
-| 静的SEO HTML生成 | ✅ 本番稼働 | 2026-04-26 | topics/{tid}.html 500/500件生成済み。lifecycle週次でHTML孤立削除 |
-| fetcher UGC混入防御 | ✅ 二重防御稼働 | 2026-04-27 | T211 [1]filters.py個人ブログ・PRドメインブロック+タイトルパターン(`74c45bc`) [2]handler.py uniqueSourceCount>=2フィルタ強化(`4b15949`)。レガシーはarticleCountフォールバックで既存挙動維持 |
-| お問い合わせフォーム | ✅ SES稼働中(sandbox) | 2026-04-26 | FROM_EMAIL=contact@flotopic.com, TO_EMAIL=<管理者メール>設定済。実送信確認済(T019)。flotopic.com DKIM成功。sandbox解除後は任意アドレスへの送信可 |
-| 安定コンポーネント群 | ✅ 全稼働 | 2026-04-26 | sw.js・CloudFront・sitemap・Slack・filter-weights・lifecycle・アフィリエイト・ストーリー・ジャンル分類(T085,T093,T095)・アフィリエイトKW(T084)・admin/contacts(T090)・_GW変数(T086)・NHK日付(T096)・storymap二重フッター(T131)・エンティティtagdark(T132)・ヘッダー認証dark(T136)・コメントdark cx-mention/save(T146)・detail.js hasSummary旧extractive(T146)・about.html今後やりたいこと(T156)・mypage fav新着グルーピング(T157)・mypageボトムナビ赤バッジ(T161)・MAX_API_CALLS=200(T159)・1件記事skip(T175) |
-
-> 完了済みコンポーネント詳細は HISTORY.md「T032 スナップショット棚卸し」セクションを参照
-
-## 専門AI稼働状況
-
-**運営エージェント**: 全8本停止中（API費用削減。ユーザー増加後に再開）
-
-**ガバナンスエージェント**: SecurityAI(✅push+週次→Slack) / LegalAI(⏸停止中) / AuditAI(✅push+週次→PO直報)
-- 共通基盤: `scripts/_governance_check.py` / `.github/workflows/governance.yml` / DynamoDB: `ai-company-agent-status`, `ai-company-audit`
-
-## 残タスク（PO手動作業が必要なもの）
-
-- **P002動作確認**（未実施）: `cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run`
-- **SES 本番アクセス申請**: sandbox解除後、未検証アドレスへも送信可能になる（現在はsandboxのため送信先は<管理者メール>のみ）
-- **待ち**: AdSense審査中（忍者AdMaxで代替中）
-
-
-## 現在着手中
-
-→ **[WORKING.md](./WORKING.md) を参照**（このセクションには書かない）
-
-## 次フェーズのタスク（優先度順）
-1. **SEO流入**: 静的HTML実装済み。次→Qiita/note記事でリンク獲得・Bluesky流入
-2. **コンテンツ品質**: AI要約 4x/day 自動改善中。lifecycle ARCHIVE_DAYS=7 週次整理
-3. **収益化**: AdSense審査中→通過後に切り替え。Amazon/楽天アフィリ申請（PO手動）
-4. **UX**: モバイル改善・表示名分離はユーザー増加後
-
-## 完了済みタスク
-→ 詳細は [HISTORY.md](./HISTORY.md) を参照
-
-## 絶対ルール（毎セッション遵守）
-
-- `frontend/` `lambda/` `scripts/` `.github/` のコードは変更しない（CEOエージェントのルール）
 - 決まったことは会話で終わらせず即ファイルに書く
-- URLの確認・デプロイ確認は自分でやる（POに聞かない）
-- 「書きました」「やります」の宣言は信用されない。ファイルの存在が証拠。
-- 空報告禁止。実行した証拠（ファイル変更・ログ・スクリーンショット）を必ず示す
-
-## 開発ルール（一人開発・事故防止）
-
-### 基本フロー
-1. コードを変更する
-2. `git add / commit / push` → GH Actions が自動で本番反映（2〜4分）
-3. 動作確認したい場合は `bash projects/P003-news-timeline/deploy-staging.sh` でステージングに先行反映
-
-### ステージング環境
-- **URL**: http://p003-news-staging-946554699567.s3-website-ap-northeast-1.amazonaws.com
-- **手動デプロイ**: `bash projects/P003-news-timeline/deploy-staging.sh`
-- **本番との違い**: フロントエンドのみ別バケット。Lambda/DynamoDBは本番共有
-
-### CI（自動構文チェック）
-- mainへのpush時に自動実行（`.github/workflows/ci.yml`）
-- JS構文チェック（node --check）
-- Python構文チェック（py_compile）
-- APIキーのハードコード検出
-- **構文エラーがあれば即気づける。デプロイ前の最低限の安全網。**
-
-## 未解決の問題 / 素材不足
-
-- **P003 AdSense審査待ち** — 申請済み。通過まで数週間かかる場合あり。それまでは忍者AdMaxで代替。
-- **P003 グラフデータ蓄積中** — 長期グラフ（1ヶ月〜1年）はデータ蓄積後に意味を持つ。
-- **P002 Flutterスプライト素材未作成** — AI生成で後日追加。
-- **P002 BGM本番版未作成** — Suno AIで後日生成・差し替え。
-- **P002 動作確認未実施** — `flutter pub get && flutter run` をローカルで実行すること。
-
-## 将来アイデア候補
-→ 詳細は **docs/operations-design.md**（運用設計）・**docs/infra-migration-strategy.md**（インフラ移行戦略）参照
-- P003拡張: トピック起点SNS機能（コメント lambda 実装済み。ユーザー増加後に有効化）
-- P006候補: Flotopic × 株式投資シグナル（精度向上・ユーザー基盤確立後）
-
-## P002 Flutter → `projects/P002-flutter-game/briefing.md` 参照（コンセプト/システム/収益化/フォルダ構造）
+- URL の確認・デプロイ確認は自分でやる（POに聞かない）
+- 「書きました」「やります」の宣言は信用されない。ファイル存在が証拠
+- 空報告禁止
+- 実装した≠動いている。実際にエンドユーザーが使えて初めて完了
