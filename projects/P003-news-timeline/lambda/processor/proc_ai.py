@@ -11,8 +11,19 @@ from proc_config import ANTHROPIC_API_KEY
 _CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages'
 
 
+_RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
+
+
 def _call_claude(payload: dict, timeout: int = 25) -> dict:
-    """Claude API を呼び出す。429 は最大3回リトライ（指数バックオフ）。"""
+    """Claude API を呼び出す。429 / 5xx 系を最大3回リトライ（指数バックオフ）。
+
+    T235 (2026-04-28): 旧実装は 429 のみリトライで、500/502/503/504 は 1回失敗で
+    return None → 当該トピックの AI フィールドが空のまま topics.json に publish され、
+    keyPoint=8.5% / backgroundContext=0% / perspectives=20% 等の低充填の主因の一つだった。
+    Tool Use 化で 1 call の所要時間が伸び、Anthropic 側 generation timeout / internal error
+    に当たる確率が上がっているため、5xx もリトライ対象に統合する。
+    観測用に [METRIC] claude_retry を出して governance worker で集計可能にする。
+    """
     body = json.dumps(payload).encode('utf-8')
     headers = {
         'x-api-key': ANTHROPIC_API_KEY,
@@ -20,21 +31,43 @@ def _call_claude(payload: dict, timeout: int = 25) -> dict:
         'content-type': 'application/json',
     }
     delay = 5
+    last_err = None
     for attempt in range(4):
         try:
             req = urllib.request.Request(_CLAUDE_API_URL, data=body, headers=headers, method='POST')
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return json.loads(resp.read())
         except urllib.error.HTTPError as e:
-            if e.code == 429 and attempt < 3:
-                retry_after = e.headers.get('retry-after')
+            last_err = e
+            if e.code in _RETRYABLE_HTTP_CODES and attempt < 3:
+                retry_after = e.headers.get('retry-after') if hasattr(e, 'headers') and e.headers else None
                 wait = int(retry_after) if retry_after else delay
-                print(f'[Claude] 429 rate limit, {wait}s 待機 (attempt {attempt+1})')
+                kind = 'rate_limit' if e.code == 429 else '5xx'
+                print(f'[Claude] HTTP {e.code} ({kind}), {wait}s 待機 (attempt {attempt+1}/3)')
+                # METRIC: governance worker で集計するため固定フォーマットで出力
+                print(f'[METRIC] claude_retry attempt={attempt+1} code={e.code} kind={kind} wait_s={wait}')
                 time.sleep(wait)
                 delay *= 2
             else:
+                # リトライ対象外 (4xx 等) または上限到達 → 上位に伝搬
+                if e.code in _RETRYABLE_HTTP_CODES:
+                    print(f'[METRIC] claude_retry_exhausted code={e.code} attempts={attempt+1}')
                 raise
-    raise RuntimeError('Claude API 429 retries exhausted')
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            # ネットワーク層 (DNS/TCP/タイムアウト) も transient として扱う
+            last_err = e
+            if attempt < 3:
+                print(f'[Claude] network error: {type(e).__name__}: {e}, {delay}s 待機 (attempt {attempt+1}/3)')
+                print(f'[METRIC] claude_retry attempt={attempt+1} code=network kind={type(e).__name__} wait_s={delay}')
+                time.sleep(delay)
+                delay *= 2
+            else:
+                print(f'[METRIC] claude_retry_exhausted code=network attempts={attempt+1}')
+                raise
+    # ループを抜けた場合は最後のエラーを raise（理論上到達しないが防御的に）
+    if last_err:
+        raise last_err
+    raise RuntimeError('Claude API retries exhausted')
 
 
 def _call_claude_tool(prompt: str, tool_name: str, input_schema: dict,
