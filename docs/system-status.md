@@ -35,7 +35,9 @@
 |---|---|---|---|
 | CI | ✅ 全テスト通過 | 2026-04-25 | `npm test` 42 件全パス必須 |
 | processor AI 要約 | ✅ 稼働中 | 2026-04-27 | 4x/day JST 01:00/07:00/13:00/19:00。MAX_API_CALLS=200 |
-| AI 要約カバレッジ | 📉 要改善 | 2026-04-27 | 実測: 可視 203 件中 aiGenerated=True 50 件 (24.6%)。pending queue 優先度問題が根本原因 |
+| AI 要約カバレッジ | ✅ 改善中 | 2026-04-28 | 実測: 116 件中 aiGenerated=True 93 件 (**80.2%**)。T218 wallclock guard 反映後 24.6% → 80.2% に回復。観測コマンドは `docs/sli-slo.md` SLI 3 |
+| topics.json 鮮度 | ✅ FRESH | 2026-04-28 | 実測 18:10 JST: updatedAt は 6 分前。閾値 90 分 (`docs/sli-slo.md` SLI 1)。外部観測 `freshness-check.yml` 1h cron (T263) |
+| topics.json サイズ | ⚠️ しきい値超 | 2026-04-28 | 実測 312 KB / アラート閾値 250 KB (T2026-0428-F)。Step1 (topics-card.json 二系統化) 未着手 |
 | DynamoDB SNAP | 📉 改善中 | 2026-04-26 | lifecycle 週次で削除中。TTL(7日) ENABLED |
 | Bluesky 自動投稿 | ✅ 継続稼働 | 2026-04-27 | 1日 3 回 (JST 08:00/12:00/18:00) |
 | 静的 SEO HTML 生成 | ✅ 本番稼働 | 2026-04-26 | topics/{tid}.html 500/500 件生成済み |
