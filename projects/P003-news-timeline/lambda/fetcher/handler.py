@@ -2,6 +2,7 @@ import json
 import re
 import time
 import urllib.request
+import boto3
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -667,6 +668,20 @@ def lambda_handler(event, context):
             print(f'[pending] storyPhase欠如追加: {add_count}件 (残{len(phase_missing)-add_count}件)')
 
         write_s3('api/pending_ai.json', {'topicIds': pending_ids, 'updatedAt': ts_iso})
+
+        # 新規ペンディングトピックがあれば processor を即時非同期トリガー
+        if new_pending:
+            try:
+                _lambda = boto3.client('lambda', region_name='ap-northeast-1')
+                _lambda.invoke(
+                    FunctionName='p003-processor',
+                    InvocationType='Event',
+                    Payload=json.dumps({'topic_ids': list(new_pending), 'source': 'fetcher_trigger'}).encode(),
+                )
+                print(f'[fetcher] processor即時トリガー: {len(new_pending)}件')
+            except Exception as _e:
+                print(f'[fetcher] processorトリガー失敗（スキップ）: {_e}')
+
         generate_rss(topics, ts_iso)
         generate_sitemap(topics_deduped)  # 公開対象のみsitemapに含める
 

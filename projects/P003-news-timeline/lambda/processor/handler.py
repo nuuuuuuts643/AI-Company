@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from proc_config import MAX_API_CALLS, MIN_ARTICLES_FOR_TITLE, MIN_ARTICLES_FOR_SUMMARY
 from proc_ai import generate_title, generate_story
 from proc_storage import (
-    get_pending_topics, get_latest_articles_for_topic,
+    get_pending_topics, get_topics_by_ids, get_latest_articles_for_topic,
     update_topic_with_ai, get_all_topics_for_s3,
     update_topic_s3_files_parallel, generate_ogp_image,
     write_s3, notify_slack_error, generate_and_upload_sitemap,
@@ -60,8 +60,14 @@ def lambda_handler(event, context):
         except Exception as e:
             return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
 
-    pending = get_pending_topics(max_topics=100)
-    print(f'[Processor] pendingAI=True トピック数: {len(pending)}')
+    topic_id_filter = event.get('topic_ids')
+    source = event.get('source', 'scheduled')
+    if topic_id_filter:
+        pending = get_topics_by_ids(topic_id_filter)
+        print(f'[Processor] フェッチャートリガー (source={source}): {len(topic_id_filter)}件指定 → {len(pending)}件処理対象')
+    else:
+        pending = get_pending_topics(max_topics=100)
+        print(f'[Processor] pendingAI=True トピック数: {len(pending)}')
 
     api_calls      = 0
     processed      = 0
