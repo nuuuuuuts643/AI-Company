@@ -1187,3 +1187,21 @@ bash projects/P003-news-timeline/deploy.sh
 ### 完了済み（2026-04-27 T192/T193 フェーズラベル統一・backgroundContext保存修正）
 - ✅ **T192** — detail.jsフェーズバーのai-phase-step-labelにPHASE_TEXTマップを追加し発端→始まり等に統一。storymap.htmlのPHASE_LABELマップを同じT187テキストに統一。全5ファイルで表記が一致。
 - ✅ **T193** — proc_storage.py: T180で追加したbackgroundContextフィールドがDynamoDB(update_topic_with_ai)・S3 JSON(update_topic_s3_file)・静的HTML(generate_static_topic_html)のいずれにも保存されていなかった。全3箇所に追加。次回AI処理実行から反映。
+
+### 完了済み（2026-04-27）
+
+#### T207 ログイン反映・interests保存・プロフィール画像永続化・genre選択ログイン限定
+
+**完了時刻**: 2026-04-27 JST
+
+**変更ファイル**:
+- `lambda/auth/handler.py`: `interests`(list)・`avatarUrl`フィールド追加。DynamoDB users テーブルに保存・返却
+- `frontend/js/auth.js`: `mergeServerProfile` をサーバー値優先に修正、`syncAvatarToServer` 追加、ログイン後に `_applyInterestsAsGenre` / `_maybeShowGenreOnboarding` 呼び出し
+- `frontend/app.js`: `showGenreOnboarding` に未ログインガード追加、`flotopicSelectGenre` で interests を DynamoDB に保存
+- `frontend/mypage.html`: `profile.handle/ageGroup/gender` を `currentUser` でフォールバック、アバターアップロード後 `syncAvatarToServer` 呼び出し、`loadCloudHistory` を mypage でも呼び出し
+
+**根本原因（修正前）**:
+- `flotopic_profile`(localStorage) と `flotopic_user`(localStorage) が二重管理でズレ → handle 等が表示されなかった
+- S3 アップロード後 URL を localStorage にのみ保存 → 別デバイスで画像消失
+- `showGenreOnboarding` がログイン状態を見ていなかった → 未ログインにも表示されていた
+
