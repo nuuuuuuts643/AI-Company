@@ -29,12 +29,52 @@ _ENTITY_BONUS_TIME_WINDOW  = 48 * 3600  # seconds
 _ENTITY_BONUS_SCORE        = 0.30
 
 
+def _clean_for_entity(text: str) -> str:
+    text = re.sub(r'\s*[|｜].*$', '', text)
+    return _LIVE_PREFIX.sub('', text)
+
+
+def _extract_primary_entity(text: str):
+    """タイトルに最初に出現する固有エンティティ（主語）を返す。
+    カタカナ固有名詞とENTITY_PATTERNSを出現位置で競合させ、より前にある方を主語とする。
+    どちらも見つからない場合は最初の漢字固有名詞（汎用語除く）をフォールバックに使う。
+    返り値が None の場合は主語不明（ボーナス不適用）。
+    """
+    text = _clean_for_entity(text)
+    first_pos = len(text)
+    primary = None
+
+    # カタカナ固有名詞（3文字以上、汎用語除く）
+    for m in _KATAKANA_RUN.finditer(text):
+        normalized = SYNONYMS.get(m.group(), m.group())
+        if normalized not in _CHUNK_COMMON:
+            if m.start() < first_pos:
+                first_pos = m.start()
+                primary = normalized
+            break  # 最初の有効なカタカナエンティティで止める
+
+    # ENTITY_PATTERNSマッチ（より前の位置なら優先）
+    for pattern in ENTITY_PATTERNS:
+        m = re.search(pattern, text)
+        if m and m.start() < first_pos:
+            first_pos = m.start()
+            primary = pattern.split('|')[0]
+
+    # フォールバック: 最初の漢字2文字以上固有名詞（汎用語除く）
+    if primary is None:
+        for m in _KANJI_RUN.finditer(text):
+            if m.group() not in _CHUNK_COMMON:
+                primary = m.group()
+                break
+
+    return primary
+
+
 def _extract_title_entities(text: str) -> frozenset:
-    """タイトルから固有エンティティを抽出（エンティティ重複ボーナス用）。
+    """タイトルから固有エンティティ集合を抽出（エンティティ重複ボーナス用）。
     ENTITY_PATTERNSマッチ（正規化済みの国名・人名等）＋カタカナ固有名詞（3文字以上）。
     """
-    text = re.sub(r'\s*[|｜].*$', '', text)
-    text = _LIVE_PREFIX.sub('', text)
+    text = _clean_for_entity(text)
     entities = set()
     for pattern in ENTITY_PATTERNS:
         if re.search(pattern, text):
@@ -87,6 +127,7 @@ def cluster(articles):
     normalized   = [normalize(a['title']) - STOP_WORDS for a in articles]
     pre_chunks   = [_precompute_chunks(a['title']) for a in articles]
     pre_entities = [_extract_title_entities(a['title']) for a in articles]
+    pre_primary  = [_extract_primary_entity(a['title']) for a in articles]
     pub_ts       = [a.get('published_ts', 0) or 0 for a in articles]
 
     def find(x):
@@ -122,10 +163,14 @@ def cluster(articles):
                     and 1.0 / union_sz >= _ENTITY_MERGE_THRESHOLD):
                 pass  # → merge below
             elif len(shared) < 2:
-                # エンティティ重複ボーナス（shared=1の場合）: 2+エンティティ共有+48h以内→低閾値でマージ
+                # エンティティ重複ボーナス（shared=1の場合）:
+                # 主語一致 + 2+エンティティ共有 + 48h以内 → 低閾値でマージ
+                # 主語が異なる場合はマージしない（find_related_topicsで横リンクのみ）
                 if len(shared) == 1 and union_sz > 0:
                     shared_ent = pre_entities[i] & pre_entities[j]
-                    if len(shared_ent) >= _ENTITY_BONUS_MIN_OVERLAP:
+                    pi, pj = pre_primary[i], pre_primary[j]
+                    if (len(shared_ent) >= _ENTITY_BONUS_MIN_OVERLAP
+                            and pi is not None and pi == pj):
                         ts_i_val, ts_j_val = pub_ts[i], pub_ts[j]
                         if ts_i_val and ts_j_val and abs(ts_i_val - ts_j_val) <= _ENTITY_BONUS_TIME_WINDOW:
                             jac_bonus = len(shared) / union_sz + _ENTITY_BONUS_SCORE
@@ -157,9 +202,13 @@ def cluster(articles):
             if union_sz == 0:
                 continue
             jac = len(shared) / union_sz
-            # エンティティ重複ボーナス（shared>=2の場合）: 2+エンティティ共有+48h以内→+0.30
+            # エンティティ重複ボーナス（shared>=2の場合）:
+            # 主語一致 + 2+エンティティ共有 + 48h以内 → +0.30
+            # 主語が異なる場合はマージしない（find_related_topicsで横リンクのみ）
             shared_ent = pre_entities[i] & pre_entities[j]
-            if len(shared_ent) >= _ENTITY_BONUS_MIN_OVERLAP:
+            pi, pj = pre_primary[i], pre_primary[j]
+            if (len(shared_ent) >= _ENTITY_BONUS_MIN_OVERLAP
+                    and pi is not None and pi == pj):
                 ts_i_val, ts_j_val = pub_ts[i], pub_ts[j]
                 if ts_i_val and ts_j_val and abs(ts_i_val - ts_j_val) <= _ENTITY_BONUS_TIME_WINDOW:
                     jac = min(jac + _ENTITY_BONUS_SCORE, 1.0)
