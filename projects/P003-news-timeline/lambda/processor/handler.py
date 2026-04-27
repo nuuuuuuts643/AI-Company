@@ -109,30 +109,12 @@ def lambda_handler(event, context):
     if event.get('forceRegenerateAll'):
         from proc_storage import force_reset_pending_all
         if event.get('dryRun'):
-            # DynamoDB scan のみで件数を返す (リセットしない)
-            from proc_config import table
-            from boto3.dynamodb.conditions import Attr
-            count = 0
-            # active/cooling のみ対象 (archived/legacy は無駄)
-            scan_kwargs = {
-                'FilterExpression': (
-                    Attr('SK').eq('META')
-                    & Attr('articleCount').gte(2)
-                    & (
-                        ~Attr('lifecycleStatus').exists()
-                        | Attr('lifecycleStatus').is_in(['active', 'cooling'])
-                    )
-                ),
-                'Select': 'COUNT',
-            }
-            while True:
-                r = table.scan(**scan_kwargs)
-                count += r.get('Count', 0)
-                if not r.get('LastEvaluatedKey'):
-                    break
-                scan_kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
+            # topics.json から可視トピック数のみ取得 (DynamoDB全件scanの無駄を排除)
+            from proc_storage import _load_visible_topic_ids
+            visible_tids = _load_visible_topic_ids()
+            count = len(visible_tids)
             est_cost_usd = round(count * 0.0023, 3)
-            print(f'[Processor] forceRegenerateAll dryRun: {count} 件対象 → 推定コスト ${est_cost_usd} (Haiku 4.5 出力料金ベース)')
+            print(f'[Processor] forceRegenerateAll dryRun: topics.json可視 {count} 件対象 → 推定コスト ${est_cost_usd} (Haiku 4.5)')
             return {'statusCode': 200, 'body': json.dumps({'dryRun': True, 'targetCount': count, 'estimatedCostUsd': est_cost_usd})}
         reset_count = force_reset_pending_all()
         est_cost_usd = round(reset_count * 0.0023, 3)
