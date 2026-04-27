@@ -90,5 +90,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0428-GSC GSC重複URL修正 (CF Function 301) | Code | projects/P003-news-timeline/infra/cf-redirect-function.js, .github/workflows/deploy-p003.yml | 2026-04-28 07:09 | yes |
 | [Code] T2026-0428-UI35 UIレビュー35件横断修正 | Code | projects/P003-news-timeline/frontend/index.html, topic.html, storymap.html, catchup.html, mypage.html, style.css, app.js, detail.js | 2026-04-28 07:13 | yes |
+| [Cowork] schedule-task 07:13 多角調査+AI フィールドカタログ化 | Cowork | docs/ai-fields-catalog.md, docs/system-status.md | 2026-04-28 07:13 | no |
