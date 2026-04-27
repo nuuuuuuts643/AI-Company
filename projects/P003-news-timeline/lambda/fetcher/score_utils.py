@@ -10,8 +10,55 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from email.utils import parsedate_tz, mktime_tz
+from urllib.parse import urlparse
 
 from config import URGENT_WORDS
+
+# ──────────────────────────────────────────────────────────
+# メディアカテゴリ分類（ドメインベース）
+# カテゴリA: 公共放送（最高信頼度）
+# カテゴリB: 全国紙・通信社
+# カテゴリC: テックメディア（技術ニュースに偏重）
+# ──────────────────────────────────────────────────────────
+_MEDIA_CAT_A = frozenset([
+    'nhk.or.jp',
+])
+
+_MEDIA_CAT_B = frozenset([
+    'asahi.com',
+    'yomiuri.co.jp',
+    'mainichi.jp',
+    'nikkei.com',
+    'sankei.com',
+    'reuters.com',
+    'kyodo.jp',
+    'nordot.app',   # 共同通信配信
+    'jiji.com',
+])
+
+_MEDIA_CAT_C = frozenset([
+    'itmedia.co.jp',
+    'techcrunch.jp',
+    'techcrunch.com',
+    'gizmodo.jp',
+    'gigazine.net',
+    'ascii.jp',
+    'cnet.com',
+    'impress.co.jp',
+])
+
+
+def _get_domain(url: str) -> str:
+    if not url:
+        return ''
+    try:
+        return urlparse(url).netloc.lower()
+    except Exception:
+        return ''
+
+
+def _domain_in_cat(netloc: str, cat: frozenset) -> bool:
+    return any(netloc == d or netloc.endswith('.' + d) for d in cat)
 
 
 def hatena_count(url):
@@ -107,18 +154,40 @@ def source_count(articles):
 
 
 def source_diversity_score(articles: list) -> float:
+    """
+    メディアカテゴリに基づく多様性乗数を返す。
+
+    採点ロジック:
+      カテゴリA(公共放送)1つ以上   → +2.0
+      カテゴリB(全国紙・通信社)2社以上 → +1.5
+      A+B合計3媒体以上          → +1.0 追加ボーナス
+      カテゴリCのみ(テック専門)   → 0.3（テック偏重を抑制）
+    """
     if not articles:
         return 1.0
-    sources = [a.get('source', '') for a in articles]
-    counts = Counter(sources)
-    top_source, top_count = counts.most_common(1)[0]
-    top_source_ratio = top_count / len(sources)
-    # NHKは権威性は高いが単独支配は減点（多様な視点がないトピックを下げる）
-    if top_source_ratio > 0.7:
-        return 0.65
-    elif top_source_ratio > 0.5:
-        return 0.80
-    return 1.0
+
+    domains = {_get_domain(a.get('url', '')) for a in articles if a.get('url')}
+    domains.discard('')
+
+    cat_a = any(_domain_in_cat(d, _MEDIA_CAT_A) for d in domains)
+    cat_b_domains = {d for d in domains if _domain_in_cat(d, _MEDIA_CAT_B)}
+    cat_c_domains = {d for d in domains if _domain_in_cat(d, _MEDIA_CAT_C)}
+    other_domains = domains - cat_c_domains
+
+    # テックメディアのみの場合は抑制（ソース集中ペナルティより優先）
+    if not cat_a and not cat_b_domains and cat_c_domains and not other_domains:
+        return 0.3
+
+    multiplier = 1.0
+    if cat_a:
+        multiplier += 2.0
+    if len(cat_b_domains) >= 2:
+        multiplier += 1.5
+    ab_count = (1 if cat_a else 0) + len(cat_b_domains)
+    if ab_count >= 3:
+        multiplier += 1.0
+
+    return round(multiplier, 2)
 
 
 def calc_score(articles):
