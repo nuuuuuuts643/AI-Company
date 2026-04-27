@@ -179,3 +179,57 @@ jobs:
             exit 1
           fi
           echo "✅ 中核キーワード OK"
+
+      - name: scriptタグ defer/async 禁止リスト検査
+        run: |
+          # CLAUDE.md「scriptタグdefer/async禁止リスト」の物理強制。
+          # chart.js / config.js / app.js / detail.js は実行順序依存があるため defer/async 禁止。
+          ERRORS=0
+          for f in projects/P003-news-timeline/frontend/*.html; do
+            HITS=$(grep -nE 'src="(chart\.js|config\.js|app\.js|detail\.js)"[^>]*\b(defer|async)\b' "$f" 2>/dev/null || true)
+            if [ -n "$HITS" ]; then
+              echo "::error file=$f::script defer/async 禁止違反"
+              echo "$HITS" | sed 's/^/   /'
+              ERRORS=$((ERRORS+1))
+            fi
+          done
+          if [ $ERRORS -gt 0 ]; then
+            echo "::error::禁止リストの script に defer/async が付与されています ($ERRORS 件)"
+            exit 1
+          fi
+          echo "✅ defer/async 禁止リスト OK"
+
+      - name: 意味色ハードコード禁止検査 (#ef4444 / #f43f5e)
+        run: |
+          # CLAUDE.md「CSS意味色のハードコード禁止」の物理強制。
+          # 認められる場所:
+          #   - style.css の :root / [data-theme="dark"] の var 定義行
+          #   - PHASE_BADGE_COLOR / valid_phases などフェーズ→色のデータマップ (意図的)
+          # それ以外は var(--color-danger) / var(--color-heart) を使う。
+          HITS=$(grep -rEn '#ef4444|#f43f5e' \
+                projects/P003-news-timeline/frontend/ \
+                --include='*.html' --include='*.js' \
+              | grep -v 'style.css' \
+              | grep -vE 'PHASE_BADGE_COLOR|valid_phases' \
+              || true)
+          if [ -n "$HITS" ]; then
+            echo "::error::意味色 (#ef4444/#f43f5e) のハードコードが見つかりました。var(--color-danger)/var(--color-heart) を使ってください"
+            echo "$HITS" | sed 's/^/   /'
+            exit 1
+          fi
+          echo "✅ 意味色ハードコードなし"
+
+      - name: tokushoho.html 内部リンク復活禁止検査
+        run: |
+          # CLAUDE.md「tokushoho.html 廃止済み・復活禁止」の物理強制。
+          # ファイル自体は外部古リンク向け noindex+redirect スタブとして残す。
+          # ただし内部 (footer/sitemap/sw.js/他HTML) からは参照しない。
+          # 自分自身 (tokushoho.html) のヒットは除外する。
+          REFS=$(grep -rln 'tokushoho' projects/P003-news-timeline/frontend/ 2>/dev/null \
+                  | grep -v 'tokushoho.html$' || true)
+          if [ -n "$REFS" ]; then
+            echo "::error::tokushoho 内部参照が復活しています:"
+            echo "$REFS" | sed 's/^/   /'
+            exit 1
+          fi
+          echo "✅ tokushoho 内部参照なし (スタブファイル自体は許容)"
