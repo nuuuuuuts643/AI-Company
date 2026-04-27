@@ -110,6 +110,25 @@ def get_topic_detail(tid):
     return meta, snaps, views
 
 
+def get_latest_snap_articles(tid, max_articles=50):
+    """前回 SNAP の articles リストを返す。fetcher で累積マージ用。
+    履歴記事数が常に少ない問題への対応(2026-04-27): 各SNAPに前回分の記事もマージしておくことで、
+    古い記事がRSSから消えても topic detail の履歴に残るようにする。"""
+    try:
+        r = table.query(
+            KeyConditionExpression=Key('topicId').eq(tid) & Key('SK').begins_with('SNAP#'),
+            ScanIndexForward=False, Limit=1,
+            ProjectionExpression='articles',
+        )
+        items = r.get('Items', [])
+        if not items:
+            return []
+        articles = items[0].get('articles', []) or []
+        return articles[:max_articles]
+    except Exception:
+        return []
+
+
 def recent_counts(tid, n=5):
     try:
         r = table.query(
