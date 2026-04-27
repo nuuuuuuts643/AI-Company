@@ -1391,3 +1391,13 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T2026-0428-I~~ | ✅ 完了 | ~~**`session_bootstrap.sh` schedule mode 検知 + 最優先タスク強調表示**~~ → 2026-04-28 19:00 完了。`SCHEDULE_TASK=1` または `--schedule` で起動時、scheduled-task-protocol.md と TASKS.md「🔥 今週やること」最優先 unblocked タスクを STDOUT に強調表示。実機検証で T212 が抽出されることを確認。 | (済) | 2026-04-28 |
 
 </details>
+
+
+### 自動 triage: 2026-04-28 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T235~~ | 🟡 中 | 安定性 | **Claude API 5xx リトライ実装** — `lambda/processor/proc_ai.py:14-37` の `_call_claude` は HTTP 429 のみ最大3回リトライ。500/503 系は 1 回失敗で諦めて return None、当該トピックの AI フィールドが空のままになる。Tool Use 化で構造化出力が増え、Anthropic 側の generation timeout / 内部エラーが顕在化しやすい。修正方法: 5xx 系 (500, 502, 503, 504) も 429 と同等のバックオフ付きリトライ対象に追加。記録用に `[METRIC] claude_5xx_retry` ログを出して governance worker で集計。 | `lambda/processor/proc_ai.py` | 2026-04-28 |
+| ~~T2026-0428-H~~ | 🟡 中 | **`scripts/triage_implemented_likely.py` 新設** — TASKS.md に `(HISTORY 確認要)` を含む行は HISTORY.md と grep で突合し、HISTORY 側に同 ID `done` 行があれば自動的に取消線化する。`session_bootstrap.sh` から定期呼び出し。今回手動で T231/T232/T234/T244 の 4 件を取消線化したのを次回から物理化。 | `scripts/triage_implemented_likely.py` 新規, `scripts/session_bootstrap.sh` | 2026-04-28 |
+
+</details>
