@@ -229,7 +229,26 @@ function renderBadges(t) {
   const favUpdated = (typeof isFavUpdated === 'function' && isFavUpdated(t))
     ? '<span class="card-fav-updated-badge">♥ 更新</span>'
     : '';
-  return newBadge + favUpdated;
+  // AI 未解析トピック (generatedTitle も generatedSummary も無い) は明示する。
+  // これがないと「raw RSS タイトル + 媒体名サフィックス」が出て「壊れている」と見える。
+  const isAiPending = !t.generatedSummary && !t.generatedTitle;
+  const aiPendingBadge = isAiPending
+    ? '<span class="card-ai-pending-badge" title="AI解析待ち（次回 01:00/07:00/13:00/19:00 JST に処理）">🤖 解析待ち</span>'
+    : '';
+  return newBadge + favUpdated + aiPendingBadge;
+}
+
+/**
+ * RSS生タイトル末尾の「 - 媒体名」サフィックスを除去する。
+ * AI解析前のトピックでフォールバック表示する際、見栄えを揃える。
+ * 媒体名は別 srcLabel で出すので二重表示にもならない。
+ * @param {string} raw - 生タイトル
+ * @returns {string} クリーンタイトル
+ */
+function stripMediaSuffix(raw) {
+  if (!raw) return '';
+  // 末尾の「 - XX」「 | XX」「（XX）」パターンを最大1つ除く。媒体名と思しき短語のみ。
+  return String(raw).replace(/\s*[-｜|]\s*[^-｜|]{2,32}$/u, '').replace(/\s*（[^（）]{2,16}）\s*$/u, '').trim();
 }
 
 /**
@@ -366,7 +385,7 @@ function renderTopicCard(t, i) {
         <div class="card-body">
           <div class="topic-status ${displayStatus}">${STATUS_LABEL[displayStatus] || displayStatus}${coolingAgeHtml}${phaseHtml}</div>
           ${velBarHtml}
-          <h3>${esc(t.topicTitle || t.generatedTitle || t.title)}</h3>
+          <h3>${esc(t.topicTitle || t.generatedTitle || stripMediaSuffix(t.title))}</h3>
           ${t.latestUpdateHeadline ? `<p class="card-update-headline">${esc(t.latestUpdateHeadline)}</p>` : ''}
           ${renderCardMeta(t)}
           ${renderReliabilitySignal(t)}

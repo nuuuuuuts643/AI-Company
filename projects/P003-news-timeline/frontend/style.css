@@ -2141,6 +2141,29 @@ details[open] .day-more-btn::before { content: '▼ '; }
   pointer-events: none;
   animation: new-pulse 2s ease-in-out infinite;
 }
+/* AI 解析待ちバッジ — 生 RSS タイトル + 生ジャンルが出ているのを明示する */
+.card-ai-pending-badge {
+  position: absolute;
+  top: 10px;
+  right: 60px;  /* fav-btn と share-btn を避ける */
+  background: rgba(15,23,42,0.78);
+  color: #cbd5e1;
+  font-size: .68rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 12px;
+  z-index: 2;
+  letter-spacing: .02em;
+  border: 1px solid rgba(148,163,184,0.35);
+  pointer-events: auto;
+  cursor: help;
+  white-space: nowrap;
+}
+[data-theme="dark"] .card-ai-pending-badge {
+  background: rgba(30,32,53,0.92);
+  color: #94a3b8;
+  border-color: rgba(78,201,192,0.2);
+}
 
 .card-update-headline {
   font-size: .76rem;
