@@ -309,8 +309,7 @@ def lambda_handler(event, context):
         cnt    = len(g)
         genres = dominant_genres(g)
         genre  = genres[0]
-        combined_titles = ' '.join(a['title'] for a in g)
-        forced_genre = override_genre_by_title(combined_titles)
+        forced_genre = override_genre_by_title(g)
         if forced_genre and forced_genre != genre:
             print(f'ジャンル上書き: {genre}→{forced_genre} ({g[0]["title"][:30]})')
             genre  = forced_genre

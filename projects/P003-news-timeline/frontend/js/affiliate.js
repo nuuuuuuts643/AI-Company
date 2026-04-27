@@ -13,6 +13,10 @@ function renderAffiliate(meta) {
 
   const topicGenres = meta.genres || (meta.genre ? [meta.genre] : []);
 
+  // 社会・事件・政治・健康・国際トピックでは商品リンクが不自然・信頼を損なうため非表示
+  const SENSITIVE_GENRES = new Set(['社会', '政治', '健康', '国際']);
+  if (SENSITIVE_GENRES.has(topicGenres[0])) { section.style.display = 'none'; return; }
+
   const GENRE_KEYWORD = {
     'テクノロジー': 'ガジェット 最新',
     'グルメ': 'お取り寄せ グルメ',
