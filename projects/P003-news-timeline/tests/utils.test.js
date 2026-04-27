@@ -13,7 +13,7 @@ const { CONFIG, LS_KEYS, relativeTime, isNewTopic, isHotTopic } =
 describe('CONFIG', () => {
   it('HOT_STRIP_HOURS is 6', () => assert.equal(CONFIG.HOT_STRIP_HOURS, 6));
   it('NEW_BADGE_HOURS is 1', () => assert.equal(CONFIG.NEW_BADGE_HOURS, 1));
-  it('AD_CARD_INTERVAL is 9', () => assert.equal(CONFIG.AD_CARD_INTERVAL, 9));
+  it('AD_CARD_INTERVAL is 5', () => assert.equal(CONFIG.AD_CARD_INTERVAL, 5));
   it('TOPICS_PER_PAGE is 20', () => assert.equal(CONFIG.TOPICS_PER_PAGE, 20));
   it('FRESHNESS_INTERVAL_MS is 60000', () =>
     assert.equal(CONFIG.FRESHNESS_INTERVAL_MS, 60000));
