@@ -22,9 +22,9 @@
       "description": "急上昇中のトピックを見る"
     },
     {
-      "name": "リワインド",
+      "name": "振り返る",
       "url": "/catchup.html",
-      "description": "離れていた間のニュースをまとめて確認"
+      "description": "過去N日間に話題になったトピックを一覧で確認"
     },
     {
       "name": "お気に入り",

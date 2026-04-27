@@ -28,23 +28,46 @@ HANDLE_RE    = re.compile(r'^[A-Za-z0-9_]{1,20}$')
 VALID_AGE_GROUPS = {'10代未満', '10代', '20代', '30代', '40代', '50代', '60代以上', ''}
 VALID_GENDERS    = {'male', 'female', 'other', 'prefer_not', ''}
 
+# T227 (2026-04-28): CORS Allow-Origin を `*` から自社ドメインに固定。
+# CSRF 増幅リスク削減 (任意の悪性サイトから POST されない)。env で上書き可能 (staging用途等)。
+ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get(
+        'ALLOWED_ORIGINS',
+        'https://flotopic.com,https://www.flotopic.com'
+    ).split(',') if o.strip()
+]
+
 dynamodb = boto3.resource('dynamodb', region_name=REGION)
 table    = dynamodb.Table(TABLE_NAME)
 
 
-def cors_headers():
+def _resolve_origin(event) -> str:
+    """リクエスト Origin ヘッダーが ALLOWED_ORIGINS にあれば echo back、無ければ第一許可ドメインを返す。
+
+    T227 設計: ワイルドカード `*` は使わず、許可リストとの突合で必ず固定値を返す。
+    Origin ヘッダーが無い (curl 等) 場合や許可外の場合は、第一許可ドメインで応答 → ブラウザ側 CORS で弾かれる。
+    """
+    headers = event.get('headers') or {} if isinstance(event, dict) else {}
+    raw = headers.get('origin') or headers.get('Origin') or ''
+    if raw in ALLOWED_ORIGINS:
+        return raw
+    return ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else 'https://flotopic.com'
+
+
+def cors_headers(event=None):
     return {
         'Content-Type':                 'application/json; charset=utf-8',
-        'Access-Control-Allow-Origin':  '*',
+        'Access-Control-Allow-Origin':  _resolve_origin(event),
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
+        'Vary':                         'Origin',
     }
 
 
-def resp(code: int, body: dict):
+def resp(code: int, body: dict, event=None):
     return {
         'statusCode': code,
-        'headers':    cors_headers(),
+        'headers':    cors_headers(event),
         'body':       json.dumps(body, ensure_ascii=False, default=str),
     }
 
@@ -149,10 +172,10 @@ def lambda_handler(event, context):
                    .get('method', 'POST'))
 
     if method == 'OPTIONS':
-        return resp(200, {})
+        return resp(200, {}, event)
 
     if method != 'POST':
-        return resp(405, {'error': 'method not allowed'})
+        return resp(405, {'error': 'method not allowed'}, event)
 
     try:
         raw = event.get('body') or '{}'
@@ -160,15 +183,15 @@ def lambda_handler(event, context):
             raw = base64.b64decode(raw).decode('utf-8')
         data = json.loads(raw)
     except Exception:
-        return resp(400, {'error': 'リクエストの形式が不正です'})
+        return resp(400, {'error': 'リクエストの形式が不正です'}, event)
 
     id_token = (data.get('idToken') or '').strip()
     if not id_token:
-        return resp(400, {'error': 'idToken が必要です'})
+        return resp(400, {'error': 'idToken が必要です'}, event)
 
     payload = verify_google_token(id_token)
     if not payload:
-        return resp(401, {'error': 'トークンの検証に失敗しました'})
+        return resp(401, {'error': 'トークンの検証に失敗しました'}, event)
 
     new_handle    = (data.get('handle')    or '').strip()
     new_age       = (data.get('ageGroup')  or '').strip()
@@ -182,7 +205,7 @@ def lambda_handler(event, context):
         user = get_or_create_user(payload, new_handle, new_age, new_gender,
                                   new_nickname, new_interests, new_avatar)
     except Exception as e:
-        return resp(500, {'error': 'ユーザーの処理に失敗しました', 'detail': str(e)})
+        return resp(500, {'error': 'ユーザーの処理に失敗しました', 'detail': str(e)}, event)
 
     return resp(200, {
         'userId':    user['userId'],
@@ -195,4 +218,4 @@ def lambda_handler(event, context):
         'interests': user.get('interests', []),
         'avatarUrl': user.get('avatarUrl', ''),
         'token':     id_token,
-    })
+    }, event)
