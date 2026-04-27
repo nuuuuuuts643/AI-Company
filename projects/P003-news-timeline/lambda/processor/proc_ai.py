@@ -105,6 +105,10 @@ def generate_title(articles):
             'messages': [{'role': 'user', 'content': prompt}],
         }, timeout=12)
         title = data['content'][0]['text'].strip()
+        # markdown 残骸の除去 (Claude が `# Title` 形式で返してくることがあるため)
+        title = re.sub(r'^#+\s*', '', title)            # 先頭の # / ## など削除
+        title = re.sub(r'^\*+\s*|\s*\*+$', '', title)   # 先頭/末尾の * 削除
+        title = title.strip(' \t\n"\'「」')
         unmatched_bracket = title.count('「') != title.count('」') or title.count('【') != title.count('】')
         if len(title) > 50 or unmatched_bracket or any(w in title for w in _REFUSAL):
             print(f'generate_title: 無効な応答を除外: {title[:40]}')
