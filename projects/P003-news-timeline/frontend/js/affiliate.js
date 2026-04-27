@@ -84,4 +84,8 @@ function renderAffiliate(meta) {
   `).join('') + `<p class="affiliate-note">※ アフィリエイトリンクを含みます。購入者様の費用は変わりません。</p>`;
 
   section.style.display = '';
+  // adblock removes .affiliate-link-item elements after render — hide section if empty
+  setTimeout(() => {
+    if (!linksEl.querySelector('.affiliate-link-item')) section.style.display = 'none';
+  }, 1500);
 }
