@@ -1401,3 +1401,12 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T2026-0428-H~~ | 🟡 中 | **`scripts/triage_implemented_likely.py` 新設** — TASKS.md に `(HISTORY 確認要)` を含む行は HISTORY.md と grep で突合し、HISTORY 側に同 ID `done` 行があれば自動的に取消線化する。`session_bootstrap.sh` から定期呼び出し。今回手動で T231/T232/T234/T244 の 4 件を取消線化したのを次回から物理化。 | `scripts/triage_implemented_likely.py` 新規, `scripts/session_bootstrap.sh` | 2026-04-28 |
 
 </details>
+
+
+### 自動 triage: 2026-04-28 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T246~~ | 中 | **`Verified:` 行を完了 commit に必須化（done.sh 拡張）** — CLAUDE.md「完了=動作確認済み」と書いてあるがテキスト規則のため形骸化しがち。`done.sh` を拡張し、引数 `verify_target` から URL/log/test を取得して証跡として commit message に `Verified: <url>:<status>:<timestamp>` を自動付与。pre-commit hook で「`done:` プレフィックス commit に `Verified:` 行が無ければ reject」。※実装済 (2026-04-28)。HISTORY 確認要。 | `done.sh`, `.git/hooks/pre-commit`, `CLAUDE.md` | 2026-04-28 |
+
+</details>
