@@ -4,8 +4,8 @@
   "description": "話題のニュースを時系列で追うWebアプリ。",
   "main": "index.js",
   "scripts": {
-    "test": "node --test tests/utils.test.js",
-    "check": "node --check frontend/app.js && node --check frontend/js/utils.js && node --check frontend/js/comments.js"
+    "test": "node --test tests/utils.test.js tests/safe_format.test.js",
+    "check": "node --check frontend/app.js && node --check frontend/js/utils.js && node --check frontend/js/comments.js && node --check frontend/js/safe_format.js"
   },
   "keywords": [],
   "author": "",
