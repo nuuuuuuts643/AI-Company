@@ -68,7 +68,14 @@ if [ -f TASKS.md ] && [ -x scripts/triage_tasks.py ]; then
 fi
 
 # ---- 6. needs-push 警告 ----
-NEEDS_PUSH=$(grep -nE 'needs-push.*\<yes\>' WORKING.md 2>/dev/null || true)
+# 「現在着手中」セクションのテーブル本体行のうち、最終セルが yes のものだけを拾う。
+# 説明文・引用・記入フォーマット例 を誤検出しないよう awk で厳密化する。
+# (旧: `grep -nE 'needs-push.*\<yes\>'` は規則の解説文を毎回拾い、警告がノイズで埋没していた)
+NEEDS_PUSH=$(awk '
+  /^## 現在着手中/        { in_sec=1; next }
+  /^## /                  { in_sec=0 }
+  in_sec && /^\|/ && /\| *yes( *\| *)?$/ { printf "%d:%s\n", NR, $0 }
+' WORKING.md 2>/dev/null || true)
 
 # ---- 7. サマリ出力 ----
 echo "─────────────────────────────────────────"
