@@ -54,3 +54,4 @@ projects/P003-news-timeline/lambda/fetcher/urllib3-*.dist-info/
 projects/P003-news-timeline/lambda/fetcher/sgmllib.py
 projects/P003-news-timeline/lambda/fetcher/sgmllib3k-*.dist-info/
 projects/P003-news-timeline/lambda/fetcher/*.so
+.claude/worktrees/
