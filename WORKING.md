@@ -90,3 +90,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] flotopic.com UI横断レビュー | Code | （レポートのみ・コード変更なし） | 2026-04-28 06:51 | no |
