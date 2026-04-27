@@ -79,3 +79,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST |
 |---|---|---|---|
+| [Code] admin.html 表示情報整理 | Code | projects/P003-news-timeline/frontend/admin.html | 2026-04-28 02:30 |
