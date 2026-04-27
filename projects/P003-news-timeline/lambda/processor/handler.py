@@ -226,9 +226,9 @@ def lambda_handler(event, context):
         # keyPoint=None のまま永久に skip されていた (本番 0/115 で確認済)。
         # 仕組み的対策: 必須フィールドリストを 1 箇所で管理し、新フィールド追加時の漏れを構造的に防ぐ。
         _required_full_fields = (
-            (topic.get('storyTimeline') or _is_minimal),
-            (topic.get('storyPhase')    or _is_minimal),
-            (topic.get('keyPoint')      or _is_minimal),
+            (topic.get('storyTimeline') or _is_minimal),  # minimal は timeline 生成しない
+            (topic.get('storyPhase')    or _is_minimal),  # minimal は phase 生成しない
+            bool(topic.get('keyPoint')),                  # T255+T256: minimal も keyPoint 必須。_is_minimal 免除を削除。
         )
         needs_story = (cnt >= MIN_ARTICLES_FOR_SUMMARY
                        and not (topic.get('aiGenerated') and all(_required_full_fields)))
