@@ -1115,6 +1115,24 @@ document.addEventListener('DOMContentLoaded', () => {
   // PWAインストールバナー
   (function initPwaBanner() {
     if (localStorage.getItem(LS_KEYS.PWA_DISMISSED) === '1') return;
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone = window.navigator.standalone === true;
+
+    if (isIOS && !isStandalone) {
+      // iOS Safari向け: ネイティブの beforeinstallprompt は発火しないため手動で案内
+      const iosBanner = document.getElementById('pwa-ios-banner');
+      const iosDismiss = document.getElementById('pwa-ios-dismiss-btn');
+      if (iosBanner) iosBanner.style.display = 'flex';
+      if (iosDismiss) {
+        iosDismiss.addEventListener('click', () => {
+          if (iosBanner) iosBanner.style.display = 'none';
+          localStorage.setItem(LS_KEYS.PWA_DISMISSED, '1');
+        });
+      }
+      return;
+    }
+
     let deferredPrompt = null;
     const banner     = document.getElementById('pwa-install-banner');
     const installBtn = document.getElementById('pwa-install-btn');
