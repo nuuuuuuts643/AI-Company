@@ -182,13 +182,37 @@ async function loadTopics() {
   return data.topics || [];
 }
 
+// 汎用すぎて何の話か分からない単語はチップから除外する。
+// 例: 「背景」「内容」「状況」「問題」「結果」など、文脈が無いと意味が伝わらないもの。
+// （バックエンドで extracted されたキーワードに混入することがある）
+const KEYWORD_BLACKLIST = new Set([
+  '背景','内容','状況','問題','結果','理由','詳細','概要','関連','影響','発表','発生','発生時','発生地','以下','以上','以前','以後','現在','過去','将来','今回','今後','今日','昨日','明日','本日','本件','当該','一方','その後','その前','その他','その間','一部','一般','全体','全国','全員','全部','全て','全て','側面','立場','可能性','必要','重要','一連','一連の','問題点','一覧','確認','報告','回答','質問','概略','本文','文章','記事','ニュース','話題','情報','データ','時間','場所','場面','日々','日付','日時','開催','終了','開始','参加','参加者','関係','関係者','メディア','媒体','業界','分野','政界','官民','地域','地元','都内','県内','市内','官房','政府','一般的','一般論'
+]);
+
+function isMeaningfulKeyword(word) {
+  if (!word) return false;
+  const w = String(word).trim();
+  if (!w) return false;
+  if (w.length < 2) return false; // 1文字キーワードは曖昧すぎるので除外
+  if (KEYWORD_BLACKLIST.has(w)) return false;
+  // ひらがなのみ・カタカナのみで2-3文字の助詞/動詞っぽいものも除外（ヒューリスティック）
+  if (/^[぀-ゟ]{2,3}$/.test(w)) return false; // 純ひらがな2-3文字
+  return true;
+}
+
 function renderKeywordStrip(keywords) {
   const strip = document.getElementById('keyword-strip');
   if (!strip) return;
   if (!keywords || !keywords.length) { strip.style.display = 'none'; return; }
+  // 不適切タグを事前にフィルタ。カウントが残れば表示、すべて除外なら非表示
+  const filtered = keywords.filter(kw => {
+    const word = typeof kw === 'string' ? kw : (kw.keyword || '');
+    return isMeaningfulKeyword(word);
+  });
+  if (!filtered.length) { strip.style.display = 'none'; return; }
   strip.style.display = 'flex';
   strip.innerHTML = '<span class="keyword-strip-label">注目</span>' +
-    keywords.slice(0, 12).map(kw => {
+    filtered.slice(0, 12).map(kw => {
       const word = typeof kw === 'string' ? kw : (kw.keyword || '');
       return word ? `<button class="kw-chip" data-kw="${esc(word)}">#${esc(word)}</button>` : '';
     }).join('');
@@ -660,20 +684,10 @@ function updateIndexOGP(genre) {
 }
 
 function buildFilters() {
+  // status-filter（総合/急上昇/注目中/落ち着き）はトピックがすでに velocity 降順で並んでいるため不要。
+  // 上位カードが「今一番話題のトピック」になる設計。currentStatus は内部的に 'all' で固定運用。
   const sbar = document.getElementById('status-filter');
-  if (sbar) {
-    const btns = [{k:'all',l:'総合'},{k:'rising',l:'🔥 急上昇'},{k:'peak',l:'⚡ 注目中'},{k:'declining',l:'📉 落ち着き'}];
-    sbar.innerHTML = btns.map(b=>`<button class="filter-btn ${currentStatus===b.k?'active':''}" data-status="${b.k}">${b.l}</button>`).join('');
-    sbar.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', () => {
-      sbar.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active'); currentStatus = btn.dataset.status;
-      savePrefs({...loadPrefs(), status: currentStatus});
-      currentPage = 1;
-      currentSearch = '';
-      const si = document.getElementById('search-input'); if (si) si.value = '';
-      renderTopics(allTopics);
-    }));
-  }
+  if (sbar) sbar.innerHTML = '';
   const gbar = document.getElementById('genre-filter');
   if (gbar) {
     gbar.innerHTML = GENRES.map(g=>`<button class="filter-btn genre-btn ${currentGenre===g?'active':''}" data-genre="${g}">${g}</button>`).join('');
