@@ -261,6 +261,18 @@ function renderDetail(data) {
   }
 
   // ── AI 分析表示（記事数に応じた段階レンダリング） ───────────────────────────────────
+  // T236 (2026-04-28): proc_ai.py が outlook/forecast 末尾に [確信度:高/中/低] を付ける仕様。
+  // 文字列のまま表示すると視認性低い → バッジ装飾して「予測の不確実性が一瞬で読み取れる」UX に。
+  // 旧データ (確信度ラベル無し) は match しないので素通し (副作用ゼロ)。
+  function decorateConfidence(text) {
+    if (!text) return '';
+    const m = text.match(/^([\s\S]*?)\s*[\[［]\s*確信度[:：]\s*(高|中|低)\s*[\]］]\s*$/);
+    if (!m) return esc(text);
+    const [, body, level] = m;
+    const levelClass = level === '高' ? 'cf-high' : level === '中' ? 'cf-mid' : 'cf-low';
+    const dot = level === '高' ? '🟢' : level === '中' ? '🟡' : '⚪';
+    return `${esc(body.trim())} <span class="confidence-badge ${levelClass}" title="記事内に明示根拠あり=高 / 複数の状況証拠=中 / 推測ベース=低">${dot} 確信度: ${esc(level)}</span>`;
+  }
   const aiAnalysisEl = document.getElementById('ai-analysis');
   if (aiAnalysisEl) {
     const summary           = cleanSummary(meta.generatedSummary);
@@ -321,7 +333,7 @@ function renderDetail(data) {
       if (summaryMode === 'minimal') {
         const sectBgM = background ? `<p class="ai-summary-bg">📚 <strong>なぜ今:</strong> ${esc(background)}</p>` : '';
         const sectCurM = `<p class="ai-summary-simple"><strong>📍 現状:</strong> ${esc(summary)}</p>`;
-        const sectOlM = outlook ? `<p class="ai-summary-outlook">🔮 <strong>見通し:</strong> ${esc(outlook)}</p>` : '';
+        const sectOlM = outlook ? `<p class="ai-summary-outlook">🔮 <strong>見通し:</strong> ${decorateConfidence(outlook)}</p>` : '';
         aiAnalysisEl.innerHTML = `
           <div class="ai-analysis-inner ai-analysis-minimal">
             ${keyPointHero}
@@ -369,7 +381,7 @@ function renderDetail(data) {
         const sectOl = outlook ? `
           <div class="ai-section ai-section-forecast">
             <div class="ai-section-label">🔮 今後どうなるか <span class="ai-hypothesis-badge">仮説</span></div>
-            <p class="ai-section-body">${esc(outlook)}</p>
+            <p class="ai-section-body">${decorateConfidence(outlook)}</p>
           </div>` : '';
         // 思想フレーム順: 背景 → なぜ今 → なぜ広がった → 経緯 → 現状 → メディアズレ → 今後 (full と同じ)
         aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${keyPointHero}${sectBg}${sectBgNow}${sect2}${sect3}${sect1}${sectPersp}${sectOl}${trustFooterHtml}${storyNavHtml}</div>`;
@@ -421,13 +433,13 @@ function renderDetail(data) {
         const sect4 = forecast ? `
           <div class="ai-section ai-section-forecast">
             <div class="ai-section-label">🔮 今後どうなるか <span class="ai-hypothesis-badge">仮説</span></div>
-            <p class="ai-section-body">${esc(forecast)}</p>
+            <p class="ai-section-body">${decorateConfidence(forecast)}</p>
           </div>` : '';
         // ⑧ 短い見通し (forecast の代わり)
         const sectOlF = (outlook && !forecast) ? `
           <div class="ai-section ai-section-forecast">
             <div class="ai-section-label">🔮 見通し <span class="ai-hypothesis-badge">仮説</span></div>
-            <p class="ai-section-body">${esc(outlook)}</p>
+            <p class="ai-section-body">${decorateConfidence(outlook)}</p>
           </div>` : '';
         aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${keyPointHero}${sect2bg}${sectBgNowF}${sect2}${sect3}${sect1}${sectPerspF}${sect4}${sectOlF}${trustFooterHtml}${storyNavHtml}</div>`;
       }

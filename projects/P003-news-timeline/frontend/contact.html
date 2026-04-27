@@ -265,8 +265,13 @@
   <a href="mypage.html" class="bn-item"><span class="bn-icon">👤</span><span>HOME</span></a>
 </nav>
 
+<script src="config.js"></script>
 <script>
-const CONTACT_URL = 'https://x73mzc0v06.execute-api.ap-northeast-1.amazonaws.com/contact';
+// T235 (2026-04-28): API URL は config.js (CONTACT_URL) から取得。ハードコード排除。
+// config.js が読み込めない異常系のフォールバックとして APIGW を保持。
+const _CONTACT_URL = (typeof CONTACT_URL !== 'undefined' && CONTACT_URL)
+  ? CONTACT_URL
+  : 'https://x73mzc0v06.execute-api.ap-northeast-1.amazonaws.com/contact';
 
 document.getElementById('contact-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -296,7 +301,7 @@ document.getElementById('contact-form').addEventListener('submit', async (e) => 
   btn.textContent = '送信中...';
 
   try {
-    const res = await fetch(CONTACT_URL, {
+    const res = await fetch(_CONTACT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
