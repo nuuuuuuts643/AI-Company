@@ -1450,3 +1450,12 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T2026-0428-X~~ | 🟡 中 | 安定性 | **P0-STABLE-C: WORKING.md 同時並行 3 行以上で session_bootstrap が警告** — 現状は needs-push 滞留警告のみ。`scripts/session_bootstrap.sh` に「WORKING.md の進行中タスク行 ≥3 なら警告して 1 行サマリに含める」を追加。lock 競合・重複作業の早期検知。**完了条件**: WORKING.md に意図的に 3 行入れて bootstrap 実行→警告が出る。 | `scripts/session_bootstrap.sh` | 2026-04-28 |
 
 </details>
+
+
+### 自動 triage: 2026-04-28 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T2026-0428-F~~ | 🟡 中 | 安定性・拡張性 | **topics.json 日付分割 Step1 インフラ準備** — 現状 207KB の topics.json がモバイル初回表示の最大 payload。115件で207KBなので、件数増加で線形増加する設計上の天井がある。**Step1 (本タスク)**: ① `/api/topics-card.json` (一覧用 minimal: tid/title/articleCount/genres/keyPoint/storyPhase/updatedAt) と `/api/topics-full.json` (現状互換) の2系統を proc_storage.py で生成する仕組みを作る。② frontend は当面 topics-full.json を使い続ける (互換維持)。③ governance worker に「topics.json size > 250KB」アラート追加。④ Brotli 圧縮を S3+CloudFront で確認。Step2 (別タスク化): card 表示を topics-card.json に切り替え + 日付別 shard。T265 を発展。 | `lambda/processor/proc_storage.py`, `.github/workflows/governance.yml`, CloudFront 設定 | 2026-04-28 |
+
+</details>

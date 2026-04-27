@@ -90,5 +90,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] p003 多角的実態調査+sitemap到達性監視追加 | Cowork | .github/workflows/freshness-check.yml, TASKS.md, docs/lessons-learned.md | 2026-04-28 08:15 | yes |
 | [Code] T2026-0428-Z infra/frontend hardening (DDB TTL + Lambda 設定 + app.js 整理 + formatter test + schema doc) | Code | projects/P003-news-timeline/{frontend/app.js,frontend/js/formatters.js,deploy.sh,tests/}, docs/dynamodb-schema.md | 2026-04-28 08:20 | yes |
