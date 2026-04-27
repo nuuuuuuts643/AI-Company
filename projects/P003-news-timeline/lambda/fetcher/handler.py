@@ -15,7 +15,7 @@ from config import (
 )
 from filters import (
     _DIGEST_SKIP_PATS, load_filter_weights,
-    _apply_secondary_penalty,
+    _apply_secondary_penalty, is_blocked_domain,
 )
 from scoring import (
     calc_topic_reliability, detect_numeric_conflict,
@@ -90,6 +90,8 @@ def fetch_rss(feed):
             desc = desc[:200]
             img = extract_rss_image(item)
             if title and link:
+                if is_blocked_domain(link):
+                    continue
                 if any(p.search(title) for p in _DIGEST_SKIP_PATS):
                     continue
                 source_name   = extract_source_name(item, link, url)
