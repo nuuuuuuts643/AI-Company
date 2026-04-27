@@ -90,4 +90,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T2026-0428-J session_bootstrap REPO検出 + JST 表示 修正 | Cowork | scripts/session_bootstrap.sh, scripts/triage_tasks.py | 2026-04-28 04:15 | yes |
