@@ -480,7 +480,7 @@ def lambda_handler(event, context):
             'timestamp':    ts_iso,
             'ttl':          int(time.time()) + SNAP_TTL_DAYS * 86400,
             'articles': sort_by_pubdate(list({
-                a['source']: {
+                a['url']: {
                     'title':       a['title'], 'url': a['url'],
                     'source':      a['source'], 'pubDate': a['pubDate'],
                     'publishedAt': a.get('published_ts', 0),
