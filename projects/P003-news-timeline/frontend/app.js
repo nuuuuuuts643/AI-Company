@@ -866,6 +866,7 @@ function renderQuickNews(topics) {
       t.lifecycleStatus !== 'archived' &&
       toUnixSec(t.lastArticleAt || t.lastUpdated) >= nowSec - 86400 &&
       Number(t.velocityScore || 0) >= CONFIG.HOT_STRIP_MIN_VELOCITY &&
+      Number(t.diversityScore || 0) >= 1.5 &&
       t.generatedSummary
     )
     .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0))
