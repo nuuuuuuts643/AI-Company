@@ -237,6 +237,7 @@ def lambda_handler(event, context):
         ai_updates[tid] = {
             'generatedTitle':       gen_title,
             'generatedSummary':     gen_story['aiSummary']           if gen_story else None,
+            'keyPoint':             gen_story.get('keyPoint')         if gen_story else None,
             'spreadReason':         gen_story['spreadReason']         if gen_story else None,
             'forecast':             gen_story['forecast']             if gen_story else None,
             'storyTimeline':        gen_story['timeline']             if gen_story else None,
