@@ -90,4 +90,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0428-Z post-deploy-verify ジョブ + verify_effect.sh 仕組み実装 | Code | `.github/workflows/deploy-lambdas.yml`, `scripts/verify_effect.sh` | 2026-04-28 07:35 | yes |
