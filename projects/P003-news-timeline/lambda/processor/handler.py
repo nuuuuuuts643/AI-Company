@@ -149,6 +149,9 @@ def lambda_handler(event, context):
             'storyPhase':        gen_story['phase']              if gen_story else None,
             'summaryMode':       gen_story['summaryMode']        if gen_story else None,
             'backgroundContext': gen_story.get('backgroundContext') if gen_story else None,
+            'background':        gen_story.get('background')     if gen_story else None,
+            'perspectives':      gen_story.get('perspectives')   if gen_story else None,
+            'outlook':           gen_story.get('outlook')        if gen_story else None,
             'genres':            gen_story.get('genres')         if gen_story else None,
             'genre':             gen_story['genres'][0]          if gen_story and gen_story.get('genres') else None,
             'aiGenerated':       ai_succeeded,
@@ -174,6 +177,9 @@ def lambda_handler(event, context):
                     if upd.get('storyTimeline') is not None: t['storyTimeline']    = upd['storyTimeline']
                     if upd.get('storyPhase'):                t['storyPhase']       = upd['storyPhase']
                     if upd.get('summaryMode'):               t['summaryMode']      = upd['summaryMode']
+                    if upd.get('background'):                t['background']       = upd['background']
+                    if upd.get('perspectives') is not None:  t['perspectives']     = upd['perspectives']
+                    if upd.get('outlook'):                   t['outlook']          = upd['outlook']
                     if upd.get('genres'):
                         t['genres'] = upd['genres']
                         t['genre']  = upd['genres'][0]

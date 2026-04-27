@@ -324,6 +324,15 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
             if gen_story.get('backgroundContext'):
                 update_expr += ', backgroundContext = :bgctx'
                 expr_values[':bgctx'] = gen_story['backgroundContext']
+            if gen_story.get('background'):
+                update_expr += ', background = :bg'
+                expr_values[':bg'] = gen_story['background']
+            if gen_story.get('perspectives') is not None:
+                update_expr += ', perspectives = :persp'
+                expr_values[':persp'] = gen_story['perspectives']
+            if gen_story.get('outlook'):
+                update_expr += ', outlook = :otlk'
+                expr_values[':otlk'] = gen_story['outlook']
         if gen_story and gen_story.get('genres'):
             ai_genres = gen_story['genres']
             update_expr += ', genres = :genres, genre = :genre'
@@ -443,6 +452,12 @@ def update_topic_s3_file(tid, upd, articles=None):
             meta['summaryMode'] = upd['summaryMode']
         if upd.get('backgroundContext'):
             meta['backgroundContext'] = upd['backgroundContext']
+        if upd.get('background'):
+            meta['background'] = upd['background']
+        if upd.get('perspectives') is not None:
+            meta['perspectives'] = upd['perspectives']
+        if upd.get('outlook'):
+            meta['outlook'] = upd['outlook']
         if upd.get('aiGenerated'):
             meta['aiGenerated'] = True
         if upd.get('imageUrl') and not meta.get('imageUrl'):
