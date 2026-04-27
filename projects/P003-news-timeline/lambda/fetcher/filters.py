@@ -61,7 +61,45 @@ _DIGEST_SKIP_PATS = [
     re.compile(r'入手方法$'),                                  # アイテム入手方法（game wiki）
     re.compile(r'(スキル|アイテム|装備|武器|防具).{0,5}一覧$'), # ゲーム要素一覧
     re.compile(r'(育成|強化|進化).{0,5}(方法|おすすめ)$'),    # ゲーム育成ガイド
+    # ── プレスリリース・お知らせ・採用告知 ──────────────────────────────────
+    re.compile(r'プレスリリース'),                             # プレスリリース明示
+    re.compile(r'(のご案内|についてのお知らせ|に関するお知らせ)$'), # 企業お知らせ末尾
+    re.compile(r'^お知らせ[：:\s]'),                           # 「お知らせ：」で始まる記事
+    re.compile(r'(採用|求人|募集).{0,10}(のお知らせ|開始|スタート|受付)'), # 採用告知
+    re.compile(r'(正社員|アルバイト|パート).{0,10}(募集|求人)'), # 求人記事
+    re.compile(r'新卒.{0,10}採用'),                            # 新卒採用記事
+    re.compile(r'リリースのお知らせ'),                         # サービスリリース告知
+    re.compile(r'サービス(開始|終了|リリース|停止).{0,10}(のお知らせ|について)$'),
 ]
+
+# ── ドメイン単位ブロックリスト ────────────────────────────────────────────
+# 個人ブログ・UGCプラットフォーム・プレスリリース配信サービス
+_BLOCKED_DOMAIN_PATTERNS = [
+    re.compile(r'ameblo\.jp'),                                 # アメブロ（個人ブログ）
+    re.compile(r'livedoor\.blog'),                             # ライブドアブログ
+    re.compile(r'fc2\.com/blog'),                              # FC2ブログ
+    re.compile(r'seesaa\.net'),                                # Seesaaブログ
+    re.compile(r'hatena\.ne\.jp/[^/]+/diary'),                 # はてなダイアリー個人記事
+    re.compile(r'hatenablog\.com'),                            # はてなブログ
+    re.compile(r'hatenadiary\.(jp|com)'),                      # はてなダイアリー
+    re.compile(r'note\.com/[^/]+/n/'),                         # note個人記事（/n/が記事パス）
+    re.compile(r'prtimes\.jp'),                                 # PRタイムズ（プレスリリース）
+    re.compile(r'atpress\.ne\.jp'),                            # @Press（プレスリリース）
+    re.compile(r'dreamnews\.jp'),                              # DreamNews（プレスリリース）
+    re.compile(r'newscast\.jp'),                               # Newscast（プレスリリース）
+    re.compile(r'valuepressrelease\.jp'),                      # ValuePress（プレスリリース）
+    re.compile(r'shared\.jp/blog'),                            # Sharedブログ
+    re.compile(r'muragon\.com'),                               # ムラゴンブログ
+    re.compile(r'yaplog\.jp'),                                 # ヤプログ
+    re.compile(r'jugem\.jp'),                                  # JUGEM
+    re.compile(r'cocolog-nifty\.com'),                         # ココログ
+    re.compile(r'goo\.ne\.jp/blog'),                           # gooブログ
+]
+
+
+def is_blocked_domain(url: str) -> bool:
+    """URLがブロック対象ドメイン・パスに一致する場合 True を返す。"""
+    return any(p.search(url) for p in _BLOCKED_DOMAIN_PATTERNS)
 
 # ── 意見・コラム記事パターン (正規表現, ベース係数, weight_key) ──────────
 _OPINION_PATS = [
