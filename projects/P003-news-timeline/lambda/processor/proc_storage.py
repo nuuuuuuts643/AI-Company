@@ -141,9 +141,11 @@ def auto_archive_incoherent(tid: str, gen_story: dict | None) -> bool:
                 print(f'[auto_archive] {tid[:8]}... isCoherent=false → archived (重要トピックのため TTL なし保持)')
             else:
                 ttl_ts = int(time.time()) + _ARCHIVED_META_TTL_DAYS * 86400
+                # ttl は DynamoDB 予約語のため #ttl で別名置換 (UpdateExpression ValidationException 回避)
                 table.update_item(
                     Key={'topicId': tid, 'SK': 'META'},
-                    UpdateExpression='SET lifecycleStatus = :ls, topicCoherent = :tc, ttl = :ttl',
+                    UpdateExpression='SET lifecycleStatus = :ls, topicCoherent = :tc, #ttl = :ttl',
+                    ExpressionAttributeNames={'#ttl': 'ttl'},
                     ExpressionAttributeValues={':ls': 'archived', ':tc': False, ':ttl': ttl_ts},
                 )
                 print(f'[auto_archive] {tid[:8]}... isCoherent=false → archived + TTL{_ARCHIVED_META_TTL_DAYS}日')
@@ -201,9 +203,11 @@ def add_ttl_to_existing_archived() -> dict:
                 protected += 1
                 continue
             try:
+                # ttl は DynamoDB 予約語のため #ttl で別名置換
                 table.update_item(
                     Key={'topicId': item['topicId'], 'SK': 'META'},
-                    UpdateExpression='SET ttl = :ttl',
+                    UpdateExpression='SET #ttl = :ttl',
+                    ExpressionAttributeNames={'#ttl': 'ttl'},
                     ExpressionAttributeValues={':ttl': ttl_ts},
                 )
                 ttl_added += 1
@@ -697,12 +701,20 @@ def dec_convert(obj):
 def write_s3(key, data):
     if not S3_BUCKET:
         return
+    # 個別トピック JSON は更新頻度が高いため CloudFront に長く保持されないよう短い max-age を設定。
+    # Cache-Control は CloudFront 既定 TTL より優先される (Origin Cache-Control 尊重設定の場合)。
+    if key.startswith('api/topic/') and key.endswith('.json'):
+        cache_control = 'max-age=30, must-revalidate'
+    elif key == 'api/topics.json':
+        cache_control = 'max-age=60, must-revalidate'
+    else:
+        cache_control = 'max-age=60'
     s3.put_object(
         Bucket=S3_BUCKET,
         Key=key,
         Body=json.dumps(data, default=dec_convert, ensure_ascii=False).encode('utf-8'),
         ContentType='application/json',
-        CacheControl='max-age=60',
+        CacheControl=cache_control,
     )
 
 
