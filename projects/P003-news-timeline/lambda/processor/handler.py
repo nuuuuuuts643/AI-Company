@@ -24,10 +24,13 @@ from proc_storage import (
     write_s3, notify_slack_error, generate_and_upload_sitemap,
     generate_and_upload_rss, generate_and_upload_news_sitemap,
     batch_generate_static_html, backfill_missing_detail_json,
-    auto_archive_incoherent,
+    auto_archive_incoherent, save_prediction_log,
 )
 
 _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext'}
+
+# PRED# レコードを topics.json から除外するためのプレフィックスチェックは不要
+# (get_all_topics_for_s3 が SK='META' のみ取得するため自動除外)
 
 
 def lambda_handler(event, context):
@@ -224,6 +227,8 @@ def lambda_handler(event, context):
                 print(f'  [OGP] {tid[:8]}... 失敗（スキップ）: {ogp_err}')
 
         update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=ai_succeeded, image_url=ogp_url)
+        # 予測ログを時系列保存 (Phase 3 の土台・1日早く始めるほど早く遡及検証できる)
+        save_prediction_log(tid, gen_story)
         # AI が「記事の中身が乖離」と判定した場合は自動で archive (思想: 雑なクラスタを視界から消す)
         archived = auto_archive_incoherent(tid, gen_story)
         if archived:
