@@ -329,6 +329,8 @@
   <div id="status-filter" class="filter-tabs"></div>
   <div class="genre-tabs-container"><div id="genre-filter" class="filter-tabs genre-tabs"></div></div>
   <div id="last-updated" class="last-updated"></div>
+  <!-- T237 (2026-04-28): 「今動いているストーリー」を最上部に大きく見せる hero。CSS は既存 (.hero-story-card 他) を流用、render は app.js renderHeroStoryPreview。CLAUDE.md vision-roadmap フェーズ1「①トップ画面でストーリーの『動き』が見える」の実装。 -->
+  <div id="hero-story-preview" style="display:none;"></div>
   <div id="topics-grid" class="topics-grid">
     <div class="loading"><div class="spinner"></div>読み込み中...</div>
   </div>
