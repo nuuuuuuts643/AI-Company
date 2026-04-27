@@ -5,12 +5,12 @@ let chartInstance = null, viewsChartInstance = null;
 function getNextUpdateTime() {
   const now = new Date();
   const jstNow = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000);
-  const hours = [1, 7, 13, 19];
+  const hours = [5, 9, 15, 19, 23];
   const currentHour = jstNow.getHours() * 60 + jstNow.getMinutes();
   for (const h of hours) {
     if (h * 60 > currentHour) return `${h}:00 JST`;
   }
-  return '翌 01:00 JST';
+  return '翌 05:00 JST';
 }
 
 function getAnonymousId() {
@@ -510,10 +510,10 @@ function renderDetail(data) {
             document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }
           );
           // Grayout buttons for ranges that exceed available data
-          const _oldestTs = timeline.length > 0
-            ? Math.min(...timeline.map(s => new Date(s.timestamp).getTime()))
-            : Date.now();
-          const _elapsedH = (Date.now() - _oldestTs) / 3600000;
+          const _firstSeenMs = meta.firstArticleAt
+            ? meta.firstArticleAt * 1000
+            : (timeline.length > 0 ? Math.min(...timeline.map(s => new Date(s.timestamp).getTime())) : Date.now());
+          const _elapsedH = (Date.now() - _firstSeenMs) / 3600000;
           const _RANGE_H = { '1d': 24, '3d': 72, '7d': 168, '1m': 720, '3m': 2160, '6m': 4320, '1y': 8760 };
           document.querySelectorAll('.tr-btn[data-range]').forEach(btn => {
             const rh = _RANGE_H[btn.dataset.range];
@@ -549,8 +549,9 @@ function renderDetail(data) {
 
   const storyEl = document.getElementById('story-timeline');
   try {
-  if (storyEl && !timeline.length) {
-    storyEl.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;padding:8px 0;">記事データを収集中です。ストーリーはデータが蓄積されると表示されます。</p>';
+  if (!timeline.length) {
+    const storyCard = storyEl && storyEl.closest('.card');
+    if (storyCard) storyCard.style.display = 'none';
   }
   if (storyEl && timeline.length) {
     const seenUrls = new Set();
