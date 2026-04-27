@@ -1,0 +1,110 @@
+name: 鮮度モニタ (topics.json freshness SLI)
+
+# T263 / lessons-learned「production 鮮度 SLI が無くて 14h 壊れに気付かなかった」対策。
+#
+# 目的: governance/processor とは別系統の「外部観測」レイヤー。
+# Lambda 内部 metric では取れない「success だが publish しなかった」パターンを拾う。
+#
+# 仕組み:
+#   1h ごとに `curl https://flotopic.com/api/topics.json` を取得
+#   → updatedAt と現在時刻の差を計算
+#   → 90 分超なら Slack 警告 (governance worker と別系統)
+#   警告 payload には「最終成功時刻・差分(分)・スケジュール JST 情報」を含める。
+#
+# 例外: ai-company リポジトリの GH Actions cron は最低 5 分粒度。1h 粒度で十分余裕がある。
+# Slack webhook 未設定でも CI は失敗扱いにせず continue-on-error で吸収。
+
+on:
+  schedule:
+    - cron: '7 * * * *'   # 毎時 07 分 UTC (= JST 16 分)。governance worker と被らない時刻に分散
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: topics.json updatedAt diff
+    runs-on: ubuntu-latest
+    steps:
+      - name: fetch topics.json と updatedAt 解析
+        id: probe
+        run: |
+          set -u
+          URL="https://flotopic.com/api/topics.json"
+          PAYLOAD=$(mktemp)
+          # -f を使うと 4xx で失敗。タイムアウト 30s。
+          if ! curl -fsS --max-time 30 "$URL" -o "$PAYLOAD"; then
+            echo "status=fetch_failed" >> "$GITHUB_OUTPUT"
+            echo "diff_min=-1" >> "$GITHUB_OUTPUT"
+            echo "updated_at=fetch_failed" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          UPDATED_AT=$(python3 -c "import json,sys; d=json.load(open('$PAYLOAD')); print(d.get('updatedAt',''))")
+          if [ -z "$UPDATED_AT" ]; then
+            echo "status=no_updated_at_field" >> "$GITHUB_OUTPUT"
+            echo "diff_min=-1" >> "$GITHUB_OUTPUT"
+            echo "updated_at=missing" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          DIFF_MIN=$(python3 - <<PY
+          import datetime as dt
+          ua = "$UPDATED_AT"
+          try:
+              t = dt.datetime.fromisoformat(ua.replace('Z', '+00:00'))
+              now = dt.datetime.now(dt.timezone.utc)
+              print(int((now - t).total_seconds() // 60))
+          except Exception as e:
+              print(-1)
+          PY
+          )
+          if [ "$DIFF_MIN" -lt 0 ]; then
+              echo "status=parse_failed" >> "$GITHUB_OUTPUT"
+          elif [ "$DIFF_MIN" -gt 90 ]; then
+              echo "status=stale" >> "$GITHUB_OUTPUT"
+          else
+              echo "status=fresh" >> "$GITHUB_OUTPUT"
+          fi
+          echo "diff_min=$DIFF_MIN" >> "$GITHUB_OUTPUT"
+          echo "updated_at=$UPDATED_AT" >> "$GITHUB_OUTPUT"
+          # サマリ出力
+          echo "🕐 updatedAt=$UPDATED_AT  diff=${DIFF_MIN} min" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Slack に警告（90 分超 / fetch failure / parse failure）
+        if: steps.probe.outputs.status != 'fresh'
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          STATUS: ${{ steps.probe.outputs.status }}
+          DIFF_MIN: ${{ steps.probe.outputs.diff_min }}
+          UPDATED_AT: ${{ steps.probe.outputs.updated_at }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK 未設定。CI ログのみで通知"
+            exit 0
+          fi
+          # 次回スケジュール JST (01/07/13/19) を計算して併記
+          NEXT_JST=$(python3 - <<PY
+          import datetime as dt
+          jst = dt.timezone(dt.timedelta(hours=9))
+          now = dt.datetime.now(jst)
+          for h in (1,7,13,19,25):
+              target = now.replace(hour=h%24, minute=0, second=0, microsecond=0)
+              if h>=24:
+                  target = target + dt.timedelta(days=1)
+              if target > now:
+                  print(target.isoformat())
+                  break
+          PY
+          )
+          INVOKE_LOG="https://ap-northeast-1.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252Fp003-news-processor"
+          TEXT="🚨 *Flotopic topics.json 鮮度警告*\n• status: \`$STATUS\`\n• 最終 updatedAt: \`$UPDATED_AT\`\n• 経過: \`${DIFF_MIN} 分\` (閾値 90 分)\n• 次回スケジュール JST: $NEXT_JST\n• processor ログ: $INVOKE_LOG\n\n_governance worker とは別系統の外部観測 (T263 / freshness-check.yml) からの通知_"
+          curl -fsS -X POST -H 'Content-Type: application/json' \
+            -d "$(python3 -c "import json,os; print(json.dumps({'text': os.environ.get('TEXT',''), 'username': 'Flotopic Freshness Monitor', 'icon_emoji': ':warning:'}))" | TEXT="$TEXT" cat)" \
+            "$SLACK_WEBHOOK_URL" || true
+
+      - name: 失敗時にジョブを赤くする (Slack 未設定でも GH Actions UI で気付ける)
+        if: steps.probe.outputs.status == 'stale'
+        run: |
+          echo "::error::topics.json が ${{ steps.probe.outputs.diff_min }} 分間更新されていません (閾値 90 分)。最終 updatedAt: ${{ steps.probe.outputs.updated_at }}"
+          exit 1
