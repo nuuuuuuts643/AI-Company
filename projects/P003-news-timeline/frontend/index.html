@@ -258,6 +258,50 @@
     #pwa-ios-dismiss-btn:hover { color: #fff; }
     [data-theme="dark"] .auth-user-name { color: var(--text-secondary); }
     [data-theme="dark"] .auth-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
+    /* ===== サービス特徴ストリップ ===== */
+    .features-strip {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+    }
+    .features-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px 24px;
+    }
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: .82rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .feature-icon {
+      font-size: 1rem;
+      line-height: 1;
+    }
+    .feature-item strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    [data-theme="dark"] .features-strip {
+      background: var(--bg-card);
+      border-bottom-color: rgba(255,255,255,0.08);
+    }
+    [data-theme="dark"] .feature-item {
+      color: #94a3b8;
+    }
+    [data-theme="dark"] .feature-item strong {
+      color: #e2e8f0;
+    }
+    @media (max-width: 600px) {
+      .features-inner { gap: 8px 16px; }
+      .feature-item { font-size: .78rem; }
+    }
   </style>
 </head>
 <body>
@@ -306,6 +350,24 @@
     </div>
   </div>
 </header>
+
+<!-- サービス特徴ストリップ -->
+<section class="features-strip" aria-label="サービスの特徴">
+  <div class="features-inner">
+    <div class="feature-item">
+      <span class="feature-icon">📰</span>
+      <span><strong>複数メディアをAIが自動整理</strong></span>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">📈</span>
+      <span><strong>話題の推移を時系列グラフで確認</strong></span>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">🔄</span>
+      <span><strong>30分ごと自動更新</strong>・最新情報を常に反映</span>
+    </div>
+  </div>
+</section>
 
 <main class="container">
   <div class="search-row">
@@ -366,13 +428,13 @@
     <p class="auth-modal-terms">続けることで<a href="terms.html" target="_blank">利用規約</a>と<a href="privacy.html" target="_blank">プライバシーポリシー</a>に同意します</p>
   </div>
 </div>
-<script defer src="config.js"></script>
-<script defer src="js/auth.js"></script>
-<script defer src="js/favorites.js"></script>
-<script defer src="js/history.js"></script>
-<script defer src="js/comments.js"></script>
-<script defer src="js/notifications.js"></script>
-<script defer src="app.js"></script>
+<script src="config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/favorites.js"></script>
+<script src="js/history.js"></script>
+<script src="js/comments.js"></script>
+<script src="js/notifications.js"></script>
+<script src="app.js"></script>
 <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "35149d754c3a4903b9461c157568d392"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
