@@ -801,8 +801,13 @@ def update_topic_s3_file(tid, upd, articles=None):
                             _seen.add(_a['url']); _tl_arts.append(_a)
                 articles = _tl_arts
             generate_static_topic_html(tid, meta, articles)
-    except Exception:
-        pass
+    except Exception as e:
+        # T249 (2026-04-28): 静的HTML生成失敗をサイレントに握り潰すと、古い genre/title のままの
+        # SEO HTML が放置される (本番で「外交トピックがスポーツニュースとタグ付け」を確認)。
+        # CLAUDE.md「対症療法ではなく根本原因」と「Lambda 主ループは可観測でなければ
+        # 規則で守れない (band-aid 排除原則)」に従い、必ずログに残す。
+        # governance worker で `[TOPIC_STATIC_FAIL]` の集計が将来できるようにする。
+        print(f'[TOPIC_STATIC_FAIL] tid={tid} error={type(e).__name__}: {e}')
 
 
 def update_topic_s3_files_parallel(ai_updates, max_workers=5, articles_cache=None):

@@ -2053,8 +2053,9 @@ details[open] .day-more-btn::before { content: '▼ '; }
   padding: 1px 8px;
   margin-bottom: 5px;
 }
-.disc-badge-parent { background: #fef3c7; color: #92400e; }
-.disc-badge-child  { background: #dcfce7; color: #166534; }
+.disc-badge-parent  { background: #fef3c7; color: #92400e; }
+.disc-badge-child   { background: #dcfce7; color: #166534; }
+.disc-badge-related { background: #e0f2fe; color: #075985; }
 
 .disc-see-all {
   display: block;
@@ -2414,8 +2415,9 @@ details[open] .day-more-btn::before { content: '▼ '; }
   .storymap-btn { background: linear-gradient(135deg, #4EC9C0, #4EC9C0); color: #fff; }
   .storymap-btn:hover { opacity: .88; }
 
-  .disc-badge-parent { background: rgba(255,255,255,0.08); color: #88D8B0; }
-  .disc-badge-child  { background: rgba(20,184,166,0.15); color: #7DD8D2; }
+  .disc-badge-parent  { background: rgba(255,255,255,0.08); color: #88D8B0; }
+  .disc-badge-child   { background: rgba(20,184,166,0.15); color: #7DD8D2; }
+  .disc-badge-related { background: rgba(125,211,252,0.18); color: #93c5fd; }
   .disc-card { background: #1E1E22; border-color: rgba(255,255,255,0.08); }
   .disc-card:hover { background: #25252A; border-color: rgba(78,201,192,.3); }
 
@@ -2709,8 +2711,9 @@ details[open] .day-more-btn::before { content: '▼ '; }
 [data-theme="dark"] .related-topic-item:hover { background: #1E1E22; border-color: rgba(78,201,192,.35); }
 [data-theme="dark"] .comment-submit-btn { background: #4EC9C0; color: #fff; }
 [data-theme="dark"] .comment-submit-btn:hover:not(:disabled) { background: #3BB5AC; opacity: 1; }
-[data-theme="dark"] .disc-badge-parent { background: rgba(255,255,255,0.08); color: #88D8B0; }
-[data-theme="dark"] .disc-badge-child  { background: rgba(20,184,166,.15); color: #7DD8D2; }
+[data-theme="dark"] .disc-badge-parent  { background: rgba(255,255,255,0.08); color: #88D8B0; }
+[data-theme="dark"] .disc-badge-child   { background: rgba(20,184,166,.15); color: #7DD8D2; }
+[data-theme="dark"] .disc-badge-related { background: rgba(125,211,252,0.18); color: #93c5fd; }
 [data-theme="dark"] .fav-toggle-btn.icon-only.active { color: #4EC9C0; }
 [data-theme="dark"] #load-more-container button { background: #161618; border-color: rgba(255,255,255,0.08); color: #8A8A9A; }
 [data-theme="dark"] #load-more-container button:hover { background: #4EC9C0; border-color: #4EC9C0; color: #fff; }

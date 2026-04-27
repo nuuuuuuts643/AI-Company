@@ -9,6 +9,7 @@ Flotopic お問い合わせフォーム Lambda
   { "name": str, "email": str, "category": str, "message": str, "topicId": str(任意), "honeypot": str }
 """
 
+import hashlib
 import json
 import os
 import re
@@ -41,6 +42,51 @@ CATEGORIES = {
 }
 
 DELETION_CATEGORIES = {'copyright', 'privacy', 'media'}
+
+# T228 (2026-04-28): IP ハッシュベースのレート制限
+# - 5分3件: バースト送信 (同一フォーム連投・誤クリック含む) を抑制
+# - 1日10件: 同一 IP からの大量送信 (DynamoDB 増殖 + SES コスト増 + 管理ノイズ) を防御
+# fail-open: テーブル未作成・権限欠如・DynamoDB エラーは制限スルー (送信は通す)
+RATE_LIMIT_TABLE = os.environ.get('RATE_LIMIT_TABLE', 'flotopic-rate-limits')
+_rate_limits     = dynamodb.Table(RATE_LIMIT_TABLE)
+
+
+def _client_ip(event) -> str:
+    rc = (event or {}).get('requestContext', {}) or {}
+    http = rc.get('http', {}) or {}
+    return (http.get('sourceIp') or rc.get('identity', {}).get('sourceIp') or '0.0.0.0')
+
+
+def _ip_hash(event) -> str:
+    """生 IP は保存せずハッシュで管理。プライバシー配慮 + 同一 IP 識別だけは可能。"""
+    ip = _client_ip(event)
+    salt = os.environ.get('IP_HASH_SALT', 'flotopic-contact')
+    return hashlib.sha256(f'{salt}:{ip}'.encode('utf-8')).hexdigest()[:24]
+
+
+def check_contact_rate_limit(ip_hash: str, window_seconds: int, max_in_window: int, label: str) -> bool:
+    """flotopic-rate-limits を使った時間窓カウンタ。Returns True=allowed / False=denied。
+
+    pk = `contact#<label>#<ip_hash>#w<window>#b<bucket>` で衝突回避。
+    ttl = 窓終了時刻 + 60s。
+    例外時は True (fail-open) で送信を止めない。
+    """
+    try:
+        now    = int(time.time())
+        bucket = now // window_seconds
+        pk     = f'contact#{label}#{ip_hash}#w{window_seconds}#b{bucket}'
+        result = _rate_limits.update_item(
+            Key={'pk': pk},
+            UpdateExpression='ADD #cnt :one SET #ttl = :ttl',
+            ExpressionAttributeNames={'#cnt': 'count', '#ttl': 'ttl'},
+            ExpressionAttributeValues={':one': 1, ':ttl': now + window_seconds + 60},
+            ReturnValues='UPDATED_NEW',
+        )
+        count = int(result['Attributes']['count'])
+        return count <= max_in_window
+    except Exception as e:
+        print(f'[contact rate-limit] {label} fail-open due to: {e}')
+        return True
 
 
 def verify_admin_token(event) -> bool:
@@ -273,8 +319,18 @@ def lambda_handler(event, context):
     except json.JSONDecodeError:
         return resp(400, 'リクエストが不正です')
 
+    # T228 (2026-04-28): honeypot は first line of defense (静かに 200 返してスキャンを進めさせる)
     if body.get('website'):
         return resp(200, '送信しました')
+
+    # T228: IP ハッシュベースのレート制限。5分3件 + 1日10件の二段ガード。
+    ip_hash = _ip_hash(event)
+    if not check_contact_rate_limit(ip_hash, 300, 3, 'burst'):
+        print(f'[contact] rate limit hit (burst 5min/3) ip_hash={ip_hash}')
+        return resp(429, '短時間に多くの送信が検出されました。5分ほど時間を空けて再度お試しください。')
+    if not check_contact_rate_limit(ip_hash, 86400, 10, 'daily'):
+        print(f'[contact] rate limit hit (daily 24h/10) ip_hash={ip_hash}')
+        return resp(429, '本日の送信回数上限に達しました。明日以降に再度お試しください。')
 
     data, err = validate(body)
     if err:
