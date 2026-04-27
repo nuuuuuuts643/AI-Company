@@ -10,6 +10,27 @@ from proc_config import ANTHROPIC_API_KEY
 
 _CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages'
 
+VALID_GENRES = frozenset([
+    '政治', '国際', '社会', '経済', 'ビジネス', '株・金融',
+    'テクノロジー', '科学', '健康', 'スポーツ', 'エンタメ',
+    'くらし', 'グルメ', 'ファッション', '総合',
+])
+
+_GENRES_PROMPT = (
+    '利用可能なジャンル（このリスト外は使用禁止）: '
+    '政治 / 国際 / 社会 / 経済 / ビジネス / 株・金融 / '
+    'テクノロジー / 科学 / 健康 / スポーツ / エンタメ / '
+    'くらし / グルメ / ファッション / 総合\n'
+)
+
+
+def _validate_genres(raw) -> list:
+    """AI出力のgenresフィールドを検証・正規化する。"""
+    if not isinstance(raw, list):
+        return ['総合']
+    result = [g for g in raw if isinstance(g, str) and g in VALID_GENRES]
+    return result[:2] if result else ['総合']
+
 
 def _call_claude(payload: dict, timeout: int = 25) -> dict:
     """Claude API を呼び出す。429 は最大3回リトライ（指数バックオフ）。"""
@@ -195,14 +216,16 @@ def _generate_story_minimal(articles: list) -> dict | None:
         '以下はニューストピックに関する記事です。\n'
         '事実のみで1段落（100〜150文字）にまとめてください。断定・感情語・メディア名禁止。\n'
         '固有名詞・企業名・サービス名は初出時に括弧で1語説明を加える（例: スターリンク（SpaceXの衛星インターネット）が〜）。\n\n'
-        '【出力フォーマット（JSON以外出力禁止）】\n'
-        '{"aiSummary": "何が起きたか。誰が・何をして・何が起き・なぜ注目されたかを事実ベースで1段落"}\n\n'
+        + _GENRES_PROMPT
+        + '【出力フォーマット（JSON以外出力禁止）】\n'
+        '{"aiSummary": "何が起きたか。誰が・何をして・何が起き・なぜ注目されたかを事実ベースで1段落",\n'
+        ' "genres": ["最も適切なジャンル1つ、または2つ（上のリストから選ぶ）"]}\n\n'
         f'記事情報（{cnt}件）:\n{headlines}'
     )
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 200,
+            'max_tokens': 250,
             'messages': [{'role': 'user', 'content': prompt}],
         })
         result = _parse_story_json(data['content'][0]['text'].strip())
@@ -215,6 +238,7 @@ def _generate_story_minimal(articles: list) -> dict | None:
             'timeline':     [],
             'phase':        '発端',
             'summaryMode':  'minimal',
+            'genres':       _validate_genres(result.get('genres')),
         }
     except Exception as e:
         print(f'generate_story (minimal) error: {e}')
@@ -229,7 +253,8 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
         'このトピックを2つの視点で分析し、JSONのみを出力してください。\n\n'
         '【ルール】事実は「〜した/〜と述べた」で記述。断定・感情語・メディア名禁止。主語を具体的に。\n'
         '固有名詞・企業名・サービス名は初出時に括弧で1語説明を加える（例: スターリンク（SpaceXの衛星インターネット）が〜）。\n\n'
-        '【出力フォーマット（JSON以外出力禁止）】\n'
+        + _GENRES_PROMPT
+        + '【出力フォーマット（JSON以外出力禁止）】\n'
         '{\n'
         '  "aiSummary": "何が起きたか。誰が・何をして・何が起き・なぜ注目されたかを事実ベースで1段落",\n'
         '  "backgroundContext": "なぜ起きたか。この問題の背景にある構造的・社会的・経済的・政治的要因を1文で分析。推測は「〜と見られる」で",\n'
@@ -239,7 +264,8 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
         '    ...\n'
         '    {"date": "M/D形式または空文字", "event": "最後のイベント（transitionは省略）"}\n'
         '  ],\n'
-        '  "phase": "発端 または 拡散 または ピーク または 現在地 または 収束"\n'
+        '  "phase": "発端 または 拡散 または ピーク または 現在地 または 収束",\n'
+        '  "genres": ["最も適切なジャンル1つ、または2つ（上のリストから選ぶ）"]\n'
         '}\n\n'
         '【ルール】\n'
         'aiSummary: 改行・箇条書き禁止。1段落。メディア名不要。\n'
@@ -254,7 +280,7 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 900,
+            'max_tokens': 950,
             'messages': [{'role': 'user', 'content': prompt}],
         })
         result = _parse_story_json(data['content'][0]['text'].strip())
@@ -269,6 +295,7 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
             'timeline':          _sanitize_timeline(result.get('timeline'), max_items=3),
             'phase':             result.get('phase') if result.get('phase') in valid_phases else '現在地',
             'summaryMode':       'standard',
+            'genres':            _validate_genres(result.get('genres')),
         }
     except Exception as e:
         print(f'generate_story (standard) error: {e}')
@@ -282,6 +309,7 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         '以下は同じニューストピックに関する記事の一覧です（日付付きの場合あり）。\n'
         'このトピックを4つの視点で分析し、JSONのみを出力してください。\n\n'
         + _WORD_RULES
+        + _GENRES_PROMPT
         + '【出力フォーマット（JSON以外出力禁止）】\n'
         '{\n'
         '  "aiSummary": "①何が起きたか。誰が・何をして・何が起き・なぜ注目されたかを事実ベースで1段落",\n'
@@ -293,7 +321,8 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         '    ...\n'
         '    {"date": "M/D形式または空文字", "event": "最後のイベント（transitionは省略）"}\n'
         '  ],\n'
-        '  "phase": "発端 または 拡散 または ピーク または 現在地 または 収束"\n'
+        '  "phase": "発端 または 拡散 または ピーク または 現在地 または 収束",\n'
+        '  "genres": ["最も適切なジャンル1つ、または2つ（上のリストから選ぶ）"]\n'
         '}\n\n'
         '【各フィールドのルール】\n'
         'aiSummary: 改行・箇条書き・見出し禁止。1段落。メディア名不要。\n'
@@ -310,7 +339,7 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 1200,
+            'max_tokens': 1300,
             'messages': [{'role': 'user', 'content': prompt}],
         })
         result = _parse_story_json(data['content'][0]['text'].strip())
@@ -325,6 +354,7 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
             'timeline':          _sanitize_timeline(result.get('timeline'), max_items=6),
             'phase':             result.get('phase') if result.get('phase') in valid_phases else '現在地',
             'summaryMode':       'full',
+            'genres':            _validate_genres(result.get('genres')),
         }
     except Exception as e:
         print(f'generate_story (full) error: {e}')
