@@ -228,6 +228,19 @@
     #pwa-dismiss-btn:hover { color: #fff; }
     [data-theme="dark"] .auth-user-name { color: var(--text-secondary); }
     [data-theme="dark"] .auth-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
+    .hero-section-wrap { margin: 12px 0 4px; }
+    .hero-section-label { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+    .hero-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    @media (max-width: 600px) { .hero-cards { grid-template-columns: 1fr; } }
+    .hero-card { background: #1A1A1F; border-radius: 12px; padding: 16px 16px 14px 19px; display: flex; flex-direction: column; gap: 8px; position: relative; overflow: hidden; min-height: 130px; }
+    .hero-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(to bottom, #22d3ee, #a855f7); }
+    .hero-card-phase { font-size: .72rem; font-weight: 700; color: #22d3ee; }
+    .hero-card-title { font-size: .95rem; font-weight: 700; margin: 0; line-height: 1.45; }
+    .hero-card-title a { color: #f1f5f9; text-decoration: none; }
+    .hero-card-title a:hover { text-decoration: underline; }
+    .hero-card-meta { font-size: .75rem; color: #94a3b8; }
+    .hero-card-cta { display: inline-block; margin-top: auto; font-size: .8rem; font-weight: 600; color: #22d3ee; text-decoration: none; }
+    .hero-card-cta:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -273,6 +286,8 @@
 </header>
 
 <main class="container">
+  <section id="hero-section" class="hero-section-wrap" style="display:none;" aria-label="今日の注目ストーリー"></section>
+  <div id="active-topics-anchor"></div>
   <div class="search-row">
     <div class="search-bar">
       <input type="text" id="search-input" placeholder="キーワードで検索..." autocomplete="off">
