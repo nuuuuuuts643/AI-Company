@@ -1001,8 +1001,8 @@ function renderDiscovery(meta) {
 
     section.innerHTML = `
       <div class="card disc-card-wrapper">
-        <h2>関連する話題</h2>
-        <p class="disc-header-sub">エンティティの重複・親子関係から検出</p>
+        <h2>🔗 この話に繋がる別の話</h2>
+        <p class="disc-header-sub">同じ人物・組織・場所が登場するトピック、または上位/派生のテーマ</p>
         <div class="disc-col-body">
           ${items.map(({ t, badge, extraHtml }) => {
             const title = t.generatedTitle || t.title || '';
