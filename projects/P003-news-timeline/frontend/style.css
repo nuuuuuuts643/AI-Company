@@ -466,15 +466,7 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.card-snippet {
-  font-size: .76rem;
-  color: var(--text-secondary);
-  line-height: 1.45;
-  margin-bottom: 6px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
+/* .card-snippet クラスは renderTopicCard から削除済み(commit 50a97a1)。CSSデッドコードを削除（再T160, 2026-04-27） */
 #hero-story-preview { margin-bottom: 8px; }
 .hero-story-card { display: block; background: linear-gradient(135deg, #1e3a5f, #312e6b); border-radius: 12px; padding: 14px 16px; text-decoration: none; margin-bottom: 8px; transition: opacity .15s; }
 [data-theme="light"] .hero-story-card, :root:not([data-theme="dark"]) .hero-story-card { background: linear-gradient(135deg, #3730a3, #4EC9C0); }

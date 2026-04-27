@@ -4,6 +4,14 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 夜 再T208/T216 確認・再T160 削除・finder T218-T220 追加）
+- ✅ **再T208 ライトモード上書きの赤色を青(シアン)系に統一** — コード監査の結果、`projects/P003-news-timeline/frontend/style.css:2479` と `:2573` の `[data-theme="light"]` ブロックは両方とも `--primary: #4EC9C0; --primary-light: #e0fafa` に統一済みだった。`kw-chip` も `#1a9890` (cyan系)。`#e74c3c` は `frontend/` 配下から検出されず。実装は別セッションで完了済みで TASKS.md 側の更新が漏れていただけ。今回 TASKS.md を完了済みマークに修正。
+- ✅ **T216 グラフ長期ボタン データなし期間グレーアウト** — コード監査の結果、`detail.js:580-592` で `_RANGE_H = { '1d':24, '3d':72, '7d':168, '1m':720, '3m':2160, '6m':4320, '1y':8760 }` と `meta.firstArticleAt` から経過時間を計算し、`rh > _elapsedH` のボタンを `btn.disabled = true; btn.title = 'データ蓄積中'` で無効化する処理が実装済みだった。これも別セッション完了で TASKS.md 更新漏れ。今回完了マーク。
+- ✅ **再T160 .card-snippet CSSデッドコード削除** — `style.css:469-477` の `.card-snippet` クラスを HTML から参照されておらずデッドコードだったので削除しコメントに置換。`grep -rn "card-snippet" projects/P003-news-timeline/frontend/` で 1 件（CSS 自体のみ）→ 0 件に。
+- ✅ **finder: T218 大規模トピック AI 未生成調査タスクを追加** — topics.json 監査で 111 件中 17 件 (15.3%) が aiGenerated=False、しかも articles=17/19 のような大規模トピックも含まれていた。T213 pending queue 4段階優先度修正後でもこれら大規模未AIトピックが Tier-0 で処理されていない原因を調査する task を TASKS.md に追加。
+- ✅ **finder: T219 storyPhase 「発端」過剰判定タスクを追加** — topics.json 監査で 「発端」が 94 件中 57 件 (61%) と分布が偏っていた。phase 判定の判別力が低いため、velocity/SNAP数を見て積極的に「拡散」「ピーク」を判定するロジックへの修正を提案する task を追加。
+- ✅ **finder: T220 backgroundContext/perspectives/outlook 未マージタスクを追加** — topics.json で 3 フィールドすべて 0 件だった。commit `b61ddd5: feat: AI要約に background/perspectives/outlook の3フィールドを追加`（branch claude/stupefied-lamarr-3b72a0）が main にマージされていない。マージで AI 要約の情報量が増やせる task を追加。
+
 ### 完了済み（2026-04-27 T211 [2] uniqueSourceCount フィルタ強化）
 - ✅ **T211 [2] uniqueSourceCount>=2 で UGC 同一ドメイン記事の混入を二重防御** — 根本原因: T211[1]個人ブログタイトルパターンと _BLOCKED_DOMAIN_PATTERNS の追加（commit `74c45bc`）でMAQUIA等の個人ブログ投稿を主にタイトルとドメインで弾けるようになったが、新種のUGCパターンがすり抜ける可能性がブロックリスト・正規表現の追従コスト上ゼロにはならない。修正: `lambda/fetcher/handler.py` 600行目の topics_deduped フィルタを `articleCount >= 2` に加えて `uniqueSourceCount >= 2` も要求するように強化。`uniqueSourceCount` は347行目で既に算出・455行目で META に保存されており、フィールド未設定（レガシー）の場合は articleCount にフォールバックして既存挙動を維持。再フェッチで META が更新されるたびに新フィルタが順次完全適用される。これにより同一ドメインから複数記事が出るUGC・PR系のすり抜けを構造的に防御する第二の網が張られた。npm test 42/42 パス・py_compile OK・GH Actions Lambdaデプロイ確認済み。commit `4b15949`。
 
