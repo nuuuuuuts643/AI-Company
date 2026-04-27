@@ -475,7 +475,8 @@ function renderStorymap(parent, allTopics) {
     });
 
   const parentTitle = parent.generatedTitle || parent.title || '';
-  document.title = `${parentTitle} | ストーリーマップ`;
+  // T238 (2026-04-28): ブランド名「Flotopic」を末尾に付与。SEO 検索結果での CTR 低下を防止。
+  document.title = `${parentTitle} | ストーリーマップ - Flotopic`;
 
   // ---- Breadcrumb ----
   // Walk up 1 level if there's a grandparent
