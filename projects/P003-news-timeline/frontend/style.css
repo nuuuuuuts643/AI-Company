@@ -1083,6 +1083,15 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .ai-hypothesis-badge { font-size: .65rem; font-weight: 600; background: rgba(16,185,129,.15); color: #4EC9C0; padding: 1px 6px; border-radius: 4px; vertical-align: middle; }
 .ai-analysis-minimal { padding: 4px 0; }
 .ai-summary-simple { font-size: .88rem; color: var(--text-secondary); line-height: 1.7; margin: 0; }
+.ai-summary-bg, .ai-summary-outlook {
+  font-size: .82rem; color: var(--text-secondary); line-height: 1.65; margin: 10px 0 0;
+  padding: 8px 10px; background: var(--surface2, #f8fafc); border-radius: 6px;
+  border-left: 3px solid rgba(78,201,192,.5);
+}
+.ai-summary-bg strong, .ai-summary-outlook strong { color: var(--text-primary); font-weight: 600; }
+[data-theme="dark"] .ai-summary-bg, [data-theme="dark"] .ai-summary-outlook {
+  background: rgba(255,255,255,0.04); border-left-color: rgba(78,201,192,.4);
+}
 .ai-pending { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--text-muted); padding: 10px 0; }
 .ai-pending-icon { font-size: 1.1rem; }
 .ai-trust-footer { font-size: .75rem; color: var(--text-muted); margin-top: 4px; cursor: pointer; }
