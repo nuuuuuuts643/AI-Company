@@ -478,11 +478,11 @@ function renderTopics(topics) {
     adDiv.className = 'admax-ads';
     adDiv.setAttribute('data-admax-id', '26151fdf6b94c9622efaaa710e4efd04');
     adDiv.style.display = 'inline-block';
+    slot.appendChild(adDiv);
     (window.admaxads = window.admaxads || []).push({
       admax_id: '26151fdf6b94c9622efaaa710e4efd04',
       type: 'banner',
     });
-    slot.appendChild(adDiv);
   });
   // 5秒後に広告未填充のスロットを非表示（空スペース防止）
   // module-level変数で前回のタイマーをキャンセルし、re-render直後の誤hideを防ぐ
