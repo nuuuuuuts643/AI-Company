@@ -454,9 +454,41 @@ function renderTopics(topics) {
 
   const lmContainer = document.getElementById('load-more-container');
   if (!list.length) {
-    grid.innerHTML = showFavsOnly
-      ? '<div class="loading">お気に入りのトピックがありません</div>'
-      : '<div class="loading">該当するトピックがありません</div>';
+    if (showFavsOnly) {
+      grid.innerHTML = `
+        <div class="empty-state" style="padding:32px 16px;text-align:center;color:var(--text-secondary);">
+          <div style="font-size:2rem;margin-bottom:8px;">♡</div>
+          <div style="font-size:.95rem;font-weight:600;margin-bottom:6px;">お気に入りのトピックがまだありません</div>
+          <div style="font-size:.82rem;line-height:1.6;">気になるトピックの<strong style="color:var(--primary);">♥</strong>をタップ<br>新しい動きがあれば追跡できます</div>
+        </div>`;
+    } else if (currentSearch) {
+      grid.innerHTML = `
+        <div class="empty-state" style="padding:32px 16px;text-align:center;color:var(--text-secondary);">
+          <div style="font-size:2rem;margin-bottom:8px;">🔍</div>
+          <div style="font-size:.95rem;font-weight:600;margin-bottom:6px;">「${esc(currentSearch)}」の結果が見つかりません</div>
+          <div style="font-size:.82rem;line-height:1.6;">別のキーワードや、ジャンルから探してみてください</div>
+          <div style="margin-top:12px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
+            ${['総合','政治','国際','経済','テクノロジー','スポーツ','エンタメ'].map(g => `<button class="kw-chip" data-genre-jump="${esc(g)}" style="cursor:pointer;">${esc(g)}</button>`).join('')}
+          </div>
+        </div>`;
+      grid.querySelectorAll('[data-genre-jump]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const si = document.getElementById('search-input');
+          if (si) si.value = '';
+          currentSearch = '';
+          currentGenre = btn.dataset.genreJump;
+          buildFilters();
+          renderTopics(allTopics);
+        });
+      });
+    } else {
+      grid.innerHTML = `
+        <div class="empty-state" style="padding:32px 16px;text-align:center;color:var(--text-secondary);">
+          <div style="font-size:2rem;margin-bottom:8px;">📭</div>
+          <div style="font-size:.95rem;font-weight:600;margin-bottom:6px;">このフィルターには該当するトピックがありません</div>
+          <div style="font-size:.82rem;">ジャンルを「総合」に戻してみてください</div>
+        </div>`;
+    }
     if (lmContainer) lmContainer.innerHTML = '';
     return;
   }
