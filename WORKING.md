@@ -90,3 +90,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] T256 proc_ai要約品質改善+T255バグ修正 | Cowork | proc_ai.py, handler.py | 2026-04-28 20:00 | yes |
