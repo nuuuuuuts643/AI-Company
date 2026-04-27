@@ -540,10 +540,18 @@ def detect_topic_hierarchy(topics: list, topic_entities: dict) -> dict:
             if genres_a and genres_b and not (genres_a & genres_b):
                 continue
 
-            # entity 共有1件以上、またはキーワード共有2件以上が必要（1件のkw一致は誤検知が多い）
+            # T36 強度上げ: false-positive (例: c1bbe0fe(米イラン核合意) と 08189ac4(米露ウク停戦)
+            # が共通 entity「トランプ」だけで親子化されていた) を防ぐ。
+            # 旧: shared_ents>=1 OR shared_kws>=2 → これだと有名人物名 1 件で誤マッチ
+            # 新: (shared_ents>=2) OR (shared_ents>=1 AND shared_kws>=2)
+            #     1 entity だけだと弱いので追加の kw シグナルを要求する
             shared_ents = entities_a & entities_b
             shared_kws  = kw_a & kw_b
-            if not shared_ents and len(shared_kws) < 2:
+            if len(shared_ents) >= 2:
+                pass  # 強い entity overlap → OK
+            elif len(shared_ents) >= 1 and len(shared_kws) >= 2:
+                pass  # 1 entity + 補強 kw → OK
+            else:
                 continue
 
             # 優先度: 記事数 × 100 + スコア + 早出現ボーナス
