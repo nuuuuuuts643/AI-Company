@@ -467,7 +467,9 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
 
 
 def _generate_story_full(articles: list, cnt: int) -> dict | None:
-    """6件以上: フル7セクション + 因果タイムライン（最大6件）。Tool Use で structured output 強制。"""
+    """6件以上: フル7セクション + 因果タイムライン（最大6件）。Tool Use で structured output 強制。
+    記事数が多い大型トピック向け。Sonnet 4.6 を使い keyPoint/backgroundContext/perspectives 等の
+    記述品質を底上げする (minimal/standard は Haiku 据え置き)。"""
     headlines, _ = _build_headlines(articles, limit=10)
     prompt = (
         _WORD_RULES
@@ -478,7 +480,10 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         + f'\n記事情報（{cnt}件・見出しと概要）:\n{headlines}'
     )
     try:
-        result = _call_claude_tool(prompt, 'emit_topic_story', _build_story_schema('full'), max_tokens=1700)
+        result = _call_claude_tool(
+            prompt, 'emit_topic_story', _build_story_schema('full'),
+            max_tokens=1700, model='claude-sonnet-4-6',
+        )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
         return _normalize_story_result(result, 'full')
