@@ -759,6 +759,8 @@ window.flotopicDismissOnboarding = function() {
 
 function showGenreOnboarding() {
   if (localStorage.getItem('flotopic_genre_selected')) return;
+  // 未ログインでは表示しない（ログイン後に auth.js の _maybeShowGenreOnboarding が呼ぶ）
+  if (typeof currentUser === 'undefined' || !currentUser) return;
   const prefs = loadPrefs();
   if (prefs.genre && prefs.genre !== '総合') return;
   const overlay = document.createElement('div');
@@ -809,6 +811,8 @@ window.flotopicSelectGenre = function(genre) {
   currentGenre = genre;
   savePrefs({...loadPrefs(), genre: currentGenre});
   if (typeof syncGenreToCloud === 'function') syncGenreToCloud(currentGenre);
+  // interests として DynamoDB users テーブルにも保存（パーソナライズ基盤）
+  if (typeof syncProfileToServer === 'function') syncProfileToServer({ interests: [genre] });
   document.querySelectorAll('.genre-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.genre === currentGenre));
   currentPage = 1;
   updateIndexOGP(currentGenre);
