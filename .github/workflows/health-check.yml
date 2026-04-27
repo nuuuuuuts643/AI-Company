@@ -1,0 +1,122 @@
+name: 自己診断 (health_check.sh - 毎日 09:00 JST)
+
+# 「問題を人間が指摘しなくてもシステムが自分で気づく」仕組み (T2026-0428-AA)。
+# scripts/health_check.sh が以下を自動スキャン:
+#   1. コード品質  : ファイル行数・console.log/print 残留・defer/async 混入
+#   2. インフラ    : DynamoDB TTL 未設定・Lambda エラー率・analytics サイズ
+#   3. データ品質  : AI 要約なしトピック比率
+# 検出した問題は TASKS.md「🤖 自動検出キュー」に追記して [bot] commit & push する。
+# 問題なしの場合は silent pass (commit しない)。
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # 00:00 UTC = 09:00 JST (毎日)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'dry-run (TASKS.md を書き換えない)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write   # TASKS.md への commit & push に必要
+
+concurrency:
+  group: health-check
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: 自己診断スキャン
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: AWS 認証情報を設定
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: 依存ツール (jq, python3) 確認
+        shell: bash
+        run: |
+          set -e
+          command -v jq
+          command -v python3
+          command -v curl
+          command -v aws
+
+      - name: health_check.sh 実行
+        id: scan
+        shell: bash
+        env:
+          FLOTOPIC_TOPICS_URL: https://flotopic.com/api/topics.json
+          AWS_REGION: ap-northeast-1
+        run: |
+          set -u
+          chmod +x scripts/health_check.sh
+          DRY_FLAG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_FLAG="--dry-run"
+          fi
+          # capture stdout for summary
+          OUT=$(bash scripts/health_check.sh $DRY_FLAG 2>&1 | tee /dev/stderr)
+          # 追記件数を抽出 (e.g. "検出 3 件 / 追記 2 件")
+          APPENDED=$(echo "$OUT" | grep -oE '追記 [0-9]+ 件' | head -1 | grep -oE '[0-9]+' || echo "0")
+          DETECTED=$(echo "$OUT" | grep -oE '検出 [0-9]+ 件' | head -1 | grep -oE '[0-9]+' || echo "0")
+          echo "appended=${APPENDED}" >> "$GITHUB_OUTPUT"
+          echo "detected=${DETECTED}" >> "$GITHUB_OUTPUT"
+          {
+            echo "## 🩺 health_check.sh 結果"
+            echo ""
+            echo "- 検出: **${DETECTED} 件**"
+            echo "- TASKS.md 追記: **${APPENDED} 件** (重複は除外)"
+            echo ""
+            echo '<details><summary>実行ログ</summary>'
+            echo ''
+            echo '```'
+            echo "$OUT"
+            echo '```'
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: TASKS.md に変更があれば commit & push
+        if: steps.scan.outputs.appended != '0' && github.event.inputs.dry_run != 'true'
+        shell: bash
+        run: |
+          set -e
+          if git diff --quiet TASKS.md; then
+            echo "TASKS.md に変更なし — commit skip"
+            exit 0
+          fi
+          git config user.name 'flotopic-bot'
+          git config user.email 'bot@flotopic.com'
+          git add TASKS.md
+          NOW_JST=$(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')
+          MSG_FILE=$(mktemp)
+          {
+            printf '[bot] health_check: %s 件の問題を自動検出 (%s)\n\n' \
+              "${{ steps.scan.outputs.appended }}" "$NOW_JST"
+            printf 'scripts/health_check.sh が以下を検出して TASKS.md「🤖 自動検出キュー」に追記:\n'
+            printf -- '- 検出: %s 件\n' "${{ steps.scan.outputs.detected }}"
+            printf -- '- 追記: %s 件 (重複除く)\n\n' "${{ steps.scan.outputs.appended }}"
+            printf '詳細は GitHub Actions の step summary を参照。\n'
+          } > "$MSG_FILE"
+          git commit -F "$MSG_FILE"
+          # ブランチが保護されていても通常の push は許可される (force push しない)
+          git push origin HEAD:main || {
+            echo "::warning::push 失敗。手動で TASKS.md を確認・push してください"
+            exit 0
+          }
+
+      - name: 検出なし時は silent pass
+        if: steps.scan.outputs.appended == '0'
+        shell: bash
+        run: |
+          echo "✅ 検出なし or 全て既出 — TASKS.md 変更不要"
