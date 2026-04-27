@@ -155,6 +155,26 @@ def get_pending_topics(max_topics=100):
             except Exception:
                 return 0.0
 
+        # T218 根本修正(2026-04-27): pending_ai.json に入ってない可視未AIトピックを強制 union
+        # 古い高articleCountトピックが pending queue から永久に外れるバグを解消
+        if visible_tids:
+            already_in_queue = {it.get('topicId') for it in items}
+            missing_visible = [tid for tid in visible_tids if tid not in already_in_queue]
+            if missing_visible:
+                print(f'[get_pending_topics] 可視untrackedトピック {len(missing_visible)}件をDynamoDBから補充')
+                for tid in missing_visible[:50]:  # 1回 50件まで補充(暴走防止)
+                    try:
+                        r = table.get_item(
+                            Key={'topicId': tid, 'SK': 'META'},
+                            ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres',
+                        )
+                        item = r.get('Item')
+                        if item and needs_ai_processing(item):
+                            still_pending.append(tid)
+                            items.append(item)
+                    except Exception:
+                        pass
+
         def _sort_key(x):
             tid = x.get('topicId', '')
             is_visible = tid in visible_tids
@@ -170,6 +190,21 @@ def get_pending_topics(max_topics=100):
         items.sort(key=_sort_key)
         visible_pending = sum(1 for x in items if x.get('topicId', '') in visible_tids and not x.get('aiGenerated'))
         print(f'[get_pending_topics] ソート完了: 可視未生成={visible_pending}件が先頭')
+
+        # 補充があった場合は pending_ai.json も更新して次回スケジュール実行で再走査させる
+        if S3_BUCKET and visible_tids:
+            try:
+                merged_ids = [it.get('topicId') for it in items if it.get('topicId')]
+                if merged_ids and len(merged_ids) != len(pending_ids):
+                    s3.put_object(
+                        Bucket=S3_BUCKET, Key='api/pending_ai.json',
+                        Body=json.dumps({'topicIds': merged_ids}),
+                        ContentType='application/json',
+                    )
+                    print(f'[get_pending_topics] pending_ai.json 更新: {len(pending_ids)} → {len(merged_ids)}件')
+            except Exception as e:
+                print(f'[get_pending_topics] pending_ai.json 更新失敗: {e}')
+
         return items[:max_topics]
 
     # フォールバック: DynamoDBスキャン
