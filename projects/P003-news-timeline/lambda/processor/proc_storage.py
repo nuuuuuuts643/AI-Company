@@ -589,17 +589,17 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
                 expr_values[':bg'] = gen_story['background']
             else:
                 # 空フィールド検出を CloudWatch で観測可能にする (T35 prompt 改善の効果計測)
-                print(f"[AI_FIELD_GAP] background empty topic={topic_id}")
+                print(f"[AI_FIELD_GAP] background empty topic={tid}")
             if gen_story.get('perspectives') is not None and str(gen_story.get('perspectives', '')).strip():
                 update_expr += ', perspectives = :persp'
                 expr_values[':persp'] = gen_story['perspectives']
             else:
-                print(f"[AI_FIELD_GAP] perspectives null/empty topic={topic_id}")
+                print(f"[AI_FIELD_GAP] perspectives null/empty topic={tid}")
             if gen_story.get('outlook'):
                 update_expr += ', outlook = :otlk'
                 expr_values[':otlk'] = gen_story['outlook']
             else:
-                print(f"[AI_FIELD_GAP] outlook empty topic={topic_id}")
+                print(f"[AI_FIELD_GAP] outlook empty topic={tid}")
             if gen_story.get('topicTitle'):
                 update_expr += ', topicTitle = :ttitle'
                 expr_values[':ttitle'] = gen_story['topicTitle']
