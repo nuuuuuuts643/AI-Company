@@ -129,6 +129,17 @@ NEEDS_PUSH=$(awk '
   in_sec && /^\|/ && /\| *yes( *\| *)?$/ { printf "%d:%s\n", NR, $0 }
 ' WORKING.md 2>/dev/null || true)
 
+# ---- 6b. 並行タスク行 ≥3 警告 (T2026-0428-X / P0-STABLE-C) ----
+# 「現在着手中」テーブル本体行だけを数える。ヘッダ行 (`| タスク名 |...`) と
+# 区切り行 (`|---|---|`) を除外して、本物のタスク行のみカウント。
+# ≥3 で lock 競合・重複作業の早期検知警告を出す。
+CONCURRENT_TASKS=$(awk '
+  /^## 現在着手中/        { in_sec=1; next }
+  /^## /                  { in_sec=0 }
+  in_sec && /^\|/ && !/^\| *タスク名/ && !/^\|[ \-]*\|[ \-]*\|/ { count++ }
+  END { print count + 0 }
+' WORKING.md 2>/dev/null || echo 0)
+
 # ---- 6.5 schedule-task モード検知 ----
 # `SCHEDULE_TASK=1` または引数 `--schedule` を渡された場合、
 # scheduled-task-protocol.md と最優先 unblocked タスク 1 件を強調表示する。
@@ -155,6 +166,9 @@ echo "  CLAUDE.md latest: $LATEST_CLAUDE"
 if [ -n "$NEEDS_PUSH" ]; then
   echo "  ⚠️ needs-push 滞留:"
   echo "$NEEDS_PUSH" | sed 's/^/    /'
+fi
+if [ "${CONCURRENT_TASKS:-0}" -ge 3 ]; then
+  echo "  ⚠️ WORKING.md 並行タスク行 ${CONCURRENT_TASKS} 件 (≥3) — lock 競合・重複作業の可能性。各行の開始JST/needs-push を確認すること"
 fi
 if [ "$SCHED" = "1" ]; then
   echo ""
