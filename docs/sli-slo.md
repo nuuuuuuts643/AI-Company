@@ -19,6 +19,9 @@
 | 5 | **fetcher Lambda 成功率** | CloudWatch `Errors` metric / `Invocations` metric | 24h で 5% 超失敗 | governance worker | 内部 metric |
 | 6 | **AdSense ads.txt 整合** | `curl -s https://flotopic.com/ads.txt` と index.html の `ca-pub-` 突合 | 不整合で CI fail | `.github/workflows/ci.yml` content-drift-guard (T239) | CI 物理ガード |
 | 7 | **セキュリティヘッダ** | `curl -sI https://flotopic.com/ \| grep -iE "strict-transport\|x-frame\|csp\|permissions-policy"` | 必須ヘッダ欠落で警告 | (未実装・TBD `scripts/security_headers_check.sh`) | 外部観測 |
+| 8 | **keyPoint 充填率 (success-but-empty 検出)** | `curl -s .../topics.json \| jq '[.topics[] \| select(.articleCount>=3) \| select(.keyPoint != null)] \| length'` ÷ `[.articleCount>=3]` 件数 | 70% 未満で警告 | `freshness-check.yml` ai_fields step (2026-04-28 追加) | 外部観測 |
+| 9 | **perspectives 充填率** | 同 SLI 8 で `.perspectives` を対象 | 60% 未満で警告 | `freshness-check.yml` ai_fields step | 外部観測 |
+| 10 | **background 充填率** | 同 SLI 8 で `.background` または `.backgroundContext` を対象 | 60% 未満で警告 | `freshness-check.yml` ai_fields step | 外部観測 |
 
 ---
 
@@ -83,7 +86,38 @@ print(f'visible={len(visible)} ai={len(ai)} ratio={ratio:.1f}%')
 "
 ```
 
-**現状実測 (2026-04-28 18:10 JST)**: 116 件中 93 件 = 80.2% (FRESH)
+**現状実測 (2026-04-28 06:10 JST)**: 117 件中 93 件 = 79.5% (FRESH)
+
+---
+
+## SLI 8/9/10: 必須 AI フィールド充填率（実装済み・2026-04-28 schedule-task で追加）
+
+**定義**: `articleCount>=3` のフル要約対象トピックのうち、必須 AI フィールド (keyPoint / perspectives / background) が埋まっている割合。
+
+**根拠 (Why this SLI)**: 2026-04-28 schedule-task で `aiGenerated=True` でも keyPoint 充填率 11.5% (6/52) という半壊状態を発見。SLI 3 (AI カバレッジ 79.5%) は通るが、ユーザーから見た品質は壊れていた。「success-but-empty」を AI 生成側にも横展開した SLI。
+
+**観測:**
+```bash
+curl -s https://flotopic.com/api/topics.json | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+full = [t for t in d['topics'] if t.get('articleCount',0) >= 3]
+kp = sum(1 for t in full if t.get('keyPoint'))
+persp = sum(1 for t in full if t.get('perspectives'))
+bg = sum(1 for t in full if t.get('background') or t.get('backgroundContext'))
+n = max(len(full), 1)
+print(f'full={len(full)} kp={kp*100/n:.1f}% persp={persp*100/n:.1f}% bg={bg*100/n:.1f}%')
+"
+```
+
+**警告ルート**: `freshness-check.yml` の `ai_fields` step が 1h cron で観測 → 閾値未満で Slack 警告 + GH Actions warning。
+
+**閾値根拠**:
+- keyPoint 70%: 必須中の必須。一覧画面の要約として表示される。
+- perspectives 60%: 詳細画面のみで使用。少し緩く。
+- background 60%: 同上。
+
+**現状実測 (2026-04-28 06:10 JST)**: keyPoint 11.5%・perspectives 26.9%・background は要 grep。**全 SLI 警告中**。T255 修正後の cycle がまだ反映されていないため、次回 13:00 JST cycle 完了後に再観測必要。
 
 ---
 
