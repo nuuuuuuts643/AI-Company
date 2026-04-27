@@ -1,0 +1,105 @@
+name: メタドキュメント物理ガード
+
+# CLAUDE.md / TASKS.md / WORKING.md / HISTORY.md / docs/*.md 変更時に走る。
+# 「ルールに書く」ではなく「物理的に landing できない」ようにする層。
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, staging]
+    paths:
+      - 'CLAUDE.md'
+      - 'TASKS.md'
+      - 'WORKING.md'
+      - 'HISTORY.md'
+      - 'docs/**'
+      - 'scripts/next_task_id.sh'
+      - '.github/workflows/meta-doc-guard.yml'
+
+jobs:
+  claude-md-size-guard:
+    name: CLAUDE.md 250 行ガード
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 行数チェック
+        run: |
+          LIMIT=250
+          LINES=$(wc -l < CLAUDE.md)
+          echo "CLAUDE.md = $LINES lines (limit: $LIMIT)"
+          if [ "$LINES" -gt "$LIMIT" ]; then
+            echo "::error::CLAUDE.md exceeds $LIMIT lines ($LINES). Move content to docs/lessons-learned.md / docs/rules/ / docs/system-status.md"
+            exit 1
+          fi
+          echo "✅ CLAUDE.md は予算内"
+
+  task-id-uniqueness:
+    name: タスクID 重複検出
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ID 重複検査
+        run: |
+          # 対象: TASKS.md / HISTORY.md / WORKING.md / docs/*.md
+          # 形式: T<YYYY>-<MMDD>-<A-Z+>  または  T<連番>
+          # 同じ ID が複数行に出ているのは引用なので OK。
+          # 同じ ID が「タスク定義」として複数回登録されているのを検出する。
+          # ここでは単純化として、TASKS.md と HISTORY.md の見出し/表行に登場する ID を対象にする。
+          set -e
+          DUPES=$(grep -hoE 'T[0-9]{4}-[0-9]{4}-[A-Z]+|T[0-9]+' TASKS.md HISTORY.md 2>/dev/null \
+                  | sort | uniq -d || true)
+          if [ -n "$DUPES" ]; then
+            echo "::warning::Duplicate task IDs detected (TASKS.md + HISTORY.md):"
+            echo "$DUPES" | sed 's/^/   /'
+            # warning に留める（過去 ID が重複している既存状態を破壊しないため）
+          fi
+          echo "✅ タスクID 重複検出ジョブ完了"
+
+  rules-files-exist:
+    name: 規則の置き場所が壊れていないか
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 必須ファイル存在確認
+        run: |
+          # CLAUDE.md が参照しているファイル群が存在するか確認する。
+          REQUIRED=(
+            "docs/lessons-learned.md"
+            "docs/system-status.md"
+            "docs/rules/bug-prevention.md"
+            "docs/rules/design-mistakes.md"
+            "docs/rules/quality-process.md"
+            "docs/rules/user-context-check.md"
+          )
+          MISSING=0
+          for f in "${REQUIRED[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "::error::必須参照ファイルが存在しません: $f"
+              MISSING=$((MISSING+1))
+            else
+              echo "  ✅ $f"
+            fi
+          done
+          if [ $MISSING -gt 0 ]; then
+            echo "::error::CLAUDE.md が参照する必須ファイル $MISSING 件が欠落しています"
+            exit 1
+          fi
+          echo "✅ 必須参照ファイル すべて存在"
+
+  next-task-id-script-works:
+    name: next_task_id.sh が動作する
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: スクリプト実行
+        run: |
+          chmod +x scripts/next_task_id.sh
+          NEW_ID=$(bash scripts/next_task_id.sh)
+          echo "next id: $NEW_ID"
+          # 形式チェック: T<YYYY>-<MMDD>-<A-Z+>
+          if ! echo "$NEW_ID" | grep -qE '^T[0-9]{4}-[0-9]{4}-[A-Z]+$'; then
+            echo "::error::next_task_id.sh が想定外の形式を返した: $NEW_ID"
+            exit 1
+          fi
+          echo "✅ next_task_id.sh OK"
