@@ -337,14 +337,29 @@ def lambda_handler(event, context):
                     d['generatedSummary'] = d['generatedSummary'][:120]
                 return d
             topics_pub = [_trim(t) for t in topics]
-            write_s3('api/topics.json', {
+            full_payload = {
                 'topics':           topics_pub,
                 'trendingKeywords': trending_keywords,
                 'updatedAt':        ts_iso,
                 'processedByAI':    processed,
                 'aiCallsUsed':      api_calls,
+            }
+            write_s3('api/topics.json', full_payload)
+            # T2026-0428-F Step1: topics-full.json は topics.json の互換 alias、
+            # topics-card.json は一覧用 minimal payload (tid/title/articleCount/
+            # genres/keyPoint/storyPhase/imageUrl/aiGenerated/score)。
+            # frontend は当面 topics.json を使い続ける (Step2 で切替)。
+            write_s3('api/topics-full.json', full_payload)
+            _CARD_KEYS = ('topicId', 'topicTitle', 'generatedTitle', 'articleCount',
+                          'genres', 'genre', 'keyPoint', 'storyPhase', 'imageUrl',
+                          'aiGenerated', 'score', 'updatedAt', 'lifecycleStatus')
+            card_topics = [{k: t[k] for k in _CARD_KEYS if k in t} for t in topics_pub]
+            write_s3('api/topics-card.json', {
+                'topics':    card_topics,
+                'updatedAt': ts_iso,
+                'count':     len(card_topics),
             })
-            print(f'[Processor] S3 topics.json 再生成完了 ({len(topics)}件)')
+            print(f'[Processor] S3 topics.json + topics-full.json + topics-card.json 再生成完了 ({len(topics)}件 / card 簡易版同梱)')
             generate_and_upload_sitemap(topics)
             generate_and_upload_rss(topics)
             generate_and_upload_news_sitemap(topics)
