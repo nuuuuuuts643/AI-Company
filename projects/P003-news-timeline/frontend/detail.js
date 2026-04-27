@@ -398,22 +398,39 @@ function renderDetail(data) {
         const src = filtered.length >= 2 ? filtered : timeline;
 
         const aggregate = rangeHours === null || rangeHours >= 72;
-        let labels, scores, mediaCnts;
+
+        // エンゲージメントスコア計算用: はてブ数(SNAP単位) + 累計閲覧数 + コメント×3 + お気に入り×5
+        const viewsByDate = {};
+        (views || []).forEach(v => { viewsByDate[v.date] = Number(v.count || 0); });
+        const totalViews  = Object.values(viewsByDate).reduce((s, c) => s + c, 0);
+        const commentCnt  = Number(meta.commentCount  || 0);
+        const favoriteCnt = Number(meta.favoriteCount || 0);
+
+        let labels, scores, mediaCnts, engagements;
         if (aggregate) {
           const byDay = {};
           src.forEach(s => {
-            const day = new Date(s.timestamp).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'});
-            if (!byDay[day]) byDay[day] = {scores:[], media:[]};
+            const d = new Date(s.timestamp);
+            const day     = d.toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'});
+            const dateKey = d.toISOString().slice(0, 10).replace(/-/g, '');
+            if (!byDay[day]) byDay[day] = {scores:[], media:[], hatenas:[], dateKey};
             byDay[day].scores.push(Number(s.score||0));
             byDay[day].media.push(Number(s.articleCount||0));
+            byDay[day].hatenas.push(Number(s.hatenaCount||0));
           });
-          labels    = Object.keys(byDay);
-          scores    = labels.map(d => Math.max(...byDay[d].scores));
-          mediaCnts = labels.map(d => Math.max(...byDay[d].media));
+          labels      = Object.keys(byDay);
+          scores      = labels.map(d => Math.max(...byDay[d].scores));
+          mediaCnts   = labels.map(d => Math.max(...byDay[d].media));
+          engagements = labels.map(d => {
+            const maxHatena  = Math.max(0, ...byDay[d].hatenas);
+            const dailyViews = viewsByDate[byDay[d].dateKey] || 0;
+            return maxHatena + dailyViews + commentCnt * 3 + favoriteCnt * 5;
+          });
         } else {
-          labels    = src.map(s => fmtDate(s.timestamp));
-          scores    = src.map(s => Number(s.score||0));
-          mediaCnts = src.map(s => Number(s.articleCount||0));
+          labels      = src.map(s => fmtDate(s.timestamp));
+          scores      = src.map(s => Number(s.score||0));
+          mediaCnts   = src.map(s => Number(s.articleCount||0));
+          engagements = src.map(s => Number(s.hatenaCount||0) + totalViews + commentCnt * 3 + favoriteCnt * 5);
         }
 
         // SNAPのarticleCountはスナップショット値。topics.jsonの値（meta.articleCount）が正。
@@ -421,6 +438,8 @@ function renderDetail(data) {
         if (mediaCnts.length && meta.articleCount) {
           mediaCnts[mediaCnts.length - 1] = meta.articleCount;
         }
+
+        const hasEngagement = engagements.some(v => v > 0);
 
         const viewsSorted = [...(views||[])].sort((a,b) => a.date.localeCompare(b.date));
         const vLabels   = viewsSorted.map(v => `${parseInt(v.date.slice(4,6))}/${parseInt(v.date.slice(6,8))}`);
@@ -437,6 +456,17 @@ function renderDetail(data) {
           const max = vals.length ? Math.max(...vals) : 10;
           return { min:0, max: max + Math.max(max * 0.2, 1), ticks:{ precision:0, maxTicksLimit:5, color: cc.tick }, grid:{ color: cc.grid } };
         };
+        const makeScaleY0Right = (data) => {
+          const vals = data.filter(v => v !== null);
+          const max = vals.length ? Math.max(...vals) : 10;
+          return {
+            min: 0, max: max + Math.max(max * 0.2, 1),
+            position: 'right',
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: '関心度', color: cc.tick, font: { size: 10 } },
+            ticks: { precision: 0, maxTicksLimit: 5, color: cc.tick },
+          };
+        };
         const makeScaleDelta = (data) => {
           const vals = data.filter(v => v !== null);
           const max = vals.length ? Math.max(...vals) : 1;
@@ -449,26 +479,47 @@ function renderDetail(data) {
           };
         };
 
-        // 記事数の推移（折れ線グラフ）
+        // 記事数の推移（折れ線グラフ）+ 右軸: 関心度（エンゲージメントスコア）
         const artLabel = aggregate ? '記事数（日次）' : '記事数（30分ごと）';
         if (chartInstance) chartInstance.destroy();
+        const engagementDataset = hasEngagement ? {
+          label: '関心度',
+          data: engagements,
+          yAxisID: 'y2',
+          borderColor: '#f59e0b',
+          backgroundColor: (ctx) => {
+            const {ctx: c, chartArea} = ctx.chart;
+            if (!chartArea) return 'rgba(245,158,11,0.06)';
+            const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+            g.addColorStop(0, 'rgba(245,158,11,0.18)'); g.addColorStop(1, 'rgba(245,158,11,0.01)');
+            return g;
+          },
+          borderWidth: 2, pointRadius: 2, pointHoverRadius: 5, tension: 0.4, fill: true,
+        } : null;
         chartInstance = new Chart(canvas.getContext('2d'), {
           type: 'line',
-          data: { labels, datasets: [{ label: artLabel, data: mediaCnts,
-            borderColor: '#4EC9C0',
-            backgroundColor: (ctx) => {
-              const {ctx: c, chartArea} = ctx.chart;
-              if (!chartArea) return 'rgba(78,201,192,.15)';
-              const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-              g.addColorStop(0, 'rgba(78,201,192,.35)'); g.addColorStop(1, 'rgba(78,201,192,.02)');
-              return g;
-            },
-            borderWidth: 2, pointRadius: 3, pointHoverRadius: 6, tension: 0.4, fill: true }]},
+          data: { labels, datasets: [
+            { label: artLabel, data: mediaCnts,
+              yAxisID: 'y',
+              borderColor: '#4EC9C0',
+              backgroundColor: (ctx) => {
+                const {ctx: c, chartArea} = ctx.chart;
+                if (!chartArea) return 'rgba(78,201,192,.15)';
+                const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                g.addColorStop(0, 'rgba(78,201,192,.35)'); g.addColorStop(1, 'rgba(78,201,192,.02)');
+                return g;
+              },
+              borderWidth: 2, pointRadius: 3, pointHoverRadius: 6, tension: 0.4, fill: true },
+            ...(engagementDataset ? [engagementDataset] : []),
+          ]},
           options: {
             responsive: true, maintainAspectRatio: false,
             interaction: { mode:'index', intersect:false },
             plugins: { legend: { display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}, color: cc.tick} }, zoom: zoomOpts },
-            scales: { y: makeScaleY0(mediaCnts) },
+            scales: {
+              y: { ...makeScaleY0(mediaCnts), position: 'left' },
+              ...(hasEngagement ? { y2: makeScaleY0Right(engagements) } : {}),
+            },
           },
         });
 
