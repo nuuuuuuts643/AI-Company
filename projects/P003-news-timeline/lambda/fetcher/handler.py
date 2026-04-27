@@ -468,6 +468,11 @@ def lambda_handler(event, context):
         for _fld in ('storyTimeline', 'storyPhase', 'spreadReason', 'forecast', 'summaryMode'):
             if existing.get(_fld):
                 item[_fld] = existing[_fld]
+        # trendsData: DynamoDB は Number を Decimal で返すので int に正規化して保持
+        if existing.get('trendsData'):
+            item['trendsData'] = {k: int(v) for k, v in existing['trendsData'].items()}
+        if existing.get('trendsUpdatedAt'):
+            item['trendsUpdatedAt'] = existing['trendsUpdatedAt']
         current_run_metas[tid] = item
         _dynamo_puts.append(item)
         _dynamo_puts.append({
@@ -493,6 +498,41 @@ def lambda_handler(event, context):
         saved_ids.append(tid)
 
     print(f'[TIMING] main-loop {len(group_tids)}iter: {time.time()-_t_loop:.1f}s')
+
+    # Step 6.5: Google Trends（上位20件のみ・ベストエフォート・24hキャッシュ）
+    try:
+        from trends_utils import fetch_trends
+        _t_trends = time.time()
+        _trend_failures = 0
+        _trend_candidates = sorted(
+            current_run_metas.items(),
+            key=lambda kv: float(kv[1].get('diversityScore', 0) or 0),
+            reverse=True,
+        )[:20]
+        for _tid, _m in _trend_candidates:
+            if _trend_failures >= 3:
+                print('[trends] 連続失敗3回 → 残りスキップ')
+                break
+            _td_ts = _m.get('trendsUpdatedAt', '')
+            if _td_ts:
+                try:
+                    _td_age = (datetime.now(timezone.utc) - datetime.fromisoformat(_td_ts)).total_seconds() / 3600
+                    if _td_age < 24:
+                        continue
+                except Exception:
+                    pass
+            _kw = (_m.get('generatedTitle') or _m.get('title', ''))[:40]
+            _result = fetch_trends(_kw)
+            if _result:
+                _m['trendsData'] = _result
+                _m['trendsUpdatedAt'] = ts_iso
+                _trend_failures = 0
+            else:
+                _trend_failures += 1
+            time.sleep(2.5)
+        print(f'[TIMING] trends: {time.time()-_t_trends:.1f}s')
+    except Exception as _te:
+        print(f'[trends] 全体エラー（スキップ）: {_te}')
 
     # Step 6b: DynamoDB バッチ並列書き込み（逐次put_item→batch_writer並列化）
     _t_db = time.time()
@@ -633,7 +673,8 @@ def lambda_handler(event, context):
 
         # カード表示・検索用フィールドのみ公開。詳細ページ専用フィールドは除外してサイズ削減
         # spreadReason/forecast/storyTimeline/backgroundContext は api/topic/{id}.json から取得するので不要
-        _INTERNAL = {'SK', 'pendingAI', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext'}
+        _INTERNAL = {'SK', 'pendingAI', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext',
+                     'trendsData', 'trendsUpdatedAt'}
         def _pub(t):
             d = {k: v for k, v in t.items() if k not in _INTERNAL}
             if d.get('generatedSummary'):
@@ -738,7 +779,7 @@ def lambda_handler(event, context):
         generate_rss(topics, ts_iso)
         generate_sitemap(topics_deduped)  # 公開対象のみsitemapに含める
 
-        _TOPIC_INTERNAL = {'SK', 'pendingAI', 'ttl'}
+        _TOPIC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'trendsUpdatedAt'}
         _tids_to_write  = [tid for tid in saved_ids if tid in deduped_tids]
 
         def _write_topic_s3(tid):
