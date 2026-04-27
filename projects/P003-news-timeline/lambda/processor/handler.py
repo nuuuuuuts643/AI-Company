@@ -296,6 +296,14 @@ def lambda_handler(event, context):
                 if upd:
                     if upd.get('generatedTitle'):                        t['generatedTitle']          = upd['generatedTitle']
                     if upd.get('generatedSummary'):                      t['generatedSummary']        = upd['generatedSummary']
+                    # T249 (2026-04-28): keyPoint / backgroundContext のマージ漏れ修正。
+                    # 根本原因: ai_updates dict (L260-) には入れているが、ここでの merge ロジックが
+                    # 抜けていたため topics.json で永久に 0% 充填だった (本番で 0/114 確認)。
+                    # 個別 topic JSON (proc_storage.update_topic_s3_file) では既にマージ済みのため
+                    # detail page には backgroundContext が出ているが、整合性確保のため明示的に追加。
+                    # backgroundContext は _PROC_INTERNAL で publish 時に除外され続ける (size抑制)。
+                    if upd.get('keyPoint'):                              t['keyPoint']                = upd['keyPoint']
+                    if upd.get('backgroundContext'):                     t['backgroundContext']       = upd['backgroundContext']
                     if upd.get('spreadReason'):                          t['spreadReason']            = upd['spreadReason']
                     if upd.get('forecast'):                              t['forecast']                = upd['forecast']
                     if upd.get('storyTimeline') is not None:             t['storyTimeline']           = upd['storyTimeline']

@@ -1008,6 +1008,31 @@ function renderDiscovery(meta) {
       usedIds.add(ref.topicId);
     }
 
+    // 4. AI 関連テーマ (relatedTopicTitles) — タイトル文字列から allTopics を逆引きし、
+    //    一致するトピックがあればカードに追加。CLAUDE.md vision-roadmap フェーズ2「関連する動きリンク」。
+    //    一致しないタイトルは握りつぶす（ユーザーが進めないリンクは出さない）。
+    if (Array.isArray(meta.relatedTopicTitles) && meta.relatedTopicTitles.length > 0) {
+      const norm = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, '');
+      const titleIndex = allTopics.map(t => ({
+        t,
+        keys: [t.topicTitle, t.generatedTitle, t.title].map(norm).filter(Boolean),
+      }));
+      for (const rawTitle of meta.relatedTopicTitles) {
+        if (items.length >= 6) break;
+        const wanted = norm(rawTitle);
+        if (!wanted) continue;
+        // 厳密一致 → 部分一致 (双方向 includes) の順でヒット判定
+        let hit = titleIndex.find(({ keys }) => keys.some(k => k === wanted));
+        if (!hit) {
+          hit = titleIndex.find(({ keys }) => keys.some(k => k && (k.includes(wanted) || wanted.includes(k))));
+        }
+        if (!hit) continue;
+        if (usedIds.has(hit.t.topicId)) continue;
+        items.push({ t: hit.t, badge: { label: '📡 関連する動き', cls: 'related' } });
+        usedIds.add(hit.t.topicId);
+      }
+    }
+
     if (items.length === 0) {
       section.innerHTML = '';
       return;
