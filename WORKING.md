@@ -53,4 +53,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST |
 |---|---|---|---|
-| [Code] グラフ非表示・記事ゼロ修正調査 | Code | frontend/topic.html, lambda/processor/proc_storage.py | 2026-04-27 11:00 |
