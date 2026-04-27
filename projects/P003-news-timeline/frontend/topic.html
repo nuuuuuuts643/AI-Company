@@ -194,6 +194,21 @@
       transition: color .15s;
     }
     .topic-back-link:hover { color: rgba(255,255,255,0.9); }
+    .parent-topic-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      margin-bottom: 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      color: rgba(255,255,255,0.8);
+      font-size: .75rem;
+      text-decoration: none;
+      transition: background .15s;
+    }
+    .parent-topic-link:hover { background: rgba(255,255,255,0.2); color: #fff; }
+    .parent-topic-link::before { content: '🔗'; font-size: .7rem; }
     .topic-hero-title {
       font-size: 1.25rem;
       font-weight: 700;
@@ -291,6 +306,7 @@
 <div class="topic-hero">
   <div class="topic-hero-inner">
     <a href="index.html" class="topic-back-link">← 一覧に戻る</a>
+    <div id="parent-topic-link" class="parent-topic-link" style="display:none;"></div>
     <h1 id="topic-title" class="topic-hero-title">読み込み中...</h1>
     <div class="topic-hero-meta">
       <span id="status-badge" class="status-badge" style="display:none;"></span>
