@@ -570,6 +570,9 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
             if gen_story.get('aiSummary'):
                 update_expr += ', generatedSummary = :summary'
                 expr_values[':summary'] = gen_story['aiSummary']
+            if gen_story.get('keyPoint'):
+                update_expr += ', keyPoint = :kp'
+                expr_values[':kp'] = gen_story['keyPoint']
             if gen_story.get('spreadReason'):
                 update_expr += ', spreadReason = :sr'
                 expr_values[':sr'] = gen_story['spreadReason']
@@ -737,6 +740,8 @@ def update_topic_s3_file(tid, upd, articles=None):
             meta['generatedTitle'] = upd['generatedTitle']
         if upd.get('generatedSummary'):
             meta['generatedSummary'] = upd['generatedSummary']
+        if upd.get('keyPoint'):
+            meta['keyPoint'] = upd['keyPoint']
         if upd.get('storyTimeline') is not None:
             meta['storyTimeline'] = upd['storyTimeline']
         if upd.get('storyPhase'):
