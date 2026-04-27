@@ -103,7 +103,7 @@ def get_pending_topics(max_topics=100):
             try:
                 r = table.get_item(
                     Key={'topicId': tid, 'SK': 'META'},
-                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres',
+                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres',
                 )
                 item = r.get('Item')
                 if item and needs_ai_processing(item):
@@ -129,7 +129,13 @@ def get_pending_topics(max_topics=100):
         # 1. pendingAI=True: fetcherが新記事を検知してフラグを立てた → 最優先
         # 2. aiGenerated=False: 一度もAI処理されていない → 次優先
         # 3. imageUrl/storyTimeline等の欠損補完 → 最後
-        # 各グループ内は velocityScore DESC（急上昇中を先に）、同値時は score で補助
+        # 各グループ内は velocityScore DESC → score DESC → lastUpdated DESC（新着優先）
+        def _ts(s):
+            try:
+                return datetime.fromisoformat((s or '').replace('Z', '+00:00')).timestamp()
+            except Exception:
+                return 0.0
+
         def _sort_key(x):
             if x.get('pendingAI'):
                 priority = 0
@@ -137,14 +143,14 @@ def get_pending_topics(max_topics=100):
                 priority = 1
             else:
                 priority = 2
-            return (priority, -float(x.get('velocityScore', 0) or 0), -int(x.get('score', 0) or 0))
+            return (priority, -float(x.get('velocityScore', 0) or 0), -int(x.get('score', 0) or 0), -_ts(x.get('lastUpdated', '')))
         items.sort(key=_sort_key)
         return items[:max_topics]
 
     # フォールバック: DynamoDBスキャン
     # pending_ai.json が空 or 未作成のとき、処理必要なトピックを全スキャンして pending_ai.json を再生成
     print('get_pending_topics: pending_ai.json空のためDynamoDBフルスキャン（storyTimeline欠如含む）')
-    proj = 'topicId,title,articleCount,score,velocityScore,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres'
+    proj = 'topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres'
     filt = (
         Attr('SK').eq('META') & (
             Attr('pendingAI').eq(True) |
@@ -169,6 +175,7 @@ def get_pending_topics(max_topics=100):
         0 if x.get('pendingAI') else (1 if not x.get('aiGenerated') else 2),
         -float(x.get('velocityScore', 0) or 0),
         -int(x.get('score', 0) or 0),
+        -_ts(x.get('lastUpdated', '')),
     ))
 
     # 発見したIDをpending_ai.jsonに保存して次回スキャンを省略
@@ -189,7 +196,7 @@ def get_pending_topics(max_topics=100):
 
 def get_topics_by_ids(topic_ids):
     """指定IDのトピックをDynamoDBから直接取得し、AI処理が必要なものを返す。fetcher_trigger専用。"""
-    proj = 'topicId,title,articleCount,score,velocityScore,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres'
+    proj = 'topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres'
     items = []
     for tid in topic_ids:
         try:
