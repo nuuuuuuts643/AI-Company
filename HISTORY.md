@@ -1419,3 +1419,13 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T248~~ | ~~低~~ | ~~**privacy.html「アフィリエイトプログラムへの参加」記述が UI 実装と乖離**~~ → 2026-04-28 06 schedule-task で本番 affiliate 未表示の実態確認後、L139 を「現時点では表示していません。将来導入時に再更新」に書き換え完了。frontend/js/ にも affiliate.js が無いことを確認。**Verified: https://flotopic.com/privacy.html:200:2026-04-28T06:22:55+0900** | (済) | 2026-04-28 |
 
 </details>
+
+
+### 自動 triage: 2026-04-28 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T245~~ | ~~中~~ | ~~**AI フィールド データフロー文書 `docs/ai-fields-flow.md` 新設**~~ — **2026-04-28 07:13 schedule-task で `docs/ai-fields-catalog.md` 新規完了** (ファイル名は -catalog.md に変更)。5 層追跡表、`_PROC_INTERNAL` 除外仕様、SLI 対応、層間欠落バグの履歴を集約。CI 物理ガード化は T2026-0428-T (新規起票) として分離。 | ~~`docs/ai-fields-flow.md` 新規~~ → 完了: `docs/ai-fields-catalog.md` | ~~2026-04-28~~ |
+| ~~T257~~ | ~~中~~ | ~~**profile.html・admin.html・mypage.html などログイン系ページが noindex のまま** — これは正解だが、サイトマップにこれらが含まれていないか確認が必要~~ — **2026-04-28 07:13 schedule-task で curl 確認**: sitemap.xml 121 URL のうち 115 が `/topics/{tid}.html`、残り 6 は `/`, `catchup.html`, `about.html`, `terms.html`, `privacy.html`, `contact.html`。admin/profile/mypage は **含まれていない** ✅。各ページの noindex 設定: admin/profile/mypage/contact = NOINDEX、privacy/terms/about = INDEXABLE。**問題なし、close**。 | ~~`lambda/processor/proc_storage.py`~~ | ~~2026-04-28~~ |
+
+</details>
