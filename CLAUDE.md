@@ -190,6 +190,27 @@ git log --oneline -5 -- CLAUDE.md   # 直近の変更があれば該当箇所を
 
 ---
 
+### Claude API の `Expecting ',' delimiter` JSON 構文エラー なぜなぜ分析（2026-04-27 制定）
+
+**起きたこと**: forceRegenerateAll 実行中の CloudWatch ログで `generate_story (full) error: Expecting ',' delimiter: line 38 column 6` が頻発。Claude Haiku が JSON 出力で軽微な構文ミス (カンマ抜け、引用符忘れ等) を起こし、`json.loads` で fail → そのトピックの AI 処理がスキップされて perspectives/keyPoint/background 等が空のままになる。複数トピックで連発しているため AI 処理品質を実質的に劣化させていた。
+
+| Why | 答え |
+|---|---|
+| **Why1** なぜ Claude が malformed JSON を返す？ | プレーンテキスト生成中に長い日本語文字列・引用符・括弧を扱う際、確率的に JSON 構文を崩す。LLM の本質的特性 |
+| **Why2** なぜ我々はそれを防がない？ | API 呼び出しを `messages: [{role:'user', content: prompt}]` の自由テキスト生成モードで使い、出力形式を「プロンプトの中で頼んでいる」だけで強制していない |
+| **Why3** なぜ強制していない？ | Anthropic は Tool Use (function calling) で JSON Schema による structured output を提供しているが、当初開発では「プロンプト指定で十分」と判断して実装が text-mode 止まり |
+| **Why4** なぜ Tool Use 移行が遅れた？ | 動作している間は再構築コストが見合わないという判断が継続。今回 c1bbe0fe verify で初めてブロッキング症状として表面化 |
+| **Why5** なぜブロッキングと判定する仕組みが無かった？ | JSON parse 失敗率を測定する metric が無く、CloudWatch ログを目視するまで顕在化しなかった。「出力が空」だけが見える状態 |
+
+**仕組み的対策（band-aid 排除・本格対応）:**
+
+1. **Anthropic Tool Use API 移行 (本コミット)**: `_call_claude_tool` ヘルパを新設し、generate_story の 3 mode を tool_use 経由で呼ぶように改修。tool input_schema で JSON Schema 厳格化 → malformed JSON は物理的に発生しない (Anthropic 側でバリデーション)
+2. **JSON parse 失敗率 CloudWatch metric**: `generate_story_*_error` の発生回数を `[METRIC]` ログに出して governance worker で集計。閾値超過で Slack 警告
+3. **band-aid 排除原則を CLAUDE.md に明記**: prefill による補助・lenient parsing による recovery は **使わない**。malformed が起きうる API 設計を放置せず Tool Use で根絶する
+4. **なぜなぜを書く目的の明文化**: 『なぜなぜは band-aid を避けて root cause + 仕組み対策を見つけるための強制装置』と CLAUDE.md 冒頭に追記。書かないまま fix する → band-aid に走るリスクが高い
+
+---
+
 ### Claude が境界値テストを書かないままフォーマッタを書いてしまう、メタなぜなぜ（2026-04-27 制定）
 
 **起きたこと**: 私 (Claude) が過去に書いた `fmtElapsed(0)` が `1970-01-01` 由来の `1/1` を返し本番に漏れた。ナオヤから指摘されて初めて気づき修正。fmtElapsed のような汎用フォーマッタは boundary case (0/null/undefined/NaN/未来日付) を全部試すべきだったのに、それを書かないまま push していた。

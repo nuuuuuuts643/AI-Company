@@ -37,6 +37,30 @@ def _call_claude(payload: dict, timeout: int = 25) -> dict:
     raise RuntimeError('Claude API 429 retries exhausted')
 
 
+def _call_claude_tool(prompt: str, tool_name: str, input_schema: dict,
+                       max_tokens: int = 1500, timeout: int = 25,
+                       model: str = 'claude-haiku-4-5-20251001') -> dict | None:
+    """Claude Tool Use API で structured output を取得。
+    JSON Schema で出力形式を強制するため malformed JSON は物理的に発生しない。
+    Returns: tool_use.input (dict) / 失敗時 None。
+    """
+    response = _call_claude({
+        'model': model,
+        'max_tokens': max_tokens,
+        'tools': [{
+            'name': tool_name,
+            'description': f'構造化された分析結果を出力する',
+            'input_schema': input_schema,
+        }],
+        'tool_choice': {'type': 'tool', 'name': tool_name},
+        'messages': [{'role': 'user', 'content': prompt}],
+    }, timeout=timeout)
+    for block in response.get('content', []):
+        if block.get('type') == 'tool_use' and block.get('name') == tool_name:
+            return block.get('input') or {}
+    return None
+
+
 def clean_headline(title):
     """記事タイトルからメディア名サフィックスを除去 例: '記事 - 毎日新聞' → '記事'"""
     return re.sub(r'\s*[-－–|｜]\s*[^\s].{1,20}$', '', title).strip()
@@ -182,7 +206,8 @@ def _build_headlines(articles: list, limit: int = 15) -> tuple[str, int]:
 
 
 def _parse_story_json(text: str) -> dict | None:
-    """APIレスポンステキストからJSONを抽出・パースする。"""
+    """APIレスポンステキストからJSONを抽出・パースする (legacy text-mode 用)。
+    Tool Use 移行後はこの関数は使わない。tool_use.input が直接 dict で返る。"""
     json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
     if json_match:
         text = json_match.group(1)
@@ -236,47 +261,69 @@ def generate_story(articles, article_count: int | None = None):
         return _generate_story_full(articles, cnt)
 
 
-def _generate_story_minimal(articles: list) -> dict | None:
-    """1〜2件: シンプルな1段落要約のみ生成（APIコスト最小）。"""
-    headlines, cnt = _build_headlines(articles, limit=2)
-    prompt = (
-        '以下はニューストピックに関する記事です。\n'
-        '事実のみで1段落（100〜150文字）にまとめてください。断定・感情語・メディア名禁止。\n'
-        '固有名詞・企業名・サービス名は初出時に括弧で1語説明を加える（例: スターリンク（SpaceXの衛星インターネット）が〜）。\n\n'
-        + _GENRES_PROMPT
-        + '【出力フォーマット（JSON以外出力禁止）】\n'
-        '{\n'
-        '  "aiSummary": "**思考フレーム『背景→課題→目的→手段→結果→今後』で内部整理してから、初見ユーザーが文脈ごと理解できる1段落にまとめる**。主語+動詞+目的語+目的(何のために)を必ず明示。動詞は『〜をめぐる協議』『〜に向けた会談』形式。途中参加でも『誰が何の問題を解決するために何をしているか』が冒頭1文で分かるように書く。**事実だけ並べる『つまらない記事』は禁止**。『何が普通と違うか/何がポイントか/なぜそれが重要か』の角度を必ず込める(『実は〜』『ところが〜』『〜にもかかわらず』『これまでと違うのは〜』等の物語的接続詞で温度差を出す)。30秒で腹落ちできる文体に。事実は正確に、表現は刺さるように。",\n  "keyPoint": "**この話のポイント1文(40字以内・体言止め)**。事実の羅列ではなく『普通と違う角度』を抽出する。例: 「単なる外交儀礼ではなく、米中対立の代理戦」「赤字脱却よりブランド再建が本丸」「規制緩和より『業界自浄』への布石」。null/空禁止。",\n'
-        '  "background": "なぜ今このトピックが注目されているか。直近の政治・経済・社会的文脈を1文で",\n'
-        '  "outlook": "この先どうなるか。1文で必ず記述。null/空禁止",\n'
-        '  "topicTitle": "具体的な出来事・人物・企業名を含む15文字以内のテーマ名（体言止め。例: 岸田政権の解散戦略）",\n'
-        '  "latestUpdateHeadline": "最も新しい記事をベースにした最新の動きを40文字以内の1文（〜が〜した形式）",\n'
-        '  "isCoherent": true,\n'
-        '  "topicLevel": "major または sub または detail",\n'
-        '  "parentTopicTitle": "上位テーマ名（ない場合はnull）",\n'
-        '  "relatedTopicTitles": ["因果・波及関係にある別テーマ（ない場合は空配列）"],\n'
-        '  "genres": ["最も適切なジャンル1つ、または2つ（上のリストから選ぶ）"]\n'
-        '}\n\n'
-        '【isCoherentルール】true=全記事が同一主語・同一流れの経緯/事件を報じている。false=同じキーワードを共有するだけで主語/論点が異なる別トピックが混在 (例: 「辺野古問題」と「辺野古修学旅行」が混在)。\n'
-        '【topicTitleルール】「AI業界の動向」「テクノロジー全般」等の抽象大テーマはNG。具体的固有名詞を含むこと。\n'
-        '【topicLevelルール】major=国家間・産業横断・社会全体の大きな出来事。sub=majorの一側面・派生問題。detail=具体的な個別発表・事件・決定。\n'
-        '【parentTopicTitleルール】このトピックが明確に上位テーマの一部である場合のみ。独立したトピックはnull。\n'
-        '【relatedTopicTitlesルール】因果・波及関係にある別テーマ (ジャンル横断可。例: 原油高→物価上昇→日銀政策)。ない場合は空配列[]。最大3件。\n\n'
-        f'記事情報（{cnt}件）:\n{headlines}'
-    )
-    try:
-        data = _call_claude({
-            'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 500,
-            'messages': [{'role': 'user', 'content': prompt}],
-        })
-        result = _parse_story_json(data['content'][0]['text'].strip())
-        if not isinstance(result.get('aiSummary'), str) or not result['aiSummary'].strip():
-            return None
-        parent_title    = result.get('parentTopicTitle')
-        related_titles  = result.get('relatedTopicTitles')
+_VALID_PHASES = ['発端', '拡散', 'ピーク', '現在地', '収束']
+_VALID_LEVELS = ['major', 'sub', 'detail']
+
+
+def _build_story_schema(mode: str) -> dict:
+    """Tool Use 用 JSON Schema を mode 別に構築。
+    mode: 'minimal' | 'standard' | 'full'
+    """
+    base_props = {
+        'aiSummary': {'type': 'string', 'description': '思考フレーム背景→課題→目的→手段→結果→今後で内部整理した1段落。主語+動詞+目的語+目的を明示。事実羅列禁止、何が普通と違うか/ポイントか/なぜ重要かの角度を込める。'},
+        'keyPoint': {'type': 'string', 'description': 'この話のポイント1文(40字以内・体言止め)。普通と違う角度を抽出。例: 単なる外交儀礼ではなく米中対立の代理戦/赤字脱却よりブランド再建が本丸。'},
+        'background': {'type': 'string', 'description': 'なぜ今このトピックが浮上しているか。直近1〜4週間の触媒(法案審議入り/決算/選挙日程/裁判期日/季節要因等)。'},
+        'outlook': {'type': 'string', 'description': 'この先どうなるか。1文。〜が予想される/〜の可能性があるで締める。'},
+        'topicTitle': {'type': 'string', 'description': '15文字以内のテーマ名(体言止め)。具体的な固有名詞を含む。例: 岸田政権の解散戦略。'},
+        'latestUpdateHeadline': {'type': 'string', 'description': '最新の動きを40文字以内の1文(〜が〜した形式)。'},
+        'isCoherent': {'type': 'boolean', 'description': 'true=全記事が同一主語・同一流れ。false=異主語/異論点混在。'},
+        'topicLevel': {'type': 'string', 'enum': _VALID_LEVELS, 'description': 'major=国家間・産業横断/sub=majorの一側面/detail=個別発表'},
+        'parentTopicTitle': {'type': ['string', 'null'], 'description': '上位テーマ名。独立トピックは null。'},
+        'relatedTopicTitles': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 3, 'description': '因果・波及関係にある別テーマ。'},
+        'genres': {'type': 'array', 'items': {'type': 'string', 'enum': list(_VALID_GENRE_SET)}, 'minItems': 1, 'maxItems': 2},
+    }
+    required = ['aiSummary', 'keyPoint', 'background', 'outlook', 'topicTitle', 'latestUpdateHeadline', 'isCoherent', 'topicLevel', 'genres']
+
+    if mode == 'minimal':
+        # minimal は backgroundContext/spreadReason/forecast/perspectives/timeline は無し
+        pass
+    else:
+        base_props['backgroundContext'] = {'type': 'string', 'description': 'なぜ起きたか。背景にある構造的・社会的・経済的・政治的要因(2文)。'}
+        base_props['spreadReason'] = {'type': 'string', 'description': 'なぜ広がったか。トリガー/時事文脈/注目層/関連ニュースの観点(2-3文)。'}
+        base_props['perspectives'] = {'type': 'string', 'description': '各社の懸念・可能性・着目点を並列列挙(2〜3社)。例: 朝日は経済への打撃を懸念、産経は安全保障上の利益を指摘、毎日は外交プロセスの不透明性に着目。'}
+        base_props['phase'] = {'type': 'string', 'enum': _VALID_PHASES}
+        base_props['timeline'] = {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'date': {'type': 'string'},
+                    'event': {'type': 'string'},
+                    'transition': {'type': 'string'},
+                },
+                'required': ['event'],
+            },
+            'maxItems': 6 if mode == 'full' else 3,
+        }
+        required += ['backgroundContext', 'spreadReason', 'perspectives', 'phase', 'timeline']
+        if mode == 'full':
+            base_props['forecast'] = {'type': 'string', 'description': '今後どうなるか。記事内容を根拠にした仮説(2文)。〜が見込まれる/〜の可能性があるで締める。'}
+            required += ['forecast']
+
+    return {
+        'type': 'object',
+        'properties': base_props,
+        'required': required,
+    }
+
+
+def _normalize_story_result(result: dict, mode: str) -> dict:
+    """tool_use.input を内部 dict 形式に正規化。"""
+    parent_title    = result.get('parentTopicTitle')
+    related_titles  = result.get('relatedTopicTitles') or []
+    if mode == 'minimal':
         return {
-            'aiSummary':              result['aiSummary'].strip(),
+            'aiSummary':              str(result.get('aiSummary') or '').strip(),
             'keyPoint':               str(result.get('keyPoint') or '').strip()[:60],
             'background':             str(result.get('background') or '').strip(),
             'perspectives':           None,
@@ -289,197 +336,110 @@ def _generate_story_minimal(articles: list) -> dict | None:
             'topicTitle':             str(result.get('topicTitle') or '').strip()[:15],
             'latestUpdateHeadline':   str(result.get('latestUpdateHeadline') or '').strip()[:40],
             'isCoherent':             result.get('isCoherent') is not False,
-            'topicLevel':             result.get('topicLevel') if result.get('topicLevel') in ('major', 'sub', 'detail') else 'detail',
+            'topicLevel':             result.get('topicLevel') if result.get('topicLevel') in _VALID_LEVELS else 'detail',
             'parentTopicTitle':       str(parent_title).strip()[:30] if parent_title and parent_title != 'null' else None,
             'relatedTopicTitles':     [str(t).strip()[:30] for t in related_titles[:3]] if isinstance(related_titles, list) and related_titles else [],
             'genres':                 _validate_genres(result.get('genres')),
         }
+    # standard / full 共通
+    out = {
+        'aiSummary':              str(result.get('aiSummary') or '').strip(),
+        'keyPoint':               str(result.get('keyPoint') or '').strip()[:60],
+        'backgroundContext':      str(result.get('backgroundContext') or '').strip(),
+        'spreadReason':           str(result.get('spreadReason') or '').strip(),
+        'background':             str(result.get('background') or '').strip(),
+        'perspectives':           result.get('perspectives') if isinstance(result.get('perspectives'), str) else None,
+        'outlook':                str(result.get('outlook') or '').strip(),
+        'forecast':               str(result.get('forecast') or '').strip() if mode == 'full' else '',
+        'timeline':               _sanitize_timeline(result.get('timeline'), max_items=6 if mode == 'full' else 3),
+        'phase':                  result.get('phase') if result.get('phase') in _VALID_PHASES else '現在地',
+        'summaryMode':            mode,
+        'topicTitle':             str(result.get('topicTitle') or '').strip()[:15],
+        'latestUpdateHeadline':   str(result.get('latestUpdateHeadline') or '').strip()[:40],
+        'isCoherent':             result.get('isCoherent') is not False,
+        'topicLevel':             result.get('topicLevel') if result.get('topicLevel') in _VALID_LEVELS else 'detail',
+        'parentTopicTitle':       str(parent_title).strip()[:30] if parent_title and parent_title != 'null' else None,
+        'relatedTopicTitles':     [str(t).strip()[:30] for t in related_titles[:3]] if isinstance(related_titles, list) and related_titles else [],
+        'genres':                 _validate_genres(result.get('genres')),
+    }
+    return out
+
+
+def _generate_story_minimal(articles: list) -> dict | None:
+    """1〜2件: シンプルな1段落要約のみ生成（APIコスト最小）。Tool Use で structured output 強制。"""
+    headlines, cnt = _build_headlines(articles, limit=2)
+    prompt = (
+        '以下はニューストピックに関する記事です。事実のみで簡潔にまとめてください。\n'
+        '断定・感情語・メディア名禁止。固有名詞は初出時に括弧で1語説明 (例: スターリンク（SpaceXの衛星インターネット）)。\n\n'
+        '【isCoherent判定】true=全記事が同一主語・同一流れ。false=異主語/異論点混在。\n'
+        '【topicLevel判定】major=国家間・産業横断/sub=majorの一側面/detail=個別発表。\n'
+        + _GENRES_PROMPT
+        + f'\n記事情報（{cnt}件）:\n{headlines}'
+    )
+    try:
+        result = _call_claude_tool(prompt, 'emit_topic_story', _build_story_schema('minimal'), max_tokens=600)
+        if not result or not str(result.get('aiSummary') or '').strip():
+            return None
+        return _normalize_story_result(result, 'minimal')
     except Exception as e:
         print(f'generate_story (minimal) error: {e}')
         return None
 
 
+_STORY_PROMPT_RULES = (
+    '【トピック分析】事実は「〜した/〜と述べた」で記述。断定・感情語・メディア名禁止。主語を具体的に。\n'
+    '固有名詞は初出時に括弧で1語説明 (例: スターリンク（SpaceXの衛星インターネット）)。\n'
+    '【aiSummary】思考フレーム『背景→課題→目的→手段→結果→今後』で内部整理してから1段落で。事実羅列禁止、何が普通と違うか/ポイントか/なぜ重要かの角度を込める。物語的接続詞 (実は/ところが/にもかかわらず) で温度差を出す。\n'
+    '【keyPoint】40字以内、体言止め。普通と違う角度を抽出。\n'
+    '【backgroundContext】構造的・社会的・経済的・政治的要因 (2文)。\n'
+    '【background】直近1〜4週間の触媒。backgroundContextと別の角度で。\n'
+    '【spreadReason】トリガー/時事文脈/注目層/関連ニュース観点 (2-3文)。\n'
+    '【perspectives】2〜3社の見解を並列。例: 朝日は経済への打撃を懸念、産経は安全保障上の利益を指摘。\n'
+    '【outlook】1文。〜が予想される/〜の可能性があるで締める。\n'
+    '【phase判定】発端は記事3件未満+24h以内のみ。それ以外で発端は選ばない。デフォルトは拡散。\n'
+    '【isCoherent判定】true=全記事が同一主語・同一流れ。false=異主語/異論点混在。\n'
+    '【topicTitle】15字以内、体言止め、具体的固有名詞を含む。\n'
+    '【topicLevel】major=国家間・産業横断/sub=majorの一側面/detail=個別発表。\n'
+    '【parentTopicTitle】明確に上位テーマの一部の場合のみ。独立は null。\n'
+)
+
+
 def _generate_story_standard(articles: list, cnt: int) -> dict | None:
-    """3〜5件: 概要 + なぜ広がったか + 短いタイムライン（2〜3件）。"""
+    """3〜5件: Tool Use で structured output 強制 (旧 JSON 構文エラー撲滅)。"""
     headlines, _ = _build_headlines(articles, limit=5)
-    prompt = (
-        '以下は同じニューストピックに関する記事の一覧です。\n'
-        'このトピックを2つの視点で分析し、JSONのみを出力してください。\n\n'
-        '【ルール】事実は「〜した/〜と述べた」で記述。断定・感情語・メディア名禁止。主語を具体的に。\n'
-        '固有名詞・企業名・サービス名は初出時に括弧で1語説明を加える（例: スターリンク（SpaceXの衛星インターネット）が〜）。\n\n'
-        + _GENRES_PROMPT
-        + '【出力フォーマット（JSON以外出力禁止）】\n'
-        '{\n'
-        '  "aiSummary": "**思考フレーム『背景→課題→目的→手段→結果→今後』で内部整理してから、初見ユーザーが文脈ごと理解できる1段落にまとめる**。主語+動詞+目的語+目的(何のために)を必ず明示。動詞は『〜をめぐる協議』『〜に向けた会談』形式。途中参加でも『誰が何の問題を解決するために何をしているか』が冒頭1文で分かるように書く。**事実だけ並べる『つまらない記事』は禁止**。『何が普通と違うか/何がポイントか/なぜそれが重要か』の角度を必ず込める(『実は〜』『ところが〜』『〜にもかかわらず』『これまでと違うのは〜』等の物語的接続詞で温度差を出す)。30秒で腹落ちできる文体に。事実は正確に、表現は刺さるように。",\n  "keyPoint": "**この話のポイント1文(40字以内・体言止め)**。事実の羅列ではなく『普通と違う角度』を抽出する。例: 「単なる外交儀礼ではなく、米中対立の代理戦」「赤字脱却よりブランド再建が本丸」「規制緩和より『業界自浄』への布石」。null/空禁止。",\n'
-        '  "backgroundContext": "なぜ起きたか。この問題の背景にある構造的・社会的・経済的・政治的要因を1文で分析。推測は「〜と見られる」で",\n'
-        '  "spreadReason": "なぜ広がったか。①トリガーイベント（引き金となった出来事）②なぜ今か（時事・政治・経済文脈）③誰が注目しているか（注目層・立場）④他ニュースとの関連のうち該当する観点を2文で分析",\n'
-        '  "background": "**なぜ『今』このトピックが浮上しているか**を必ず1〜2文で。null/空禁止。backgroundContext (構造的要因) とは異なり、ここでは『直近1〜4週間で何が触媒になって表面化したか』(関連法案の審議入り、四半期決算、選挙日程、訴訟期日、季節要因等)を書く。backgroundContextと同じ内容を書かないこと",\n'
-        '  "perspectives": "**各社が指摘する『懸念・可能性・着目点』を並列列挙する**。必ず2〜3社の見解を並べる (nullや空文字は禁止)。フォーマット: 「{社A}は『{懸念A or 可能性A}』を指摘、{社B}は『{懸念B or 可能性B}』を指摘、{社C}は『{懸念C or 可能性C}』に着目」。例: 『朝日は経済への打撃を懸念、産経は安全保障上の利益を指摘、毎日は外交プロセスの不透明性に着目』。各社の編集スタンスや論点の温度差が読者に1秒で伝わるように。同一論点しか見えない場合は『各社いずれも{X}を中心に』と書いてよいが、可能なら2社の見方の差を抽出する努力をする。Flotopicの独自価値はこの『見解の並列可視化』。",\n'
-        '  "outlook": "この先どうなるか。1文で必ず記述。null/空禁止",\n'
-        '  "timeline": [\n'
-        '    {"date": "M/D形式または空文字", "event": "何が起きたか（40文字以内の体言止め）", "transition": "次への因果・接続（25文字以内）"},\n'
-        '    ...\n'
-        '    {"date": "M/D形式または空文字", "event": "最後のイベント（transitionは省略）"}\n'
-        '  ],\n'
-        '  "phase": "発端 または 拡散 または ピーク または 現在地 または 収束",\n'
-        '  "topicTitle": "具体的な出来事・人物・企業名を含む15文字以内のテーマ名（体言止め。例: 岸田政権の解散戦略）",\n'
-        '  "latestUpdateHeadline": "最も新しい記事をベースにした最新の動きを40文字以内の1文（〜が〜した形式）",\n'
-        '  "isCoherent": true,\n'
-        '  "topicLevel": "major または sub または detail",\n'
-        '  "parentTopicTitle": "上位テーマ名（ない場合はnull）",\n'
-        '  "relatedTopicTitles": ["因果・波及関係にある別テーマ（ない場合は空配列）"],\n'
-        '  "genres": ["最も適切なジャンル1つ、または2つ（上のリストから選ぶ）"]\n'
-        '}\n\n'
-        '【ルール】\n'
-        'aiSummary: 改行・箇条書き禁止。1段落。メディア名不要。**冒頭で主語を明示する** (「政府が」「日銀が」「市場が」等)。①文脈・経緯 ②現状 ③注目点 の3要素を含める。\n'
-        'backgroundContext: 1文。表面の出来事ではなく背景にある構造的要因を書く。「〜という構造的背景がある」「〜が長年の課題となっていた」等。\n'
-        'spreadReason: 2文で分析。①〜④の観点から該当するものを選ぶ。推測は「〜と見られる」で。\n'
-        'timeline: 2〜3件のみ。重要な転換点のみ。\n'
-        'timeline[].event: 体言止め。具体的な出来事を40文字以内で。\n'
-        'timeline[].transition: 因果・接続詞（例: これを受けて、その結果、翌日、）。事実のみ。最後のアイテムは省略。\n'
-        'phase: 以下のルールで厳格に判定（「発端」を選びすぎない・デフォルトは「拡散」）:\n'
-        '  - 発端: 記事3件未満かつ最初と最後の時間差が24h以内のみ。それ以外で「発端」は選ばない\n'
-        '  - 拡散: 記事3件以上、または時間差が24h超。標準的な選択肢\n'
-        '  - ピーク: 「次々と」「同時に」「一斉に」の動きで複数主体が同時並行\n'
-        '  - 現在地: 「対応した」「決定した」など落ち着き始めの兆候\n'
-        '  - 収束: 結論・判決・決着で完結\n'
-        '  判定に迷ったら「拡散」を選ぶ\n'
-        'background: 1〜2文。「なぜ今か」を説明する文脈 (過去の経緯・法制度・国際情勢等)。\n'
-        'perspectives: **必ず2〜3社の見解を並列で。null・空文字禁止**。各社の『懸念・可能性・着目点』を並べる: 「{社A}は『{視点A}』を指摘、{社B}は『{視点B}』を指摘、{社C}は『{視点C}』に着目」形式。例: 『朝日は経済への打撃を懸念、産経は安全保障上の利益を指摘、毎日は外交プロセスの不透明性に着目』。読者が各社の温度差を1秒で把握できる粒度で書く。同論点ばかりなら「いずれも{X}を中心に」と書いてよいが、可能な範囲で 2 社の差を抽出する。\n'
-        'outlook: 今後の見通しを1文。「〜が予想される」「〜の可能性がある」等で締める。\n'
-        'topicTitle: 15文字以内。体言止め。具体的な固有名詞を含む。「AI業界の動向」等の抽象大テーマはNG。\n'
-        'latestUpdateHeadline: 最新の記事をベースに40文字以内の1文。「〜が〜した」形式。\n'
-        'isCoherent: true=全記事が同一主語・同一流れ。false=異主語/異論点が混在 (例: 「辺野古問題」と「辺野古修学旅行」が混在)。\n'
-        'topicLevel: major=国家間・産業横断・社会全体。sub=majorの一側面・派生問題。detail=個別の発表・事件・決定。\n'
-        'parentTopicTitle: このトピックが明確に上位テーマの一部である場合のみ。独立トピックはnull。\n\n'
-        f'記事情報（{cnt}件）:\n{headlines}'
-    )
+    prompt = _STORY_PROMPT_RULES + _GENRES_PROMPT + f'\n記事情報（{cnt}件）:\n{headlines}'
     try:
-        data = _call_claude({
-            'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 1300,
-            'messages': [{'role': 'user', 'content': prompt}],
-        })
-        result = _parse_story_json(data['content'][0]['text'].strip())
-        if not isinstance(result.get('aiSummary'), str) or not result['aiSummary'].strip():
+        result = _call_claude_tool(prompt, 'emit_topic_story', _build_story_schema('standard'), max_tokens=1300)
+        if not result or not str(result.get('aiSummary') or '').strip():
             return None
-        valid_phases = ('発端', '拡散', 'ピーク', '現在地', '収束')
-        parent_title    = result.get('parentTopicTitle')
-        related_titles  = result.get('relatedTopicTitles')
-        return {
-            'aiSummary':              result['aiSummary'].strip(),
-            'backgroundContext':      str(result.get('backgroundContext') or '').strip(),
-            'spreadReason':           str(result.get('spreadReason') or '').strip(),
-            'background':             str(result.get('background') or '').strip(),
-            'perspectives':           result.get('perspectives') if isinstance(result.get('perspectives'), str) else None,
-            'outlook':                str(result.get('outlook') or '').strip(),
-            'forecast':               '',
-            'timeline':               _sanitize_timeline(result.get('timeline'), max_items=3),
-            'phase':                  result.get('phase') if result.get('phase') in valid_phases else '現在地',
-            'summaryMode':            'standard',
-            'topicTitle':             str(result.get('topicTitle') or '').strip()[:15],
-            'latestUpdateHeadline':   str(result.get('latestUpdateHeadline') or '').strip()[:40],
-            'isCoherent':             result.get('isCoherent') is not False,
-            'topicLevel':             result.get('topicLevel') if result.get('topicLevel') in ('major', 'sub', 'detail') else 'detail',
-            'parentTopicTitle':       str(parent_title).strip()[:30] if parent_title and parent_title != 'null' else None,
-            'relatedTopicTitles':     [str(t).strip()[:30] for t in related_titles[:3]] if isinstance(related_titles, list) and related_titles else [],
-            'genres':                 _validate_genres(result.get('genres')),
-        }
+        return _normalize_story_result(result, 'standard')
     except Exception as e:
         print(f'generate_story (standard) error: {e}')
         return None
 
 
 def _generate_story_full(articles: list, cnt: int) -> dict | None:
-    """6件以上: フル4セクション + 因果タイムライン（最大6件）。"""
+    """6件以上: フル7セクション + 因果タイムライン（最大6件）。Tool Use で structured output 強制。"""
     headlines, _ = _build_headlines(articles, limit=10)
     prompt = (
-        '以下は同じニューストピックに関する記事の一覧です（日付付きの場合あり）。\n'
-        'このトピックを7つの視点で分析し、JSONのみを出力してください。\n\n'
-        '**重要原則**: aiSummary / backgroundContext / spreadReason / forecast / background / perspectives / outlook の 7 フィールドはすべて必ず内容を埋める。null や空文字での提出は禁止。「ズレが見えない」「材料が足りない」と感じる場合も、論点フォーカスや見通しの方向性で必ず記述する。\n\n'
-        + _WORD_RULES
+        _WORD_RULES
+        + _STORY_PROMPT_RULES
+        + '【forecast】記事内容を根拠にした仮説 (2文)。〜が見込まれる/〜の可能性があるで締める。\n'
+        + '【timeline】3〜6件の重要な転換点。event は体言止め40字以内、transition は因果接続 (これを受けて/その翌日/反発を受け/声明を機に/審議を経て) 25字以内。\n'
         + _GENRES_PROMPT
-        + '【出力フォーマット（JSON以外出力禁止）】\n'
-        '{\n'
-        '  "aiSummary": "①何が起きたか。**思考フレーム『背景→課題→目的→手段→結果→今後』で内部整理してから初見ユーザーが文脈ごと理解できる1段落にまとめる**。主語+動詞+目的語+目的(何のために)を必ず明示。動詞には{何}を付け『〜をめぐる協議』『〜に向けた会談』形式。途中参加でも『誰が何の問題を解決するために何をしているか』が冒頭1文で分かるように書く。",\n'
-        '  "backgroundContext": "②なぜ起きたか。この問題の背景にある構造的・社会的・経済的・政治的要因を2文で分析。表面の出来事ではなく根本にある構造や文脈を掘り下げる。推測は「〜と見られる」で",\n'
-        '  "spreadReason": "③なぜ広がったか。①トリガーイベント（引き金となった出来事）②なぜ今か（時事・政治・経済文脈）③誰が注目しているか（注目層・立場）④他ニュースとの関連のうち該当する観点を3文で深く分析",\n'
-        '  "forecast": "④今後どうなるか。記事内容を根拠にした仮説を2文。断定せず「〜が見込まれる」「〜の可能性がある」で締める",\n'
-        '  "background": "**なぜ『今』このトピックが浮上しているか**を必ず1〜2文で。null/空禁止。backgroundContext (構造的要因) とは異なり、ここでは『直近1〜4週間で何が触媒になって表面化したか』(関連法案の審議入り、四半期決算、選挙日程、訴訟期日、季節要因等)を書く。backgroundContextと同じ内容を書かないこと",\n'
-        '  "perspectives": "**各社が指摘する『懸念・可能性・着目点』を並列列挙する**。必ず2〜3社の見解を並べる (nullや空文字は禁止)。フォーマット: 「{社A}は『{懸念A or 可能性A}』を指摘、{社B}は『{懸念B or 可能性B}』を指摘、{社C}は『{懸念C or 可能性C}』に着目」。例: 『朝日は経済への打撃を懸念、産経は安全保障上の利益を指摘、毎日は外交プロセスの不透明性に着目』。各社の編集スタンスや論点の温度差が読者に1秒で伝わるように。同一論点しか見えない場合は『各社いずれも{X}を中心に』と書いてよいが、可能なら2社の見方の差を抽出する努力をする。Flotopicの独自価値はこの『見解の並列可視化』。",\n'
-        '  "outlook": "この先どうなるか。1文で必ず記述。null/空禁止",\n'
-        '  "timeline": [\n'
-        '    {"date": "M/D形式または空文字", "event": "何が起きたか（40文字以内の体言止め）", "transition": "次のステップへの因果・接続（25文字以内。例: これを受けて、/その結果、/翌日、）"},\n'
-        '    ...\n'
-        '    {"date": "M/D形式または空文字", "event": "最後のイベント（transitionは省略）"}\n'
-        '  ],\n'
-        '  "phase": "発端 または 拡散 または ピーク または 現在地 または 収束",\n'
-        '  "topicTitle": "具体的な出来事・人物・企業名を含む15文字以内のテーマ名（体言止め。例: 岸田政権の解散戦略）",\n'
-        '  "latestUpdateHeadline": "最も新しい記事をベースにした最新の動きを40文字以内の1文（〜が〜した形式）",\n'
-        '  "isCoherent": true,\n'
-        '  "topicLevel": "major または sub または detail",\n'
-        '  "parentTopicTitle": "上位テーマ名（ない場合はnull）",\n'
-        '  "relatedTopicTitles": ["因果・波及関係にある別テーマ（ない場合は空配列）"],\n'
-        '  "genres": ["最も適切なジャンル1つ、または2つ（上のリストから選ぶ）"]\n'
-        '}\n\n'
-        '【各フィールドのルール】\n'
-        'aiSummary: 改行・箇条書き・見出し禁止。1段落。メディア名不要。**冒頭で主語を明示する** (「政府が」「日銀が」「米欧が」「市場が」等)。①この出来事の文脈・経緯 ②現在何が起きているか ③注目点 の3要素を含める。\n'
-        'backgroundContext: 2文。表面の出来事ではなく背景の構造的要因を書く。「〜という構造的背景がある」「〜が長年の課題となっていた」「〜という政策的文脈がある」等。\n'
-        'spreadReason: 3文で深く分析。①〜④の観点から該当するものを組み合わせる。推測の場合は「〜と見られる」で。\n'
-        'forecast: 「今後〜が予想される」「〜の可能性がある」で終える。根拠のない予測禁止。\n'
-        'background: **必ず1〜2文。null・空禁止**。「なぜ『今』か」=直近1〜4週間の触媒(法案審議入り/決算発表/選挙日程/裁判期日/季節要因等)。backgroundContextと内容が被らないこと。被るなら「同上」と書かず「直近で〜が触媒となり浮上」と直近性を必ず入れる。\n'
-        'perspectives: **必ず2〜3社の見解を並列で。null・空文字禁止**。各社の『懸念・可能性・着目点』を並べる: 「{社A}は『{視点A}』を指摘、{社B}は『{視点B}』を指摘、{社C}は『{視点C}』に着目」形式。例: 『朝日は経済への打撃を懸念、産経は安全保障上の利益を指摘、毎日は外交プロセスの不透明性に着目』。読者が各社の温度差を1秒で把握できる粒度で書く。同論点ばかりなら「いずれも{X}を中心に」と書いてよいが、可能な範囲で 2 社の差を抽出する。\n'
-        'outlook: **必ず1文。null・空文字禁止**。今後の見通し。「〜が予想される」「〜の可能性がある」等で締める。forecastの短い版でも良いが空にしない。\n'
-        'timeline: 3〜6件。重要な転換点のみ。\n'
-        'timeline[].event: 体言止め。具体的な出来事を40文字以内で。固有名詞を使って具体的に書く。\n'
-        'timeline[].transition: 「前のイベント → 次のイベント」を繋ぐ因果・接続詞。25文字以内。事実のみ。感情語禁止。最後のアイテムは省略。\n'
-        '  例: 「これを受けて、」「その翌日、」「反発を受け、」「声明を機に、」「審議を経て、」\n'
-        'phase: 以下のルールで厳格に判定（「発端」を選びすぎない・デフォルトは「拡散」）:\n'
-        '  - 発端 (始まったばかり): 記事3件未満かつ最初と最後の時間差が24h以内のみ。それ以外で「発端」は選ばない\n'
-        '  - 拡散 (広がっている): 記事3件以上、または時間差が24h超。標準的な選択肢\n'
-        '  - ピーク (最も活発): 「次々と」「同時に」「一斉に」「相次いで」のような展開で複数主体が同時並行\n'
-        '  - 現在地 (落ち着いてきた): 「対応を発表」「方針を決定」「結論」など落ち着き始めの兆候\n'
-        '  - 収束 (話題が終息した): 判決・決着・最終決定で完結\n'
-        '  判定に迷ったら「拡散」を選ぶ\n'
-        'topicTitle: 15文字以内。体言止め。具体的な固有名詞を含む。「AI業界の動向」等の抽象大テーマはNG。\n'
-        'latestUpdateHeadline: 最新の記事をベースに40文字以内の1文。「〜が〜した」形式。\n'
-        'isCoherent: true=全記事が同一主語・同一流れ。false=異主語/異論点が混在 (例: 「辺野古問題」と「辺野古修学旅行」が同居)。\n'
-        'topicLevel: major=国家間・産業横断・社会全体。sub=majorの一側面・派生問題。detail=個別の発表・事件・決定。\n'
-        'parentTopicTitle: このトピックが明確に上位テーマの一部である場合のみ。独立トピックはnull。\n'
-        'relatedTopicTitles: 因果・波及関係にある別テーマ (ジャンル横断可。例: 原油高→物価上昇→日銀政策)。ない場合は[]。最大3件。\n\n'
-        f'記事情報（{cnt}件・見出しと概要）:\n{headlines}'
+        + f'\n記事情報（{cnt}件・見出しと概要）:\n{headlines}'
     )
     try:
-        data = _call_claude({
-            'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 1700,
-            'messages': [{'role': 'user', 'content': prompt}],
-        })
-        result = _parse_story_json(data['content'][0]['text'].strip())
-        if not isinstance(result.get('aiSummary'), str) or not result['aiSummary'].strip():
+        result = _call_claude_tool(prompt, 'emit_topic_story', _build_story_schema('full'), max_tokens=1700)
+        if not result or not str(result.get('aiSummary') or '').strip():
             return None
-        valid_phases = ('発端', '拡散', 'ピーク', '現在地', '収束')
-        parent_title   = result.get('parentTopicTitle')
-        related_titles = result.get('relatedTopicTitles')
-        return {
-            'aiSummary':              result['aiSummary'].strip(),
-            'backgroundContext':      str(result.get('backgroundContext') or '').strip(),
-            'spreadReason':           str(result.get('spreadReason') or '').strip(),
-            'forecast':               str(result.get('forecast')     or '').strip(),
-            'background':             str(result.get('background') or '').strip(),
-            'perspectives':           result.get('perspectives') if isinstance(result.get('perspectives'), str) else None,
-            'outlook':                str(result.get('outlook') or '').strip(),
-            'timeline':               _sanitize_timeline(result.get('timeline'), max_items=6),
-            'phase':                  result.get('phase') if result.get('phase') in valid_phases else '現在地',
-            'summaryMode':            'full',
-            'topicTitle':             str(result.get('topicTitle') or '').strip()[:15],
-            'latestUpdateHeadline':   str(result.get('latestUpdateHeadline') or '').strip()[:40],
-            'isCoherent':             result.get('isCoherent') is not False,
-            'topicLevel':             result.get('topicLevel') if result.get('topicLevel') in ('major', 'sub', 'detail') else 'detail',
-            'parentTopicTitle':       str(parent_title).strip()[:30] if parent_title and parent_title != 'null' else None,
-            'relatedTopicTitles':     [str(t).strip()[:30] for t in related_titles[:3]] if isinstance(related_titles, list) and related_titles else [],
-            'genres':                 _validate_genres(result.get('genres')),
-        }
+        return _normalize_story_result(result, 'full')
     except Exception as e:
         print(f'generate_story (full) error: {e}')
         return None
+
+
+# 旧 text-mode の長大なプロンプト & JSON 手動 parse コードは削除。
+# Tool Use API + JSON Schema (`_build_story_schema`) で structured output を物理的に強制。
+# malformed JSON の発生確率は 0 になり、`generate_story (full) error: Expecting ',' delimiter`
+# 系の警告が消える (T39 の続き、JSON parse error なぜなぜ分析の対策実装)。
