@@ -5,15 +5,15 @@
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6754575901141756"
      crossorigin="anonymous"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>フォロー中 | Flotopic</title>
+  <title>ストーリーマップ | Flotopic</title>
   <meta name="description" content="このトピックから派生した分岐ストーリー。Flotopicで話題の広がりを追う。">
-  <meta property="og:title" content="フォロー中 | Flotopic">
+  <meta property="og:title" content="ストーリーマップ | Flotopic">
   <meta property="og:description" content="このトピックから派生した分岐ストーリーを可視化。">
   <meta property="og:type" content="article">
   <meta property="og:url" content="https://flotopic.com/storymap.html">
   <meta property="og:image" content="https://flotopic.com/ogp.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta id="twitter-title" name="twitter:title" content="フォロー中 | Flotopic">
+  <meta id="twitter-title" name="twitter:title" content="ストーリーマップ | Flotopic">
   <meta id="twitter-description" name="twitter:description" content="このトピックから派生した分岐ストーリーを可視化。">
   <meta name="twitter:image" content="https://flotopic.com/ogp.png">
   <link rel="canonical" id="canonical-url" href="https://flotopic.com/storymap.html">
@@ -445,7 +445,7 @@ function renderStorymap(parent, allTopics) {
     });
 
   const parentTitle = parent.generatedTitle || parent.title || '';
-  document.title = `${parentTitle} | フォロー中`;
+  document.title = `${parentTitle} | ストーリーマップ`;
 
   // ---- Breadcrumb ----
   // Walk up 1 level if there's a grandparent
@@ -616,7 +616,7 @@ function renderError(msg) {
 function renderStorymapList(topics) {
   const root = document.getElementById('sm-root');
   if (!root) return;
-  document.title = 'フォロー中 | Flotopic';
+  document.title = 'ストーリーマップ | Flotopic';
 
   const stories = topics
     // storyTimeline は topics.json の _INTERNAL 除外フィールドのため使用不可。storyPhase で判定
@@ -648,7 +648,7 @@ function renderStorymapList(topics) {
     <div class="sm-breadcrumb">
       <a href="index.html">🏠 トップ</a>
       <span class="sep">›</span>
-      <span class="current">フォロー中</span>
+      <span class="current">ストーリーマップ</span>
     </div>
     <div class="sm-section">
       <div class="sm-section-header">
