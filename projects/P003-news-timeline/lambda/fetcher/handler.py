@@ -236,6 +236,25 @@ def lambda_handler(event, context):
 
     print(f'合計: {len(all_articles)}記事')
 
+    # Step 2.5: URL 重複除去（同一 URL が複数フィードから来るケース）
+    # 例: Yahoo!ニュース が他媒体記事を再配信し、元媒体の RSS にも同 URL が載る。
+    # この dedup を入れないと cluster 後の `cnt = len(g)` が水増しされ、
+    # SNAP.articles は URL-dedup 済みなため、フロントの「全 X 件の記事」表示や
+    # detail.js の記事数グラフ最終点と meta.articleCount が乖離する根本原因になる。
+    # （T2026-0428-AI: 2026-04-28 PO報告「記事数グラフがトピック内記事数と合ってない」）
+    _before = len(all_articles)
+    _seen_url_local: set = set()
+    deduped_articles = []
+    for _a in all_articles:
+        _u = _a.get('url')
+        if not _u or _u in _seen_url_local:
+            continue
+        _seen_url_local.add(_u)
+        deduped_articles.append(_a)
+    if _before != len(deduped_articles):
+        print(f'[URL-DEDUP] {_before} → {len(deduped_articles)} (フィード横断重複除去)')
+    all_articles = deduped_articles
+
     # Step 3: 差分チェック
     current_urls = {a['url'] for a in all_articles}
     new_urls     = current_urls - seen_urls
