@@ -90,4 +90,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T256 proc_ai要約品質改善+T255バグ修正 | Cowork | proc_ai.py, handler.py | 2026-04-28 20:00 | yes |
+| [Code] T2026-0428-V P0-STABLE-A CI モバイルレイアウト基本チェック | Code | `.github/workflows/ci.yml`, `scripts/check_mobile_layout.js` | 2026-04-28 07:30 | yes |
+| [Code] T2026-0428-Y P0-STABLE-D verify_effect.sh + CLAUDE.md 改訂 | Code | `scripts/verify_effect.sh`, `CLAUDE.md` | 2026-04-28 07:30 | yes |
