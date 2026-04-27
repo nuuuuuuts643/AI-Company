@@ -10,13 +10,10 @@ name: 鮮度モニタ (topics.json freshness SLI)
 #   → updatedAt と現在時刻の差を計算
 #   → 90 分超なら Slack 警告 (governance worker と別系統)
 #   警告 payload には「最終成功時刻・差分(分)・スケジュール JST 情報」を含める。
-#
-# 例外: ai-company リポジトリの GH Actions cron は最低 5 分粒度。1h 粒度で十分余裕がある。
-# Slack webhook 未設定でも CI は失敗扱いにせず continue-on-error で吸収。
 
 on:
   schedule:
-    - cron: '7 * * * *'   # 毎時 07 分 UTC (= JST 16 分)。governance worker と被らない時刻に分散
+    - cron: '7 * * * *'   # 毎時 07 分 UTC。governance worker と被らない時刻に分散
   workflow_dispatch:
 
 permissions:
@@ -26,18 +23,21 @@ jobs:
   check:
     name: topics.json updatedAt diff
     runs-on: ubuntu-latest
+    env:
+      FRESHNESS_URL: https://flotopic.com/api/topics.json
+      FRESHNESS_THRESHOLD_MIN: '90'
     steps:
       - name: fetch topics.json と updatedAt 解析
         id: probe
+        shell: bash
         run: |
           set -u
-          URL="https://flotopic.com/api/topics.json"
           PAYLOAD=$(mktemp)
-          # -f を使うと 4xx で失敗。タイムアウト 30s。
-          if ! curl -fsS --max-time 30 "$URL" -o "$PAYLOAD"; then
+          if ! curl -fsS --max-time 30 "$FRESHNESS_URL" -o "$PAYLOAD"; then
             echo "status=fetch_failed" >> "$GITHUB_OUTPUT"
             echo "diff_min=-1" >> "$GITHUB_OUTPUT"
             echo "updated_at=fetch_failed" >> "$GITHUB_OUTPUT"
+            echo "::warning::topics.json 取得失敗 ($FRESHNESS_URL)"
             exit 0
           fi
           UPDATED_AT=$(python3 -c "import json,sys; d=json.load(open('$PAYLOAD')); print(d.get('updatedAt',''))")
@@ -47,30 +47,31 @@ jobs:
             echo "updated_at=missing" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          DIFF_MIN=$(python3 - <<PY
-          import datetime as dt
-          ua = "$UPDATED_AT"
+          DIFF_MIN=$(UPDATED_AT="$UPDATED_AT" python3 -c "
+          import datetime as dt, os
+          ua = os.environ['UPDATED_AT']
           try:
               t = dt.datetime.fromisoformat(ua.replace('Z', '+00:00'))
               now = dt.datetime.now(dt.timezone.utc)
               print(int((now - t).total_seconds() // 60))
-          except Exception as e:
+          except Exception:
               print(-1)
-          PY
-          )
+          ")
           if [ "$DIFF_MIN" -lt 0 ]; then
-              echo "status=parse_failed" >> "$GITHUB_OUTPUT"
-          elif [ "$DIFF_MIN" -gt 90 ]; then
-              echo "status=stale" >> "$GITHUB_OUTPUT"
+            STATUS=parse_failed
+          elif [ "$DIFF_MIN" -gt "$FRESHNESS_THRESHOLD_MIN" ]; then
+            STATUS=stale
           else
-              echo "status=fresh" >> "$GITHUB_OUTPUT"
+            STATUS=fresh
           fi
-          echo "diff_min=$DIFF_MIN" >> "$GITHUB_OUTPUT"
-          echo "updated_at=$UPDATED_AT" >> "$GITHUB_OUTPUT"
-          # サマリ出力
-          echo "🕐 updatedAt=$UPDATED_AT  diff=${DIFF_MIN} min" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "status=$STATUS"
+            echo "diff_min=$DIFF_MIN"
+            echo "updated_at=$UPDATED_AT"
+          } >> "$GITHUB_OUTPUT"
+          echo "🕐 updatedAt=$UPDATED_AT  diff=${DIFF_MIN} min  status=$STATUS  threshold=${FRESHNESS_THRESHOLD_MIN} min" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Slack に警告（90 分超 / fetch failure / parse failure）
+      - name: Slack に警告 (90 分超 / fetch failure / parse failure)
         if: steps.probe.outputs.status != 'fresh'
         continue-on-error: true
         env:
@@ -78,33 +79,44 @@ jobs:
           STATUS: ${{ steps.probe.outputs.status }}
           DIFF_MIN: ${{ steps.probe.outputs.diff_min }}
           UPDATED_AT: ${{ steps.probe.outputs.updated_at }}
+        shell: bash
         run: |
-          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
             echo "SLACK_WEBHOOK 未設定。CI ログのみで通知"
             exit 0
           fi
-          # 次回スケジュール JST (01/07/13/19) を計算して併記
-          NEXT_JST=$(python3 - <<PY
+          NEXT_JST=$(python3 -c "
           import datetime as dt
           jst = dt.timezone(dt.timedelta(hours=9))
           now = dt.datetime.now(jst)
-          for h in (1,7,13,19,25):
-              target = now.replace(hour=h%24, minute=0, second=0, microsecond=0)
-              if h>=24:
+          for h in (1, 7, 13, 19, 25):
+              hh = h % 24
+              target = now.replace(hour=hh, minute=0, second=0, microsecond=0)
+              if h >= 24:
                   target = target + dt.timedelta(days=1)
               if target > now:
                   print(target.isoformat())
                   break
-          PY
+          ")
+          INVOKE_LOG_URL='https://ap-northeast-1.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252Fp003-news-processor'
+          PAYLOAD=$(STATUS="$STATUS" DIFF_MIN="$DIFF_MIN" UPDATED_AT="$UPDATED_AT" NEXT_JST="$NEXT_JST" INVOKE_LOG_URL="$INVOKE_LOG_URL" python3 -c "
+          import json, os
+          text = (
+              '🚨 *Flotopic topics.json 鮮度警告*\n'
+              f'• status: \`{os.environ[\"STATUS\"]}\`\n'
+              f'• 最終 updatedAt: \`{os.environ[\"UPDATED_AT\"]}\`\n'
+              f'• 経過: \`{os.environ[\"DIFF_MIN\"]} 分\` (閾値 90 分)\n'
+              f'• 次回スケジュール JST: {os.environ[\"NEXT_JST\"]}\n'
+              f'• processor ログ: {os.environ[\"INVOKE_LOG_URL\"]}\n'
+              '\n_governance worker とは別系統の外部観測 (T263 / freshness-check.yml) からの通知_'
           )
-          INVOKE_LOG="https://ap-northeast-1.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252Fp003-news-processor"
-          TEXT="🚨 *Flotopic topics.json 鮮度警告*\n• status: \`$STATUS\`\n• 最終 updatedAt: \`$UPDATED_AT\`\n• 経過: \`${DIFF_MIN} 分\` (閾値 90 分)\n• 次回スケジュール JST: $NEXT_JST\n• processor ログ: $INVOKE_LOG\n\n_governance worker とは別系統の外部観測 (T263 / freshness-check.yml) からの通知_"
-          curl -fsS -X POST -H 'Content-Type: application/json' \
-            -d "$(python3 -c "import json,os; print(json.dumps({'text': os.environ.get('TEXT',''), 'username': 'Flotopic Freshness Monitor', 'icon_emoji': ':warning:'}))" | TEXT="$TEXT" cat)" \
-            "$SLACK_WEBHOOK_URL" || true
+          print(json.dumps({'text': text, 'username': 'Flotopic Freshness Monitor', 'icon_emoji': ':warning:'}))
+          ")
+          curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
 
-      - name: 失敗時にジョブを赤くする (Slack 未設定でも GH Actions UI で気付ける)
+      - name: stale 判定で job を赤くする (Slack 未設定でも GH Actions UI で気付ける)
         if: steps.probe.outputs.status == 'stale'
+        shell: bash
         run: |
-          echo "::error::topics.json が ${{ steps.probe.outputs.diff_min }} 分間更新されていません (閾値 90 分)。最終 updatedAt: ${{ steps.probe.outputs.updated_at }}"
+          echo "::error::topics.json が ${{ steps.probe.outputs.diff_min }} 分間更新されていません (閾値 ${{ env.FRESHNESS_THRESHOLD_MIN }} 分)。最終 updatedAt: ${{ steps.probe.outputs.updated_at }}"
           exit 1

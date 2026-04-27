@@ -233,3 +233,52 @@ jobs:
             exit 1
           fi
           echo "✅ tokushoho 内部参照なし (スタブファイル自体は許容)"
+
+      - name: ads.txt と index.html pub-id 整合性検査 (T239)
+        run: |
+          # T239 / lessons-learned「ads.txt AdSense 行欠落 (2026-04-27)」の再発防止。
+          # ads.txt は Google が独立にクロールする別ファイル。pub-ID が一致しないと AdSense 審査落ち。
+          # 物理ガード: index.html の `data-ad-client=ca-pub-XXX` を抽出 → ads.txt に対応行があるか grep。
+          ADS_TXT="projects/P003-news-timeline/frontend/ads.txt"
+          INDEX_HTML="projects/P003-news-timeline/frontend/index.html"
+          if [ ! -f "$ADS_TXT" ]; then
+            echo "::error::$ADS_TXT が存在しません"
+            exit 1
+          fi
+          if [ ! -f "$INDEX_HTML" ]; then
+            echo "::warning::$INDEX_HTML が見つかりません。ads.txt 整合検査をスキップ"
+            exit 0
+          fi
+          # AdSense pub-ID (ca-pub-NNN) を index.html から抽出。重複排除。
+          PUB_IDS=$(grep -oE 'ca-pub-[0-9]+' "$INDEX_HTML" | sort -u | sed 's/^ca-//')
+          MISSING=0
+          if [ -z "$PUB_IDS" ]; then
+            echo "  (index.html に AdSense pub-id 無し。ads.txt 検査スキップ)"
+          else
+            for pub in $PUB_IDS; do
+              if grep -qE "google\.com,[[:space:]]*${pub}," "$ADS_TXT"; then
+                echo "  ✅ ads.txt に $pub (google.com) 行あり"
+              else
+                echo "::error file=$ADS_TXT::index.html の $pub が ads.txt の google.com 行に存在しません"
+                MISSING=$((MISSING+1))
+              fi
+            done
+          fi
+          # 忍者AdMax (data-shinobi-id) 整合 — index.html / *.html いずれかに使われていれば ads.txt に shinobi 行が必須
+          SHINOBI_IDS=$(grep -hoE 'data-shinobi-id="[0-9]+"' projects/P003-news-timeline/frontend/*.html 2>/dev/null \
+                       | sed -E 's/.*"([0-9]+)".*/\1/' | sort -u)
+          if [ -n "$SHINOBI_IDS" ]; then
+            for sid in $SHINOBI_IDS; do
+              if grep -qE "shinobi\.jp,${sid}," "$ADS_TXT"; then
+                echo "  ✅ ads.txt に $sid (shinobi) 行あり"
+              else
+                echo "::error file=$ADS_TXT::frontend に shinobi-id $sid があるが ads.txt に対応行なし"
+                MISSING=$((MISSING+1))
+              fi
+            done
+          fi
+          if [ $MISSING -gt 0 ]; then
+            echo "::error::ads.txt と frontend pub-id の不整合 $MISSING 件。ads.txt に該当行を追記してください"
+            exit 1
+          fi
+          echo "✅ ads.txt と pub-id 整合"
