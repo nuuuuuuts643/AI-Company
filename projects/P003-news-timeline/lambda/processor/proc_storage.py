@@ -81,6 +81,44 @@ def _is_low_quality_title(title: str) -> bool:
     return False
 
 
+def force_reset_pending_all() -> int:
+    """全トピックの META に pendingAI=True をセットして強制再AI処理対象にする。
+    新プロンプト適用の一括クリーンアップ用 (2026-04-27)。
+    Returns: リセットしたトピック数。"""
+    if not S3_BUCKET:
+        return 0
+    count = 0
+    scan_kwargs = {
+        'FilterExpression': Attr('SK').eq('META') & Attr('articleCount').gte(2),
+        'ProjectionExpression': 'topicId',
+    }
+    while True:
+        r = table.scan(**scan_kwargs)
+        for item in r.get('Items', []):
+            try:
+                table.update_item(
+                    Key={'topicId': item['topicId'], 'SK': 'META'},
+                    UpdateExpression='SET pendingAI = :p, aiGenerated = :a',
+                    ExpressionAttributeValues={':p': True, ':a': False},
+                )
+                count += 1
+            except Exception as e:
+                print(f'[force_reset_pending_all] {item["topicId"]} 失敗: {e}')
+        if not r.get('LastEvaluatedKey'):
+            break
+        scan_kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
+    # pending_ai.json をクリアして全トピックがフルスキャンで拾われるように
+    try:
+        s3.put_object(
+            Bucket=S3_BUCKET, Key='api/pending_ai.json',
+            Body=json.dumps({'topicIds': []}),
+            ContentType='application/json',
+        )
+    except Exception:
+        pass
+    return count
+
+
 def needs_ai_processing(item):
     """このトピックがAI処理を必要とするかを判定。
 
