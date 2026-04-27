@@ -90,4 +90,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T2026-0428-Z セキュリティ監査+admin.html PII除去 | Cowork | admin.html, scripts/security_audit.sh, .github/workflows/security-audit.yml | 2026-04-28 07:50 | yes |
