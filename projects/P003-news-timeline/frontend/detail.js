@@ -538,6 +538,20 @@ function renderDetail(data) {
 
         // 記事数の推移（折れ線グラフ）+ 右軸: 関心度（エンゲージメントスコア）
         const artLabel = aggregate ? '記事数（日次）' : '記事数（30分ごと）';
+
+        // Google Trends オーバーレイ（日次集計モードのみ・データあり時）— 1811e4b の 16b688e 統合
+        let trendsValues = null;
+        if (aggregate && meta.trendsData && typeof meta.trendsData === 'object') {
+          const trendsByLabel = {};
+          for (const [dateStr, val] of Object.entries(meta.trendsData)) {
+            const d = new Date(dateStr + 'T00:00:00Z');
+            const lbl = d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+            trendsByLabel[lbl] = val;
+          }
+          const mapped = labels.map(l => (trendsByLabel[l] !== undefined ? trendsByLabel[l] : null));
+          if (mapped.some(v => v !== null)) trendsValues = mapped;
+        }
+
         if (chartInstance) chartInstance.destroy();
         const engagementDataset = hasEngagement ? {
           label: '関心度',
@@ -553,22 +567,38 @@ function renderDetail(data) {
           },
           borderWidth: 2, pointRadius: 2, pointHoverRadius: 5, tension: 0.4, fill: true,
         } : null;
+        const trendsDataset = trendsValues ? {
+          label: '検索関心度',
+          data: trendsValues,
+          yAxisID: 'yTrends',
+          borderColor: '#f87171',
+          backgroundColor: 'rgba(248,113,113,0)',
+          borderWidth: 2,
+          borderDash: [5, 4],
+          pointRadius: 2,
+          pointHoverRadius: 5,
+          tension: 0.4,
+          fill: false,
+          spanGaps: true,
+        } : null;
+        const _datasets = [
+          { label: artLabel, data: mediaCnts,
+            yAxisID: 'y',
+            borderColor: '#4EC9C0',
+            backgroundColor: (ctx) => {
+              const {ctx: c, chartArea} = ctx.chart;
+              if (!chartArea) return 'rgba(78,201,192,.15)';
+              const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+              g.addColorStop(0, 'rgba(78,201,192,.35)'); g.addColorStop(1, 'rgba(78,201,192,.02)');
+              return g;
+            },
+            borderWidth: 2, pointRadius: 3, pointHoverRadius: 6, tension: 0.4, fill: true },
+          ...(engagementDataset ? [engagementDataset] : []),
+          ...(trendsDataset ? [trendsDataset] : []),
+        ];
         chartInstance = new Chart(canvas.getContext('2d'), {
           type: 'line',
-          data: { labels, datasets: [
-            { label: artLabel, data: mediaCnts,
-              yAxisID: 'y',
-              borderColor: '#4EC9C0',
-              backgroundColor: (ctx) => {
-                const {ctx: c, chartArea} = ctx.chart;
-                if (!chartArea) return 'rgba(78,201,192,.15)';
-                const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                g.addColorStop(0, 'rgba(78,201,192,.35)'); g.addColorStop(1, 'rgba(78,201,192,.02)');
-                return g;
-              },
-              borderWidth: 2, pointRadius: 3, pointHoverRadius: 6, tension: 0.4, fill: true },
-            ...(engagementDataset ? [engagementDataset] : []),
-          ]},
+          data: { labels, datasets: _datasets },
           options: {
             responsive: true, maintainAspectRatio: false,
             interaction: { mode:'index', intersect:false },
@@ -576,6 +606,11 @@ function renderDetail(data) {
             scales: {
               y: { ...makeScaleY0(mediaCnts), position: 'left' },
               ...(hasEngagement ? { y2: makeScaleY0Right(engagements) } : {}),
+              ...(trendsValues ? { yTrends: {
+                position: 'right', min: 0, max: 100,
+                ticks: { precision: 0, maxTicksLimit: 5, color: cc.tick },
+                grid: { drawOnChartArea: false },
+              } } : {}),
             },
           },
         });
