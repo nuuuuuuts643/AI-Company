@@ -326,6 +326,9 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
     parent_title    = result.get('parentTopicTitle')
     related_titles  = result.get('relatedTopicTitles') or []
     if mode == 'minimal':
+        # T219 修正 (2026-04-28): minimal モード (記事1-2件) は phase 概念が薄い
+        # → 「発端」固定はユーザーに「フェーズ機能が機能していない」誤印象を与える
+        # phase=None で返し、frontend 側の存在チェックで非表示にさせる
         return {
             'aiSummary':              str(result.get('aiSummary') or '').strip(),
             'keyPoint':               str(result.get('keyPoint') or '').strip()[:60],
@@ -335,7 +338,7 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
             'spreadReason':           '',
             'forecast':               '',
             'timeline':               [],
-            'phase':                  '発端',
+            'phase':                  None,
             'summaryMode':            'minimal',
             'topicTitle':             str(result.get('topicTitle') or '').strip()[:15],
             'latestUpdateHeadline':   str(result.get('latestUpdateHeadline') or '').strip()[:40],
@@ -346,6 +349,11 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
             'genres':                 _validate_genres(result.get('genres')),
         }
     # standard / full 共通
+    # T219 (2026-04-28): AI が phase='発端' を返した場合、standard/full mode (記事3件以上) では矯正
+    # prompt で禁止しているが contract violation 防御として normalize 層でも矯正する
+    raw_phase = result.get('phase')
+    if raw_phase == '発端' and mode in ('standard', 'full'):
+        raw_phase = '拡散'
     out = {
         'aiSummary':              str(result.get('aiSummary') or '').strip(),
         'keyPoint':               str(result.get('keyPoint') or '').strip()[:60],
@@ -356,7 +364,7 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
         'outlook':                str(result.get('outlook') or '').strip(),
         'forecast':               str(result.get('forecast') or '').strip() if mode == 'full' else '',
         'timeline':               _sanitize_timeline(result.get('timeline'), max_items=6 if mode == 'full' else 3),
-        'phase':                  result.get('phase') if result.get('phase') in _VALID_PHASES else '現在地',
+        'phase':                  raw_phase if raw_phase in _VALID_PHASES else '現在地',
         'summaryMode':            mode,
         'topicTitle':             str(result.get('topicTitle') or '').strip()[:15],
         'latestUpdateHeadline':   str(result.get('latestUpdateHeadline') or '').strip()[:40],
@@ -400,7 +408,9 @@ _STORY_PROMPT_RULES = (
     '【spreadReason】トリガー/時事文脈/注目層/関連ニュース観点 (2-3文)。\n'
     '【perspectives】2〜3社の見解を並列。例: 朝日は経済への打撃を懸念、産経は安全保障上の利益を指摘。\n'
     '【outlook】1文。〜が予想される/〜の可能性があるで締める。\n'
-    '【phase判定】発端は記事3件未満+24h以内のみ。それ以外で発端は選ばない。デフォルトは拡散。\n'
+    '【phase判定】このトピックは記事3件以上のため「発端」は選択禁止。選択肢は「拡散/ピーク/現在地/収束」のみ。'
+    'デフォルトは「拡散」。タイムライン上で同じ話題が繰り返し報じられ熱量が高ければ「ピーク」、'
+    '報道が落ち着き同じ局面で続いていれば「現在地」、明確に下火・解決しているなら「収束」。\n'
     '【isCoherent判定】true=全記事が同一主語・同一流れ。false=異主語/異論点混在。\n'
     '【topicTitle】15字以内、体言止め、具体的固有名詞を含む。\n'
     '【topicLevel】major=国家間・産業横断/sub=majorの一側面/detail=個別発表。\n'

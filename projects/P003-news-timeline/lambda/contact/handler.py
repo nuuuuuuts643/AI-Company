@@ -25,7 +25,7 @@ TO_EMAIL      = os.environ.get('TO_EMAIL', '')
 CONTACTS_TABLE = os.environ.get('CONTACTS_TABLE', 'flotopic-contacts')
 TOPICS_TABLE   = os.environ.get('TOPICS_TABLE', 'p003-topics')
 AUTO_ARCHIVE_THRESHOLD = int(os.environ.get('AUTO_ARCHIVE_THRESHOLD', '3'))
-ADMIN_EMAIL    = os.environ.get('ADMIN_EMAIL', 'owner643@gmail.com')
+ADMIN_EMAIL    = os.environ.get('ADMIN_EMAIL', '')  # T224 (2026-04-28): デフォルトに個人メール直書き禁止 (CLAUDE.md 絶対ルール5)。Lambda 環境変数で必ず設定する。未設定なら admin API は 503 で塞ぐ。
 GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token='
 
 dynamodb = boto3.resource('dynamodb', region_name='ap-northeast-1')
@@ -44,7 +44,14 @@ DELETION_CATEGORIES = {'copyright', 'privacy', 'media'}
 
 
 def verify_admin_token(event) -> bool:
-    """Authorization ヘッダーの Google ID トークンを検証し admin メールか確認する。"""
+    """Authorization ヘッダーの Google ID トークンを検証し admin メールか確認する。
+
+    T224 (2026-04-28): ADMIN_EMAIL が未設定の場合は admin 機能を物理的に塞ぐ。
+    これにより default 値で個人メールがハードコードされていても再発しない安全策。
+    """
+    if not ADMIN_EMAIL:
+        print('verify_admin_token: ADMIN_EMAIL not configured. admin機能はOFF。')
+        return False
     headers = event.get('headers') or {}
     auth = headers.get('authorization') or headers.get('Authorization') or ''
     if not auth.startswith('Bearer '):
