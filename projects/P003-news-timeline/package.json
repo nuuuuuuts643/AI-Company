@@ -5,9 +5,13 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test tests/utils.test.js tests/safe_format.test.js",
-    "check": "node --check frontend/app.js && node --check frontend/js/utils.js && node --check frontend/js/comments.js && node --check frontend/js/safe_format.js"
+    "check": "node --check frontend/app.js && node --check frontend/js/utils.js && node --check frontend/js/comments.js && node --check frontend/js/safe_format.js",
+    "check:mobile-layout": "node ../../scripts/check_mobile_layout.js"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "puppeteer": "^23.0.0"
+  }
 }
