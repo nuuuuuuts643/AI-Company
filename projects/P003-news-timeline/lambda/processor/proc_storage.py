@@ -118,34 +118,72 @@ _ARCHIVED_META_TTL_DAYS = 90  # archived 化された META は 90日で自動削
 
 
 def auto_archive_incoherent(tid: str, gen_story: dict | None) -> bool:
-    """AI が isCoherent=false と判定したトピックを lifecycleStatus='archived' に自動退避 + TTL 90日付与。
-    指針(主語+目的語+一発理解)が定まる前にまとめられた雑なクラスタを視界から消す + ストレージコストも削減。
+    """AI が isCoherent=false と判定したトピックを lifecycleStatus='archived' に自動退避。
+    重要トピック (大規模・人気・親子関係持ち・長期継続) は TTL を付けず永続保持。
+    雑なゴミだけ TTL 90日で自動削除されコスト削減。
     Returns: archive したかどうか。"""
     if not gen_story:
         return False
     is_coherent = gen_story.get('isCoherent')
-    if is_coherent is False:  # 明示的 False のときだけ (None/未設定はOK扱い)
+    if is_coherent is False:
         try:
-            ttl_ts = int(time.time()) + _ARCHIVED_META_TTL_DAYS * 86400
-            table.update_item(
+            # 重要度を判定: 重要なら TTL 付けない
+            existing = table.get_item(
                 Key={'topicId': tid, 'SK': 'META'},
-                UpdateExpression='SET lifecycleStatus = :ls, topicCoherent = :tc, ttl = :ttl',
-                ExpressionAttributeValues={':ls': 'archived', ':tc': False, ':ttl': ttl_ts},
-            )
-            print(f'[auto_archive] {tid[:8]}... isCoherent=false → archived + TTL{_ARCHIVED_META_TTL_DAYS}日 (コスト削減)')
+                ProjectionExpression='articleCount,hatenaCount,parentTopicId,childTopics,firstArticleAt',
+            ).get('Item', {})
+            if _is_protected_from_ttl(existing):
+                table.update_item(
+                    Key={'topicId': tid, 'SK': 'META'},
+                    UpdateExpression='SET lifecycleStatus = :ls, topicCoherent = :tc',
+                    ExpressionAttributeValues={':ls': 'archived', ':tc': False},
+                )
+                print(f'[auto_archive] {tid[:8]}... isCoherent=false → archived (重要トピックのため TTL なし保持)')
+            else:
+                ttl_ts = int(time.time()) + _ARCHIVED_META_TTL_DAYS * 86400
+                table.update_item(
+                    Key={'topicId': tid, 'SK': 'META'},
+                    UpdateExpression='SET lifecycleStatus = :ls, topicCoherent = :tc, ttl = :ttl',
+                    ExpressionAttributeValues={':ls': 'archived', ':tc': False, ':ttl': ttl_ts},
+                )
+                print(f'[auto_archive] {tid[:8]}... isCoherent=false → archived + TTL{_ARCHIVED_META_TTL_DAYS}日')
             return True
         except Exception as e:
             print(f'[auto_archive] {tid[:8]}... 失敗: {e}')
     return False
 
 
-def add_ttl_to_existing_archived() -> int:
-    """既存の lifecycleStatus='archived' なメタに TTL 90日を後付けする (1回限り運用)。
-    proc_ai が isCoherent ベースで自動 TTL を付ける前にすでに archive されたトピック対応。
-    Returns: TTL を追加した件数。"""
+def _is_protected_from_ttl(item: dict) -> bool:
+    """TTL を付けるべきでない重要トピックの判定。
+    保護対象: 大規模 (articles>=10) / 人気 (はてブ>=10 or 閲覧>=20) / 親子関係持ち / 長期継続 (>=180日) / 子トピック保有
+    これらは archived でもストレージ保持。「戦争1年継続」「人気記事」を保護。"""
+    if int(item.get('articleCount', 0) or 0) >= 10:
+        return True
+    if int(item.get('hatenaCount', 0) or 0) >= 10:
+        return True
+    if item.get('parentTopicId') or item.get('childTopics'):
+        return True
+    # 長期継続 (firstArticleAt が180日以上前)
+    fst = item.get('firstArticleAt')
+    if fst:
+        try:
+            fst_ts = int(fst)
+            if (int(time.time()) - fst_ts) > 180 * 86400:
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def add_ttl_to_existing_archived() -> dict:
+    """既存 archived/legacy メタに条件付き TTL 90日を後付けする (1回限り運用)。
+    雑なゴミは消すが、人気・大規模・親子関係・長期継続トピックは保護。
+    Returns: {ttl_added, protected, total}"""
     if not S3_BUCKET:
-        return 0
-    count = 0
+        return {'ttl_added': 0, 'protected': 0, 'total': 0}
+    ttl_added = 0
+    protected = 0
+    total = 0
     ttl_ts = int(time.time()) + _ARCHIVED_META_TTL_DAYS * 86400
     scan_kwargs = {
         'FilterExpression': (
@@ -153,24 +191,28 @@ def add_ttl_to_existing_archived() -> int:
             & Attr('lifecycleStatus').is_in(['archived', 'legacy'])
             & ~Attr('ttl').exists()
         ),
-        'ProjectionExpression': 'topicId',
+        'ProjectionExpression': 'topicId,articleCount,hatenaCount,parentTopicId,childTopics,firstArticleAt',
     }
     while True:
         r = table.scan(**scan_kwargs)
         for item in r.get('Items', []):
+            total += 1
+            if _is_protected_from_ttl(item):
+                protected += 1
+                continue
             try:
                 table.update_item(
                     Key={'topicId': item['topicId'], 'SK': 'META'},
                     UpdateExpression='SET ttl = :ttl',
                     ExpressionAttributeValues={':ttl': ttl_ts},
                 )
-                count += 1
+                ttl_added += 1
             except Exception:
                 pass
         if not r.get('LastEvaluatedKey'):
             break
         scan_kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
-    return count
+    return {'ttl_added': ttl_added, 'protected': protected, 'total': total}
 
 
 def force_reset_pending_all() -> int:
