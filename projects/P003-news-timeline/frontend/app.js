@@ -58,6 +58,10 @@ function showErrorBanner(message) {
 const STATUS_LABEL = { rising:'🔥 急上昇', peak:'⚡ 注目中', declining:'📉 落ち着き', cooling:'📉 落ち着き' };
 const PHASE_BADGE  = { '発端':'🌱 始まり', '拡散':'📡 広まってる', 'ピーク':'🔥 急上昇', '現在地':'📍 進行中', '収束':'✅ ひと段落' };
 const PHASE_CLASS  = { '発端':'phase-start', '拡散':'phase-spread', 'ピーク':'phase-peak', '現在地':'phase-now', '収束':'phase-end' };
+const HERO_PHASE_BADGE = {
+  'developing': '📈 展開中', 'climax': '🔥 クライマックス', 'resolving': '収束', 'emerging': '始まり',
+  '発端': '🌱 始まり', '拡散': '📡 広まってる', 'ピーク': '🔥 クライマックス', '現在地': '📍 進行中', '収束': '✅ 収束',
+};
 
 function cleanSummary(s) {
   if (!s) return s;
@@ -167,6 +171,31 @@ function fmtDate(s) {
 function apiUrl(path) { return API_BASE + path + '.json'; }
 
 // ===== 一覧ページ =====
+
+function selectHeroTopics(topics, n = 3) {
+  return (topics || [])
+    .filter(t => t.storyPhase && (t.lifecycleStatus === 'active' || t.lifecycleStatus === 'cooling') && parseInt(t.articleCount || 0) >= 2)
+    .sort((a, b) => parseInt(b.articleCount || 0) - parseInt(a.articleCount || 0))
+    .slice(0, n);
+}
+
+function renderHeroSection(topics) {
+  const el = document.getElementById('hero-section');
+  if (!el) return;
+  const heroes = selectHeroTopics(topics, 3);
+  if (!heroes.length) { el.style.display = 'none'; return; }
+  const cards = heroes.map(t => {
+    const phaseBadge = HERO_PHASE_BADGE[t.storyPhase] || esc(t.storyPhase);
+    return `<div class="hero-card">
+      <div class="hero-card-phase">${esc(phaseBadge)}</div>
+      <h3 class="hero-card-title"><a href="topic.html?id=${esc(t.topicId)}">${esc(t.generatedTitle || t.title)}</a></h3>
+      <div class="hero-card-meta">📄 ${t.articleCount || 0}件 · ${esc(fmtDate(t.lastUpdated))}</div>
+      <a href="topic.html?id=${esc(t.topicId)}" class="hero-card-cta">流れを見る →</a>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="hero-section-label">今日の注目ストーリー</div><div class="hero-cards">${cards}</div>`;
+  el.style.display = '';
+}
 
 /**
  * topics.json をフェッチし、キーワードストリップを描画してトピック配列を返す
