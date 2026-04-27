@@ -1537,7 +1537,7 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .auth-area { display: flex; align-items: center; gap: 10px; }
 
 /* ===== TOPIC CARD WRAPPER ===== */
-.topic-card-wrapper { position: relative; display: flex; flex-direction: column; }
+.topic-card-wrapper { position: relative; display: flex; flex-direction: column; min-width: 0; }
 .card-storymap-link {
   display: block;
   text-align: center;
