@@ -852,7 +852,7 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   z-index: 2;
   letter-spacing: .05em;
 }
-.ad-card-wrapper { width: 100%; grid-column: 1 / -1; max-height: 120px; overflow: hidden; }
+.ad-card-wrapper { width: 100%; }
 .ad-card {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -863,6 +863,19 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   align-items: center;
   justify-content: center;
   position: relative;
+}
+.ad-infeed-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
 }
 .ad-label {
   position: absolute;
@@ -2769,7 +2782,7 @@ details[open] .day-more-btn::before { content: '▼ '; }
   height: 60px;
   background: var(--card-bg, #fff);
   border-top: 1px solid var(--border, #e5e7eb);
-  z-index: 980;
+  z-index: 1000;
   align-items: stretch;
   justify-content: space-around;
   padding-bottom: env(safe-area-inset-bottom, 0);
