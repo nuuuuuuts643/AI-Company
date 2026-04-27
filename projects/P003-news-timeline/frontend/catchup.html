@@ -32,7 +32,7 @@
   <link rel="stylesheet" href="style.css">
   <script src="js/theme.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer onload="if(window.__gsiReady)window.__gsiReady()"></script>
-  <script defer src="config.js"></script>
+  <script src="config.js"></script>
   <style>
     /* ===== キャッチアップ専用スタイル ===== */
     .catchup-hero {
@@ -433,7 +433,7 @@
 <!-- ヒーロー：期間セレクター -->
 <div class="catchup-hero">
   <h1>振り返る ✦</h1>
-  <p>この期間内に初めて出現したトピックをお届けします</p>
+  <p id="catchup-hero-desc">過去<span id="catchup-days-display">3日間</span>のトピックを一覧</p>
 
   <div class="period-selector" id="periodSelector">
     <button class="period-btn" data-days="1">過去1日</button>
@@ -693,12 +693,24 @@ function render(append = false) {
 }
 
 // ── イベント: 期間ボタン ──────────────────────────────────────────────────────
+function getPeriodLabel(days) {
+  if (days === 7)  return '1週間';
+  if (days === 14) return '2週間';
+  if (days === 30) return '1ヶ月';
+  return days + '日間';
+}
+function updateHeroDesc(days) {
+  const el = document.getElementById('catchup-days-display');
+  if (el) el.textContent = getPeriodLabel(days);
+}
+
 document.getElementById('periodSelector').addEventListener('click', e => {
   const btn = e.target.closest('.period-btn');
   if (!btn) return;
   document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   selectedDays = parseInt(btn.dataset.days);
+  updateHeroDesc(selectedDays);
   render();
 });
 
@@ -733,6 +745,7 @@ document.getElementById('loadMoreBtn').addEventListener('click', () => {
       document.querySelectorAll('.period-btn').forEach(b => {
         b.classList.toggle('active', parseInt(b.dataset.days) === d);
       });
+      updateHeroDesc(d);
     }
   }
 
