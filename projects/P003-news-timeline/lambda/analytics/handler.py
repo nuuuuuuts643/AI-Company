@@ -323,6 +323,40 @@ def lambda_handler(event, context):
             print(f'User summary error: {e}')
             return err(500, 'ユーザーサマリーの取得に失敗しました')
 
+    # ── GET /analytics/active ────────────────────────────────────
+    # サイト全体の過去30分間ユニーク閲覧者数（anonymousId）+ page_view 総数を返す
+    if len(parts) >= 2 and parts[1] == 'active':
+        try:
+            table = dynamodb.Table(ANALYTICS_TABLE)
+            since = int(time.time()) - 1800  # 30分前
+            unique_users = set()
+            page_views = 0
+            scan_kwargs = {
+                'FilterExpression': (
+                    Attr('eventType').eq('page_view') &
+                    Attr('timestamp').gte(since)
+                ),
+                'ProjectionExpression': 'userId',
+            }
+            while True:
+                result = table.scan(**scan_kwargs)
+                for item in result.get('Items', []):
+                    uid = item.get('userId')
+                    if uid:
+                        unique_users.add(uid)
+                page_views += len(result.get('Items', []))
+                last = result.get('LastEvaluatedKey')
+                if not last:
+                    break
+                scan_kwargs['ExclusiveStartKey'] = last
+            return resp(200, {
+                'activeUsers30m': len(unique_users),
+                'pageViews30m': page_views,
+            })
+        except Exception as e:
+            print(f'Active error: {e}')
+            return err(500, 'アクティブ数の取得に失敗しました')
+
     # ── GET /analytics/views/{topicId} ───────────────────────────
     # 過去30分間の page_view 件数を返す
     if len(parts) >= 3 and parts[1] == 'views':

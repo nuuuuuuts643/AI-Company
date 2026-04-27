@@ -606,11 +606,25 @@ function renderTrendingGenres() {
       genreCount[g] = (genreCount[g] || 0) + 1;
     }
   }
+  // サイト全体で今動いてるトピック数 (rising + peak)
+  const totalActive = allTopics.filter(t => t.status === 'rising' || t.status === 'peak').length;
   const top = Object.entries(genreVelocity).sort((a,b)=>b[1]-a[1]).slice(0,1);
-  if (!top.length) { el.innerHTML = ''; return; }
-  const [genre] = top[0];
-  const cnt = genreCount[genre] || 0;
-  el.innerHTML = `<span class="trend-genre-label">🔥 今日は<strong>${esc(genre)}</strong>が急上昇</span><span class="trend-genre-count">+${cnt}件</span>`;
+  if (!totalActive) { el.innerHTML = ''; return; }
+  const genre = top.length ? top[0][0] : '';
+  const genreSuffix = genre ? `<span class="trend-genre-count">急上昇: ${esc(genre)}</span>` : '';
+  el.innerHTML = `<span class="trend-genre-label" id="weather-active-label">🔴 今 <strong>${totalActive}</strong> トピックが動いてる</span>${genreSuffix}`;
+  // /analytics/active から実リアルタイム閲覧者数を取得して上書き
+  if (typeof _GW !== 'undefined') {
+    fetch(`${_GW}/analytics/active`).then(r => r.ok ? r.json() : null).then(d => {
+      if (!d || typeof d.activeUsers30m !== 'number') return;
+      const labelEl = document.getElementById('weather-active-label');
+      if (!labelEl) return;
+      const users = d.activeUsers30m;
+      if (users >= 2) {
+        labelEl.innerHTML = `🔴 今 <strong>${users}人</strong>が閲覧中 · 動いてるトピック ${totalActive}件`;
+      }
+    }).catch(()=>{});
+  }
 }
 
 function setupSearch() {
