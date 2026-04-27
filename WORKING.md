@@ -91,4 +91,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Cowork] schedule-task 実態調査・課題洗い出し・即時改善 | Cowork | TASKS.md, docs/lessons-learned.md, docs/system-status.md, docs/sli-slo.md, .github/workflows/freshness-check.yml | 2026-04-28 06:15 | yes |
-| [Cowork] schedule-task 運用ルール検討（bootstrap 出力 noise 抑止） | Cowork | scripts/session_bootstrap.sh, docs/scheduled-task-report-2026-04-28-06.md | 2026-04-28 06:15 | yes |
