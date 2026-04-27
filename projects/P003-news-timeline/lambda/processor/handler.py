@@ -149,6 +149,8 @@ def lambda_handler(event, context):
             'storyPhase':        gen_story['phase']              if gen_story else None,
             'summaryMode':       gen_story['summaryMode']        if gen_story else None,
             'backgroundContext': gen_story.get('backgroundContext') if gen_story else None,
+            'genres':            gen_story.get('genres')         if gen_story else None,
+            'genre':             gen_story['genres'][0]          if gen_story and gen_story.get('genres') else None,
             'aiGenerated':       ai_succeeded,
             'imageUrl':          ogp_url,
         }
@@ -172,6 +174,9 @@ def lambda_handler(event, context):
                     if upd.get('storyTimeline') is not None: t['storyTimeline']    = upd['storyTimeline']
                     if upd.get('storyPhase'):                t['storyPhase']       = upd['storyPhase']
                     if upd.get('summaryMode'):               t['summaryMode']      = upd['summaryMode']
+                    if upd.get('genres'):
+                        t['genres'] = upd['genres']
+                        t['genre']  = upd['genres'][0]
                     if upd.get('aiGenerated'):               t['aiGenerated']      = True
                     if upd.get('imageUrl') and not t.get('imageUrl'): t['imageUrl'] = upd['imageUrl']
             ts_iso = datetime.now(timezone.utc).isoformat()
