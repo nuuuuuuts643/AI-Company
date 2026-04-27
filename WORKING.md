@@ -92,4 +92,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 |---|---|---|---|---|
 | [Code] T2026-0428-Z infra/frontend hardening (DDB TTL + Lambda 設定 + app.js 整理 + formatter test + schema doc) | Code | projects/P003-news-timeline/{frontend/app.js,frontend/js/formatters.js,deploy.sh,tests/}, docs/dynamodb-schema.md | 2026-04-28 08:20 | yes |
 | [Code] T2026-0428-AA Anker（会社思想）呼び出しパターン廃止整理 | Code | company/, scripts/{ceo_run,secretary_run,task_writer}.py, .github/workflows/{ceo-run,secretary}.yml, inbox/ceo-proposals.md, dashboard/overview.md | 2026-04-28 08:25 | yes |
-| [Code] T2026-0428-AE P001 構造化 + リポジトリゴミ掃除 | Code | projects/P001-ai-company-os/, docs/system-status.md, TASKS.md, HISTORY.md, WORKING.md, projects/, docs/, scripts/, .github/workflows/, ルート | 2026-04-28 08:25 | yes |
