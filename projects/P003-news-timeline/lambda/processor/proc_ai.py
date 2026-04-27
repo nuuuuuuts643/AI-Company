@@ -277,7 +277,7 @@ def _build_story_schema(mode: str) -> dict:
         'aiSummary': {'type': 'string', 'description': '思考フレーム背景→課題→目的→手段→結果→今後で内部整理した1段落。主語+動詞+目的語+目的を明示。事実羅列禁止、何が普通と違うか/ポイントか/なぜ重要かの角度を込める。'},
         'keyPoint': {'type': 'string', 'description': 'この話のポイント1文(40字以内・体言止め)。普通と違う角度を抽出。例: 単なる外交儀礼ではなく米中対立の代理戦/赤字脱却よりブランド再建が本丸。'},
         'background': {'type': 'string', 'description': 'なぜ今このトピックが浮上しているか。直近1〜4週間の触媒(法案審議入り/決算/選挙日程/裁判期日/季節要因等)。'},
-        'outlook': {'type': 'string', 'description': 'この先どうなるか。1文。〜が予想される/〜の可能性があるで締める。'},
+        'outlook': {'type': 'string', 'description': 'この先どうなるか。1文。〜が予想される/〜の可能性があるで締める。文末に [確信度:高] [確信度:中] [確信度:低] のいずれかを必ず付与 (例: 「合意成立の可能性がある [確信度:中]」)。記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低。'},
         'topicTitle': {'type': 'string', 'description': '15文字以内のテーマ名(体言止め)。具体的な固有名詞を含む。例: 岸田政権の解散戦略。'},
         'latestUpdateHeadline': {'type': 'string', 'description': '最新の動きを40文字以内の1文(〜が〜した形式)。'},
         'isCoherent': {'type': 'boolean', 'description': 'true=全記事が同一主語・同一流れ。false=異主語/異論点混在。'},
@@ -311,7 +311,7 @@ def _build_story_schema(mode: str) -> dict:
         }
         required += ['backgroundContext', 'spreadReason', 'perspectives', 'phase', 'timeline']
         if mode == 'full':
-            base_props['forecast'] = {'type': 'string', 'description': '今後どうなるか。記事内容を根拠にした仮説(2文)。〜が見込まれる/〜の可能性があるで締める。'}
+            base_props['forecast'] = {'type': 'string', 'description': '今後どうなるか。記事内容を根拠にした仮説(2文)。〜が見込まれる/〜の可能性があるで締める。文末に [確信度:高] [確信度:中] [確信度:低] のいずれかを必ず付与 (例: 「..今後数ヶ月で進展が見込まれる [確信度:中]」)。記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低。'}
             required += ['forecast']
 
     return {
@@ -407,7 +407,7 @@ _STORY_PROMPT_RULES = (
     '【background】直近1〜4週間の触媒。backgroundContextと別の角度で。\n'
     '【spreadReason】トリガー/時事文脈/注目層/関連ニュース観点 (2-3文)。\n'
     '【perspectives】2〜3社の見解を並列。例: 朝日は経済への打撃を懸念、産経は安全保障上の利益を指摘。\n'
-    '【outlook】1文。〜が予想される/〜の可能性があるで締める。\n'
+    '【outlook】1文。〜が予想される/〜の可能性があるで締める。文末に「[確信度:高/中/低]」を必ず付与する (例: 「合意成立の可能性がある [確信度:中]」)。記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低。\n'
     '【phase判定】このトピックは記事3件以上のため「発端」は選択禁止。選択肢は「拡散/ピーク/現在地/収束」のみ。'
     'デフォルトは「拡散」。タイムライン上で同じ話題が繰り返し報じられ熱量が高ければ「ピーク」、'
     '報道が落ち着き同じ局面で続いていれば「現在地」、明確に下火・解決しているなら「収束」。\n'
@@ -438,7 +438,7 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
     prompt = (
         _WORD_RULES
         + _STORY_PROMPT_RULES
-        + '【forecast】記事内容を根拠にした仮説 (2文)。〜が見込まれる/〜の可能性があるで締める。\n'
+        + '【forecast】記事内容を根拠にした仮説 (2文)。〜が見込まれる/〜の可能性があるで締める。文末に「[確信度:高/中/低]」を必ず付与する (記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低)。\n'
         + '【timeline】3〜6件の重要な転換点。event は体言止め40字以内、transition は因果接続 (これを受けて/その翌日/反発を受け/声明を機に/審議を経て) 25字以内。\n'
         + _GENRES_PROMPT
         + f'\n記事情報（{cnt}件・見出しと概要）:\n{headlines}'
