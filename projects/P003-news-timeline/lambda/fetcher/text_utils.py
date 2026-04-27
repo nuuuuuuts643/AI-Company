@@ -476,9 +476,11 @@ def detect_topic_hierarchy(topics: list, topic_entities: dict) -> dict:
         if tid_b in parent_map:
             continue
 
-        score_b = int(topic_b.get('score', 0))
         cnt_b   = int(topic_b.get('articleCount', 0))
-        if score_b < 3 or cnt_b < 2:
+        # T36: 子側の score 閾値を撤廃 (2記事 low-velocity トピックも親子化候補に)。
+        # 「77% が 2-3 記事孤立」を解消する post-cluster merge パスの一環。
+        # entity 共有要件は残すので無関係トピックの誤親子化リスクは低い。
+        if cnt_b < 2:
             continue
 
         entities_b = topic_entities.get(tid_b, set())
@@ -508,12 +510,20 @@ def detect_topic_hierarchy(topics: list, topic_entities: dict) -> dict:
             cnt_a   = int(t_a.get('articleCount', 0))
             first_a = int(t_a.get('firstArticleAt', t_a.get('lastUpdated', 0)) or 0)
 
-            if score_a < 3 or cnt_a < 2:
+            # 親は最低 2 記事必要 (1 記事は parent として弱すぎる)
+            if cnt_a < 2:
                 continue
 
-            # 親は子より記事数が多い（entity数ではなく記事数で判定）
-            if cnt_a <= cnt_b:
+            # T36: 親は子より記事数 ≥ + 親の方が時間的に早い、というルールに緩和。
+            # 旧: cnt_a <= cnt_b は continue (strict >)
+            # 新: cnt_a < cnt_b は continue。同数なら first_a < first_b (親が先) で許容。
+            # これで 2 記事先発トピック → 2 記事派生トピック の親子化が可能に。
+            if cnt_a < cnt_b:
                 continue
+            if cnt_a == cnt_b:
+                # 同数なら親側が時間的に先に立っていることを必須条件とする
+                if not (first_a > 0 and first_b > 0 and first_a < first_b):
+                    continue
 
             # 時間ウィンドウ: 72時間以内
             if first_a > 0 and first_b > 0:
