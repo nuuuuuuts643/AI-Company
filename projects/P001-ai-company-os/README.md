@@ -30,7 +30,7 @@ POの作業時間は「方針決定」「金が必要な意思決定」「最終
 | **SEO Agent** | Claude API | 手動 dispatch | 内部 SEO 改善提案（schedule 停止中） |
 | **DevOps Agent** | Claude API | 手動 dispatch | インフラ最適化（停止中） |
 | **Bluesky Agent** | Claude API | `bluesky-agent.yml` (cron) | SNS 投稿（稼働中） |
-| **Security Agent / Legal Agent / Audit Agent** | Claude API | `governance.yml` (push/PR) | コミット時のガバナンス検査（L1→L2→Legal→Audit） |
+| **Security / Legal / Audit Agent** | Claude API | `governance.yml` (push/PR) | コミット時のガバナンス検査（L1→L2→Legal→Audit） |
 | **Self-Improvement Loop** | スクリプト + CI | `governance.yml` `meta-doc-guard.yml` `health-check.yml` `freshness-check.yml` `security-audit.yml` `weekly-digest.yml` | 物理ゲートと SLI による自己観測・自己修正 |
 | **Notion Sync** | スクリプト | `notion-sync.yml` `notion-revenue-daily.yml` (cron) | タスク・収益データの外部 mirror |
 
