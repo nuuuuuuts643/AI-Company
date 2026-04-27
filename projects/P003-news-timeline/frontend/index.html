@@ -228,6 +228,107 @@
     #pwa-dismiss-btn:hover { color: #fff; }
     [data-theme="dark"] .auth-user-name { color: var(--text-secondary); }
     [data-theme="dark"] .auth-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
+    /* ===== ヒーローセクション ===== */
+    .hero-tagline-block {
+      text-align: center;
+      padding: 20px 16px 4px;
+    }
+    .hero-tagline {
+      font-size: clamp(1.5rem, 5vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin: 0 0 6px;
+      color: var(--text-primary);
+    }
+    .hero-sub {
+      font-size: .88rem;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+    .hero-section-wrap {
+      margin: 16px 0 4px;
+    }
+    .hero-section-label {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+    .hero-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 600px) {
+      .hero-cards { grid-template-columns: 1fr; }
+    }
+    .hero-card {
+      background: #1A1A1F;
+      border-radius: 12px;
+      padding: 16px 16px 14px 19px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+      min-height: 140px;
+    }
+    .hero-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: linear-gradient(to bottom, #22d3ee, #a855f7);
+      border-radius: 3px 0 0 3px;
+    }
+    .hero-card-phase {
+      font-size: .72rem;
+      font-weight: 700;
+      color: #22d3ee;
+      letter-spacing: .02em;
+    }
+    .hero-card-title {
+      font-size: .95rem;
+      font-weight: 700;
+      margin: 0;
+      line-height: 1.45;
+    }
+    .hero-card-title a {
+      color: #f1f5f9;
+      text-decoration: none;
+    }
+    .hero-card-title a:hover { text-decoration: underline; }
+    .hero-card-meta {
+      font-size: .75rem;
+      color: #94a3b8;
+    }
+    .hero-card-cta {
+      display: inline-block;
+      margin-top: auto;
+      font-size: .8rem;
+      font-weight: 600;
+      color: #22d3ee;
+      text-decoration: none;
+    }
+    .hero-card-cta:hover { text-decoration: underline; }
+    /* ===== セクション2: 今動いている ===== */
+    .active-topics-section {
+      margin: 12px 0 8px;
+    }
+    /* ===== セクション3: すべての話題 ===== */
+    .all-topics-section-header {
+      margin: 16px 0 4px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .all-topics-section-label {
+      font-size: .9rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin: 0;
+    }
   </style>
 </head>
 <body>
