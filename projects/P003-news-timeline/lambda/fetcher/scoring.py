@@ -14,6 +14,7 @@ from config import (
     TECH_NICHE_KEYWORDS, TECH_GENERAL_KEYWORDS,
     S3_BUCKET, s3,
 )
+from score_utils import _get_domain, _domain_in_cat, _MEDIA_CAT_A, _MEDIA_CAT_B, _MEDIA_CAT_C
 
 
 def detect_uncertainty(text: str) -> str:
@@ -72,10 +73,14 @@ def detect_numeric_conflict(articles: list) -> bool:
 
 def apply_tier_and_diversity_scoring(articles: list, velocity_score: float) -> float:
     """
-    ソースtier重み・集中ペナルティ・多様性ボーナスをvelocityScoreに適用する。
+    ソースtier重み・集中ペナルティ・メディアカテゴリ多様性をvelocityScoreに適用する。
       - Tier重み平均を乗算
       - 1社60%超 → ×0.8（ソース集中ペナルティ）
       - ユニークソース4社以上 → ×1.1（多様性ボーナス）
+      - カテゴリA(公共放送)あり → ×1.5
+      - カテゴリB(全国紙)2社以上 → ×1.3
+      - A+B 3媒体以上 → ×1.1 追加
+      - テックメディアのみ → ×0.6
     """
     if not articles:
         return velocity_score
@@ -91,6 +96,25 @@ def apply_tier_and_diversity_scoring(articles: list, velocity_score: float) -> f
 
     if len({a.get('source', '') for a in articles if a.get('source')}) >= 4:
         velocity_score = round(velocity_score * 1.1, 4)
+
+    # メディアカテゴリ多様性ボーナス
+    domains = {_get_domain(a.get('url', '')) for a in articles if a.get('url')}
+    domains.discard('')
+    cat_a = any(_domain_in_cat(d, _MEDIA_CAT_A) for d in domains)
+    cat_b_domains = {d for d in domains if _domain_in_cat(d, _MEDIA_CAT_B)}
+    cat_c_domains = {d for d in domains if _domain_in_cat(d, _MEDIA_CAT_C)}
+    other_domains = domains - cat_c_domains
+
+    if not cat_a and not cat_b_domains and cat_c_domains and not other_domains:
+        velocity_score = round(velocity_score * 0.6, 4)
+    else:
+        if cat_a:
+            velocity_score = round(velocity_score * 1.5, 4)
+        if len(cat_b_domains) >= 2:
+            velocity_score = round(velocity_score * 1.3, 4)
+        ab_count = (1 if cat_a else 0) + len(cat_b_domains)
+        if ab_count >= 3:
+            velocity_score = round(velocity_score * 1.1, 4)
 
     return velocity_score
 
