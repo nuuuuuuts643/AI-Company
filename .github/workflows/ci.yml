@@ -144,3 +144,38 @@ jobs:
             python3 -m py_compile "$f" 2>&1 && echo "  ✅ $f" || { echo "  ❌ $f"; ERRORS=$((ERRORS+1)); }
           done
           [ $ERRORS -eq 0 ] || exit 1
+
+  content-drift-guard:
+    name: 思想・表記ドリフト検出（守らないと進めない仕組み）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: AI セクション/フェーズ表記の同期検査
+        run: |
+          # 旧4セクション・旧フェーズ表記が残ったまま main に landing するのを物理的に止める。
+          # ルールは最終手段。落ちる仕組みでブロックする。
+          bash scripts/check_section_sync.sh
+
+      - name: 設計指針キーワードの一貫性検査
+        run: |
+          # 「7セクション分析（思想フレーム順）」と「始まり→広まってる→急上昇→進行中→ひと段落」
+          # は P003 の中核表記。ドキュメント側 (about.html) に必ず残っているべき。
+          # 万が一どちらかが削除/書き換えされたら CI を落とす。
+          REQUIRED=(
+            "AI 7セクション分析"
+            "始まり→広まってる→急上昇→進行中→ひと段落"
+          )
+          MISSING=0
+          for kw in "${REQUIRED[@]}"; do
+            if ! grep -rq "$kw" projects/P003-news-timeline/frontend 2>/dev/null; then
+              echo "::error::必須キーワードが消えています: $kw"
+              MISSING=$((MISSING+1))
+            else
+              echo "  ✅ found: $kw"
+            fi
+          done
+          if [ $MISSING -gt 0 ]; then
+            echo "::error::中核思想キーワードが $MISSING 件消失。about.html / style.css を確認してください"
+            exit 1
+          fi
+          echo "✅ 中核キーワード OK"
