@@ -39,3 +39,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
 | T205 finder: さらなる改善点調査 | — | 2026-04-27 |
+| コンテンツ品質調査(今回) | TASKS.md, lambda/fetcher/ | 2026-04-27 11:28 |
