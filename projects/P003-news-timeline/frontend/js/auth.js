@@ -30,13 +30,17 @@ async function syncProfileToServer(profileData) {
     if (profileData.ageGroup)  body.ageGroup  = profileData.ageGroup;
     if (profileData.gender)    body.gender    = profileData.gender;
     if (profileData.nickname)  body.nickname  = profileData.nickname;
+    if (profileData.interests) body.interests = profileData.interests;
+    if (profileData.avatarUrl) body.avatarUrl = profileData.avatarUrl;
     await fetch(AUTH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (profileData.handle)   { currentUser.handle   = profileData.handle;   saveUser(currentUser); }
-    if (profileData.nickname) { currentUser.nickname = profileData.nickname; saveUser(currentUser); }
+    if (profileData.handle)    { currentUser.handle    = profileData.handle;    saveUser(currentUser); }
+    if (profileData.nickname)  { currentUser.nickname  = profileData.nickname;  saveUser(currentUser); }
+    if (profileData.interests) { currentUser.interests = profileData.interests; saveUser(currentUser); }
+    if (profileData.avatarUrl) { currentUser.avatarUrl = profileData.avatarUrl; saveUser(currentUser); }
   } catch {}
 }
 
@@ -50,18 +54,21 @@ function mergeServerProfile(data) {
   try {
     const prof = JSON.parse(localStorage.getItem('flotopic_profile') || '{}');
     let changed = false;
-    // サーバーの値を優先（ローカルに未設定の場合のみ上書き）
-    if (data.handle   && !prof.handle)   { prof.handle   = data.handle;   changed = true; }
-    if (data.ageGroup && !prof.ageGroup) { prof.ageGroup = data.ageGroup; changed = true; }
-    if (data.gender   && !prof.gender)   { prof.gender   = data.gender;   changed = true; }
-    if (data.nickname && !prof.nickname) { prof.nickname = data.nickname; changed = true; }
-    // handleが一致していればageGroup/gender/nicknameもサーバー値で上書き（クロスデバイス同期）
-    if (data.handle && prof.handle === data.handle) {
-      if (data.ageGroup) { prof.ageGroup = data.ageGroup; changed = true; }
-      if (data.gender)   { prof.gender   = data.gender;   changed = true; }
-      if (data.nickname) { prof.nickname = data.nickname; changed = true; }
+    // サーバー値で常に上書き（同一Googleアカウントなのでサーバーが正）
+    if (data.handle   !== undefined) { prof.handle   = data.handle   || prof.handle   || ''; changed = true; }
+    if (data.ageGroup !== undefined) { prof.ageGroup = data.ageGroup || prof.ageGroup || ''; changed = true; }
+    if (data.gender   !== undefined) { prof.gender   = data.gender   || prof.gender   || ''; changed = true; }
+    if (data.nickname !== undefined) { prof.nickname = data.nickname || prof.nickname || ''; changed = true; }
+    if (Array.isArray(data.interests) && data.interests.length) {
+      prof.interests = data.interests;
+      changed = true;
     }
     if (changed) localStorage.setItem('flotopic_profile', JSON.stringify(prof));
+
+    // アバターURL: サーバーにカスタム画像があればlocalStorageに反映（デバイス間同期）
+    if (data.avatarUrl) {
+      try { localStorage.setItem('flotopic_avatar', data.avatarUrl); } catch {}
+    }
   } catch {}
 }
 
@@ -211,6 +218,10 @@ async function handleGoogleCredentialResponse(response) {
       const tid = new URLSearchParams(location.search).get('id');
       if (tid && typeof setupCommentForm === 'function') setupCommentForm(tid);
       _retryPendingDelete();
+      // interests があればデフォルトジャンルに反映（index.html のみ）
+      _applyInterestsAsGenre(data.interests);
+      // 初回ログイン時のみ興味ジャンル選択を表示（index.html のみ）
+      _maybeShowGenreOnboarding();
     } else {
       localLogin(idToken);
     }
@@ -226,6 +237,39 @@ function signOut() {
   if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect();
   const tid = new URLSearchParams(location.search).get('id');
   if (tid && typeof setupCommentForm === 'function') setupCommentForm(tid);
+}
+
+// ── ログイン後ヘルパー ─────────────────────────────────────────
+
+// interests[0] をデフォルトジャンルに適用（index.html でのみ有効）
+function _applyInterestsAsGenre(interests) {
+  if (!Array.isArray(interests) || !interests.length) return;
+  // app.js の currentGenre / savePrefs が存在する場合のみ適用
+  if (typeof currentGenre === 'undefined' || typeof savePrefs !== 'function') return;
+  // すでにジャンルが選択済み（総合以外）なら上書きしない
+  if (currentGenre && currentGenre !== '総合') return;
+  const genre = interests[0];
+  if (!genre) return;
+  currentGenre = genre;
+  try { savePrefs({ ...loadPrefs(), genre }); } catch {}
+  // フィルターボタンUIを更新
+  document.querySelectorAll('.genre-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.genre === genre);
+  });
+  if (typeof renderTopics === 'function' && typeof allTopics !== 'undefined') {
+    renderTopics(allTopics);
+  }
+}
+
+// ログイン後、まだジャンル未選択ならオンボーディングを表示（index.html のみ）
+function _maybeShowGenreOnboarding() {
+  if (localStorage.getItem('flotopic_genre_selected')) return;
+  if (typeof showGenreOnboarding === 'function') showGenreOnboarding();
+}
+
+// アバター画像URLをサーバーに保存（S3アップロード完了後に呼ぶ）
+async function syncAvatarToServer(avatarUrl) {
+  return syncProfileToServer({ avatarUrl });
 }
 
 // ── 初期化 ────────────────────────────────────────────────────
