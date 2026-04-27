@@ -12,15 +12,15 @@
   <script>window.admaxads = window.admaxads || [];</script>
   <script async src="https://adm.shinobi.jp/st/t.js"></script>
   <title>Flotopic | 話題の盛り上がりをAIで追う</title>
-  <meta name="description" content="同じ話題のニュースをAIがまとめ、時間軸で推移を可視化。30分ごと自動更新。">
+  <meta name="description" content="大きなニュースの流れを、1分で把握。AIがトピックをまとめ、時系列で可視化。30分ごと自動更新。">
   <meta property="og:title" content="Flotopic | 話題の盛り上がりをAIで追う">
-  <meta property="og:description" content="同じ話題のニュースをAIがまとめ、時間軸で推移を可視化。30分ごと自動更新。">
+  <meta property="og:description" content="大きなニュースの流れを、1分で把握。AIがトピックをまとめ、時系列で可視化。30分ごと自動更新。">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://flotopic.com/">
   <meta property="og:image" content="https://flotopic.com/ogp.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Flotopic | 話題の盛り上がりをAIで追う">
-  <meta name="twitter:description" content="同じ話題のニュースをAIがまとめ、時間軸で推移を可視化。30分ごと自動更新。">
+  <meta name="twitter:description" content="大きなニュースの流れを、1分で把握。AIがトピックをまとめ、時系列で可視化。30分ごと自動更新。">
   <meta name="twitter:image" content="https://flotopic.com/ogp.png">
   <link rel="canonical" href="https://flotopic.com/">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Flotopic","url":"https://flotopic.com","description":"ニュースの話題の流れをAIで追うサービス","publisher":{"@type":"Organization","name":"Flotopic","url":"https://flotopic.com","logo":{"@type":"ImageObject","url":"https://flotopic.com/icon-192.png"}},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://flotopic.com/?q={search_term_string}"},"query-input":"required name=search_term_string"}}</script>
@@ -228,107 +228,6 @@
     #pwa-dismiss-btn:hover { color: #fff; }
     [data-theme="dark"] .auth-user-name { color: var(--text-secondary); }
     [data-theme="dark"] .auth-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
-    /* ===== ヒーローセクション ===== */
-    .hero-tagline-block {
-      text-align: center;
-      padding: 20px 16px 4px;
-    }
-    .hero-tagline {
-      font-size: clamp(1.5rem, 5vw, 2.2rem);
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      margin: 0 0 6px;
-      color: var(--text-primary);
-    }
-    .hero-sub {
-      font-size: .88rem;
-      color: var(--text-secondary);
-      margin: 0;
-    }
-    .hero-section-wrap {
-      margin: 16px 0 4px;
-    }
-    .hero-section-label {
-      font-size: .72rem;
-      font-weight: 700;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      margin-bottom: 10px;
-    }
-    .hero-cards {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-    }
-    @media (max-width: 600px) {
-      .hero-cards { grid-template-columns: 1fr; }
-    }
-    .hero-card {
-      background: #1A1A1F;
-      border-radius: 12px;
-      padding: 16px 16px 14px 19px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      position: relative;
-      overflow: hidden;
-      min-height: 140px;
-    }
-    .hero-card::before {
-      content: '';
-      position: absolute;
-      left: 0; top: 0; bottom: 0;
-      width: 3px;
-      background: linear-gradient(to bottom, #22d3ee, #a855f7);
-      border-radius: 3px 0 0 3px;
-    }
-    .hero-card-phase {
-      font-size: .72rem;
-      font-weight: 700;
-      color: #22d3ee;
-      letter-spacing: .02em;
-    }
-    .hero-card-title {
-      font-size: .95rem;
-      font-weight: 700;
-      margin: 0;
-      line-height: 1.45;
-    }
-    .hero-card-title a {
-      color: #f1f5f9;
-      text-decoration: none;
-    }
-    .hero-card-title a:hover { text-decoration: underline; }
-    .hero-card-meta {
-      font-size: .75rem;
-      color: #94a3b8;
-    }
-    .hero-card-cta {
-      display: inline-block;
-      margin-top: auto;
-      font-size: .8rem;
-      font-weight: 600;
-      color: #22d3ee;
-      text-decoration: none;
-    }
-    .hero-card-cta:hover { text-decoration: underline; }
-    /* ===== セクション2: 今動いている ===== */
-    .active-topics-section {
-      margin: 12px 0 8px;
-    }
-    /* ===== セクション3: すべての話題 ===== */
-    .all-topics-section-header {
-      margin: 16px 0 4px;
-      padding-bottom: 6px;
-      border-bottom: 1px solid var(--border);
-    }
-    .all-topics-section-label {
-      font-size: .9rem;
-      font-weight: 700;
-      color: var(--text-secondary);
-      margin: 0;
-    }
   </style>
 </head>
 <body>
@@ -346,6 +245,7 @@
   <div class="inner header-inner">
     <a href="index.html" class="header-logo-link">
       <h1>Flotopic</h1>
+      <p>大きな流れを、1分で。</p>
     </a>
     <div class="header-right">
       <div id="weather-widget" class="weather-widget"></div>
@@ -373,21 +273,12 @@
 </header>
 
 <main class="container">
-  <div class="hero-tagline-block">
-    <h1 class="hero-tagline">大きな流れを、1分で。</h1>
-    <p class="hero-sub">AIが複数の記事を一本のストーリーにまとめます</p>
-  </div>
-  <section id="hero-section" class="hero-section-wrap" style="display:none;" aria-label="今日の注目ストーリー"></section>
-  <div id="active-topics-anchor"></div>
-  <div class="all-topics-section-header">
-    <h2 class="all-topics-section-label">すべての話題</h2>
-  </div>
   <div class="search-row">
     <div class="search-bar">
       <input type="text" id="search-input" placeholder="キーワードで検索..." autocomplete="off">
     </div>
     <button id="fav-toggle-btn" class="fav-toggle-btn icon-only" title="お気に入りのみ表示">★</button>
-    <a href="catchup.html" class="catchup-icon-btn" title="リワインド：離れていた間のニュースをまとめて確認">🕰️ <span class="catchup-btn-label">リワインド</span></a>
+    <a href="catchup.html" class="catchup-icon-btn" title="振り返る：離れていた間のニュースをまとめて確認">🕰️ <span class="catchup-btn-label">振り返る</span></a>
   </div>
   <div id="hero-story-preview" style="display:none;"></div>
   <div id="onboarding-tip" style="display:none;">
@@ -454,7 +345,7 @@
   </button>
   <a href="storymap.html" class="bn-item"><span class="bn-icon">📖</span><span>ストーリー</span></a>
   <a href="catchup.html" class="bn-item" id="bn-catchup">
-    <span class="bn-icon">🕰️</span><span>リワインド</span>
+    <span class="bn-icon">🕰️</span><span>振り返る</span>
   </a>
   <a href="mypage.html" class="bn-item" id="bn-mypage" style="position:relative;">
     <span class="bn-icon">👤</span><span>マイページ</span>
@@ -469,16 +360,6 @@
     <h2 class="auth-modal-title">ログイン / 新規登録</h2>
     <p class="auth-modal-desc">コメント・お気に入りを<br>どのデバイスでも同期</p>
     <div id="auth-modal-google-wrap" class="auth-modal-provider-wrap"></div>
-    <div class="auth-modal-divider"><span>または</span></div>
-    <div class="auth-modal-apple-wrap">
-      <button class="auth-modal-apple-btn" disabled aria-disabled="true">
-        <svg class="apple-icon" viewBox="0 0 814 1000" fill="currentColor" aria-hidden="true">
-          <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.9 0 663.2 0 541.3c0-207.4 133.4-317 264.1-317 69.6 0 127.5 45.6 171.2 45.6 41.7 0 107.2-48.5 185-48.5z"/>
-        </svg>
-        Appleでサインイン
-      </button>
-      <span class="auth-coming-soon">近日公開</span>
-    </div>
     <p class="auth-modal-terms">続けることで<a href="terms.html" target="_blank">利用規約</a>と<a href="privacy.html" target="_blank">プライバシーポリシー</a>に同意します</p>
   </div>
 </div>
