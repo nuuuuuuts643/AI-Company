@@ -58,10 +58,6 @@ function showErrorBanner(message) {
 const STATUS_LABEL = { rising:'🔥 急上昇', peak:'⚡ 注目中', declining:'📉 落ち着き', cooling:'📉 落ち着き' };
 const PHASE_BADGE  = { '発端':'🌱 始まり', '拡散':'📡 広まってる', 'ピーク':'🔥 急上昇', '現在地':'📍 進行中', '収束':'✅ ひと段落' };
 const PHASE_CLASS  = { '発端':'phase-start', '拡散':'phase-spread', 'ピーク':'phase-peak', '現在地':'phase-now', '収束':'phase-end' };
-const HERO_PHASE_BADGE = {
-  'developing': '📈 展開中', 'climax': '🔥 クライマックス', 'resolving': '収束', 'emerging': '始まり',
-  '発端': '🌱 始まり', '拡散': '📡 広まってる', 'ピーク': '🔥 クライマックス', '現在地': '📍 進行中', '収束': '✅ 収束',
-};
 
 function cleanSummary(s) {
   if (!s) return s;
@@ -172,28 +168,31 @@ function apiUrl(path) { return API_BASE + path + '.json'; }
 
 // ===== 一覧ページ =====
 
-function selectHeroTopics(topics, n = 3) {
-  return (topics || [])
-    .filter(t => t.storyPhase && (t.lifecycleStatus === 'active' || t.lifecycleStatus === 'cooling') && parseInt(t.articleCount || 0) >= 2)
-    .sort((a, b) => parseInt(b.articleCount || 0) - parseInt(a.articleCount || 0))
-    .slice(0, n);
-}
-
-function renderHeroSection(topics) {
-  const el = document.getElementById('hero-section');
+function renderFeaturedTopic(topics) {
+  const el = document.getElementById('featured-topic');
   if (!el) return;
-  const heroes = selectHeroTopics(topics, 3);
-  if (!heroes.length) { el.style.display = 'none'; return; }
-  const cards = heroes.map(t => {
-    const phaseBadge = HERO_PHASE_BADGE[t.storyPhase] || esc(t.storyPhase);
-    return `<div class="hero-card">
-      <div class="hero-card-phase">${esc(phaseBadge)}</div>
-      <h3 class="hero-card-title"><a href="topic.html?id=${esc(t.topicId)}">${esc(t.generatedTitle || t.title)}</a></h3>
-      <div class="hero-card-meta">📄 ${t.articleCount || 0}件 · ${esc(fmtDate(t.lastUpdated))}</div>
-      <a href="topic.html?id=${esc(t.topicId)}" class="hero-card-cta">流れを見る →</a>
-    </div>`;
-  }).join('');
-  el.innerHTML = `<div class="hero-section-label">今日の注目ストーリー</div><div class="hero-cards">${cards}</div>`;
+  const top = (topics || [])
+    .filter(t => t.lifecycleStatus === 'active' && parseInt(t.articleCount || 0) >= 2)
+    .sort((a, b) => {
+      const va = Math.max(Number(a.velocityScore || 0), Number(a.articleCount || 0) * 0.3);
+      const vb = Math.max(Number(b.velocityScore || 0), Number(b.articleCount || 0) * 0.3);
+      return vb - va;
+    })[0];
+  if (!top) { el.style.display = 'none'; return; }
+  const isCooling = top.lifecycleStatus === 'cooling' || top.lifecycleStatus === 'archived';
+  const status = isCooling ? 'declining' : (top.status || 'rising');
+  const statusLabel = STATUS_LABEL[status] || status;
+  const snippet = cleanSummary(top.generatedSummary || '').slice(0, 50);
+  el.innerHTML = `
+    <a href="topic.html?id=${esc(top.topicId)}" class="featured-topic-card">
+      <div class="featured-topic-meta">
+        <span class="featured-topic-status-badge ${status}">${esc(statusLabel)}</span>
+        <span class="featured-topic-count">📄 ${top.articleCount || 0}件 · ${esc(fmtDate(top.lastUpdated))}</span>
+      </div>
+      <h2 class="featured-topic-title">${esc(top.generatedTitle || top.title)}</h2>
+      ${snippet ? `<p class="featured-topic-snippet">${esc(snippet)}…</p>` : ''}
+      <span class="featured-topic-cta">経緯を見る →</span>
+    </a>`;
   el.style.display = '';
 }
 
@@ -358,12 +357,6 @@ function renderTopicCard(t, i) {
     return `<span class="cooling-age">${label}</span>`;
   })();
 
-  const _clean = cleanSummary(t.generatedSummary || '');
-  const _snip  = _clean.length > 52 ? _clean.slice(0, 50) + '…' : _clean;
-  const titleHead = (t.generatedTitle || t.title || '').slice(0, 15);
-  const summaryHtml = (_snip && !_snip.startsWith(titleHead.slice(0, 10)))
-    ? `<p class="card-snippet">${esc(_snip)}</p>`
-    : '';
   const phaseHtml = t.storyPhase && PHASE_BADGE[t.storyPhase]
     ? `<span class="card-phase-badge ${PHASE_CLASS[t.storyPhase] || ''}">${PHASE_BADGE[t.storyPhase]}</span>`
     : '';
@@ -398,7 +391,6 @@ function renderTopicCard(t, i) {
           <div class="topic-status ${displayStatus}">${STATUS_LABEL[displayStatus] || displayStatus}${coolingAgeHtml}${phaseHtml}</div>
           ${velBarHtml}
           <h3>${esc(t.generatedTitle || t.title)}</h3>
-          ${summaryHtml}
           ${renderCardMeta(t)}
           ${renderReliabilitySignal(t)}
         </div>
@@ -714,9 +706,7 @@ async function refreshTopics() {
     }
     lastFetchTime = Date.now();
     updateFreshnessDisplay();
-    renderHeroSection(allTopics);
-    renderHeroStoryPreview(allTopics);
-    renderHotStrip(allTopics);
+    renderFeaturedTopic(allTopics);
     renderReturnStrip(allTopics);
     renderFavStrip(allTopics);
     // 初訪問時（_prevSnapなし）はhot-stripで十分なためスキップ、再訪問時のみ表示
@@ -751,32 +741,6 @@ function updateFreshnessDisplay() {
   else                   el.textContent = `🔄 ${diffD}日前に更新`;
 }
 
-/**
- * 「今急上昇中」ストリップを描画する
- * HOT_STRIP_HOURS 以内に更新されたトピックを velocityScore 降順で最大5件表示する
- * @param {Array} topics - 全トピックの配列
- */
-function renderHeroStoryPreview(topics) {
-  const el = document.getElementById('hero-story-preview');
-  if (!el) return;
-  // storyTimeline は topics.json の _INTERNAL 除外フィールドのため常に undefined
-  // storyPhase は topics.json に含まれるため代替として使用
-  const candidate = (topics || [])
-    .filter(t => t.storyPhase && t.lifecycleStatus !== 'archived')
-    .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0))[0];
-  if (!candidate) { el.style.display = 'none'; return; }
-  const phaseLabel = PHASE_BADGE[candidate.storyPhase] || candidate.storyPhase;
-  const title = esc(candidate.generatedTitle || candidate.title);
-  el.innerHTML = `
-    <a href="storymap.html?id=${esc(candidate.topicId)}" class="hero-story-card">
-      <div class="hero-story-label">📖 今日最も動きのあったストーリー</div>
-      <div class="hero-story-title">${title}</div>
-      <div class="hero-story-beat">現在フェーズ: ${esc(phaseLabel)}</div>
-      <div class="hero-story-cta">経緯をすべて見る →</div>
-    </a>
-    <p class="hero-story-tagline">速報じゃなく、<strong>経緯</strong>がわかる</p>`;
-  el.style.display = '';
-}
 
 function showOnboardingTip() {
   if (localStorage.getItem('flotopic_onboarded')) return;
@@ -857,48 +821,6 @@ window.flotopicSkipGenreOnboarding = function() {
   dismissGenreOnboarding();
 };
 
-function renderHotStrip(topics) {
-  const nowSec = Date.now() / 1000;
-  const hot = (topics || [])
-    .filter(t =>
-      t.lifecycleStatus !== 'archived' &&
-      toUnixSec(t.lastUpdated) >= nowSec - CONFIG.HOT_STRIP_HOURS * 3600 &&
-      Number(t.velocityScore || 0) >= CONFIG.HOT_STRIP_MIN_VELOCITY
-    )
-    .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0))
-    .slice(0, 5);
-
-  const anchor = document.getElementById('active-topics-anchor');
-  if (anchor) {
-    if (!hot.length) { anchor.innerHTML = ''; return; }
-    const chips = hot.map(t => {
-      const cnt = t.articleCount || 0;
-      return `<a href="topic.html?id=${esc(t.topicId)}" class="hot-chip">${esc(t.generatedTitle || t.title)}${cnt ? `（${cnt}件）` : ''}</a>`;
-    }).join('');
-    anchor.innerHTML = `<section class="hot-strip active-topics-section"><div class="hot-strip-header">今動いている</div><div class="hot-strip-chips">${chips}</div></section>`;
-    return;
-  }
-
-  let strip = document.getElementById('hot-strip');
-  if (!strip) {
-    const grid = document.getElementById('topics-grid');
-    if (!grid) return;
-    strip = document.createElement('section');
-    strip.id = 'hot-strip';
-    strip.className = 'hot-strip';
-    grid.parentNode.insertBefore(strip, grid);
-  }
-  if (!hot.length) { strip.remove(); return; }
-  strip.style.display = 'block';
-  strip.innerHTML = `
-    <div class="hot-strip-header">🔥 今急上昇中</div>
-    <div class="hot-strip-chips">
-      ${hot.map(t => {
-        const cnt = t.articleCount || 0;
-        return `<a href="topic.html?id=${esc(t.topicId)}" class="hot-chip">${esc(t.generatedTitle || t.title)}${cnt ? `（${cnt}件）` : ''}</a>`;
-      }).join('')}
-    </div>`;
-}
 
 // 前回訪問から新着があったトピックを強調するストリップ（返ってきたユーザー向け）
 function renderReturnStrip(topics) {

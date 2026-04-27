@@ -226,14 +226,14 @@ function renderDetail(data) {
     const hasSummary   = !!summary;
     const isFullAI     = summary && meta.aiGenerated;
 
-    const PHASE_COLOR = { '発端':'#f59e0b','拡散':'#3b82f6','ピーク':'#ef4444','現在地':'#10b981','収束':'#64748b' };
+    const PHASE_COLOR = { '発端':'rgba(78,201,192,0.55)','拡散':'rgba(78,201,192,0.7)','ピーク':'#4EC9C0','現在地':'#3BB5AC','収束':'#64748b' };
     const PHASE_ICON  = { '発端':'🌱','拡散':'📡','ピーク':'🔥','現在地':'📍','収束':'✅' };
     const PHASE_TEXT  = { '発端':'始まり','拡散':'広まってる','ピーク':'急上昇','現在地':'進行中','収束':'ひと段落' };
     const ALL_PHASES  = ['発端','拡散','ピーク','現在地','収束'];
     const currentIdx  = phase ? ALL_PHASES.indexOf(phase) : -1;
     const phaseBarHtml = phase ? `<div class="ai-phase-bar">${ALL_PHASES.map((p,i)=>{
       const cls = i===currentIdx ? 'active' : i<currentIdx ? 'past' : '';
-      return `<div class="ai-phase-step ${cls}" style="background:${PHASE_COLOR[p]||'#6366f1'}"><span class="ai-phase-step-icon">${PHASE_ICON[p]||'📍'}</span><span class="ai-phase-step-label">${PHASE_TEXT[p]||p}</span></div>`;
+      return `<div class="ai-phase-step ${cls}" style="background:${PHASE_COLOR[p]||'#4EC9C0'}"><span class="ai-phase-step-icon">${PHASE_ICON[p]||'📍'}</span><span class="ai-phase-step-label">${PHASE_TEXT[p]||p}</span></div>`;
     }).join('')}</div>` : '';
     const originHtml = (beats.length >= 2 && beats[0] && beats[0].event) ? `
       <div class="story-origin-highlight">
@@ -444,12 +444,12 @@ function renderDetail(data) {
         chartInstance = new Chart(canvas.getContext('2d'), {
           type: 'line',
           data: { labels, datasets: [{ label: artLabel, data: mediaCnts,
-            borderColor: '#6366f1',
+            borderColor: '#4EC9C0',
             backgroundColor: (ctx) => {
               const {ctx: c, chartArea} = ctx.chart;
-              if (!chartArea) return 'rgba(99,102,241,.15)';
+              if (!chartArea) return 'rgba(78,201,192,.15)';
               const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-              g.addColorStop(0, 'rgba(99,102,241,.35)'); g.addColorStop(1, 'rgba(99,102,241,.02)');
+              g.addColorStop(0, 'rgba(78,201,192,.35)'); g.addColorStop(1, 'rgba(78,201,192,.02)');
               return g;
             },
             borderWidth: 2, pointRadius: 3, pointHoverRadius: 6, tension: 0.4, fill: true }]},
@@ -468,12 +468,12 @@ function renderDetail(data) {
           viewsChartInstance = new Chart(vCanvas.getContext('2d'), {
             type: 'line',
             data: { labels, datasets: [{ label: scoreLabel, data: scores,
-              borderColor:'#f59e0b',
+              borderColor:'#3BB5AC',
               backgroundColor: (ctx) => {
                 const {ctx:c, chartArea} = ctx.chart;
-                if (!chartArea) return 'rgba(245,158,11,.15)';
+                if (!chartArea) return 'rgba(59,181,172,.15)';
                 const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                g.addColorStop(0, 'rgba(245,158,11,.4)'); g.addColorStop(1, 'rgba(245,158,11,.02)');
+                g.addColorStop(0, 'rgba(59,181,172,.4)'); g.addColorStop(1, 'rgba(59,181,172,.02)');
                 return g;
               },
               borderWidth:2, pointRadius:3, pointHoverRadius:6, tension:0.4, fill:true }]},
