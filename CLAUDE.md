@@ -19,7 +19,34 @@ git log --oneline -5 -- CLAUDE.md
 
 - `git log --oneline -5 -- CLAUDE.md` に今日の日付のコミットが表示された場合 → **CLAUDE.md の冒頭〜「絶対ルール」セクションまでを全文再読してから続行する（スキップ禁止）**
 - エラーが出ても止まらず最後まで実行する
-- 完了後に「✅ 起動チェック完了」と報告してからユーザーの指示を待つ。
+- 完了後に「✅ 起動チェック完了」と報告する。
+
+## ⚡ 起動後の自動タスク実行（2026-04-28 制定）
+
+起動チェック完了後、**ユーザーの指示を待たずに**以下を実行する：
+
+```bash
+cat /Users/OWNER/ai-company/TASKS.md
+```
+
+TASKS.mdを読み、**ステータスが未着手のタスクを優先度順に上から実行する**。
+
+### タスク実行の必須手順（スキップ禁止）
+
+1. **WORKING.mdのstaleチェック**: 開始JSTから8時間超のエントリーを削除する
+2. **WORKING.mdに自分のエントリーを追記してからコードに触る**:
+   ```
+   | [Code] <タスクID> <タスク名> | Code | <変更予定ファイル> | <開始JST> |
+   ```
+   → 追記したら即 `git add WORKING.md && git commit -m "wip: <タスク名>" && git push`
+3. **実装する**
+4. **完了したらWORKING.mdから自分の行を削除**し `git add -A && git commit -m "done: <タスクID>" && git push`
+
+> **WORKING.mdへの記載なしにコードを1行も変更してはいけない。これは物理的なルール。**
+> 記載を忘れた場合: 変更をstashし、WORKING.mdに記載してからunstashして再開する。
+
+- POからの新しい指示がある場合はそちらを優先する
+- TASKS.mdに未着手タスクがなければ「タスクなし、待機中」と報告してから待つ
 
 ## ⚡ 絶対に守る実装安全ルール（2026-04-27 改訂・単一チャット運用前提）
 
@@ -32,6 +59,7 @@ git log --oneline -5 -- CLAUDE.md
 | **完了=動作確認済み** | 「pushした」は完了ではない。フロント=本番URL目視確認、Lambda=CloudWatchエラーなし確認が完了の定義。**done.sh に `lambda:<fn>` / `url:<https>` / `topic-ai:<id>` の verify_target を渡せば自動検証 (T39 後続)** |
 | **なぜなぜ分析は自発的に** | 問題発生時は指摘前に Why1〜Why5 構造化分析を実施しCLAUDE.mdに追記する。「甘かった」の一言総括禁止。**仕組み的対策3つ以上 + 実装済み証跡を含める。テーブル1行追記は再発防止と呼ばない** |
 | **新規 formatter 追加時 boundary test 必須** | 0/null/undefined/NaN/未来日付を全部 assert する unit test を同 commit で書く。`tests/safe_format.test.js` をテンプレに。CI 落ちる仕組みで物理担保 |
+| **Coworkはgitを叩かない（2026-04-28 制定）** | Cowork セッション（スマホ/デスクトップアプリ）は `git` コマンドを実行しない。ファイルの読み書き（Write/Edit）のみ行い、git操作はすべてCodeセッション（Mac/CLI）に任せる。理由: 同一git indexへの並行アクセスでindex.lockが競合する。Codeセッションが起動時の `git add -A` でCoworkの変更を自動的に拾う。 |
 
 ---
 

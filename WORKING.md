@@ -18,6 +18,32 @@
 | `[Code]` | Claude Code タスク（コードタスク、CLI） |
 | `[Cowork]` | Cowork セッション（スマホ・デスクトップアプリ） |
 
+## ⚠️ エントリー自動失効ルール（恒久ルール・2026-04-28 制定）
+
+**開始JSTから8時間を超えたエントリーは無効（stale）とみなす。**
+
+- セッション起動時に「開始JSTから8時間超」の行は問答無用で削除してよい
+- staleエントリーを削除したら即 `git add WORKING.md && git commit -m "wip: remove stale entry" && git push` する
+- 削除の判断は人間確認不要（ルールに従って機械的に処理する）
+
+> 理由: セッションがクラッシュ/タイムアウトした場合、完了処理が走らずエントリーが残り続ける。手動掃除に頼ると発見が遅れる。8時間TTLで自動的に解消する。
+
+## ⚠️ セッション役割分担（恒久定義・2026-04-28 制定）
+
+**Code（Claude Code）がやること**:
+- `lambda/`・`frontend/`・`scripts/`・`.github/` のコード変更
+- テスト実行・Lambda手動invoke・デプロイ確認
+- TASKS.md のステータス更新（実装完了後）
+
+**Cowork がやること**:
+- `CLAUDE.md`・`WORKING.md`・`TASKS.md`・`HISTORY.md` のドキュメント更新
+- CloudWatch確認・S3データ参照・ステータス報告
+- POとの会話・分析・計画立案
+- **コードファイルには原則触れない**（触る場合はWORKING.mdに [Cowork] 行を明記してからのみ）
+
+> この役割分担により、同一コードファイルの並行編集は構造的に発生しない。
+> ドキュメントファイル（CLAUDE.md等）はCode起動チェック時に `git pull --rebase` で吸収する。
+
 ---
 
 ## タスク開始前（毎回必須）
@@ -25,7 +51,7 @@
 ```bash
 git pull --rebase origin main
 git log --oneline -5 -- CLAUDE.md   # 変更があれば CLAUDE.md を再読してから続行
-cat WORKING.md                       # 重複ファイルがあればそのタスクはスキップ
+cat WORKING.md                       # staleエントリー（8時間超）は削除してから確認
 ```
 
 重複なし → このファイルに追記 → 即 push して他セッションに宣言する。
@@ -53,4 +79,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST |
 |---|---|---|---|
-| [Cowork] T217 footer年表記統一 + T220調査 + 継続改修 | Cowork | projects/P003-news-timeline/frontend/, lambda/processor/ | 2026-04-27 20:30 |
+| (なし) | - | - | - |
