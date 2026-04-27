@@ -182,7 +182,6 @@ function renderFeaturedTopic(topics) {
   const isCooling = top.lifecycleStatus === 'cooling' || top.lifecycleStatus === 'archived';
   const status = isCooling ? 'declining' : (top.status || 'rising');
   const statusLabel = STATUS_LABEL[status] || status;
-  const snippet = cleanSummary(top.generatedSummary || '').slice(0, 50);
   el.innerHTML = `
     <a href="topic.html?id=${esc(top.topicId)}" class="featured-topic-card">
       <div class="featured-topic-meta">
@@ -190,7 +189,6 @@ function renderFeaturedTopic(topics) {
         <span class="featured-topic-count">📄 ${top.articleCount || 0}件 · ${esc(fmtDate(top.lastUpdated))}</span>
       </div>
       <h2 class="featured-topic-title">${esc(top.generatedTitle || top.title)}</h2>
-      ${snippet ? `<p class="featured-topic-snippet">${esc(snippet)}…</p>` : ''}
       <span class="featured-topic-cta">経緯を見る →</span>
     </a>`;
   el.style.display = '';
