@@ -33,7 +33,7 @@ from text_utils import (
     extract_source_name, extract_rss_image,
     extract_trending_keywords,
     extract_entities, find_related_topics, detect_topic_hierarchy,
-    extractive_title, extractive_summary,
+    extractive_title, extractive_summary, is_extractive_summary,
 )
 from storage import (
     write_s3, get_all_topics, get_topic_detail,
@@ -352,7 +352,12 @@ def lambda_handler(event, context):
             gen_title = existing.get('generatedTitle') or extractive_title(g)
 
         existing_summary  = existing.get('generatedSummary', '')
-        _is_old_extractive = existing_summary and '複数の報道' in existing_summary and '関連して' in existing_summary
+        # is_extractive_summary() で旧/現行両方の extractive パターンを検出する。
+        # 旧 _is_old_extractive は「複数の報道」「関連して」のみ判定したので、現行
+        # 「また、『…』など」「最新では…と報じられている」「（…ほかN件）」を素通りさせていた。
+        # この素通りで「aiGenerated=None なのに extractive 出力が generatedSummary に入る」
+        # 状態 (例: c1bbe0fe 12記事topic) が永続化されていた。
+        _is_old_extractive = is_extractive_summary(existing_summary)
         if existing.get('aiGenerated') and existing_summary and not _is_old_extractive:
             gen_summary = existing_summary
         else:
