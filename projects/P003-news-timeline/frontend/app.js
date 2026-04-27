@@ -97,8 +97,8 @@ function savePrefs(prefs) {
 const _prefs = loadPrefs();
 const _urlFilter = new URLSearchParams(location.search).get('filter');
 const _urlGenre  = new URLSearchParams(location.search).get('genre');
-// ジャンルはURLパラメータ(?genre=)のみ復元。localStorageからは復元しない（意図しないフィルター固定防止）
-let allTopics = [], currentStatus = _urlFilter || _prefs.status || 'all', currentGenre = _urlGenre || '総合', currentSearch = '';
+// ジャンル: URLパラメータ → localStorage → '総合' の優先順で復元
+let allTopics = [], currentStatus = _urlFilter || _prefs.status || 'all', currentGenre = _urlGenre || _prefs.genre || '総合', currentSearch = '';
 let currentPage = 1;
 let lastFetchTime = null;
 let _nativeAdIdx = -1;
@@ -1241,7 +1241,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // クラウドから保存ジャンルを復元（非同期・先にローカル設定でリフレッシュ後に適用）
       if (typeof loadGenreFromCloud === 'function' && currentUser) {
         loadGenreFromCloud().then(savedGenre => {
-          if (savedGenre && typeof GENRES !== 'undefined' && GENRES.includes(savedGenre) && savedGenre !== currentGenre) {
+          if (savedGenre && typeof GENRES !== 'undefined' && GENRES.includes(savedGenre) && savedGenre !== currentGenre && !_prefs.genre) {
             currentGenre = savedGenre;
             savePrefs({...loadPrefs(), genre: currentGenre});
             buildFilters();
