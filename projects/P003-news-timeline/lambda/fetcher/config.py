@@ -314,6 +314,6 @@ SEEN_KEY = 'api/seen_articles.json'
 SEEN_MAX = 3000
 
 # SNAPアイテムの保持期間（日）。DynamoDB TTLで自動削除される
-SNAP_TTL_DAYS = 7
+SNAP_TTL_DAYS = 14  # 7→14: 履歴保持を倍に拡大(2026-04-27 履歴記事数不足対応)
 
 INACTIVE_LIFECYCLE_STATUSES = frozenset({'legacy', 'archived'})
