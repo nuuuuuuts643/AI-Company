@@ -485,7 +485,7 @@ def lambda_handler(event, context):
                     'source':      a['source'], 'pubDate': a['pubDate'],
                     'publishedAt': a.get('published_ts', 0),
                 } for a in g
-            }.values()))[:20],
+            }.values()))[:50],  # 20→50: SNAP1件あたりの保持記事数を拡大(2026-04-27)
         })
         saved_ids.append(tid)
 
