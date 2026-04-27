@@ -264,6 +264,7 @@ function renderDetail(data) {
   const aiAnalysisEl = document.getElementById('ai-analysis');
   if (aiAnalysisEl) {
     const summary           = cleanSummary(meta.generatedSummary);
+    const keyPoint          = cleanSummary(meta.keyPoint || '');
     const backgroundContext = cleanSummary(meta.backgroundContext || '');
     const spreadReason      = cleanSummary(meta.spreadReason || '');
     const forecast          = cleanSummary(meta.forecast     || '');
@@ -311,6 +312,11 @@ function renderDetail(data) {
         ? `<a class="ai-story-nav" href="#story-timeline">📅 記事の全タイムラインを見る</a>`
         : '';
 
+      // 「ひとことで言うと」hero box — 全 mode 共通で先頭に配置 (T30)
+      const keyPointHero = keyPoint
+        ? `<div class="ai-keypoint-hero"><span class="ai-keypoint-label">💡 ひとことで言うと</span><div class="ai-keypoint-text">${esc(keyPoint)}</div></div>`
+        : '';
+
       // ── minimal: 1〜2件記事 → 思想フレーム順 (背景→なぜ今→現状→今後) で短く
       if (summaryMode === 'minimal') {
         const sectBgM = background ? `<p class="ai-summary-bg">📚 <strong>なぜ今:</strong> ${esc(background)}</p>` : '';
@@ -318,6 +324,7 @@ function renderDetail(data) {
         const sectOlM = outlook ? `<p class="ai-summary-outlook">🔮 <strong>見通し:</strong> ${esc(outlook)}</p>` : '';
         aiAnalysisEl.innerHTML = `
           <div class="ai-analysis-inner ai-analysis-minimal">
+            ${keyPointHero}
             ${sectBgM}
             ${sectCurM}
             ${sectOlM}
@@ -365,7 +372,7 @@ function renderDetail(data) {
             <p class="ai-section-body">${esc(outlook)}</p>
           </div>` : '';
         // 思想フレーム順: 背景 → なぜ今 → なぜ広がった → 経緯 → 現状 → メディアズレ → 今後 (full と同じ)
-        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sectBg}${sectBgNow}${sect2}${sect3}${sect1}${sectPersp}${sectOl}${trustFooterHtml}${storyNavHtml}</div>`;
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${keyPointHero}${sectBg}${sectBgNow}${sect2}${sect3}${sect1}${sectPersp}${sectOl}${trustFooterHtml}${storyNavHtml}</div>`;
 
       // ── full: 6件以上 → フル4セクション（従来通り）
       } else {
@@ -422,7 +429,7 @@ function renderDetail(data) {
             <div class="ai-section-label">🔮 見通し <span class="ai-hypothesis-badge">仮説</span></div>
             <p class="ai-section-body">${esc(outlook)}</p>
           </div>` : '';
-        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect2bg}${sectBgNowF}${sect2}${sect3}${sect1}${sectPerspF}${sect4}${sectOlF}${trustFooterHtml}${storyNavHtml}</div>`;
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${keyPointHero}${sect2bg}${sectBgNowF}${sect2}${sect3}${sect1}${sectPerspF}${sect4}${sectOlF}${trustFooterHtml}${storyNavHtml}</div>`;
       }
 
       aiAnalysisEl.style.display = 'block';

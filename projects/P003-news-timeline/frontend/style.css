@@ -1047,6 +1047,30 @@ details[open] .day-more-btn::before { content: '▼ '; }
 
 /* ===== AI 7セクション分析（思想フレーム順） ===== */
 .ai-analysis-inner { display: flex; flex-direction: column; gap: 16px; }
+/* keyPoint hero — 「ひとことで言うと」を一発で目に入れる (T30) */
+.ai-keypoint-hero {
+  background: linear-gradient(135deg, rgba(78,201,192,0.18), rgba(78,201,192,0.06));
+  border: 1px solid rgba(78,201,192,0.35);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.ai-keypoint-label {
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--accent, #4EC9C0);
+  letter-spacing: .04em;
+  text-transform: none;
+}
+.ai-keypoint-text {
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--text-primary, #e2e8f0);
+}
+[data-theme="dark"] .ai-keypoint-hero {
+  background: linear-gradient(135deg, rgba(78,201,192,0.22), rgba(78,201,192,0.08));
+}
 .ai-section { padding: 12px 14px; border-radius: 8px; background: var(--surface2, rgba(255,255,255,.04)); border-left: 3px solid var(--primary, #4EC9C0); }
 .ai-section-forecast { border-left-color: #4EC9C0; }
 .ai-section-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--primary, #4EC9C0); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
