@@ -277,6 +277,11 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
             if gen_story.get('backgroundContext'):
                 update_expr += ', backgroundContext = :bgctx'
                 expr_values[':bgctx'] = gen_story['backgroundContext']
+        if gen_story and gen_story.get('genres'):
+            ai_genres = gen_story['genres']
+            update_expr += ', genres = :genres, genre = :genre'
+            expr_values[':genres'] = ai_genres
+            expr_values[':genre']  = ai_genres[0]
         if image_url:
             # if_not_exists: 既にRSS由来画像があれば上書きしない
             update_expr += ', imageUrl = if_not_exists(imageUrl, :img)'
