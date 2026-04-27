@@ -79,4 +79,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST |
 |---|---|---|---|
-| [Code] SVGアイコン統一 絵文字置き換え | Code | projects/P003-news-timeline/frontend/*.html | 2026-04-28 02:15 |

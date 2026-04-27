@@ -279,7 +279,7 @@
       <p>大きな流れを、1分で。</p>
     </a>
     <div class="header-right">
-      <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替">🌙</button>
+      <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替"><i data-lucide="moon" aria-hidden="true"></i></button>
       <div class="auth-area">
         <button id="auth-signin-btn" class="auth-btn" style="display:none;">ログイン</button>
         <div class="user-menu-wrap" id="user-menu-wrap" style="display:none;">
@@ -290,7 +290,7 @@
             <span class="user-menu-caret">▾</span>
           </button>
           <div class="user-dropdown" id="user-dropdown" role="menu">
-            <a href="mypage.html" class="user-dd-item" role="menuitem">👤 マイページ</a>
+            <a href="mypage.html" class="user-dd-item" role="menuitem"><i data-lucide="user" aria-hidden="true"></i> マイページ</a>
             <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem">ログアウト</button>
           </div>
         </div>
@@ -314,10 +314,10 @@
       <span id="views30m-badge" class="views30m-badge" style="display:none;"></span>
     </div>
     <div class="topic-share-bar">
-      <button id="topic-fav-btn" class="topic-fav-btn" title="お気に入りに追加" aria-label="お気に入り">♥ お気に入り</button>
-      <button id="share-btn" style="display:none;align-items:center;gap:5px;padding:5px 14px;border:none;border-radius:16px;background:rgba(255,255,255,.15);color:#fff;font-size:.8rem;font-weight:600;cursor:pointer;backdrop-filter:blur(4px);" aria-label="シェア">📤 シェア</button>
+      <button id="topic-fav-btn" class="topic-fav-btn" title="お気に入りに追加" aria-label="お気に入り"><i data-lucide="heart" class="lucide-fill" aria-hidden="true"></i> お気に入り</button>
+      <button id="share-btn" style="display:none;align-items:center;gap:5px;padding:5px 14px;border:none;border-radius:16px;background:rgba(255,255,255,.15);color:#fff;font-size:.8rem;font-weight:600;cursor:pointer;backdrop-filter:blur(4px);" aria-label="シェア"><i data-lucide="share-2" aria-hidden="true"></i> シェア</button>
       <a id="x-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:#000;color:#fff;font-size:.8rem;font-weight:700;text-decoration:none;" aria-label="Xでシェア">𝕏 シェア</a>
-      <a id="threads-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:rgba(255,255,255,.18);color:#fff;font-size:.8rem;font-weight:600;text-decoration:none;" aria-label="Threads">🧵 Threads</a>
+      <a id="threads-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:rgba(255,255,255,.18);color:#fff;font-size:.8rem;font-weight:600;text-decoration:none;" aria-label="Threads"><i data-lucide="messages-square" aria-hidden="true"></i> Threads</a>
     </div>
     <div id="storymap-link-container"></div>
   </div>
@@ -339,7 +339,7 @@
         <div class="sk-line sk-tiny"></div>
       </div>
     </div>
-    <p style="margin-top:12px;font-size:.75rem;color:#94a3b8;">⚠️ AI自動生成。情報の正確性は各元記事をご確認ください。<a href="contact.html" style="color:#94a3b8;text-decoration:underline;margin-left:4px;">誤情報のご指摘</a></p>
+    <p style="margin-top:12px;font-size:.75rem;color:#94a3b8;"><i data-lucide="alert-triangle" aria-hidden="true"></i>️ AI自動生成。情報の正確性は各元記事をご確認ください。<a href="contact.html" style="color:#94a3b8;text-decoration:underline;margin-left:4px;">誤情報のご指摘</a></p>
     <p style="margin-top:4px;font-size:.73rem;color:#94a3b8;">最終更新: <time id="topic-last-updated" datetime=""></time></p>
   </div>
 
@@ -412,7 +412,7 @@
 
     <!-- 未ログイン時のログイン促進 -->
     <div class="comment-login-prompt" id="comment-login-prompt">
-      <p class="clp-title">💬 このトピックについて話し合いませんか？</p>
+      <p class="clp-title"><i data-lucide="message-circle" aria-hidden="true"></i> このトピックについて話し合いませんか？</p>
       <p class="clp-sub">Googleアカウントでログインすると、コメント投稿・お気に入り保存・閲覧履歴の同期が使えます。</p>
       <button class="comment-login-google-btn" onclick="document.getElementById('auth-signin-btn').click()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -467,8 +467,8 @@
 
 <!-- スティッキーCTAバー（モバイルのみ・コメントセクション表示前まで） -->
 <div class="sticky-cta-bar" id="sticky-cta-bar" aria-hidden="true">
-  <button class="scb-fav" id="scb-fav-btn" aria-label="お気に入り">♥ お気に入り</button>
-  <button class="scb-comment" id="scb-comment-btn">💬 コメントする</button>
+  <button class="scb-fav" id="scb-fav-btn" aria-label="お気に入り"><i data-lucide="heart" class="lucide-fill" aria-hidden="true"></i> お気に入り</button>
+  <button class="scb-comment" id="scb-comment-btn"><i data-lucide="message-circle" aria-hidden="true"></i> コメントする</button>
 </div>
 
 <footer class="site-footer">
@@ -483,16 +483,16 @@
 </footer>
 <nav class="bottom-nav" id="bottom-nav" aria-label="ナビゲーション">
   <a href="index.html" class="bn-item" id="bn-home">
-    <span class="bn-icon">🏠</span><span>TOPICS</span>
+    <span class="bn-icon"><i data-lucide="home" aria-hidden="true"></i></span><span>TOPICS</span>
   </a>
   <a href="catchup.html" class="bn-item" id="bn-catchup">
-    <span class="bn-icon">🕐</span><span>振り返る</span>
+    <span class="bn-icon"><i data-lucide="clock" aria-hidden="true"></i></span><span>振り返る</span>
   </a>
   <button class="bn-item" id="bn-search">
-    <span class="bn-icon">🔍</span><span>SEARCH</span>
+    <span class="bn-icon"><i data-lucide="search" aria-hidden="true"></i></span><span>SEARCH</span>
   </button>
   <a href="mypage.html" class="bn-item" id="bn-mypage" style="position:relative;">
-    <span class="bn-icon">👤</span><span>HOME</span>
+    <span class="bn-icon"><i data-lucide="user" aria-hidden="true"></i></span><span>HOME</span>
     <span id="notif-badge" style="display:none;"></span>
   </a>
 </nav>
@@ -500,7 +500,7 @@
 <div id="auth-modal" class="auth-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="ログイン">
   <div class="auth-modal-inner">
     <button id="auth-modal-close" class="auth-modal-close" aria-label="閉じる">×</button>
-    <div class="auth-modal-logo">🌊 Flotopic</div>
+    <div class="auth-modal-logo"><i data-lucide="waves" aria-hidden="true"></i> Flotopic</div>
     <h2 class="auth-modal-title">ログイン / 新規登録</h2>
     <p class="auth-modal-desc">コメント・お気に入りを<br>どのデバイスでも同期</p>
     <div id="auth-modal-google-wrap" class="auth-modal-provider-wrap"></div>
@@ -519,5 +519,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 <script src="detail.js"></script>
 <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "35149d754c3a4903b9461c157568d392"}'></script><!-- End Cloudflare Web Analytics -->
+<!-- Lucide Icons (ISC license) -->
+<script defer src="https://cdn.jsdelivr.net/npm/lucide@1.11.0/dist/umd/lucide.min.js" crossorigin="anonymous"></script>
+<script>document.addEventListener("DOMContentLoaded",function(){if(window.lucide&&typeof lucide.createIcons==="function"){lucide.createIcons();}});</script>
 </body>
 </html>
