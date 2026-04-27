@@ -53,4 +53,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST |
 |---|---|---|---|
-| [Code] 作業1 processor手動invoke + 作業2 T213 pending queue優先度修正 | Code | lambda/processor/proc_ai.py | 2026-04-27 19:30 |
+| [Cowork] T217 footer年表記統一 + T220調査 + 継続改修 | Cowork | projects/P003-news-timeline/frontend/, lambda/processor/ | 2026-04-27 20:30 |
