@@ -218,21 +218,28 @@ def _generate_story_minimal(articles: list) -> dict | None:
         '固有名詞・企業名・サービス名は初出時に括弧で1語説明を加える（例: スターリンク（SpaceXの衛星インターネット）が〜）。\n\n'
         + _GENRES_PROMPT
         + '【出力フォーマット（JSON以外出力禁止）】\n'
-        '{"aiSummary": "何が起きたか。誰が・何をして・何が起き・なぜ注目されたかを事実ベースで1段落",\n'
-        ' "genres": ["最も適切なジャンル1つ、または2つ（上のリストから選ぶ）"]}\n\n'
+        '{\n'
+        '  "aiSummary": "何が起きたか。誰が・何をして・何が起き・なぜ注目されたかを事実ベースで1段落",\n'
+        '  "background": "なぜ今このトピックが注目されているか。直近の政治・経済・社会的文脈を1文で",\n'
+        '  "outlook": "この先どうなるか。1文で",\n'
+        '  "genres": ["最も適切なジャンル1つ、または2つ（上のリストから選ぶ）"]\n'
+        '}\n\n'
         f'記事情報（{cnt}件）:\n{headlines}'
     )
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 250,
+            'max_tokens': 400,
             'messages': [{'role': 'user', 'content': prompt}],
         })
         result = _parse_story_json(data['content'][0]['text'].strip())
         if not isinstance(result.get('aiSummary'), str) or not result['aiSummary'].strip():
             return None
         return {
-            'aiSummary':   result['aiSummary'].strip(),
+            'aiSummary':    result['aiSummary'].strip(),
+            'background':   str(result.get('background') or '').strip(),
+            'perspectives': None,
+            'outlook':      str(result.get('outlook') or '').strip(),
             'spreadReason': '',
             'forecast':     '',
             'timeline':     [],
@@ -265,6 +272,9 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
         '    {"date": "M/D形式または空文字", "event": "最後のイベント（transitionは省略）"}\n'
         '  ],\n'
         '  "phase": "発端 または 拡散 または ピーク または 現在地 または 収束",\n'
+        '  "background": "なぜ今このトピックが浮上しているか。直近の政治・経済・歴史的文脈を1〜2文で",\n'
+        '  "perspectives": "複数メディアが異なる角度・結論で報じている場合のみ文字列で記述（例: 「NHKは事実を中立に報じる一方、産経は規制強化の必要性を強調」）。全メディアが同じ立場ならnull",\n'
+        '  "outlook": "この先どうなるか。1文で",\n'
         '  "genres": ["最も適切なジャンル1つ、または2つ（上のリストから選ぶ）"]\n'
         '}\n\n'
         '【ルール】\n'
@@ -274,13 +284,16 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
         'timeline: 2〜3件のみ。重要な転換点のみ。\n'
         'timeline[].event: 体言止め。具体的な出来事を40文字以内で。\n'
         'timeline[].transition: 因果・接続詞（例: これを受けて、その結果、翌日、）。事実のみ。最後のアイテムは省略。\n'
-        'phase: 発端 / 拡散 / ピーク / 現在地 / 収束\n\n'
+        'phase: 発端 / 拡散 / ピーク / 現在地 / 収束\n'
+        'background: 1〜2文。「なぜ今か」を説明する文脈（過去の経緯・法制度・国際情勢等）。backgroundContextとは異なり、現時点でこの話題が浮上している直接的な理由を書く。\n'
+        'perspectives: 複数メディアが明確に異なる立場で報じている場合のみ文字列で書く。同一立場なら必ずnull。\n'
+        'outlook: 今後の見通しを1文。「〜が予想される」「〜の可能性がある」等で締める。\n\n'
         f'記事情報（{cnt}件）:\n{headlines}'
     )
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 950,
+            'max_tokens': 1200,
             'messages': [{'role': 'user', 'content': prompt}],
         })
         result = _parse_story_json(data['content'][0]['text'].strip())
@@ -291,6 +304,9 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
             'aiSummary':         result['aiSummary'].strip(),
             'backgroundContext': str(result.get('backgroundContext') or '').strip(),
             'spreadReason':      str(result.get('spreadReason') or '').strip(),
+            'background':        str(result.get('background') or '').strip(),
+            'perspectives':      result.get('perspectives') if isinstance(result.get('perspectives'), str) else None,
+            'outlook':           str(result.get('outlook') or '').strip(),
             'forecast':          '',
             'timeline':          _sanitize_timeline(result.get('timeline'), max_items=3),
             'phase':             result.get('phase') if result.get('phase') in valid_phases else '現在地',
@@ -322,6 +338,9 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         '    {"date": "M/D形式または空文字", "event": "最後のイベント（transitionは省略）"}\n'
         '  ],\n'
         '  "phase": "発端 または 拡散 または ピーク または 現在地 または 収束",\n'
+        '  "background": "なぜ今このトピックが浮上しているか。直近の政治・経済・歴史的文脈を1〜2文で",\n'
+        '  "perspectives": "複数メディアが異なる角度・結論で報じている場合のみ文字列で記述（例: 「NHKは事実を中立に報じる一方、産経は規制強化の必要性を強調」）。全メディアが同じ立場ならnull",\n'
+        '  "outlook": "この先どうなるか。1文で",\n'
         '  "genres": ["最も適切なジャンル1つ、または2つ（上のリストから選ぶ）"]\n'
         '}\n\n'
         '【各フィールドのルール】\n'
@@ -333,13 +352,16 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         'timeline[].event: 体言止め。具体的な出来事を40文字以内で。固有名詞を使って具体的に書く。\n'
         'timeline[].transition: 「前のイベント → 次のイベント」を繋ぐ因果・接続詞。25文字以内。事実のみ。感情語禁止。最後のアイテムは省略。\n'
         '  例: 「これを受けて、」「その翌日、」「反発を受け、」「声明を機に、」「審議を経て、」\n'
-        'phase: 発端（始まったばかり）/ 拡散（広がっている）/ ピーク（最も活発）/ 現在地（落ち着いてきた）/ 収束（話題が終息した）\n\n'
+        'phase: 発端（始まったばかり）/ 拡散（広がっている）/ ピーク（最も活発）/ 現在地（落ち着いてきた）/ 収束（話題が終息した）\n'
+        'background: 1〜2文。「なぜ今か」を説明する文脈（過去の経緯・法制度・国際情勢等）。backgroundContextとは異なり、現時点でこの話題が浮上している直接的な理由を書く。\n'
+        'perspectives: 複数メディアが明確に異なる立場で報じている場合のみ文字列で書く。同一立場なら必ずnull。\n'
+        'outlook: 今後の見通しを1文。「〜が予想される」「〜の可能性がある」等で締める。forecastより短く端的に。\n\n'
         f'記事情報（{cnt}件・見出しと概要）:\n{headlines}'
     )
     try:
         data = _call_claude({
             'model': 'claude-haiku-4-5-20251001',
-            'max_tokens': 1300,
+            'max_tokens': 1600,
             'messages': [{'role': 'user', 'content': prompt}],
         })
         result = _parse_story_json(data['content'][0]['text'].strip())
@@ -351,6 +373,9 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
             'backgroundContext': str(result.get('backgroundContext') or '').strip(),
             'spreadReason':      str(result.get('spreadReason') or '').strip(),
             'forecast':          str(result.get('forecast')     or '').strip(),
+            'background':        str(result.get('background') or '').strip(),
+            'perspectives':      result.get('perspectives') if isinstance(result.get('perspectives'), str) else None,
+            'outlook':           str(result.get('outlook') or '').strip(),
             'timeline':          _sanitize_timeline(result.get('timeline'), max_items=6),
             'phase':             result.get('phase') if result.get('phase') in valid_phases else '現在地',
             'summaryMode':       'full',
