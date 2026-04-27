@@ -27,7 +27,7 @@ ceo, secretary, devops, marketing, revenue, editorial, seo, security, legal
 - HIGH:   即時停止（手動解除必須）+ Slack緊急通知
 
 ## 重要原則
-- POさん（owner643@gmail.com）に直接報告。CEOを経由しない。
+- POさん（管理者メールは ADMIN_EMAIL 環境変数で設定）に直接報告。CEOを経由しない。
 - 監査AIは自分自身の停止フラグを確認するが、自己停止はしない（監査継続のため）
 
 ## 完了度: 完成候補
