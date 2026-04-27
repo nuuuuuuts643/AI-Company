@@ -221,10 +221,17 @@ def lambda_handler(event, context):
 
         gen_story = None
         _is_minimal = cnt <= 2
+        # T255 (2026-04-28 Cowork): keyPoint も skip 必須フィールドへ追加。
+        # 旧 aiGenerated topic は keyPoint プロンプト追加 (commit 963ff61) 以前の処理結果のため
+        # keyPoint=None のまま永久に skip されていた (本番 0/115 で確認済)。
+        # 仕組み的対策: 必須フィールドリストを 1 箇所で管理し、新フィールド追加時の漏れを構造的に防ぐ。
+        _required_full_fields = (
+            (topic.get('storyTimeline') or _is_minimal),
+            (topic.get('storyPhase')    or _is_minimal),
+            (topic.get('keyPoint')      or _is_minimal),
+        )
         needs_story = (cnt >= MIN_ARTICLES_FOR_SUMMARY
-                       and not (topic.get('aiGenerated')
-                                and (topic.get('storyTimeline') or _is_minimal)
-                                and (topic.get('storyPhase') or _is_minimal)))
+                       and not (topic.get('aiGenerated') and all(_required_full_fields)))
         if needs_story and api_calls < MAX_API_CALLS:
             new_story = generate_story(articles, article_count=cnt)
             api_calls += 1
