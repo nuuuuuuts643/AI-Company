@@ -90,3 +90,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0428-AL 上位3記事の全文取得→メディア比較 perspectives 強化 | Code | projects/P003-news-timeline/lambda/processor/article_fetcher.py 新規, proc_ai.py, tests/test_article_fetcher.py 新規 | 2026-04-28 08:55 | yes |
