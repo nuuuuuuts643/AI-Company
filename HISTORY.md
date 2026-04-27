@@ -1346,3 +1346,12 @@ bash projects/P003-news-timeline/deploy.sh
 - ✅ **docs/rules/global-baseline.md 新設** — POから繰り返し指摘される全プロダクト共通の前提条件（言語・根本原因・完了の定義・依存確認・PII禁止・なぜなぜ Why1〜Why5・仕組み的対策の質基準）を 1 ファイルに集約。P002・将来 P006 等で `CLAUDE.md` から参照する形で再利用できる。**§6 「AI が動きやすくなるための原則」に「気を付ける禁止」「仕組み的対策は CI / hook / metric / SLI / scripts のいずれかで物理化」を明記**——テキストルールだけで closure しない質基準を物理化。
 - ✅ **CLAUDE.md 起動チェックを bootstrap 1 行に簡素化** — 12 行 bash ブロック → `bash /Users/OWNER/ai-company/scripts/session_bootstrap.sh` 1 行 + 7 ステップの責務だけ箇条書き。「規則の置き場所」表に `docs/rules/global-baseline.md` を追加。CLAUDE.md は 132 行で 250 行ガード内維持。
 - ✅ **docs/lessons-learned.md なぜなぜ追記** — 「運用ルールの仕組み化メタなぜなぜ」を Why1〜Why5 + 仕組み的対策 5 つで構造化。**メタ教訓**: 「ルール（テキスト）で予防」と「構造（scripts / CI / hook）で予防」を**同列の "再発防止" として扱わない**。仕組み的対策の少なくとも 1 つは AI が読まなくても動作するもの（cron / hook / CI / SLI / scripts）でなければならない。
+
+
+### 自動 triage: 2026-04-28 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T255~~ | ~~中~~ | ~~AI 処理 skip 条件に keyPoint チェック未実装~~ → **Cowork実装完了 (2026-04-28 17:25 JST・schedule task)・Code push 待ち**。`handler.py` L223-233 を「必須フィールドリスト」型に書き換え (`_required_full_fields` タプル) — 新フィールド追加時は 1 行追記で済む構造化。次回スケジュール 19:00 JST で 93 件再処理開始 (Haiku 約 $0.21・許容範囲)。完了判定: 19:00 JST 以降の topics.json で keyPoint 充填率 80%+。 | `lambda/processor/handler.py` skip 条件 | 2026-04-28 |
+
+</details>
