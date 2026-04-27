@@ -79,3 +79,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST |
 |---|---|---|---|
+| [Cowork] T2026-0428-スケジュール調査 | Cowork | TASKS.md, lambda/processor/handler.py, frontend/topic.html | 2026-04-28 17:15 |
