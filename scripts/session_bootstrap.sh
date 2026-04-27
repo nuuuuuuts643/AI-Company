@@ -87,6 +87,13 @@ if [ -f TASKS.md ] && [ -x scripts/triage_tasks.py ]; then
   python3 scripts/triage_tasks.py --triage-tasks 2>/dev/null || true
 fi
 
+# ---- 5b. (HISTORY 確認要) 行を HISTORY.md と突合して自動取消線化 (T2026-0428-H) ----
+# 「実装済の可能性あり (HISTORY 確認要)」のままタスク再起票 anti-pattern を物理化対策。
+# scheduled-task の発見偏重バイアス対策の一環 (lessons-learned 2026-04-28 由来)。
+if [ -f TASKS.md ] && [ -f HISTORY.md ] && [ -x scripts/triage_implemented_likely.py ]; then
+  python3 scripts/triage_implemented_likely.py 2>/dev/null || true
+fi
+
 # ---- 6. needs-push 警告 ----
 # 「現在着手中」セクションのテーブル本体行のうち、最終セルが yes のものだけを拾う。
 # 説明文・引用・記入フォーマット例 を誤検出しないよう awk で厳密化する。
