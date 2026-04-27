@@ -5,7 +5,7 @@ import re
 import hashlib
 from collections import Counter
 
-from config import STOP_WORDS, SYNONYMS, JACCARD_THRESHOLD, MAX_CLUSTER_SIZE
+from config import STOP_WORDS, SYNONYMS, JACCARD_THRESHOLD, MAX_CLUSTER_SIZE, ENTITY_PATTERNS
 
 
 _LIVE_PREFIX = re.compile(r'^【(中継|速報|更新|独自|詳報|続報|緊急|号外)[^】]*】')
@@ -22,6 +22,28 @@ _CHUNK_COMMON = {'大統領', '首相', '大臣', '政府', '国会', '議員', 
                  '委員会', '知事', '市長', '内閣', '官房', '大使', '長官',
                  '日本', '米国', '中国', '東京', '大阪', '会社', '企業', '事件', '事故',
                  '発表', '開始', '実施', '決定', '対応', '影響', '問題', '検討', '対策'}
+
+# エンティティ重複ボーナス: 2+エンティティ共有 + 48h以内 → Jaccard+0.30
+_ENTITY_BONUS_MIN_OVERLAP  = 2
+_ENTITY_BONUS_TIME_WINDOW  = 48 * 3600  # seconds
+_ENTITY_BONUS_SCORE        = 0.30
+
+
+def _extract_title_entities(text: str) -> frozenset:
+    """タイトルから固有エンティティを抽出（エンティティ重複ボーナス用）。
+    ENTITY_PATTERNSマッチ（正規化済みの国名・人名等）＋カタカナ固有名詞（3文字以上）。
+    """
+    text = re.sub(r'\s*[|｜].*$', '', text)
+    text = _LIVE_PREFIX.sub('', text)
+    entities = set()
+    for pattern in ENTITY_PATTERNS:
+        if re.search(pattern, text):
+            entities.add(pattern.split('|')[0])
+    for kana in _KATAKANA_RUN.findall(text):
+        normalized = SYNONYMS.get(kana, kana)
+        if normalized not in _CHUNK_COMMON:
+            entities.add(normalized)
+    return frozenset(entities)
 
 def normalize(text):
     # パイプ区切りのカテゴリ・ソースラベルを除去（例: "タイトル | キャリア・教育 | 東洋経済オンライン"）
@@ -62,8 +84,10 @@ def cluster(articles):
     parent = list(range(n))
 
     # O(n²)ループ内でのnormalize/regex重複呼び出しを排除するため事前計算
-    normalized  = [normalize(a['title']) - STOP_WORDS for a in articles]
-    pre_chunks  = [_precompute_chunks(a['title']) for a in articles]
+    normalized   = [normalize(a['title']) - STOP_WORDS for a in articles]
+    pre_chunks   = [_precompute_chunks(a['title']) for a in articles]
+    pre_entities = [_extract_title_entities(a['title']) for a in articles]
+    pub_ts       = [a.get('published_ts', 0) or 0 for a in articles]
 
     def find(x):
         while parent[x] != x:
@@ -98,6 +122,18 @@ def cluster(articles):
                     and 1.0 / union_sz >= _ENTITY_MERGE_THRESHOLD):
                 pass  # → merge below
             elif len(shared) < 2:
+                # エンティティ重複ボーナス（shared=1の場合）: 2+エンティティ共有+48h以内→低閾値でマージ
+                if len(shared) == 1 and union_sz > 0:
+                    shared_ent = pre_entities[i] & pre_entities[j]
+                    if len(shared_ent) >= _ENTITY_BONUS_MIN_OVERLAP:
+                        ts_i_val, ts_j_val = pub_ts[i], pub_ts[j]
+                        if ts_i_val and ts_j_val and abs(ts_i_val - ts_j_val) <= _ENTITY_BONUS_TIME_WINDOW:
+                            jac_bonus = len(shared) / union_sz + _ENTITY_BONUS_SCORE
+                            if jac_bonus >= JACCARD_THRESHOLD:
+                                new_size = cluster_size.get(ri, 1) + cluster_size.get(rj, 1)
+                                union(i, j)
+                                cluster_size[find(i)] = new_size
+                                continue
                 # word-level が失敗した場合（スペースなし日本語タイトル）事前計算チャンクでリトライ
                 kana_a, kanji_a = pre_chunks[i]
                 kana_b, kanji_b = pre_chunks[j]
@@ -121,6 +157,12 @@ def cluster(articles):
             if union_sz == 0:
                 continue
             jac = len(shared) / union_sz
+            # エンティティ重複ボーナス（shared>=2の場合）: 2+エンティティ共有+48h以内→+0.30
+            shared_ent = pre_entities[i] & pre_entities[j]
+            if len(shared_ent) >= _ENTITY_BONUS_MIN_OVERLAP:
+                ts_i_val, ts_j_val = pub_ts[i], pub_ts[j]
+                if ts_i_val and ts_j_val and abs(ts_i_val - ts_j_val) <= _ENTITY_BONUS_TIME_WINDOW:
+                    jac = min(jac + _ENTITY_BONUS_SCORE, 1.0)
             threshold = _ENTITY_MERGE_THRESHOLD if (len(shared) == 1 and katakana_entities) else JACCARD_THRESHOLD
             if jac >= threshold:
                 new_size = cluster_size.get(ri, 1) + cluster_size.get(rj, 1)
