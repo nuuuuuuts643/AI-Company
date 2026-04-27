@@ -2537,7 +2537,7 @@ details[open] .day-more-btn::before { content: '▼ '; }
 
 /* [data-theme="light"] — システムがダークでも強制ライト */
 [data-theme="light"] {
-  --primary: #e74c3c; --primary-light: #fdf2f2;
+  --primary: #4EC9C0; --primary-light: #e0fafa;
   --surface: #ffffff; --bg-card: #ffffff;
   --surface2: #f5f6f8; --bg-page: #f5f6f8;
   --border: #e8eaed;
@@ -2661,7 +2661,7 @@ details[open] .day-more-btn::before { content: '▼ '; }
    [data-theme="light"] — 明示的ライトモード（システムダーク時に強制上書き）
    ═══════════════════════════════════ */
 [data-theme="light"] {
-  --primary: #e74c3c; --primary-light: #fdf2f2;
+  --primary: #4EC9C0; --primary-light: #e0fafa;
   --surface: #ffffff; --bg-card: #ffffff;
   --surface2: #f5f6f8; --bg-page: #f5f6f8;
   --border: #e8eaed;
@@ -2679,7 +2679,7 @@ details[open] .day-more-btn::before { content: '▼ '; }
 [data-theme="light"] .filter-btn  { color: #64748b; }
 [data-theme="light"] .filter-btn.active { color: #1a1a2e; border-bottom-color: var(--primary); }
 [data-theme="light"] .site-footer { background: #fff; border-top-color: #e2e8f0; }
-[data-theme="light"] .kw-chip     { background: rgba(231,76,60,.08); color: #e74c3c; }
+[data-theme="light"] .kw-chip     { background: rgba(78,201,192,.12); color: #1a9890; }
 [data-theme="light"] .cx-comment  { background: #fff; border-color: #e8eaed; }
 [data-theme="light"] .genre-tag   { background: #f1f5f9; }
 [data-theme="light"] .ad-card     { background: #f8fafc; border-color: #e2e8f0; }
