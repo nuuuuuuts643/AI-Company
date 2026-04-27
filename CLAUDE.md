@@ -1,22 +1,20 @@
 # ⚡ セッション開始時に必ず最初に実行すること
 
 ```bash
-# 1. git lock を退避（FUSEで rm 不可な環境では mv で _garbage に逃がす）
-mkdir -p /Users/murakaminaoya/ai-company/.git/_garbage
-mv /Users/murakaminaoya/ai-company/.git/index.lock /Users/murakaminaoya/ai-company/.git/_garbage/ 2>/dev/null
-mv /Users/murakaminaoya/ai-company/.git/HEAD.lock /Users/murakaminaoya/ai-company/.git/_garbage/ 2>/dev/null
-
-# 2. 同期
-cd /Users/murakaminaoya/ai-company
-git add -A && git commit -m "chore: sync $(date '+%Y-%m-%d %H:%M')" || true
-git pull --rebase origin main || true
-git push || true
-
-# 3. CLAUDE.md の変更検知
-git log --oneline -5 -- CLAUDE.md
+bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 ```
 
-直近の CLAUDE.md commit があれば本ファイルを再読してから続行する。完了後「✅ 起動チェック完了」と報告。
+これ 1 本で以下が走る（詳細は `docs/rules/global-baseline.md` §3）:
+
+1. git lock / rebase-merge 退避（FUSE rm 不可対応）
+2. sync commit + pull (`--no-rebase`) + push
+3. `CLAUDE.md` の最近の commit を表示（変更があれば本ファイルを再読してから続行）
+4. `WORKING.md` 8h 超 stale 自動削除
+5. `TASKS.md` の取消線済み行を `HISTORY.md` に集約移動
+6. `needs-push: yes` 滞留警告
+7. 1 行サマリ出力
+
+スクリプトが完了サマリを出したら「✅ 起動チェック完了」と報告して着手に進む。
 
 ---
 
@@ -67,11 +65,12 @@ git log --oneline -5 -- CLAUDE.md
 
 ---
 
-## ⚡ 規則の置き場所（責務別 4 ファイル）
+## ⚡ 規則の置き場所（責務別ファイル）
 
 | ファイル | 内容 |
 |---|---|
 | `CLAUDE.md` (本ファイル) | 起動チェック・絶対ルール（250 行以内） |
+| `docs/rules/global-baseline.md` | **全プロダクト共通の前提条件**（P002/P006 等で再利用） |
 | `docs/lessons-learned.md` | なぜなぜ事例集（append-only・Why1〜Why5 + 仕組み的対策） |
 | `docs/system-status.md` | プロジェクト状態スナップショット（毎セッション必読） |
 | `docs/rules/bug-prevention.md` | 再発防止ルール表（パターン×ルール） |
@@ -80,7 +79,7 @@ git log --oneline -5 -- CLAUDE.md
 | `docs/rules/user-context-check.md` | 実装前ユーザー文脈チェック（4つの問い） |
 | `docs/flotopic-vision-roadmap.md` | プロダクトビジョン |
 
-タスク開始時に上 4 つを確認し、必要に応じて他を参照する。
+タスク開始時に CLAUDE.md → global-baseline.md → system-status.md の 3 つを確認し、必要に応じて他を参照する。
 
 ---
 

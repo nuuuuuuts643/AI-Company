@@ -1,0 +1,133 @@
+# Global Baseline — 全プロダクト共通の前提条件
+
+> このファイルは P003 Flotopic / P002 Flutter ゲーム / 将来 P006 等、**全プロダクトで共通**の絶対ルール集。
+> 各プロダクトの `CLAUDE.md` から `docs/rules/global-baseline.md` を参照する形で再利用する。
+> ナオヤから繰り返し言われている「前提条件」を 1 ファイルに集約。
+> ルールの長文化を避けるため、**理由は最小限・形式は表**に統一する。
+
+最終更新: 2026-04-28
+
+---
+
+## 1. 振る舞いの絶対ルール（ナオヤ宣言由来）
+
+| ルール | 内容 |
+|---|---|
+| 言語 | 日本語で対応。簡潔・誠実・媚びない |
+| 根本原因 | 対症療法ではなく根本原因を直す。足回りで誤魔化さない |
+| 完了の定義 | push しただけは未完了。本番 URL / CloudWatch / 実機で動作確認した状態のみ「完了」 |
+| 変更前の依存確認 | コード変更前に「このファイルが何に依存されているか」を口に出す。言えなければ変更しない |
+| 並行編集禁止 | 同名ファイルを WORKING.md 宣言なしで触らない |
+| PII / secret 直書き禁止 | env var か AWS Secrets Manager 必須 |
+| なぜなぜ分析 | 問題発生時 Why1〜Why5 + 仕組み的対策 3 つ以上を `docs/lessons-learned.md` に追記。テーブル 1 行は再発防止と呼ばない |
+| 仕組み的対策の質 | 「外部観測（SLI / metric / 警告）」または「物理ゲート（CI / hook / scripts）」を最低 1 つ含む |
+
+---
+
+## 2. ドキュメント構成（1 リポジトリ標準）
+
+| ファイル | 役割 | 上限 |
+|---|---|---|
+| `CLAUDE.md` | 起動チェック + 絶対ルール本体 | **250 行**（CI で物理ガード） |
+| `docs/rules/global-baseline.md` | 本ファイル。全プロダクト共通の前提 | — |
+| `docs/lessons-learned.md` | なぜなぜ事例集（append-only） | — |
+| `docs/system-status.md` | プロジェクト状態スナップショット | 200 行目安 |
+| `docs/rules/*.md` | 領域別ルール（バグ防止・設計ミス等） | 各 100 行目安 |
+| `TASKS.md` | 未着手キュー（取消線済みは triage で HISTORY へ自動移動） | — |
+| `WORKING.md` | 着手中（needs-push カラム必須） | — |
+| `HISTORY.md` | 完了済み（参照専用・append-only） | — |
+
+> ルール表が長くなりすぎたら専門ファイルへ移し、CLAUDE.md からはリンクで参照する。
+
+---
+
+## 3. 起動チェック（毎セッション必須）
+
+```bash
+bash scripts/session_bootstrap.sh
+```
+
+これ 1 本で以下が走る:
+
+1. git lock / rebase-merge を `_garbage/` に退避（FUSE rm 不可環境対応）
+2. ローカル変更を sync commit & pull (`--no-rebase` 固定で中断作らない) & push
+3. `CLAUDE.md` の最近の commit を表示（変更検知 → 再読指示）
+4. `WORKING.md` の 8h 超 stale 行を自動削除
+5. `TASKS.md` の取消線済み行を `HISTORY.md` に集約移動
+6. `WORKING.md` 内の `needs-push: yes` 滞留があれば最優先警告
+7. 1 行サマリ「✅ 起動チェック完了」
+
+> 既存の長い手動 bash ブロックは廃止し、このスクリプト 1 本に集約。
+
+---
+
+## 4. commit / push の物理ゲート
+
+| 対象 | 仕組み |
+|---|---|
+| `feat:` / `fix:` / `perf:` の commit | `Verified: <url>:<status>:<JST_timestamp>` 行必須。`commit-msg` hook で reject |
+| `wip:` `docs:` `chore:` etc. | Verified 不要（互換のためスキップ）|
+| AdSense pub-id ↔ ads.txt 整合 | `pre-commit` hook で物理 reject |
+| 旧フェーズ表記 / 旧 4 セクション | `pre-commit` hook で物理 reject |
+| タスク ID 重複（TASKS.md） | `python3 scripts/triage_tasks.py --check-duplicate-task-ids` で CI 検出（exit 1）|
+| CLAUDE.md 250 行超過 | CI で物理ガード |
+
+hook インストール: `bash scripts/install_hooks.sh`（clone 直後 1 回）。
+
+---
+
+## 5. WORKING.md 必須カラム
+
+| カラム | 役割 |
+|---|---|
+| タスク名 | `[Code]` または `[Cowork]` プレフィックス + ID + 短い説明 |
+| 種別 | `Code` / `Cowork` |
+| 変更予定ファイル | パスをカンマ区切り（並行編集競合検知のキー） |
+| 開始 JST | `YYYY-MM-DD HH:MM`（8h TTL の判定キー）|
+| needs-push | `yes` / `no`（コード変更を含むなら `yes`、push 後 `no`）|
+
+---
+
+## 6. AI が動きやすくなるための原則
+
+| 原則 | 理由 |
+|---|---|
+| ルールは表で書く | LLM はテーブル形式の方が遵守率が高い。長文の散文ルールは無視されやすい |
+| 「気を付ける」は禁止 | 仕組み的対策に「注意する」「気を付ける」は書かない。CI / hook / metric / SLI / scripts のいずれかで物理化する |
+| 1 ステップ 1 動作 | 「A して B して C する」を 1 行に押し込まない。LLM は途中 step を端折る |
+| 例を 1 つ必ず添える | 抽象ルールには「✅ 良い例」「❌ 悪い例」をペアで書く |
+| 起動コストを下げる | CLAUDE.md は 250 行・必読は 4 ファイル以内・サマリは bootstrap が 1 行で出す |
+| 同じ規則を 2 箇所に書かない | 重複は drift の原因。CLAUDE.md とこのファイルの両方に同じ表を書かない |
+
+---
+
+## 7. 全プロダクト共通の DO / DON'T
+
+**DO**:
+- 不確実な作業前に依存ファイルを声に出す
+- 完了報告に証跡（URL / status / log path）を必ず添える
+- 8h 超のセッションは WORKING.md に残さない
+- なぜなぜは Why1〜Why5 + 仕組み的対策 3 つ以上で書く
+
+**DON'T**:
+- push しただけで「完了」と報告
+- ルールを散文で書く（表形式に統一）
+- 同じタスク ID を別件に再利用（衝突回避）
+- 「Cowork は git を叩かない」運用に戻す（push 滞留が起きるため失敗済み）
+
+---
+
+## 8. プロダクト固有ルールへの参照
+
+各プロダクトの `CLAUDE.md` は本ファイルを参照しつつ、固有ルールを追加する。
+
+| プロダクト | CLAUDE.md | 固有ルール先 |
+|---|---|---|
+| P003 Flotopic | `/Users/murakaminaoya/ai-company/CLAUDE.md` | `docs/rules/bug-prevention.md` `docs/rules/design-mistakes.md` |
+| P002 Flutter | `projects/P002-flutter-game/briefing.md` | （未整備）|
+
+---
+
+## 改訂履歴
+
+- **2026-04-28** 初版（schedule-task で運用ルール仕組み化に伴い分離）
