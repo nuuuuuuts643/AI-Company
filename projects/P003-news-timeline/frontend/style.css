@@ -1762,13 +1762,7 @@ details[open] .day-more-btn::before { content: '▼ '; }
   overflow: hidden;
 }
 .featured-topic-snippet {
-  font-size: .82rem;
-  color: #8A8A9A;
-  line-height: 1.5;
-  margin-bottom: 10px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  display: none;
 }
 .featured-topic-cta {
   font-size: .82rem;
