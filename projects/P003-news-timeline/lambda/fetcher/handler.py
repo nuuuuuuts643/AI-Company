@@ -186,6 +186,32 @@ def _fetch_ogp_group(tid, urls):
     return tid, None
 
 
+def _topic_cluster_dedup(topics):
+    """同一イベントが複数topicIdに分裂した場合に統合する二次dedup。
+    タイトルに cluster() と同じ Jaccard 閾値(0.35)を適用し、
+    類似クラスタ内は velocityScore 最大のトピックを残す。
+    """
+    if len(topics) < 2:
+        return topics
+    fake = [
+        {'title': (t.get('generatedTitle') or t.get('title', '')), '_idx': i}
+        for i, t in enumerate(topics)
+    ]
+    groups = cluster(fake)
+    result = []
+    for group in groups:
+        if len(group) == 1:
+            result.append(topics[group[0]['_idx']])
+        else:
+            group_topics = [topics[a['_idx']] for a in group]
+            best = max(group_topics, key=lambda t: float(t.get('velocityScore', 0) or 0))
+            merged_count = len(group_topics)
+            if merged_count > 1:
+                print(f'[dedup] 類似topicマージ {merged_count}件: {best.get("generatedTitle") or best.get("title", "")[:40]}')
+            result.append(best)
+    return result
+
+
 def lambda_handler(event, context):
     # Step 0: フィルター重みをS3から読み込む（コールド起動時のみ実行）
     load_filter_weights()
@@ -558,6 +584,8 @@ def lambda_handler(event, context):
                 dedup_core[kc] = t
 
         topics_deduped_all = sorted(dedup_long.values(), key=lambda x: int(x.get('score', 0) or 0), reverse=True)
+        # 二次dedup: タイトル類似度クラスタリングで同一イベントの重複topicIdを統合
+        topics_deduped_all = _topic_cluster_dedup(topics_deduped_all)
         # 2件以上の記事を持つトピックのみtopics.jsonに含める（1件=コアバリュー違反）
         # velocityScore降順でソートし上位500件に絞り込む
         topics_deduped = sorted(
