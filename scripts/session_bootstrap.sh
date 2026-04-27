@@ -15,9 +15,29 @@
 # 失敗してもセッション続行できるよう、各ステップは ` || true ` で吸収する。
 
 set -u
-REPO="${REPO:-/Users/OWNER/ai-company}"
-[ -d "$REPO" ] || REPO="/sessions/keen-optimistic-keller/mnt/ai-company"
-[ -d "$REPO" ] || { echo "❌ repo not found"; exit 1; }
+# REPO 検出（優先度順）:
+#   1. 環境変数 REPO （明示指定があれば最優先）
+#   2. Mac 標準 path （Code セッション）
+#   3. Cowork VM mount path （session ID は毎回変わるため glob で検出）
+# 過去の bug: ハードコードされた session ID (`/sessions/<old-id>/mnt/...`) が
+# 新セッションでは存在せず「❌ repo not found」で起動チェック自体が失敗した。
+# 修正: glob で `/sessions/*/mnt/ai-company` を探索し、最初に見つかったものを使う。
+REPO="${REPO:-}"
+if [ -z "$REPO" ] || [ ! -d "$REPO" ]; then
+  REPO=""
+  if [ -d "/Users/OWNER/ai-company" ]; then
+    REPO="/Users/OWNER/ai-company"
+  else
+    # Cowork VM 環境: session ID は不定なので glob で発見
+    for cand in /sessions/*/mnt/ai-company; do
+      if [ -d "$cand" ]; then
+        REPO="$cand"
+        break
+      fi
+    done
+  fi
+fi
+[ -d "$REPO" ] || { echo "❌ repo not found (REPO=$REPO)"; exit 1; }
 cd "$REPO"
 
 mkdir -p .git/_garbage 2>/dev/null
@@ -48,7 +68,7 @@ done
 # rebase 系の中断を作らないため pull は merge 戦略で固定。
 git add -A 2>/dev/null
 if ! git diff --cached --quiet 2>/dev/null; then
-  git commit -m "chore: bootstrap sync $(date '+%Y-%m-%d %H:%M JST')" 2>/dev/null || true
+  git commit -m "chore: bootstrap sync $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" 2>/dev/null || true
 fi
 git pull --no-rebase --no-edit origin main 2>&1 | tail -2 || true
 mv .git/index.lock .git/_garbage/ 2>/dev/null
@@ -98,7 +118,7 @@ fi
 
 # ---- 7. サマリ出力 ----
 echo "─────────────────────────────────────────"
-echo "✅ 起動チェック完了 ($(date '+%Y-%m-%d %H:%M JST'))"
+echo "✅ 起動チェック完了 ($(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST'))"
 echo "  CLAUDE.md latest: $LATEST_CLAUDE"
 if [ -n "$NEEDS_PUSH" ]; then
   echo "  ⚠️ needs-push 滞留:"

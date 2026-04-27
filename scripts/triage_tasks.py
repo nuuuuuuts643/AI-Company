@@ -21,22 +21,40 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import glob
 import os
 import re
 import sys
 from pathlib import Path
 
-REPO_CANDIDATES = [
-    Path("/Users/OWNER/ai-company"),
-    Path("/sessions/keen-optimistic-keller/mnt/ai-company"),
-    Path(os.getcwd()),
-]
+# REPO 検出（優先度順）:
+#   1. 環境変数 REPO （明示指定があれば最優先）
+#   2. Mac 標準 path （Code セッション）
+#   3. Cowork VM mount path （session ID は毎回変わるため glob で探す）
+#   4. cwd フォールバック
+# 過去の bug: ハードコードされた古い session ID が新セッションでは存在せず
+# `PermissionError` でスクリプト全体が落ちて WORKING.md stale が掃除されなかった。
+def _candidates() -> list[Path]:
+    cand: list[Path] = []
+    env_repo = os.environ.get("REPO")
+    if env_repo:
+        cand.append(Path(env_repo))
+    cand.append(Path("/Users/OWNER/ai-company"))
+    # /sessions/*/mnt/ai-company を glob で探索（session ID 不定対策）
+    for p in glob.glob("/sessions/*/mnt/ai-company"):
+        cand.append(Path(p))
+    cand.append(Path(os.getcwd()))
+    return cand
 
 
 def find_repo() -> Path:
-    for p in REPO_CANDIDATES:
-        if (p / "CLAUDE.md").exists():
-            return p
+    for p in _candidates():
+        try:
+            if (p / "CLAUDE.md").exists():
+                return p
+        except (PermissionError, OSError):
+            # 別 session の mount は読み取り権限が無いことがある。skip して次の候補へ。
+            continue
     raise SystemExit("repo root not found (CLAUDE.md is the marker)")
 
 
@@ -50,13 +68,25 @@ WORKING_ROW_RE = re.compile(
 )
 
 
-def clean_working_md(repo: Path, max_age_h: int = 8) -> int:
+def clean_working_md(repo: Path, max_age_h: int = 8, future_tolerance_h: int = 1) -> int:
+    """WORKING.md の stale 行を削除する。
+
+    削除基準（どちらか満たすと stale）:
+      1. row_time が cutoff (now JST - max_age_h) より古い
+      2. row_time が now JST より future_tolerance_h を超えて未来 → タイムスタンプ書き間違い扱い
+
+    過去の bug: 「2026-04-28 18:30」と書かれた行が実時刻より 14h 未来になっており
+    上記 1. の条件では削除されず orphan として残り続けた。Code/Cowork セッションは
+    手元の clock や手書きで日付を入れるため、未来日付混入を異常として扱う。
+    """
     path = repo / "WORKING.md"
     if not path.exists():
         return 0
     text = path.read_text(encoding="utf-8")
     lines = text.split("\n")
-    cutoff = dt.datetime.utcnow() + dt.timedelta(hours=9) - dt.timedelta(hours=max_age_h)
+    now_jst = dt.datetime.utcnow() + dt.timedelta(hours=9)
+    cutoff = now_jst - dt.timedelta(hours=max_age_h)
+    future_limit = now_jst + dt.timedelta(hours=future_tolerance_h)
     removed = 0
     new_lines: list[str] = []
     for line in lines:
@@ -68,7 +98,7 @@ def clean_working_md(repo: Path, max_age_h: int = 8) -> int:
             except ValueError:
                 new_lines.append(line)
                 continue
-            if ts < cutoff:
+            if ts < cutoff or ts > future_limit:
                 removed += 1
                 continue
         new_lines.append(line)
