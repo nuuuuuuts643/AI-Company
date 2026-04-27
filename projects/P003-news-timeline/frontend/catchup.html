@@ -92,7 +92,7 @@
       font-weight: 600;
     }
 
-    /* ── フィルターバー ── */
+    /* ── フィルターバー ── #14: sticky を解除して通常 flow に戻す（モバイル占有率削減） */
     .filter-bar {
       display: flex;
       flex-wrap: wrap;
@@ -101,9 +101,6 @@
       padding: 14px 20px;
       background: var(--bg-page);
       border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      z-index: 10;
     }
     [data-theme="dark"] .filter-bar { background: #0f1629; }
     .filter-bar label {
@@ -409,7 +406,7 @@
           </button>
           <div class="user-dropdown" id="user-dropdown" role="menu">
             <a href="mypage.html" class="user-dd-item" role="menuitem"><i data-lucide="user" aria-hidden="true"></i> マイページ</a>
-            <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem">ログアウト</button>
+            <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem" style="display:none;">ログアウト</button>
           </div>
         </div>
         <button id="auth-signout-btn" style="display:none;"></button>
@@ -430,10 +427,9 @@
   </div>
 </div>
 
-<!-- ヒーロー：期間セレクター -->
+<!-- #28: ヒーロー説明文を撤去（タイトルと期間セレクターだけで十分） -->
 <div class="catchup-hero">
   <h1>振り返る <i data-lucide="star" aria-hidden="true"></i></h1>
-  <p>この期間内に初めて出現したトピックをお届けします</p>
 
   <div class="period-selector" id="periodSelector">
     <button class="period-btn" data-days="1">過去1日</button>
@@ -465,8 +461,7 @@
   <span class="result-count" id="resultCount">読み込み中…</span>
 </div>
 
-<!-- AI免責 -->
-<p style="margin:4px 16px 8px;font-size:.75rem;color:#94a3b8;"><i data-lucide="alert-triangle" aria-hidden="true"></i>️ AI自動生成。情報の正確性は各元記事をご確認ください。<a href="contact.html" style="color:#94a3b8;text-decoration:underline;margin-left:4px;">誤情報のご指摘</a></p>
+<!-- #15: AI 免責は footer に集約済み → ここから撤去 -->
 
 <!-- トピックリスト -->
 <div class="catchup-list" id="catchupList">
@@ -757,13 +752,12 @@ setTimeout(() => {
     <a href="privacy.html">プライバシーポリシー</a>
     <a href="contact.html">お問い合わせ・削除依頼</a>
   </div>
-  <div class="site-footer-copy">記事の著作権は各報道機関に帰属します。AI要約は自動生成です。© 2026 Flotopic</div>
+  <div class="site-footer-copy">⚠️ 本サイトの要約・分析は AI 自動生成のため、情報の正確性は各元記事をご確認ください。記事の著作権は各報道機関に帰属します。© 2026 Flotopic</div>
 </footer>
 <nav class="bottom-nav" aria-label="ナビゲーション">
-  <a href="index.html" class="bn-item"><span class="bn-icon"><i data-lucide="home" aria-hidden="true"></i></span><span>TOPICS</span></a>
-  <a href="catchup.html" class="bn-item active"><span class="bn-icon"><i data-lucide="clock" aria-hidden="true"></i></span><span>振り返る</span></a>
-  <a href="index.html?focus=search" class="bn-item"><span class="bn-icon"><i data-lucide="search" aria-hidden="true"></i></span><span>SEARCH</span></a>
-  <a href="mypage.html" class="bn-item"><span class="bn-icon"><i data-lucide="user" aria-hidden="true"></i></span><span>HOME</span></a>
+  <a href="index.html" class="bn-item"><span class="bn-icon"><i data-lucide="home" aria-hidden="true"></i></span><span>ホーム</span></a>
+  <a href="index.html?focus=search" class="bn-item"><span class="bn-icon"><i data-lucide="search" aria-hidden="true"></i></span><span>検索</span></a>
+  <a href="mypage.html" class="bn-item"><span class="bn-icon"><i data-lucide="user" aria-hidden="true"></i></span><span>マイページ</span></a>
 </nav>
 <script src="js/auth.js"></script>
 <!-- Lucide Icons (ISC license) -->

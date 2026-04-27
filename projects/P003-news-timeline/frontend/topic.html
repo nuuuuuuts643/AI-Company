@@ -183,17 +183,18 @@
       position: relative;
       z-index: 1;
     }
+    /* #27: コントラスト改善（rgba .6 → .85, font-size .8 → .85rem） */
     .topic-back-link {
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      color: rgba(255,255,255,0.6);
+      color: rgba(255,255,255,0.85);
       text-decoration: none;
-      font-size: .8rem;
+      font-size: .85rem;
       margin-bottom: 10px;
       transition: color .15s;
     }
-    .topic-back-link:hover { color: rgba(255,255,255,0.9); }
+    .topic-back-link:hover { color: #fff; }
     .parent-topic-link {
       display: inline-flex;
       align-items: center;
@@ -291,7 +292,7 @@
           </button>
           <div class="user-dropdown" id="user-dropdown" role="menu">
             <a href="mypage.html" class="user-dd-item" role="menuitem"><i data-lucide="user" aria-hidden="true"></i> マイページ</a>
-            <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem">ログアウト</button>
+            <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem" style="display:none;">ログアウト</button>
           </div>
         </div>
         <button id="auth-signout-btn" style="display:none;"></button>
@@ -308,16 +309,19 @@
     <a href="index.html" class="topic-back-link">← 一覧に戻る</a>
     <div id="parent-topic-link" class="parent-topic-link" style="display:none;"></div>
     <h1 id="topic-title" class="topic-hero-title">読み込み中...</h1>
+    <!-- #24: hero バッジを2個以内に整理（status-badge と genre-badge のみ。views30m-badge は撤去） -->
     <div class="topic-hero-meta">
       <span id="status-badge" class="status-badge" style="display:none;"></span>
       <span id="genre-badge"></span>
-      <span id="views30m-badge" class="views30m-badge" style="display:none;"></span>
     </div>
+    <!-- #8: シェア4ボタン → お気に入り独立 + シェア1ボタン（Web Share API → fallback X） -->
     <div class="topic-share-bar">
       <button id="topic-fav-btn" class="topic-fav-btn" title="お気に入りに追加" aria-label="お気に入り"><i data-lucide="heart" class="lucide-fill" aria-hidden="true"></i> お気に入り</button>
-      <button id="share-btn" style="display:none;align-items:center;gap:5px;padding:5px 14px;border:none;border-radius:16px;background:rgba(255,255,255,.15);color:#fff;font-size:.8rem;font-weight:600;cursor:pointer;backdrop-filter:blur(4px);" aria-label="シェア"><i data-lucide="share-2" aria-hidden="true"></i> シェア</button>
-      <a id="x-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:#000;color:#fff;font-size:.8rem;font-weight:700;text-decoration:none;" aria-label="Xでシェア">𝕏 シェア</a>
-      <a id="threads-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:rgba(255,255,255,.18);color:#fff;font-size:.8rem;font-weight:600;text-decoration:none;" aria-label="Threads"><i data-lucide="messages-square" aria-hidden="true"></i> Threads</a>
+      <button id="share-btn" style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border:none;border-radius:16px;background:rgba(255,255,255,.15);color:#fff;font-size:.8rem;font-weight:600;cursor:pointer;backdrop-filter:blur(4px);" aria-label="シェア"><i data-lucide="share-2" aria-hidden="true"></i> シェア</button>
+      <!-- フォールバック用（detail.js が Web Share API 非対応端末向けに表示制御） -->
+      <a id="x-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;background:#000;color:#fff;font-size:.8rem;font-weight:700;text-decoration:none;" aria-label="Xでシェア">𝕏</a>
+      <a id="threads-share-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none;" aria-hidden="true"></a>
+      <span id="views30m-badge" class="views30m-badge" style="display:none;"></span>
     </div>
     <div id="storymap-link-container"></div>
   </div>
@@ -339,8 +343,8 @@
         <div class="sk-line sk-tiny"></div>
       </div>
     </div>
-    <p style="margin-top:12px;font-size:.75rem;color:#94a3b8;"><i data-lucide="alert-triangle" aria-hidden="true"></i>️ AI自動生成。情報の正確性は各元記事をご確認ください。<a href="contact.html" style="color:#94a3b8;text-decoration:underline;margin-left:4px;">誤情報のご指摘</a></p>
-    <p style="margin-top:4px;font-size:.73rem;color:#94a3b8;">最終更新: <time id="topic-last-updated" datetime=""></time></p>
+    <!-- #15: AI 免責は footer に集約 → ここでは最終更新だけ表示 -->
+    <p style="margin-top:8px;font-size:.73rem;color:#94a3b8;">最終更新: <time id="topic-last-updated" datetime=""></time></p>
   </div>
 
   <div class="card">
@@ -357,7 +361,12 @@
     </div>
   </div>
 
-  <!-- 広告: 記事流れの直後 -->
+  <div class="card">
+    <h2>関連記事</h2>
+    <div id="related-articles"></div>
+  </div>
+
+  <!-- #21: 広告位置を「関連記事の後」に移動（AI解析→記事の流れ→関連記事→広告→Discovery の順） -->
   <div class="ad-slot" style="margin:4px 0 8px;">
     <!-- PC: 728×90 -->
     <div class="ad-728-scale-wrapper ad-pc-only">
@@ -371,25 +380,17 @@
     </div>
   </div>
 
-  <div class="card">
-    <h2>関連記事</h2>
-    <div id="related-articles"></div>
-  </div>
-
   <!-- Discovery (関連トピック・親子関係) -->
   <div id="discovery-section"></div>
 
   <div class="card">
     <div class="chart-header">
       <h2>推移グラフ</h2>
+      <!-- #7: timerange を 4 個に削減（24h / 1週間 / 1ヶ月 / 全期間） -->
       <div class="timerange-btns">
         <button class="tr-btn active" data-range="1d">24h</button>
-        <button class="tr-btn" data-range="3d">3日</button>
-        <button class="tr-btn" data-range="7d">7日</button>
+        <button class="tr-btn" data-range="7d">1週間</button>
         <button class="tr-btn" data-range="1m">1ヶ月</button>
-        <button class="tr-btn" data-range="3m">3ヶ月</button>
-        <button class="tr-btn" data-range="6m">半年</button>
-        <button class="tr-btn" data-range="1y">1年</button>
         <button class="tr-btn" data-range="all">全期間</button>
       </div>
     </div>
@@ -410,18 +411,17 @@
   <div class="card comments-card" id="comments-section">
     <h2>コメント</h2>
 
-    <!-- 未ログイン時のログイン促進 -->
-    <div class="comment-login-prompt" id="comment-login-prompt">
-      <p class="clp-title"><i data-lucide="message-circle" aria-hidden="true"></i> このトピックについて話し合いませんか？</p>
-      <p class="clp-sub">Googleアカウントでログインすると、コメント投稿・お気に入り保存・閲覧履歴の同期が使えます。</p>
-      <button class="comment-login-google-btn" onclick="document.getElementById('auth-signin-btn').click()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- #17: コメントログインプロンプトを1行に圧縮（タイトル + ボタン） -->
+    <div class="comment-login-prompt" id="comment-login-prompt" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;text-align:left;">
+      <span style="font-size:.85rem;color:#334155;flex:1;min-width:0;">コメントするには <strong>Googleログイン</strong> →</span>
+      <button class="comment-login-google-btn" style="padding:6px 14px;font-size:.85rem;" onclick="document.getElementById('auth-signin-btn').click()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
           <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
           <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
           <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
         </svg>
-        Googleでログイン
+        ログイン
       </button>
     </div>
 
@@ -459,15 +459,13 @@
     </div>
   </div>
 
-  <div class="back-to-topics">
-    <a href="/index.html" class="btn-back">← TOPICSに戻る</a>
-  </div>
+  <!-- #6: 「← TOPICSに戻る」は撤去（hero内「← 一覧に戻る」と重複）。 -->
 
 </main>
 
-<!-- スティッキーCTAバー（モバイルのみ・コメントセクション表示前まで） -->
+<!-- #2: お気に入りは hero に集約。sticky bar は「コメントする」CTA のみ。
+     表示制御は detail.js: hero を抜けて記事を読み始めたら表示、コメントセクションに入ったら非表示 -->
 <div class="sticky-cta-bar" id="sticky-cta-bar" aria-hidden="true">
-  <button class="scb-fav" id="scb-fav-btn" aria-label="お気に入り"><i data-lucide="heart" class="lucide-fill" aria-hidden="true"></i> お気に入り</button>
   <button class="scb-comment" id="scb-comment-btn"><i data-lucide="message-circle" aria-hidden="true"></i> コメントする</button>
 </div>
 
@@ -479,20 +477,17 @@
     <a href="privacy.html">プライバシーポリシー</a>
     <a href="contact.html">お問い合わせ・削除依頼</a>
   </div>
-  <div class="site-footer-copy">記事の著作権は各報道機関に帰属します。AI要約は自動生成です。© 2026 Flotopic</div>
+  <div class="site-footer-copy">⚠️ 本サイトの要約・分析は AI 自動生成のため、情報の正確性は各元記事をご確認ください。記事の著作権は各報道機関に帰属します。© 2026 Flotopic</div>
 </footer>
 <nav class="bottom-nav" id="bottom-nav" aria-label="ナビゲーション">
   <a href="index.html" class="bn-item" id="bn-home">
-    <span class="bn-icon"><i data-lucide="home" aria-hidden="true"></i></span><span>TOPICS</span>
+    <span class="bn-icon"><i data-lucide="home" aria-hidden="true"></i></span><span>ホーム</span>
   </a>
-  <a href="catchup.html" class="bn-item" id="bn-catchup">
-    <span class="bn-icon"><i data-lucide="clock" aria-hidden="true"></i></span><span>振り返る</span>
+  <a href="index.html?focus=search" class="bn-item" id="bn-search">
+    <span class="bn-icon"><i data-lucide="search" aria-hidden="true"></i></span><span>検索</span>
   </a>
-  <button class="bn-item" id="bn-search">
-    <span class="bn-icon"><i data-lucide="search" aria-hidden="true"></i></span><span>SEARCH</span>
-  </button>
   <a href="mypage.html" class="bn-item" id="bn-mypage" style="position:relative;">
-    <span class="bn-icon"><i data-lucide="user" aria-hidden="true"></i></span><span>HOME</span>
+    <span class="bn-icon"><i data-lucide="user" aria-hidden="true"></i></span><span>マイページ</span>
     <span id="notif-badge" style="display:none;"></span>
   </a>
 </nav>

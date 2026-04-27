@@ -1,5 +1,15 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { overflow-x: hidden; }
+/* ===== 横スクロール防止（仕組み的対策・2026-04-28）=====
+   理由: モバイルで意図せず横スクロール発生 → ユーザー体感「壊れている」
+   ルール: 新要素追加時は max-width: 100% / overflow-x: hidden をチェック
+   - body は overflow-x: clip でスクロール完全遮断（hidden より強力）
+   - 広告枠・canvas など固定幅要素にも max-width:100% guard */
+html { overflow-x: hidden; max-width: 100%; }
+body { overflow-x: clip; max-width: 100vw; position: relative; }
+img, iframe, video, embed, object { max-width: 100%; height: auto; }
+canvas { max-width: 100%; }
+.admax-ads { max-width: 100%; }
+.ad-slot { max-width: 100%; overflow: hidden; }
 
 /* ═══════════════════════════════════
    LUCIDE ICONS (ISC license, https://lucide.dev)
@@ -1266,6 +1276,11 @@ details[open] .day-more-btn::before { content: '▼ '; }
   background: var(--surface);
   box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
 }
+/* #30: モバイルで focus 時に行数拡張（min-height で実現。rows 属性は HTML 側） */
+@media (max-width: 768px) {
+  .comment-textarea { min-height: 4.5em; }
+  .comment-textarea:focus { min-height: 7em; }
+}
 
 .comment-char-count { text-align: right; font-size: .72rem; color: var(--text-muted); margin-top: 4px; }
 .comment-char-warn .comment-char-count { color: #f59e0b; font-weight: 700; }
@@ -1883,10 +1898,10 @@ details[open] .day-more-btn::before { content: '▼ '; }
 }
 #load-more-container button:active { transform: translateY(0); }
 
-/* ===== SKELETON CARD ===== */
+/* ===== SKELETON CARD =====  #35: shimmer のコントラストとアニメ強化 */
 @keyframes shimmer {
-  0%   { background-position: -600px 0; }
-  100% { background-position: 600px 0; }
+  0%   { background-position: -800px 0; }
+  100% { background-position: 800px 0; }
 }
 .skeleton-card {
   background: var(--surface);
@@ -1902,18 +1917,18 @@ details[open] .day-more-btn::before { content: '▼ '; }
   flex: 0 0 88px;
   width: 88px; height: 88px;
   border-radius: 12px;
-  background: linear-gradient(90deg, #f3f4f6 25%, #e9eaec 50%, #f3f4f6 75%);
+  background: linear-gradient(90deg, #ebedf0 18%, #d8dbe0 50%, #ebedf0 82%);
   background-size: 1200px 100%;
-  animation: shimmer 1.6s ease-in-out infinite;
+  animation: shimmer 1.2s linear infinite;
 }
 .skeleton-card .sk-body { flex: 1; min-width: 0; }
 .skeleton-card .sk-line {
   height: 11px;
   border-radius: 6px;
   margin-bottom: 9px;
-  background: linear-gradient(90deg, #f3f4f6 25%, #e9eaec 50%, #f3f4f6 75%);
+  background: linear-gradient(90deg, #ebedf0 18%, #d8dbe0 50%, #ebedf0 82%);
   background-size: 1200px 100%;
-  animation: shimmer 1.6s ease-in-out infinite;
+  animation: shimmer 1.2s linear infinite;
 }
 .skeleton-card .sk-line.sk-title  { width: 88%; height: 13px; }
 .skeleton-card .sk-line.sk-short  { width: 60%; }
@@ -2862,6 +2877,8 @@ details[open] .day-more-btn::before { content: '▼ '; }
 }
 .back-to-top-btn.visible { opacity: 1; transform: none; pointer-events: auto; }
 .back-to-top-btn:hover { background: #4EC9C0; }
+/* #31: sticky-cta-bar(z-index:200)と同時表示時は back-to-top を隠す */
+body:has(.sticky-cta-bar.visible) .back-to-top-btn { display: none; }
 @media (max-width: 600px) { .back-to-top-btn { bottom: 76px; right: 12px; } }
 
 /* ===== 読書進捗バー ===== */
@@ -2926,7 +2943,7 @@ details[open] .day-more-btn::before { content: '▼ '; }
   cursor: pointer;
   font-family: inherit;
   color: var(--text-muted, #94a3b8);
-  font-size: .62rem;
+  font-size: .75rem;
   font-weight: 600;
   transition: color .15s;
   -webkit-tap-highlight-color: transparent;
