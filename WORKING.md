@@ -79,4 +79,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST |
 |---|---|---|---|
-| [Cowork] スケジュールタスク調査結果+滞留fix push (T218 wallclock guard 等) | Cowork | TASKS.md, HISTORY.md, docs/scheduled-task-report-2026-04-28.md, frontend/*.html, lambda/processor/handler.py, lambda/processor/proc_ai.py, lambda/contact/handler.py | 2026-04-28 01:35 JST |
+| [Cowork-B] T227 Auth Lambda CORS制限 + T228 contact rate-limit | Cowork | lambda/auth/handler.py, lambda/contact/handler.py(追加部分のみ), TASKS.md, HISTORY.md | 2026-04-28 03:30 JST |
