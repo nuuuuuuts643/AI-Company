@@ -147,6 +147,31 @@ function renderDetail(data) {
   const {meta, timeline, views} = data;
   if (!meta) return;
 
+  // T2026-0428-AI: meta.articleCount は fetcher 側で URL 重複未 dedup な水増し値の場合がある。
+  // 表示記事数（timeline / story-timeline で実際にユーザーが見る件数）と一致させるため
+  // SNAP[*].articles を URL + source::title で dedup したカウントを真とする。
+  // 旧データ（articleCount=20 だが実 unique URL は 7）でも整合表示できるようにする。
+  const computeUniqueArticleCount = () => {
+    if (!Array.isArray(timeline) || !timeline.length) return 0;
+    const seenUrls = new Set();
+    const seenST   = new Set();
+    let n = 0;
+    for (const snap of [...timeline].reverse()) {
+      for (const a of (snap.articles || [])) {
+        const st = `${a.source}::${a.title}`;
+        if (a.url && !seenUrls.has(a.url) && !seenST.has(st)) {
+          seenUrls.add(a.url); seenST.add(st); n++;
+        }
+      }
+    }
+    return n;
+  };
+  const uniqueArtCount = computeUniqueArticleCount();
+  // SNAP.articles は URL+source::title で dedup された「実際にユーザーが見る記事数」。
+  // ここを表示の真とすることで、グラフ・フッター・タイムラインヘッダーが全て一致する。
+  // articles 配列が空の旧 SNAP のみの場合は uniqueArtCount=0 → 既存値にフォールバック。
+  const displayArticleCount = uniqueArtCount > 0 ? uniqueArtCount : Number(meta.articleCount || 0);
+
   recordTopicView(meta);
   fetchAndShowViews30m(meta.topicId);
   document.title = `${meta.generatedTitle||meta.title} | Flotopic`;
@@ -312,7 +337,7 @@ function renderDetail(data) {
     }).join('');
 
     if (hasSummary) {
-      const _artCnt = meta.articleCount || 0;
+      const _artCnt = displayArticleCount;
       const _srcs   = Array.isArray(meta.sources) ? meta.sources : [];
       const trustFooterHtml = _artCnt ? (() => {
         const cntText = `${_artCnt}件の記事を分析`;
@@ -447,7 +472,7 @@ function renderDetail(data) {
       aiAnalysisEl.style.display = 'block';
     } else {
       // AI処理待ち
-      const cnt = meta.articleCount || 1;
+      const cnt = displayArticleCount || 1;
       const sources = (meta.sources || []).slice(0, 3).join('・');
       aiAnalysisEl.innerHTML = `
         <div class="ai-analysis-inner ai-pending">
@@ -526,6 +551,16 @@ function renderDetail(data) {
         const commentCnt  = Number(meta.commentCount  || 0);
         const favoriteCnt = Number(meta.favoriteCount || 0);
 
+        // T2026-0428-AI: SNAP.articleCount は fetcher の cnt = len(g) で URL 重複未 dedup な
+        // 水増し値。一方 SNAP.articles は URL で dedup された実体。フロント表示「全 X 件」と
+        // 整合させるため、articles.length が取れる SNAP では articles.length を使う。
+        // (旧バグ: cnt=20 だが unique URL は 7 で「グラフ 20 件 vs 表示 7 件」乖離)
+        const snapArtCount = (s) => {
+          const arts = s.articles;
+          if (Array.isArray(arts) && arts.length) return arts.length;
+          return Number(s.articleCount || 0);
+        };
+
         let labels, scores, mediaCnts, engagements;
         if (aggregate) {
           const byDay = {};
@@ -535,7 +570,7 @@ function renderDetail(data) {
             const dateKey = d.toISOString().slice(0, 10).replace(/-/g, '');
             if (!byDay[day]) byDay[day] = {scores:[], media:[], hatenas:[], dateKey};
             byDay[day].scores.push(Number(s.score||0));
-            byDay[day].media.push(Number(s.articleCount||0));
+            byDay[day].media.push(snapArtCount(s));
             byDay[day].hatenas.push(Number(s.hatenaCount||0));
           });
           labels      = Object.keys(byDay);
@@ -549,14 +584,8 @@ function renderDetail(data) {
         } else {
           labels      = src.map(s => fmtDate(s.timestamp));
           scores      = src.map(s => Number(s.score||0));
-          mediaCnts   = src.map(s => Number(s.articleCount||0));
+          mediaCnts   = src.map(s => snapArtCount(s));
           engagements = src.map(s => Number(s.hatenaCount||0) + totalViews + commentCnt * 3 + favoriteCnt * 5);
-        }
-
-        // SNAPのarticleCountはスナップショット値。topics.jsonの値（meta.articleCount）が正。
-        // グラフ最終点を現在の記事数で補正して不一致を解消する。
-        if (mediaCnts.length && meta.articleCount) {
-          mediaCnts[mediaCnts.length - 1] = meta.articleCount;
         }
 
         const hasEngagement = engagements.some(v => v > 0);
