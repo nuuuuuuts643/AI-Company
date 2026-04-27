@@ -1372,3 +1372,14 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~TBD-SLI~~ | ✅ 完了 | ~~**`docs/sli-slo.md` 新設**~~ → 2026-04-28 18:10 完了。`docs/sli-slo.md` 新規。SLI 1-7 列挙 (topics.json 鮮度・トップページ HTTP/2/AI カバレッジ/storyPhase 偏り/fetcher 成功率/ads.txt 整合/セキュリティヘッダ)。実装済 SLI には「監視ファイル」、未実装 SLI には「TBD」を明記。再現可能 curl/jq 併記で「Lambda metric だけで設計するな」を物理化。 | (済) | 2026-04-28 |
 
 </details>
+
+
+### 自動 triage: 2026-04-28 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T251~~ | ✅ 完了 | ~~**HSTS / X-Frame-Options / Permissions-Policy 不在**~~ → 2026-04-28 04:20 JST 検証完了。`curl -sIS https://flotopic.com/` 実行で `x-frame-options: DENY` / `referrer-policy: strict-origin-when-cross-origin` / `x-content-type-options: nosniff` / `strict-transport-security: max-age=31536000; includeSubDomains` / `permissions-policy: camera=(), microphone=(), geolocation=()` 全て返却を確認。CloudFront Response Headers Policy 既に landing 済。`scripts/security_headers_check.sh` の CI 化は T2026-0428-L に分離。 | (済) | 2026-04-28 |
+| ~~T2026-0428-G~~ | ✅ 完了 | ~~**schedule-task の commit message に `[Schedule-KPI]` 行強制**~~ → 2026-04-28 19:00 完了。`scripts/install_hooks.sh` の commit-msg hook 拡張。commit message に "schedule-task" を含み `[Schedule-KPI] implemented=N created=M closed=K queue_delta=±X` 行が無ければ物理 reject。テスト 3 ケース通過 (no-KPI 弾く / with-KPI 通す / bootstrap-chore 誤発火しない)。`bash scripts/install_hooks.sh` 再導入で `.git/hooks/commit-msg` に landing 済み。 | (済) | 2026-04-28 |
+| ~~T2026-0428-I~~ | ✅ 完了 | ~~**`session_bootstrap.sh` schedule mode 検知 + 最優先タスク強調表示**~~ → 2026-04-28 19:00 完了。`SCHEDULE_TASK=1` または `--schedule` で起動時、scheduled-task-protocol.md と TASKS.md「🔥 今週やること」最優先 unblocked タスクを STDOUT に強調表示。実機検証で T212 が抽出されることを確認。 | (済) | 2026-04-28 |
+
+</details>
