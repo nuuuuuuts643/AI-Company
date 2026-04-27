@@ -908,7 +908,7 @@ function showTrendingBanner(topics) {
   const existing = document.getElementById('trending-banner');
   if (existing) existing.remove();
   const rising = (topics || [])
-    .filter(t => t.status === 'rising' && Number(t.velocityScore || 0) >= 8)
+    .filter(t => t.status === 'rising' && Number(t.velocityScore || 0) >= 8 && Number(t.diversityScore || 0) >= 1.5)
     .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0))
     .slice(0, 3);
   if (!rising.length) return;
