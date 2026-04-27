@@ -1410,3 +1410,12 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T246~~ | 中 | **`Verified:` 行を完了 commit に必須化（done.sh 拡張）** — CLAUDE.md「完了=動作確認済み」と書いてあるがテキスト規則のため形骸化しがち。`done.sh` を拡張し、引数 `verify_target` から URL/log/test を取得して証跡として commit message に `Verified: <url>:<status>:<timestamp>` を自動付与。pre-commit hook で「`done:` プレフィックス commit に `Verified:` 行が無ければ reject」。※実装済 (2026-04-28)。HISTORY 確認要。 | `done.sh`, `.git/hooks/pre-commit`, `CLAUDE.md` | 2026-04-28 |
 
 </details>
+
+
+### 自動 triage: 2026-04-28 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T248~~ | ~~低~~ | ~~**privacy.html「アフィリエイトプログラムへの参加」記述が UI 実装と乖離**~~ → 2026-04-28 06 schedule-task で本番 affiliate 未表示の実態確認後、L139 を「現時点では表示していません。将来導入時に再更新」に書き換え完了。frontend/js/ にも affiliate.js が無いことを確認。 | (済) | 2026-04-28 |
+
+</details>
