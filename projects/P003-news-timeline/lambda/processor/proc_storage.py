@@ -81,6 +81,27 @@ def _is_low_quality_title(title: str) -> bool:
     return False
 
 
+def auto_archive_incoherent(tid: str, gen_story: dict | None) -> bool:
+    """AI が isCoherent=false と判定したトピックを lifecycleStatus='archived' に自動退避。
+    指針(主語+目的語+一発理解)が定まる前にまとめられた雑なクラスタを視界から消すための仕組み。
+    Returns: archive したかどうか。"""
+    if not gen_story:
+        return False
+    is_coherent = gen_story.get('isCoherent')
+    if is_coherent is False:  # 明示的 False のときだけ (None/未設定はOK扱い)
+        try:
+            table.update_item(
+                Key={'topicId': tid, 'SK': 'META'},
+                UpdateExpression='SET lifecycleStatus = :ls, topicCoherent = :tc',
+                ExpressionAttributeValues={':ls': 'archived', ':tc': False},
+            )
+            print(f'[auto_archive] {tid[:8]}... isCoherent=false → archived (中身が乖離)')
+            return True
+        except Exception as e:
+            print(f'[auto_archive] {tid[:8]}... 失敗: {e}')
+    return False
+
+
 def force_reset_pending_all() -> int:
     """全トピックの META に pendingAI=True をセットして強制再AI処理対象にする。
     新プロンプト適用の一括クリーンアップ用 (2026-04-27)。
