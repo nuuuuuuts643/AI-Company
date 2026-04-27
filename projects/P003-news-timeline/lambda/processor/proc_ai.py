@@ -7,6 +7,13 @@ import urllib.request
 from datetime import datetime
 
 from proc_config import ANTHROPIC_API_KEY
+try:
+    from article_fetcher import fetch_full_articles
+except Exception as _imp_err:
+    # article_fetcher は本機能専用 (T2026-0428-AL)。import 失敗時は機能を無効化し
+    # 既存ルート (snippet ベース) で動かし続ける (落ちないことを優先)。
+    print(f'[proc_ai] article_fetcher import 失敗 — 全文取得を無効化: {_imp_err}')
+    fetch_full_articles = None
 
 _CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages'
 
