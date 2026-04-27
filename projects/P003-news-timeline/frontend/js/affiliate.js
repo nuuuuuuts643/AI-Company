@@ -9,7 +9,7 @@ function renderAffiliate(meta) {
   const amazonTag = (typeof AFFILIATE_AMAZON_TAG   !== 'undefined') ? AFFILIATE_AMAZON_TAG   : '';
   const rakutenId = (typeof AFFILIATE_RAKUTEN_ID   !== 'undefined') ? AFFILIATE_RAKUTEN_ID   : '';
 
-  if (!moshimoId && !amazonTag && !rakutenId) return;
+  if (!moshimoId && !amazonTag && !rakutenId) { section.style.display = 'none'; return; }
 
   const topicGenres = meta.genres || (meta.genre ? [meta.genre] : []);
 
