@@ -54,3 +54,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST |
 |---|---|---|---|
 | [Code] 作業1 processor手動invoke + 作業2 T213 pending queue優先度修正 | Code | lambda/processor/proc_ai.py | 2026-04-27 19:30 |
+| [Cowork] T211 [2] uniqueSourceCount>=2フィルタ強化 | Cowork | projects/P003-news-timeline/lambda/fetcher/handler.py | 2026-04-27 19:35 |
