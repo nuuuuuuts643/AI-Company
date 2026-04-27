@@ -799,6 +799,7 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   margin: 8px auto 14px;
   min-height: 0;
   overflow: hidden;
+  background: transparent;
 }
 @media (min-width: 768px) {
   /* PCバナー(728px)に合わせてスロット幅を制限し、左右の余白を排除 */
@@ -2578,6 +2579,8 @@ details[open] .day-more-btn::before { content: '▼ '; }
 [data-theme="light"] .ad-card     { background: #f8fafc; border-color: #e2e8f0; }
 [data-theme="light"] .load-more-btn { background: #fff; color: #475569; border-color: #cbd5e1; }
 [data-theme="light"] .keyword-strip { background: transparent; }
+[data-theme="light"] .comment-nickname-input,
+[data-theme="light"] .comment-textarea { background: var(--surface2); color: var(--text-primary); border-color: var(--border); }
 
 /* ダークモード補足（data-theme="dark"追加要素） */
 [data-theme="dark"] .kw-chip     { background: rgba(255,255,255,0.08); color: #88D8B0; border-color: rgba(78,201,192,.3); }
