@@ -90,3 +90,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] schedule-task 運用ルール仕組み化 v3 | Cowork | scripts/install_hooks.sh, scripts/session_bootstrap.sh, docs/rules/global-baseline.md, docs/lessons-learned.md, TASKS.md | 2026-04-28 18:30 | yes |

@@ -97,6 +97,21 @@ if ! grep -qE '^Verified: .*:2[0-9]{2}:' "$MSG_FILE"; then
   echo "⚠️  Verified line found but HTTP status is not 2xx. Continuing — please double-check."
 fi
 
+# ---- schedule-task commit: [Schedule-KPI] 行を必須化 ----
+# commit message 全文に "schedule-task" (case-insensitive) が含まれる場合、
+# `[Schedule-KPI] implemented=N created=M closed=K queue_delta=±X` を含めること。
+# 「発見偏重 anti-pattern」を物理ガード化（lessons-learned 2026-04-28 由来）。
+if grep -qiE 'schedule-task' "$MSG_FILE"; then
+  if ! grep -qE '^\[Schedule-KPI\] implemented=[0-9]+ created=[0-9]+ closed=[0-9]+ queue_delta=[+-]?[0-9]+' "$MSG_FILE"; then
+    echo "❌ commit-msg blocked: schedule-task commit には [Schedule-KPI] 行が必須です。"
+    echo "   format: [Schedule-KPI] implemented=N created=M closed=K queue_delta=±X"
+    echo "   例   : [Schedule-KPI] implemented=2 created=1 closed=3 queue_delta=-1"
+    echo "   理由  : docs/lessons-learned.md 2026-04-28「scheduled-task が発見偏重」対策"
+    echo "   bypass (緊急のみ): git commit --no-verify"
+    exit 1
+  fi
+fi
+
 exit 0
 MSGHOOK
 
@@ -109,5 +124,6 @@ echo "From now on, commits in this clone will fail if:"
 echo "  - 旧4セクション / 旧フェーズ表記が混入したとき"
 echo "  - index.html の AdSense pub-id が ads.txt に無いとき"
 echo "  - feat:/fix:/perf: prefix の commit に 'Verified: <url>:<status>:<JST>' 行が無いとき"
+echo "  - schedule-task を含む commit に '[Schedule-KPI] implemented=...' 行が無いとき"
 echo ""
 echo "Bypass (real emergency only):  git commit --no-verify"
