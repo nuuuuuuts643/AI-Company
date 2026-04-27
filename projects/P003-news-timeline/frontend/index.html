@@ -261,18 +261,18 @@
   </style>
 </head>
 <body>
-<!-- エラーバナー（fetch失敗時に表示） -->
-<div id="error-banner" role="alert" aria-live="assertive" style="display:none;position:fixed;top:64px;left:50%;transform:translateX(-50%);background:var(--color-danger);color:#fff;padding:10px 20px;border-radius:8px;font-size:.88rem;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,0.2);white-space:nowrap;max-width:90vw;text-overflow:ellipsis;overflow:hidden;"></div>
-<!-- PWAインストールバナー（Chrome/Android） -->
+<!-- #26: エラーバナーは header 直下に flow 配置。固定 top:64px だと header 高変動時に重なる -->
+<div id="error-banner" role="alert" aria-live="assertive" style="display:none;background:var(--color-danger);color:#fff;padding:10px 16px;font-size:.88rem;font-weight:600;text-align:center;width:100%;max-width:100%;box-sizing:border-box;"></div>
+<!-- #25: PWAインストールバナー統合（端末判定はapp.jsで分岐し、表示する文言を切り替える） -->
 <div id="pwa-install-banner" role="banner" aria-label="アプリインストール案内">
-  <span class="pwa-banner-text"><i data-lucide="smartphone" aria-hidden="true"></i> ホーム画面に追加してFlotopicをアプリとして使う</span>
+  <span class="pwa-banner-text" id="pwa-banner-text"><i data-lucide="smartphone" aria-hidden="true"></i> ホーム画面に追加してFlotopicをアプリとして使う</span>
   <div class="pwa-banner-actions">
     <button id="pwa-install-btn">インストール</button>
     <button id="pwa-dismiss-btn" aria-label="閉じる">×</button>
   </div>
 </div>
-<!-- PWAインストールバナー（iOS Safari） -->
-<div id="pwa-ios-banner" role="banner" aria-label="iOSアプリインストール案内">
+<!-- iOS Safari は別 ID も残置（app.js の互換性維持） -->
+<div id="pwa-ios-banner" role="banner" aria-label="iOSアプリインストール案内" style="display:none;">
   <span class="pwa-banner-text"><i data-lucide="smartphone" aria-hidden="true"></i> ホーム画面に追加: Safariの共有ボタン <strong><i data-lucide="share" aria-hidden="true"></i></strong> →「ホーム画面に追加」</span>
   <button id="pwa-ios-dismiss-btn" aria-label="閉じる">×</button>
 </div>
@@ -296,7 +296,8 @@
           </button>
           <div class="user-dropdown" id="user-dropdown" role="menu">
             <a href="mypage.html" class="user-dd-item" role="menuitem"><i data-lucide="user" aria-hidden="true"></i> マイページ</a>
-            <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem">ログアウト</button>
+            <!-- #13: ログアウトはマイページの設定タブのみに集約。dropdown からは撤去 -->
+            <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem" style="display:none;">ログアウト</button>
           </div>
         </div>
         <button id="auth-signout-btn" style="display:none;"></button>
@@ -314,7 +315,8 @@
     </div>
     <button id="fav-toggle-btn" class="fav-toggle-btn icon-only" title="お気に入りのみ表示"><i data-lucide="star" class="lucide-fill" aria-hidden="true"></i></button>
   </div>
-  <div id="onboarding-tip" style="display:none;">
+  <!-- #16: ファーストビューを圧迫しないよう、ヘルプアイコン展開式に変更 -->
+  <div id="onboarding-tip" style="display:none;"><!-- 旧 onboarding は app.js から呼ばれるので残置 -->
     <div class="ob-body">
       <p class="ob-title">はじめての方へ — カードの見かた</p>
       <div class="ob-items">
@@ -325,8 +327,10 @@
       <button class="ob-dismiss" onclick="flotopicDismissOnboarding()">わかった！</button>
     </div>
   </div>
+  <!-- ヘルプアイコン (?): クリックで onboarding-tip をトグル表示 -->
+  <button id="help-toggle" type="button" aria-label="使い方ヘルプ" style="background:none;border:1px solid #cbd5e1;border-radius:50%;width:24px;height:24px;font-size:.78rem;font-weight:700;color:#64748b;cursor:pointer;margin:4px 0 8px;line-height:1;padding:0;" onclick="(function(b){var t=document.getElementById('onboarding-tip');if(!t)return;var open=t.style.display!=='none';t.style.display=open?'none':'block';b.setAttribute('aria-expanded',!open);})(this)">?</button>
   <div id="keyword-strip" class="keyword-strip"></div>
-  <div id="status-filter" class="filter-tabs"></div>
+  <!-- status-filter は撤去済み（2026-04-28）。トピックは velocity 降順で並ぶので「今一番話題のトピック」が自動的に最上位になる。app.js#buildFilters は status-filter 要素が無ければ no-op。 -->
   <div class="genre-tabs-container"><div id="genre-filter" class="filter-tabs genre-tabs"></div></div>
   <div id="last-updated" class="last-updated"></div>
   <!-- T237 (2026-04-28): 「今動いているストーリー」を最上部に大きく見せる hero。CSS は既存 (.hero-story-card 他) を流用、render は app.js renderHeroStoryPreview。CLAUDE.md vision-roadmap フェーズ1「①トップ画面でストーリーの『動き』が見える」の実装。 -->
@@ -343,20 +347,18 @@
     <a href="privacy.html">プライバシーポリシー</a>
     <a href="contact.html">お問い合わせ・削除依頼</a>
   </div>
-  <div class="site-footer-copy">記事の著作権は各報道機関に帰属します。AI要約は自動生成です。© 2026 Flotopic</div>
+  <div class="site-footer-copy">⚠️ 本サイトの要約・分析は AI 自動生成のため、情報の正確性は各元記事をご確認ください。記事の著作権は各報道機関に帰属します。© 2026 Flotopic</div>
 </footer>
+<!-- 横スクロール防止ルール: 新要素追加時は必ず max-width: 100% / overflow-x: hidden をチェックすること（lessons-learned 2026-04-28） -->
 <nav class="bottom-nav" id="bottom-nav" aria-label="ナビゲーション">
   <a href="index.html" class="bn-item active" id="bn-home">
-    <span class="bn-icon"><i data-lucide="home" aria-hidden="true"></i></span><span>TOPICS</span>
-  </a>
-  <a href="catchup.html" class="bn-item" id="bn-catchup">
-    <span class="bn-icon"><i data-lucide="clock" aria-hidden="true"></i></span><span>振り返る</span>
+    <span class="bn-icon"><i data-lucide="home" aria-hidden="true"></i></span><span>ホーム</span>
   </a>
   <button class="bn-item" id="bn-search">
-    <span class="bn-icon"><i data-lucide="search" aria-hidden="true"></i></span><span>SEARCH</span>
+    <span class="bn-icon"><i data-lucide="search" aria-hidden="true"></i></span><span>検索</span>
   </button>
   <a href="mypage.html" class="bn-item" id="bn-mypage" style="position:relative;">
-    <span class="bn-icon"><i data-lucide="user" aria-hidden="true"></i></span><span>HOME</span>
+    <span class="bn-icon"><i data-lucide="user" aria-hidden="true"></i></span><span>マイページ</span>
     <span id="notif-badge" style="display:none;"></span>
   </a>
 </nav>

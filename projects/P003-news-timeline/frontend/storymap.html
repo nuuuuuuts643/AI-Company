@@ -272,7 +272,7 @@
 </header>
 
 <main class="container">
-  <p style="margin:4px 0 8px;font-size:.75rem;color:#94a3b8;"><i data-lucide="alert-triangle" aria-hidden="true"></i>️ AI自動生成。情報の正確性は各元記事をご確認ください。<a href="contact.html" style="color:#94a3b8;text-decoration:underline;margin-left:4px;">誤情報のご指摘</a></p>
+  <!-- #15: AI 免責は footer に集約済み -->
   <div id="sm-root">
     <div class="sm-loading">
       <div class="spinner"></div>
@@ -526,55 +526,49 @@ function renderStorymap(parent, allTopics) {
     const hidden    = children.slice(SHOW_INITIAL);
     const total     = children.length;
     const cardsHtml = visible.map((t, i) => renderBranchCard(t, true, i, total)).join('');
+    // #22: 「折りたたむ」ボタンを展開後に追加
     const hiddenHtml = hidden.length > 0
       ? `<div id="sm-hidden-branches" style="display:none;">
            <div class="sm-branch-grid">${hidden.map((t, i) => renderBranchCard(t, true, SHOW_INITIAL + i, total)).join('')}</div>
+           <button class="sm-show-more" id="sm-collapse-btn" style="margin-top:8px;display:none;" onclick="document.getElementById('sm-hidden-branches').style.display='none';document.getElementById('sm-show-more-btn').style.display='block';this.style.display='none';">
+             ▲ 折りたたむ
+           </button>
          </div>
-         <button class="sm-show-more" onclick="document.getElementById('sm-hidden-branches').style.display='block';this.style.display='none';">
+         <button class="sm-show-more" id="sm-show-more-btn" onclick="document.getElementById('sm-hidden-branches').style.display='block';document.getElementById('sm-collapse-btn').style.display='block';this.style.display='none';">
            ▼ さらに ${hidden.length}件の分岐を見る
          </button>`
       : '';
     branchHtml = `<div class="sm-branch-grid">${cardsHtml}</div>${hiddenHtml}`;
   }
 
-  // ---- Related topics strip ----
-  const related = parent.relatedTopics || [];
-  let relatedHtml = '';
-  if (related.length > 0) {
-    const pills = related.map(r => {
-      const rt = allMap[r.topicId] || r;
-      const rtTitle = rt.generatedTitle || rt.title || '';
-      const rtCount = parseInt(rt.articleCount || 0, 10);
-      return `<a href="topic.html?id=${esc(rt.topicId)}" class="sm-related-pill">
-        ${esc(rtTitle.length > 18 ? rtTitle.slice(0,18)+'…' : rtTitle)}
-        <span class="sm-related-pill-count">${rtCount}件</span>
-      </a>`;
-    }).join('');
-    relatedHtml = `
-      <div class="sm-section">
-        <div class="sm-section-header">
-          <span class="sm-section-title">🌿 関連するトピック</span>
-        </div>
-        <div class="sm-related-strip">${pills}</div>
-      </div>`;
-  }
-
-  // ---- 同ジャンルで今動いているストーリー（読了後の導線）----
+  // ---- #3: branch grid + 「次はこれ」を1セクションに集約 ----
+  // 関連するトピック strip と「同ジャンルで動いているストーリー」を統合し、
+  // 「次に読むトピック」として1ブロックで提示する。CTA は1つだけ。
   const _PL = { '発端':'🌱 始まり','拡散':'📡 急拡散中','ピーク':'🔥 急上昇','現在地':'📍 進行中','収束':'✅ ひと段落' };
+  const related = parent.relatedTopics || [];
   const parentGenres = new Set(parent.genres || (parent.genre ? [parent.genre] : []));
   const excludeIds   = new Set([parent.topicId, ...children.map(c => c.topicId)]);
+
+  // 候補1: 関連トピック (parent.relatedTopics)
+  const relatedTopics = related.map(r => allMap[r.topicId] || r).filter(Boolean);
+  // 候補2: 同ジャンルで動いているストーリー(velocity 順)
   const activeGenreTopics = allTopics
     .filter(t =>
       !excludeIds.has(t.topicId) &&
       parseInt(t.articleCount || 0) >= 2 &&
       (t.genres || (t.genre ? [t.genre] : [])).some(g => parentGenres.has(g))
     )
-    .sort((a, b) => Number(b.velocityScore || b.score || 0) - Number(a.velocityScore || a.score || 0))
-    .slice(0, 3);
-  let activeGenreHtml = '';
-  if (activeGenreTopics.length > 0) {
-    const genreLabel = [...parentGenres][0] || 'このジャンル';
-    const nextCards = activeGenreTopics.map(t => {
+    .sort((a, b) => Number(b.velocityScore || b.score || 0) - Number(a.velocityScore || a.score || 0));
+
+  // 重複排除しつつ最大4件
+  const seen = new Set();
+  const nextList = [...relatedTopics, ...activeGenreTopics]
+    .filter(t => t && t.topicId && !seen.has(t.topicId) && !excludeIds.has(t.topicId) && (seen.add(t.topicId) || true))
+    .slice(0, 4);
+
+  let nextHtml = '';
+  if (nextList.length > 0) {
+    const nextCards = nextList.map(t => {
       const tTitle = t.generatedTitle || t.title || '';
       const tCnt   = parseInt(t.articleCount || 0, 10);
       const tPhase = t.storyPhase ? (_PL[t.storyPhase] || t.storyPhase) : '';
@@ -583,15 +577,16 @@ function renderStorymap(parent, allTopics) {
         <div class="sm-next-card-meta">📄 ${tCnt}件${tPhase ? ' · '+esc(tPhase) : ''}</div>
       </a>`;
     }).join('');
-    activeGenreHtml = `
+    nextHtml = `
       <div class="sm-section">
         <div class="sm-section-header">
-          <span class="sm-section-title">📡 ${esc(genreLabel)}で今動いているストーリー</span>
+          <span class="sm-section-title">📰 次に読むトピック</span>
         </div>
         <div class="sm-next-cards">${nextCards}</div>
-        <a href="index.html" class="sm-see-all">すべてのストーリーを見る →</a>
       </div>`;
   }
+  const relatedHtml = '';   // 旧 strip は撤去
+  const activeGenreHtml = nextHtml;
 
   // ---- Active child count ----
   const activeCount  = children.filter(c => c.lifecycleStatus === 'active').length;
@@ -738,13 +733,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     <a href="privacy.html">プライバシーポリシー</a>
     <a href="contact.html">お問い合わせ・削除依頼</a>
   </div>
-  <div class="site-footer-copy">記事の著作権は各報道機関に帰属します。AI要約は自動生成です。© 2026 Flotopic</div>
+  <div class="site-footer-copy">⚠️ 本サイトの要約・分析は AI 自動生成のため、情報の正確性は各元記事をご確認ください。記事の著作権は各報道機関に帰属します。© 2026 Flotopic</div>
 </footer>
 <nav class="bottom-nav" aria-label="ナビゲーション">
-  <a href="index.html" class="bn-item"><span class="bn-icon"><i data-lucide="home" aria-hidden="true"></i></span><span>TOPICS</span></a>
-  <a href="catchup.html" class="bn-item"><span class="bn-icon"><i data-lucide="clock" aria-hidden="true"></i></span><span>振り返る</span></a>
-  <a href="index.html?focus=search" class="bn-item"><span class="bn-icon"><i data-lucide="search" aria-hidden="true"></i></span><span>SEARCH</span></a>
-  <a href="mypage.html" class="bn-item"><span class="bn-icon"><i data-lucide="user" aria-hidden="true"></i></span><span>HOME</span></a>
+  <a href="index.html" class="bn-item"><span class="bn-icon"><i data-lucide="home" aria-hidden="true"></i></span><span>ホーム</span></a>
+  <a href="index.html?focus=search" class="bn-item"><span class="bn-icon"><i data-lucide="search" aria-hidden="true"></i></span><span>検索</span></a>
+  <a href="mypage.html" class="bn-item"><span class="bn-icon"><i data-lucide="user" aria-hidden="true"></i></span><span>マイページ</span></a>
 </nav>
 <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "35149d754c3a4903b9461c157568d392"}'></script><!-- End Cloudflare Web Analytics -->
 <!-- Lucide Icons (ISC license) -->

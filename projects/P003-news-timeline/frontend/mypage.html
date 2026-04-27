@@ -723,7 +723,7 @@
           </button>
           <div class="user-dropdown" id="user-dropdown" role="menu">
             <a href="mypage.html" class="user-dd-item" role="menuitem"><i data-lucide="user" aria-hidden="true"></i> マイページ</a>
-            <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem">ログアウト</button>
+            <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem" style="display:none;">ログアウト</button>
           </div>
         </div>
         <button id="auth-signout-btn" style="display:none;"></button>
@@ -736,7 +736,7 @@
 
 <main>
   <div class="mp-wrap">
-    <a href="index.html" class="back-link">← トップに戻る</a>
+    <!-- #23: 戻るリンク撤去（ボトムナビと重複）。 -->
     <div id="mypage-content">
       <div class="loading"><div class="spinner"></div>読み込み中...</div>
     </div>
@@ -761,20 +761,8 @@
     <div class="profile-setup-title"><i data-lucide="party-popper" aria-hidden="true"></i> プロフィールを設定しよう</div>
     <div class="profile-setup-desc">コメント時に表示されるハンドル名を設定できます。<br>あとからマイページで変更可能です。</div>
 
-    <!-- アバターアップロード -->
-    <div class="profile-setup-field" style="text-align:center;margin-bottom:8px;">
-      <div class="avatar-upload-area">
-        <div class="avatar-upload-circle" id="setup-avatar-circle" title="クリックして画像を選択">
-          <span id="setup-avatar-emoji"><i data-lucide="camera" aria-hidden="true"></i></span>
-          <div class="avatar-edit-overlay"><i data-lucide="pencil" aria-hidden="true"></i>️</div>
-        </div>
-        <div class="avatar-upload-hint">プロフィール写真（任意）</div>
-        <button class="avatar-upload-save-btn" id="setup-avatar-save-btn">この写真を保存</button>
-        <div class="avatar-upload-status" id="setup-avatar-status"></div>
-      </div>
-      <input type="file" id="setup-avatar-input" accept="image/*" style="display:none;">
-    </div>
-
+    <!-- #18: 初回モーダルではハンドル名のみ。年齢層・性別はマイページ→設定タブで後から設定可能 -->
+    <!-- #20: アバターアップロードは設定タブのみに集約 → モーダルからは撤去 -->
     <div class="profile-setup-field">
       <label class="profile-setup-label" for="setup-handle">ハンドル名</label>
       <input
@@ -786,32 +774,8 @@
         autocomplete="off"
         spellcheck="false"
       >
-      <div class="profile-setup-hint">英数字とアンダースコアのみ、20文字以内</div>
+      <div class="profile-setup-hint" id="setup-handle-hint" style="display:none;">英数字とアンダースコアのみ、20文字以内</div>
       <div class="profile-setup-error" id="setup-handle-error"></div>
-    </div>
-
-    <div class="profile-setup-field">
-      <label class="profile-setup-label" for="setup-age">年齢層</label>
-      <select class="profile-setup-select" id="setup-age">
-        <option value="">回答しない</option>
-        <option value="10代未満">10代未満</option>
-        <option value="10代">10代</option>
-        <option value="20代">20代</option>
-        <option value="30代">30代</option>
-        <option value="40代">40代</option>
-        <option value="50代">50代</option>
-        <option value="60代以上">60代以上</option>
-      </select>
-    </div>
-
-    <div class="profile-setup-field">
-      <label class="profile-setup-label" for="setup-gender">性別</label>
-      <select class="profile-setup-select" id="setup-gender">
-        <option value="">回答しない</option>
-        <option value="male">男性</option>
-        <option value="female">女性</option>
-        <option value="other">その他</option>
-      </select>
     </div>
 
     <div class="profile-setup-actions">
@@ -843,20 +807,17 @@
     <a href="privacy.html">プライバシーポリシー</a>
     <a href="contact.html">お問い合わせ・削除依頼</a>
   </div>
-  <div class="site-footer-copy">記事の著作権は各報道機関に帰属します。AI要約は自動生成です。© 2026 Flotopic</div>
+  <div class="site-footer-copy">⚠️ 本サイトの要約・分析は AI 自動生成のため、情報の正確性は各元記事をご確認ください。記事の著作権は各報道機関に帰属します。© 2026 Flotopic</div>
 </footer>
 <nav class="bottom-nav" id="bottom-nav" aria-label="ナビゲーション">
   <a href="index.html" class="bn-item" id="bn-home">
-    <span class="bn-icon"><i data-lucide="home" aria-hidden="true"></i></span><span>TOPICS</span>
-  </a>
-  <a href="catchup.html" class="bn-item" id="bn-catchup">
-    <span class="bn-icon"><i data-lucide="clock" aria-hidden="true"></i></span><span>振り返る</span>
+    <span class="bn-icon"><i data-lucide="home" aria-hidden="true"></i></span><span>ホーム</span>
   </a>
   <a href="index.html?focus=search" class="bn-item" id="bn-search">
-    <span class="bn-icon"><i data-lucide="search" aria-hidden="true"></i></span><span>SEARCH</span>
+    <span class="bn-icon"><i data-lucide="search" aria-hidden="true"></i></span><span>検索</span>
   </a>
   <a href="mypage.html" class="bn-item active" id="bn-mypage">
-    <span class="bn-icon"><i data-lucide="user" aria-hidden="true"></i></span><span>HOME</span>
+    <span class="bn-icon"><i data-lucide="user" aria-hidden="true"></i></span><span>マイページ</span>
   </a>
 </nav>
 
@@ -1090,36 +1051,8 @@
 
     function closeModal() { overlay.classList.remove('open'); }
 
-    // アバターアップロード（モーダル内）
-    setupAvatarUpload(
-      'setup-avatar-circle',
-      'setup-avatar-input',
-      'setup-avatar-save-btn',
-      'setup-avatar-status',
-      function (avatarUrl) {
-        // プロフィールヘッダーのアバターも更新
-        const mpAvatar = document.querySelector('.mp-avatar');
-        const mpWrap   = document.querySelector('.mp-avatar-wrap');
-        if (mpAvatar) {
-          mpAvatar.src = avatarUrl;
-        } else if (mpWrap) {
-          mpWrap.innerHTML = `<img class="mp-avatar" src="${avatarUrl}" alt="アバター">`;
-        }
-        // DynamoDB users テーブルに avatarUrl を保存
-        if (typeof syncAvatarToServer === 'function') syncAvatarToServer(avatarUrl);
-      }
-    );
-
-    // モーダル内のアバターサークルに既存アバターを反映
-    (function () {
-      const saved = localStorage.getItem(AVATAR_LS_KEY) || '';
-      const circle = document.getElementById('setup-avatar-circle');
-      if (saved && circle) {
-        circle.innerHTML =
-          `<img src="${saved}" alt="アバター" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` +
-          `<div class="avatar-edit-overlay">✏️</div>`;
-      }
-    })();
+    // #20: アバターアップロード UI は設定タブのみに集約 → モーダル内では呼ばない
+    // (setupAvatarUpload は ID 不在で no-op になるが明示的に呼び出さない)
 
     if (skipBtn) skipBtn.addEventListener('click', () => {
       localStorage.setItem(PROFILE_SET_K, '1');  // スキップ済みにマーク
@@ -1133,20 +1066,22 @@
         if (errEl) errEl.textContent = '英数字とアンダースコアのみ、20文字以内で入力してください。';
         return;
       }
-      const prof = {
-        handle:   handle,
-        ageGroup: ageIn   ? ageIn.value   : '',
-        gender:   genderIn ? genderIn.value : '',
-      };
+      // #18: 初回モーダルはハンドル名のみ。年齢層/性別は設定タブで後から
+      const prof = { handle: handle };
       saveProfile(prof);
       closeModal();
-      // サーバーにも同期（デバイス間共有）
       if (typeof syncProfileToServer === 'function') syncProfileToServer(prof);
-      // プロフィールヘッダーのハンドル表示を更新
       const handleEl = document.querySelector('.mp-handle');
       if (handleEl) handleEl.textContent = handle ? `@${handle}` : 'Flotopicメンバー';
       if (typeof showToast === 'function') showToast('プロフィールを保存しました！');
     });
+
+    // #29: hint を onFocus 時のみ表示
+    if (handleIn) {
+      const hintEl = document.getElementById('setup-handle-hint');
+      handleIn.addEventListener('focus', () => { if (hintEl) hintEl.style.display = 'block'; });
+      handleIn.addEventListener('blur',  () => { if (hintEl) hintEl.style.display = 'none'; });
+    }
   }
 
   function maybeShowProfileModal(user) {
@@ -1446,18 +1381,11 @@
         <div class="mp-avatar-wrap">${avatarHtml}</div>
         <div class="mp-display-name">${displayName}</div>
         <div class="mp-handle">${safeEsc(handleText)}</div>
+        <!-- #10: フォロー/フォロワー（display:none 残骸）を DOM ごと削除。お気に入り(${favTopics.length})と閲覧(${history.length})のみ。 -->
         <div class="mp-stats-row">
-          <div class="mp-stat" style="cursor:default;display:none;">
-            <span class="mp-stat-num">0</span>
-            <span class="mp-stat-label">フォロー</span>
-          </div>
-          <div class="mp-stat" style="cursor:default;display:none;">
-            <span class="mp-stat-num">0</span>
-            <span class="mp-stat-label">フォロワー</span>
-          </div>
           <div class="mp-stat">
             <span class="mp-stat-num">${favTopics.length}</span>
-            <span class="mp-stat-label">フォロー中</span>
+            <span class="mp-stat-label">お気に入り</span>
           </div>
           <div class="mp-stat" style="border-right:none;margin-right:0;">
             <span class="mp-stat-num">${history.length}</span>
@@ -1466,13 +1394,11 @@
         </div>
       </div>
 
-      <!-- タブ -->
+      <!-- #5: 4タブに整理（お気に入り / アクティビティ=コメント+履歴 / 通知 / 設定）。タイムラインは廃止 -->
       <div class="mp-tabs">
-        <button class="mp-tab active" data-tab="favs">⭐ フォロー中</button>
-        <button class="mp-tab" data-tab="comments">💬 コメント</button>
-        <button class="mp-tab" data-tab="history">📖 履歴</button>
+        <button class="mp-tab active" data-tab="favs">⭐ お気に入り</button>
+        <button class="mp-tab" data-tab="activity">📝 アクティビティ</button>
         <button class="mp-tab" data-tab="notifs" id="tab-notifs">🔔 通知</button>
-        <button class="mp-tab" data-tab="timeline" style="display:none;">📡 タイムライン</button>
         <button class="mp-tab" data-tab="account">⚙️ 設定</button>
       </div>
 
@@ -1481,22 +1407,19 @@
         <div class="mp-card"><div class="mp-card-inner">${favsHtml}</div></div>
       </div>
 
-      <!-- コメント履歴パネル -->
-      <div class="mp-panel" id="panel-comments">
+      <!-- アクティビティパネル（コメント+履歴を統合） -->
+      <div class="mp-panel" id="panel-activity">
         ${savedItems.length ? `
         <div style="font-size:.78rem;font-weight:700;color:#4EC9C0;letter-spacing:.04em;padding:4px 4px 8px;text-transform:uppercase;">🔖 保存したコメント（${savedItems.length}件）</div>
         <div class="mp-card" style="margin-bottom:16px;">${savedHtml}</div>
-        <div style="font-size:.78rem;font-weight:700;color:#94a3b8;letter-spacing:.04em;padding:4px 4px 8px;text-transform:uppercase;">💬 投稿したコメント</div>
         ` : ''}
-        <div class="mp-card">
+        <div style="font-size:.78rem;font-weight:700;color:#94a3b8;letter-spacing:.04em;padding:4px 4px 8px;text-transform:uppercase;">💬 投稿したコメント</div>
+        <div class="mp-card" style="margin-bottom:16px;">
           <div class="mp-card-inner" id="mp-comment-history-list">
             <div style="text-align:center;padding:24px;color:#94a3b8;font-size:.85rem;">読み込み中...</div>
           </div>
         </div>
-      </div>
-
-      <!-- 履歴パネル -->
-      <div class="mp-panel" id="panel-history">
+        <div style="font-size:.78rem;font-weight:700;color:#94a3b8;letter-spacing:.04em;padding:4px 4px 8px;text-transform:uppercase;">📖 閲覧履歴</div>
         <div class="mp-card"><div class="mp-card-inner">${historyHtml}</div></div>
       </div>
 
@@ -1505,17 +1428,6 @@
         <div class="mp-card">
           <div class="mp-card-inner" id="notifs-list">
             <div style="text-align:center;padding:24px;color:#94a3b8;font-size:.85rem;">読み込み中...</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- タイムラインパネル -->
-      <div class="mp-panel" id="panel-timeline" style="display:none;">
-        <div class="mp-card">
-          <div class="mp-timeline-empty">
-            <div class="mp-timeline-empty-icon">📡</div>
-            <div class="mp-timeline-empty-title">タイムライン</div>
-            <div class="mp-timeline-empty-desc">フォローしているユーザーのアクティビティが<br>ここに表示されます。</div>
           </div>
         </div>
       </div>
@@ -1535,15 +1447,14 @@
             </div>
             <input type="file" id="account-avatar-input" accept="image/*" style="display:none;">
           </div>
+          <!-- #19: 個別保存ボタン3つ → 1つに統合（タブ底部の「変更を保存」） -->
           <div class="mp-nickname-field">
             <span class="mp-nickname-label" title="コメントに表示される名前（自由形式）">表示名</span>
             <input class="mp-nickname-input" id="mp-nickname-input" type="text" value="${safeEsc(user ? (user.nickname || user.name || '') : '')}" maxlength="20" placeholder="名前を入力">
-            <button class="mp-nickname-save" id="mp-nickname-save">保存</button>
           </div>
           <div class="mp-nickname-field">
             <span class="mp-nickname-label" title="@メンションに使うID（英数字・アンダースコアのみ）">ハンドル名</span>
             <input class="mp-nickname-input" id="mp-handle-input" type="text" value="${safeEsc(effectiveHandle)}" maxlength="20" placeholder="例: flotopic_user123" autocomplete="off" spellcheck="false">
-            <button class="mp-nickname-save" id="mp-handle-save">保存</button>
           </div>
           <div class="mp-nickname-field" style="flex-direction:column;align-items:flex-start;gap:4px;">
             <div style="display:flex;gap:16px;width:100%;">
@@ -1570,7 +1481,6 @@
                 </select>
               </div>
             </div>
-            <button class="mp-nickname-save" id="mp-profile-save" style="display:inline-block;margin-top:8px;">プロフィールを保存</button>
           </div>
           <div class="mp-account-row">
             <span class="mp-account-label">Googleアカウント</span>
@@ -1581,75 +1491,24 @@
             <span class="mp-account-value">Google</span>
           </div>
         </div>
+        <button class="mp-nickname-save" id="mp-save-all" style="display:block;width:100%;margin:16px 0 4px;padding:12px;font-size:.95rem;">変更を保存</button>
         <button class="mp-signout-btn" id="mp-signout-btn">ログアウト</button>
         <button class="mp-delete-btn" id="mp-delete-btn">アカウントを削除する</button>
       </div>`;
 
-    // タブ切り替え + コメント履歴の遅延ロード
+    // タブ切り替え + コメント履歴の遅延ロード（'activity' タブで初回ロード）
     let commentHistoryLoaded = false;
     document.querySelectorAll('.mp-tab').forEach(btn => {
       btn.addEventListener('click', () => {
         switchTab(btn.dataset.tab);
-        if (btn.dataset.tab === 'comments' && !commentHistoryLoaded) {
+        if (btn.dataset.tab === 'activity' && !commentHistoryLoaded) {
           commentHistoryLoaded = true;
           loadCommentHistory();
         }
       });
     });
 
-    // ニックネーム編集
-    const nickInput = document.getElementById('mp-nickname-input');
-    const nickSave  = document.getElementById('mp-nickname-save');
-    if (nickInput && nickSave) {
-      nickInput.addEventListener('input', () => {
-        nickSave.style.display = nickInput.value.trim() ? 'inline-block' : 'none';
-      });
-      nickSave.addEventListener('click', () => {
-        const v = nickInput.value.trim();
-        if (!v) return;
-        if (typeof saveNickname === 'function') saveNickname(v);
-        else {
-          try {
-            const u = JSON.parse(localStorage.getItem('flotopic_user') || 'null');
-            if (u) { u.nickname = v; localStorage.setItem('flotopic_user', JSON.stringify(u)); }
-          } catch {}
-        }
-        // クロスデバイス同期
-        if (typeof syncProfileToServer === 'function') syncProfileToServer({ nickname: v });
-        nickSave.style.display = 'none';
-        nickSave.textContent = '保存';
-        // プロフィールヘッダーの名前も更新
-        const dn = document.querySelector('.mp-display-name');
-        if (dn) dn.textContent = v;
-        showToast && showToast('表示名を変更しました');
-      });
-    }
-
-    // ハンドル保存
-    const handleInput = document.getElementById('mp-handle-input');
-    const handleSave  = document.getElementById('mp-handle-save');
-    if (handleInput && handleSave) {
-      handleInput.addEventListener('input', () => {
-        handleSave.style.display = handleInput.value.trim() ? 'inline-block' : 'none';
-      });
-      handleSave.addEventListener('click', () => {
-        const v = handleInput.value.trim();
-        const errRe = /^[A-Za-z0-9_]{1,20}$/;
-        if (v && !errRe.test(v)) {
-          if (typeof showToast === 'function') showToast('ハンドル名は英数字とアンダースコアのみ、20文字以内にしてください', true);
-          return;
-        }
-        const p = readProfile();
-        p.handle = v;
-        saveProfile(p);
-        handleSave.style.display = 'none';
-        const hn = document.querySelector('.mp-handle');
-        if (hn) hn.textContent = v ? `@${v}` : 'Flotopicメンバー';
-        if (typeof showToast === 'function') showToast('ハンドル名を保存しました');
-        // サーバーにも同期（デバイス間共有）
-        if (typeof syncHandleToServer === 'function') syncHandleToServer(v);
-      });
-    }
+    // #19: 個別保存ボタンは廃止。タブ底部の「変更を保存」(mp-save-all) で一括保存する。
 
     // アバターアップロード（アカウントタブ）
     setupAvatarUpload(
@@ -1671,19 +1530,45 @@
       }
     );
 
-    // 年齢層・性別保存
-    const profileSaveBtn = document.getElementById('mp-profile-save');
-    if (profileSaveBtn) {
-      profileSaveBtn.addEventListener('click', () => {
-        const ageEl    = document.getElementById('mp-age-select');
-        const genderEl = document.getElementById('mp-gender-select');
-        const p        = readProfile();
+    // #19: 一括保存ボタン（表示名/ハンドル名/年齢層/性別をまとめて保存）
+    const saveAllBtn = document.getElementById('mp-save-all');
+    if (saveAllBtn) {
+      saveAllBtn.addEventListener('click', () => {
+        const nickInput  = document.getElementById('mp-nickname-input');
+        const handleInputEl = document.getElementById('mp-handle-input');
+        const ageEl      = document.getElementById('mp-age-select');
+        const genderEl   = document.getElementById('mp-gender-select');
+        const handleVal  = handleInputEl ? handleInputEl.value.trim() : '';
+        const errRe      = /^[A-Za-z0-9_]{1,20}$/;
+        if (handleVal && !errRe.test(handleVal)) {
+          if (typeof showToast === 'function') showToast('ハンドル名は英数字とアンダースコアのみ、20文字以内', true);
+          return;
+        }
+        // 表示名
+        const nickVal = nickInput ? nickInput.value.trim() : '';
+        if (nickVal) {
+          if (typeof saveNickname === 'function') saveNickname(nickVal);
+          else {
+            try {
+              const u = JSON.parse(localStorage.getItem('flotopic_user') || 'null');
+              if (u) { u.nickname = nickVal; localStorage.setItem('flotopic_user', JSON.stringify(u)); }
+            } catch {}
+          }
+          const dn = document.querySelector('.mp-display-name');
+          if (dn) dn.textContent = nickVal;
+        }
+        // プロフィール（ハンドル/年齢層/性別）
+        const p = readProfile();
+        p.handle   = handleVal;
         if (ageEl)    p.ageGroup = ageEl.value;
         if (genderEl) p.gender   = genderEl.value;
         saveProfile(p);
-        if (typeof showToast === 'function') showToast('プロフィールを保存しました');
-        // サーバーにも同期（デバイス間共有）
-        if (typeof syncProfileToServer === 'function') syncProfileToServer(p);
+        const hn = document.querySelector('.mp-handle');
+        if (hn) hn.textContent = handleVal ? `@${handleVal}` : 'Flotopicメンバー';
+        // サーバー同期
+        if (typeof syncProfileToServer === 'function') syncProfileToServer({ ...p, nickname: nickVal });
+        if (handleVal && typeof syncHandleToServer === 'function') syncHandleToServer(handleVal);
+        if (typeof showToast === 'function') showToast('変更を保存しました');
       });
     }
 
