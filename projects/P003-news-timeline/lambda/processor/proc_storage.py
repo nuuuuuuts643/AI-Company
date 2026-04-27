@@ -713,7 +713,9 @@ def write_s3(key, data):
     # Cache-Control は CloudFront 既定 TTL より優先される (Origin Cache-Control 尊重設定の場合)。
     if key.startswith('api/topic/') and key.endswith('.json'):
         cache_control = 'max-age=30, must-revalidate'
-    elif key == 'api/topics.json':
+    elif key in ('api/topics.json', 'api/topics-full.json', 'api/topics-card.json'):
+        # T2026-0428-F: topics-full.json は topics.json の互換 alias、
+        # topics-card.json は一覧用 minimal payload。Cache-Control は同じ。
         cache_control = 'max-age=60, must-revalidate'
     else:
         cache_control = 'max-age=60'
