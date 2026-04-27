@@ -2,6 +2,17 @@
 // app.js が先にロードされていること前提（esc, fmtDate, apiUrl, genreEmoji 等を参照）
 let chartInstance = null, viewsChartInstance = null;
 
+function getNextUpdateTime() {
+  const now = new Date();
+  const jstNow = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000);
+  const hours = [1, 7, 13, 19];
+  const currentHour = jstNow.getHours() * 60 + jstNow.getMinutes();
+  for (const h of hours) {
+    if (h * 60 > currentHour) return `${h}:00 JST`;
+  }
+  return '翌 01:00 JST';
+}
+
 function getAnonymousId() {
   let id = localStorage.getItem('flotopic_anon_id');
   if (!id) {
@@ -342,7 +353,7 @@ function renderDetail(data) {
       aiAnalysisEl.innerHTML = `
         <div class="ai-analysis-inner ai-pending">
           <span class="ai-pending-icon">⏳</span>
-          <span>AI分析を生成中です（1日4回更新）。${cnt}件の記事を追跡中${sources ? `（${sources} ほか）` : ''}。</span>
+          <span>AI分析を生成中です。次の更新: ${getNextUpdateTime()}。${cnt}件の記事を追跡中${sources ? `（${sources} ほか）` : ''}。</span>
         </div>`;
       aiAnalysisEl.style.display = 'block';
     }
@@ -498,6 +509,19 @@ function renderDetail(data) {
           new MutationObserver(() => { try { buildCharts(_chartRange); } catch {} }).observe(
             document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }
           );
+          // Grayout buttons for ranges that exceed available data
+          const _oldestTs = timeline.length > 0
+            ? Math.min(...timeline.map(s => new Date(s.timestamp).getTime()))
+            : Date.now();
+          const _elapsedH = (Date.now() - _oldestTs) / 3600000;
+          const _RANGE_H = { '1d': 24, '3d': 72, '7d': 168, '1m': 720, '3m': 2160, '6m': 4320, '1y': 8760 };
+          document.querySelectorAll('.tr-btn[data-range]').forEach(btn => {
+            const rh = _RANGE_H[btn.dataset.range];
+            if (rh && rh > _elapsedH) {
+              btn.disabled = true;
+              btn.title = 'データ蓄積中';
+            }
+          });
           document.querySelectorAll('.tr-btn').forEach(btn => {
             btn.addEventListener('click', () => {
               document.querySelectorAll('.tr-btn').forEach(b => b.classList.remove('active'));
