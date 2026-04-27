@@ -97,7 +97,7 @@ def get_topic_detail(tid):
 
     snaps_resp = table.query(
         KeyConditionExpression=Key('topicId').eq(tid) & Key('SK').begins_with('SNAP#'),
-        ScanIndexForward=False, Limit=30,
+        ScanIndexForward=False, Limit=90,
     )
     snaps = sorted(snaps_resp.get('Items', []), key=lambda x: x['SK'])
 
