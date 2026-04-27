@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - 'projects/P003-news-timeline/frontend/**'
+      - 'projects/P003-news-timeline/infra/cf-redirect-function.js'
+      - '.github/workflows/deploy-p003.yml'
 
 concurrency:
   group: deploy-p003-frontend
