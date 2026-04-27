@@ -6,7 +6,7 @@ const CONFIG = {
   HOT_STRIP_HOURS: 6,                   // 今急上昇中セクションの対象時間（時間）
   HOT_STRIP_MIN_VELOCITY: 3,            // 急上昇と判定するvelocityScoreの最低値
   NEW_BADGE_HOURS: 1,                   // NEWバッジを表示する最大経過時間（時間）
-  AD_CARD_INTERVAL: 9,                  // 広告を挿入する間隔（3の倍数にすること）
+  AD_CARD_INTERVAL: 5,                  // 広告を挿入する間隔
   FRESHNESS_INTERVAL_MS: 60000,         // 鮮度表示テキストの更新間隔（ミリ秒）
   TOPICS_PER_PAGE: 20,                  // 1ページに表示するトピック数
   REFRESH_INTERVAL_MS: 5 * 60 * 1000,  // トピック一覧の自動更新間隔（ミリ秒）
@@ -456,20 +456,12 @@ function renderTopics(topics) {
   }
 
   const pageList = list.slice(0, currentPage * CONFIG.TOPICS_PER_PAGE);
-  const midBannerHtml = `<div class="ad-slot ad-mid-banner" style="margin:8px 0 12px;">
-    <div class="ad-728-scale-wrapper ad-pc-only">
-      <div class="admax-slot-banner" data-admax-id="6b65a9c9ba3c1c898e167bbf103830d7"></div>
-    </div>
-    <div class="ad-sp-only" style="text-align:center;">
-      <div class="admax-slot-banner" data-admax-id="570fe6c87677ba7c5417119c60ca979d"></div>
-    </div>
-  </div>`;
   grid.innerHTML = pageList.reduce((html, t, i) => {
-    let cardHtml = renderTopicCard(t, i);
-    if (i === 4) cardHtml += midBannerHtml;
+    const cardHtml = renderTopicCard(t, i);
     if ((i + 1) % CONFIG.AD_CARD_INTERVAL !== 0) return html + cardHtml;
     const adHtml = `<div class="topic-card-wrapper ad-card-wrapper">
-      <div class="ad-grid-card">
+      <div class="ad-infeed-card">
+        <span class="ad-grid-badge">広告</span>
         <div class="admax-slot"></div>
       </div>
     </div>`;
@@ -489,28 +481,12 @@ function renderTopics(topics) {
     });
     slot.appendChild(adDiv);
   });
-  // 中間バナー広告の注入（5枚目カード後）
-  grid.querySelectorAll('.admax-slot-banner').forEach(slot => {
-    const admaxId = slot.dataset.admaxId;
-    const adDiv = document.createElement('div');
-    adDiv.className = 'admax-ads';
-    adDiv.setAttribute('data-admax-id', admaxId);
-    adDiv.style.display = 'inline-block';
-    adDiv.style.width = slot.closest('.ad-pc-only') ? '728px' : '320px';
-    (window.admaxads = window.admaxads || []).push({ admax_id: admaxId, type: 'banner' });
-    slot.appendChild(adDiv);
-  });
   // 3秒後に広告未填充のスロットを非表示（空スペース防止）
   setTimeout(() => {
     grid.querySelectorAll('.ad-card-wrapper').forEach(wrapper => {
       const inner = wrapper.querySelector('.admax-ads');
       if (!inner || inner.children.length === 0) wrapper.style.display = 'none';
     });
-    const midBanner = grid.querySelector('.ad-mid-banner');
-    if (midBanner) {
-      const filled = [...midBanner.querySelectorAll('.admax-ads')].some(el => el.children.length > 0);
-      if (!filled) midBanner.style.display = 'none';
-    }
   }, 3000);
 
   if (lmContainer) {
