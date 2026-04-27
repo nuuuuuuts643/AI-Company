@@ -220,6 +220,34 @@ def extractive_title(articles):
     return first[:40] + ('…' if len(first) > 40 else '')
 
 
+def is_extractive_summary(text: str) -> bool:
+    """既存 generatedSummary が AI 出力ではなく fetcher 側 extractive_summary()
+    フォールバックである可能性を判定する。AI 未実行のまま見出し連結が generatedSummary
+    に入っているケースを後続パスで除外するためのヘルパ。
+
+    判定パターン (どれかにマッチで extractive とみなす):
+      - 旧フォールバック: 「複数の報道」「関連して」が両方含まれる
+      - 現行 extractive_summary(): 「また、「」 + 「」など」 (中ライン連結句)
+      - 現行 extractive_summary(): 「最新では「」と報じられている」 (closing句)
+      - 現行 extractive_summary(): 末尾の「（… ほかN件）」/「（N件）」
+    """
+    if not text:
+        return False
+    t = str(text)
+    if '複数の報道' in t and '関連して' in t:
+        return True
+    if 'また、「' in t and '」など' in t:
+        return True
+    if '最新では「' in t and '」と報じられている' in t:
+        return True
+    # 末尾の「（… ほか12件）」「（5件）」パターン (extractive_summary src_note)
+    if re.search(r'（[^（）]*ほか\s*\d+件）\s*$', t):
+        return True
+    if re.search(r'（\s*\d+件）\s*$', t):
+        return True
+    return False
+
+
 def extractive_summary(articles):
     if not articles:
         return None
