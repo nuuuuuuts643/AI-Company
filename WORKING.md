@@ -39,4 +39,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
 | T205 finder: さらなる改善点調査 | — | 2026-04-27 |
-| 親子トピック分岐ストーリー実装 | lambda/fetcher/config.py, text_utils.py, frontend/app.js, style.css | 2026-04-27 09:10 |
