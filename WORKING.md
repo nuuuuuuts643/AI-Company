@@ -38,3 +38,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
+| T215 AIジャンル分類 | lambda/fetcher/config.py, lambda/processor/proc_ai.py, proc_storage.py, handler.py | 2026-04-27 18:00 |
