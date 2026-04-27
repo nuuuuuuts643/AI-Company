@@ -1205,3 +1205,25 @@ bash projects/P003-news-timeline/deploy.sh
 - S3 アップロード後 URL を localStorage にのみ保存 → 別デバイスで画像消失
 - `showGenreOnboarding` がログイン状態を見ていなかった → 未ログインにも表示されていた
 
+
+### 完了済み（2026-04-27 コンテンツ品質調査・T214・単記事トピック除外）
+
+#### コンテンツ品質調査（topics.json 実測）
+
+**完了時刻**: 2026-04-27 JST
+
+**実測値（500トピック）**:
+- 単記事トピック: 297/500 (59.4%) — topics.json に含まれていたがフロントでフィルタ済み
+- 2件以上(可視トピック): 203/500 (40.6%)
+- 真のAI処理済み(aiGenerated=True): 50/203 (24.6%)
+- storyPhase あり: 48/203 (23.6%)
+- 星座占い・商品セール記事がトピック化: 「今週の運勢」10記事、「お買い得品」5記事
+
+**変更ファイル**:
+- `lambda/fetcher/filters.py`: `_DIGEST_SKIP_PATS` に星座占い(`今[週日]の運勢`)・商品セール(`みつけたお買い得品`/`本日みつけた`)・個人ブログ(`【自己紹介】`/`マキアビューティーズ`)パターン追加
+- `lambda/fetcher/handler.py`: topics.json フィルタ条件を `articleCount >= 2 OR velocityScore > 0` → `articleCount >= 2` のみに変更（単記事トピックをtopics.jsonから除外）
+
+**新規TASKS追記**:
+- T213: AI要約カバレッジ低下の根本原因(pending queue優先度問題) → proc_storage.py修正案あり
+- T214: 星座占い・商品セール混入 → 部分対応済み
+

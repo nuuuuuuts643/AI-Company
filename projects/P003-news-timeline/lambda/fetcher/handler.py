@@ -557,12 +557,12 @@ def lambda_handler(event, context):
                 dedup_core[kc] = t
 
         topics_deduped_all = sorted(dedup_long.values(), key=lambda x: int(x.get('score', 0) or 0), reverse=True)
+        # 2件以上の記事を持つトピックのみtopics.jsonに含める（1件=コアバリュー違反）
         # velocityScore降順でソートし上位500件に絞り込む
-        # （topics.jsonを1.4MB→300KB台に削減。velocityScore>0は245件なので有効トピックは全カバー）
         topics_deduped = sorted(
             [t for t in topics_deduped_all
              if t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES
-             and (int(t.get('articleCount', 0) or 0) >= 2 or float(t.get('velocityScore', 0) or 0) > 0)
+             and int(t.get('articleCount', 0) or 0) >= 2
              and not any(p.search(t.get('title', '') + t.get('generatedTitle', '')) for p in _DIGEST_SKIP_PATS)
             ],
             key=lambda t: (float(t.get('velocityScore', 0) or 0), t.get('lastUpdated', '') or ''),
