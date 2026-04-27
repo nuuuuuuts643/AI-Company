@@ -61,8 +61,13 @@ def get_all_topics():
 
 
 def validate_topics_exist(topics, skip_tids=None):
-    """topics.jsonからDynamoDBに存在しない幽霊エントリをbatch_get_itemで除去する。
+    """topics.jsonからDynamoDBに存在しない or 中身がスタブの幽霊エントリを除去する。
     skip_tids: 今回のrunで書いたため確実に存在するtopicIdのset（スキップして高速化）。
+
+    T2026-0428-AE: 「META が存在するか」だけでなく「META が実コンテンツを持つか」も検証。
+    具体的には articleCount と lastUpdated が両方揃っているもののみ valid とする。
+    旧 force_reset_pending_all() が無条件 update で量産していた
+    {topicId, pendingAI, aiGenerated} だけのスタブ META を topics.json から駆除するため。
     """
     if not topics:
         return topics
@@ -71,6 +76,7 @@ def validate_topics_exist(topics, skip_tids=None):
     if not to_check:
         return topics
     valid_ids = set(skip)
+    stub_dropped = 0
     for i in range(0, len(to_check), 100):
         chunk = to_check[i:i+100]
         keys  = [{'topicId': t['topicId'], 'SK': 'META'} for t in chunk]
@@ -78,16 +84,22 @@ def validate_topics_exist(topics, skip_tids=None):
             resp = dynamodb.batch_get_item(
                 RequestItems={TABLE_NAME: {
                     'Keys': keys,
-                    'ProjectionExpression': '#tid',
+                    'ProjectionExpression': '#tid, articleCount, lastUpdated',
                     'ExpressionAttributeNames': {'#tid': 'topicId'},
                 }}
             )
             for item in resp.get('Responses', {}).get(TABLE_NAME, []):
-                valid_ids.add(item['topicId'])
+                # スタブ META (articleCount/lastUpdated 欠如) は valid にしない
+                if 'articleCount' in item and 'lastUpdated' in item:
+                    valid_ids.add(item['topicId'])
+                else:
+                    stub_dropped += 1
         except Exception as e:
             print(f'validate_topics_exist error (chunk {i}): {e}')
             for t in chunk:
                 valid_ids.add(t['topicId'])  # エラー時は通す
+    if stub_dropped:
+        print(f'validate_topics_exist: stub META {stub_dropped}件を除去')
     return [t for t in topics if t['topicId'] in valid_ids]
 
 
