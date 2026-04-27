@@ -554,10 +554,16 @@ function renderDetail(data) {
   }
   if (storyEl && timeline.length) {
     const seenUrls = new Set();
+    const seenSourceTitle = new Set();
     const allArticles = [];
     [...timeline].reverse().forEach(snap => {
       (snap.articles || []).forEach(a => {
-        if (!seenUrls.has(a.url)) { seenUrls.add(a.url); allArticles.push({ ...a, _snapTs: snap.timestamp }); }
+        const stKey = `${a.source}::${a.title}`;
+        if (!seenUrls.has(a.url) && !seenSourceTitle.has(stKey)) {
+          seenUrls.add(a.url);
+          seenSourceTitle.add(stKey);
+          allArticles.push({ ...a, _snapTs: snap.timestamp });
+        }
       });
     });
     allArticles.sort((a, b) => new Date(b._snapTs) - new Date(a._snapTs));
@@ -568,8 +574,8 @@ function renderDetail(data) {
       const d = new Date(ts);
       return `${d.getMonth()+1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     };
-    const ARTICLES_PER_DAY = 3;
-    const DAYS_INITIAL     = 7;
+    const ARTICLES_PER_DAY = 5;
+    const DAYS_INITIAL     = 14;
     const WDAY = ['日','月','火','水','木','金','土'];
     const fmtDay = (ts) => {
       const d = new Date(typeof ts === 'number' && ts < 1e11 ? ts * 1000 : ts);
