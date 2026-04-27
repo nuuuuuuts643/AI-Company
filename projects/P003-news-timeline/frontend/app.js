@@ -685,6 +685,7 @@ async function refreshTopics() {
     }
     lastFetchTime = Date.now();
     updateFreshnessDisplay();
+    renderHeroSection(allTopics);
     renderHeroStoryPreview(allTopics);
     renderHotStrip(allTopics);
     renderReturnStrip(allTopics);
@@ -828,15 +829,6 @@ window.flotopicSkipGenreOnboarding = function() {
 };
 
 function renderHotStrip(topics) {
-  let strip = document.getElementById('hot-strip');
-  if (!strip) {
-    const grid = document.getElementById('topics-grid');
-    if (!grid) return;
-    strip = document.createElement('section');
-    strip.id = 'hot-strip';
-    strip.className = 'hot-strip';
-    grid.parentNode.insertBefore(strip, grid);
-  }
   const nowSec = Date.now() / 1000;
   const hot = (topics || [])
     .filter(t =>
@@ -846,6 +838,27 @@ function renderHotStrip(topics) {
     )
     .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0))
     .slice(0, 5);
+
+  const anchor = document.getElementById('active-topics-anchor');
+  if (anchor) {
+    if (!hot.length) { anchor.innerHTML = ''; return; }
+    const chips = hot.map(t => {
+      const cnt = t.articleCount || 0;
+      return `<a href="topic.html?id=${esc(t.topicId)}" class="hot-chip">${esc(t.generatedTitle || t.title)}${cnt ? `（${cnt}件）` : ''}</a>`;
+    }).join('');
+    anchor.innerHTML = `<section class="hot-strip active-topics-section"><div class="hot-strip-header">今動いている</div><div class="hot-strip-chips">${chips}</div></section>`;
+    return;
+  }
+
+  let strip = document.getElementById('hot-strip');
+  if (!strip) {
+    const grid = document.getElementById('topics-grid');
+    if (!grid) return;
+    strip = document.createElement('section');
+    strip.id = 'hot-strip';
+    strip.className = 'hot-strip';
+    grid.parentNode.insertBefore(strip, grid);
+  }
   if (!hot.length) { strip.remove(); return; }
   strip.style.display = 'block';
   strip.innerHTML = `
