@@ -253,14 +253,14 @@ aws lambda create-function \
   --role "$ROLE_ARN" \
   --handler handler.lambda_handler \
   --zip-file fileb://function.zip \
-  --timeout 15 --memory-size 128 \
+  --timeout 10 --memory-size 128 \
   --environment "$COMMENTS_ENV_VARS" \
   --region "$REGION" 2>/dev/null \
   && echo "  -> 新規作成完了" \
   || {
     aws lambda update-function-code --function-name "$COMMENTS_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
     aws lambda wait function-updated --function-name "$COMMENTS_FN" --region "$REGION"
-    aws lambda update-function-configuration --function-name "$COMMENTS_FN" --timeout 15 --memory-size 128 --environment "$COMMENTS_ENV_VARS" --region "$REGION" > /dev/null
+    aws lambda update-function-configuration --function-name "$COMMENTS_FN" --timeout 10 --memory-size 128 --environment "$COMMENTS_ENV_VARS" --region "$REGION" > /dev/null
     echo "  -> 更新完了"
   }
 rm function.zip
@@ -416,14 +416,14 @@ aws lambda create-function \
   --role "$ROLE_ARN" \
   --handler handler.lambda_handler \
   --zip-file fileb://function.zip \
-  --timeout 15 --memory-size 128 \
+  --timeout 10 --memory-size 128 \
   --environment "$AUTH_ENV_VARS" \
   --region "$REGION" 2>/dev/null \
   && echo "  -> 新規作成完了" \
   || {
     aws lambda update-function-code --function-name "$AUTH_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
     aws lambda wait function-updated --function-name "$AUTH_FN" --region "$REGION"
-    aws lambda update-function-configuration --function-name "$AUTH_FN" --timeout 15 --memory-size 128 --environment "$AUTH_ENV_VARS" --region "$REGION" > /dev/null
+    aws lambda update-function-configuration --function-name "$AUTH_FN" --timeout 10 --memory-size 128 --environment "$AUTH_ENV_VARS" --region "$REGION" > /dev/null
     echo "  -> 更新完了"
   }
 rm function.zip
@@ -473,14 +473,14 @@ aws lambda create-function \
   --role "$ROLE_ARN" \
   --handler handler.lambda_handler \
   --zip-file fileb://function.zip \
-  --timeout 15 --memory-size 128 \
+  --timeout 10 --memory-size 128 \
   --environment "$FAVORITES_ENV_VARS" \
   --region "$REGION" 2>/dev/null \
   && echo "  -> 新規作成完了" \
   || {
     aws lambda update-function-code --function-name "$FAVORITES_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
     aws lambda wait function-updated --function-name "$FAVORITES_FN" --region "$REGION"
-    aws lambda update-function-configuration --function-name "$FAVORITES_FN" --timeout 15 --memory-size 128 --environment "$FAVORITES_ENV_VARS" --region "$REGION" > /dev/null
+    aws lambda update-function-configuration --function-name "$FAVORITES_FN" --timeout 10 --memory-size 128 --environment "$FAVORITES_ENV_VARS" --region "$REGION" > /dev/null
     echo "  -> 更新完了"
   }
 rm function.zip
@@ -530,14 +530,14 @@ aws lambda create-function \
   --role "$ROLE_ARN" \
   --handler handler.lambda_handler \
   --zip-file fileb://function.zip \
-  --timeout 15 --memory-size 128 \
+  --timeout 10 --memory-size 128 \
   --environment "$ANALYTICS_ENV_VARS" \
   --region "$REGION" 2>/dev/null \
   && echo "  -> 新規作成完了" \
   || {
     aws lambda update-function-code --function-name "$ANALYTICS_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
     aws lambda wait function-updated --function-name "$ANALYTICS_FN" --region "$REGION"
-    aws lambda update-function-configuration --function-name "$ANALYTICS_FN" --timeout 15 --memory-size 128 --environment "$ANALYTICS_ENV_VARS" --region "$REGION" > /dev/null
+    aws lambda update-function-configuration --function-name "$ANALYTICS_FN" --timeout 10 --memory-size 128 --environment "$ANALYTICS_ENV_VARS" --region "$REGION" > /dev/null
     echo "  -> 更新完了"
   }
 rm function.zip
@@ -591,14 +591,14 @@ aws lambda create-function \
   --role "$ROLE_ARN" \
   --handler handler.lambda_handler \
   --zip-file fileb://function.zip \
-  --timeout 60 --memory-size 256 \
+  --timeout 30 --memory-size 256 \
   --environment "$CF_ANALYTICS_ENV" \
   --region "$REGION" 2>/dev/null \
   && echo "  -> 新規作成完了" \
   || {
     aws lambda update-function-code --function-name "$CF_ANALYTICS_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
     aws lambda wait function-updated --function-name "$CF_ANALYTICS_FN" --region "$REGION"
-    aws lambda update-function-configuration --function-name "$CF_ANALYTICS_FN" --timeout 60 --memory-size 256 --environment "$CF_ANALYTICS_ENV" --region "$REGION" > /dev/null
+    aws lambda update-function-configuration --function-name "$CF_ANALYTICS_FN" --timeout 30 --memory-size 256 --environment "$CF_ANALYTICS_ENV" --region "$REGION" > /dev/null
     echo "  -> 更新完了"
   }
 rm function.zip

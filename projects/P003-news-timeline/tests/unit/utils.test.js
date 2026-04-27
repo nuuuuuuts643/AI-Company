@@ -5,7 +5,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { CONFIG, LS_KEYS, relativeTime, isNewTopic, isHotTopic } =
-  require('../frontend/js/utils');
+  require('../../frontend/js/utils');
 
 // ─────────────────────────────────────────────
 // CONFIG
