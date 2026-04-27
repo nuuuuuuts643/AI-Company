@@ -332,7 +332,7 @@ def post_daily(client, dry_run=False):
     image_url = topic.get('imageUrl') or ''
     phase     = topic.get('storyPhase', '')
     tag     = genre_tag(topic)
-    url     = f'{SITE_URL}/topics/{tid}.html'  # 静的HTML（OGPメタタグ完備）
+    url     = f'{SITE_URL}/topic.html?id={tid}'
 
     # storyPhaseに応じた問いかけ形式（ロングテールSEO狙い）
     _t = truncate(title, 36)
