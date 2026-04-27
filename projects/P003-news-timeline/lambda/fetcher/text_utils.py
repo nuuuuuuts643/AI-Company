@@ -160,11 +160,18 @@ _OVERRIDE_GENRE_RULES = [
 ]
 
 
-def override_genre_by_title(combined_titles: str):
-    """クラスター全タイトルに強固キーワードが1件でもあればジャンルを強制上書き。なければNone。"""
+def override_genre_by_title(articles: list):
+    """クラスター記事タイトルに強固キーワードが2件以上（1件クラスタは1件）あればジャンルを強制上書き。
+
+    combined_titles で ANY 一致するだけでは、別ジャンルのクラスタに混入した1記事が
+    クラスタ全体のジャンルを汚染する問題が起きる（例: 国際クラスタ内のW杯記事1件→スポーツ誤分類）。
+    """
+    min_hits = max(1, min(2, len(articles)))
     for genre, keywords in _OVERRIDE_GENRE_RULES:
-        if any(kw in combined_titles for kw in keywords):
-            return genre
+        for kw in keywords:
+            hits = sum(1 for a in articles if kw in a.get('title', ''))
+            if hits >= min_hits:
+                return genre
     return None
 
 
