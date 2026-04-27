@@ -44,6 +44,59 @@ def lambda_handler(event, context):
         filled = backfill_missing_detail_json()
         return {'statusCode': 200, 'body': json.dumps({'filled': filled})}
 
+    # 特殊モード: 全トピック完全削除 (核オプション・2026-04-27)
+    # 使い方:
+    #   件数確認(dry_run): aws lambda invoke --function-name p003-processor --payload '{"purgeAll":true,"dryRun":true}' /tmp/r.json
+    #   実行(取り返し不可): aws lambda invoke --function-name p003-processor --payload '{"purgeAll":true,"confirm":"CONFIRM_PURGE_ALL_2026"}' /tmp/r.json
+    # 削除対象: DynamoDB の p003-topics 全 META+SNAP / S3 api/topics.json / api/topic/*.json / topics/*.html
+    # 保護対象: ユーザー データ (flotopic-favorites / flotopic-analytics / ai-company-comments) は別テーブルなので影響なし
+    # 副作用: Google インデックス済みURL が 404 になる→SEO一時悪化。次回 fetcher 実行で全新規生成。
+    if event.get('purgeAll'):
+        from proc_config import table, s3
+        from boto3.dynamodb.conditions import Attr
+        if event.get('dryRun'):
+            meta_count = 0; snap_count = 0
+            scan_kwargs = {'Select': 'COUNT'}
+            while True:
+                r = table.scan(**scan_kwargs)
+                meta_count += r.get('Count', 0)
+                if not r.get('LastEvaluatedKey'): break
+                scan_kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
+            print(f'[Processor] purgeAll dryRun: 全アイテム {meta_count} 件削除予定')
+            return {'statusCode': 200, 'body': json.dumps({'dryRun': True, 'totalItems': meta_count, 'warning': 'これを実行すると取り戻せません。confirm=CONFIRM_PURGE_ALL_2026 を渡してください'})}
+        if event.get('confirm') != 'CONFIRM_PURGE_ALL_2026':
+            return {'statusCode': 400, 'body': json.dumps({'error': '安全のため、confirm=CONFIRM_PURGE_ALL_2026 を payload に含めてください'})}
+        # 実削除
+        from proc_storage import S3_BUCKET as _S3
+        deleted_meta = 0; deleted_snap = 0
+        scan_kwargs = {'ProjectionExpression': 'topicId,SK'}
+        with table.batch_writer() as bw:
+            while True:
+                r = table.scan(**scan_kwargs)
+                for item in r.get('Items', []):
+                    bw.delete_item(Key={'topicId': item['topicId'], 'SK': item['SK']})
+                    if item['SK'] == 'META': deleted_meta += 1
+                    else: deleted_snap += 1
+                if not r.get('LastEvaluatedKey'): break
+                scan_kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
+        # S3 cleanup
+        deleted_s3 = 0
+        for prefix in ('api/topic/', 'topics/'):
+            paginator = s3.get_paginator('list_objects_v2')
+            for page in paginator.paginate(Bucket=_S3, Prefix=prefix):
+                objs = [{'Key': o['Key']} for o in page.get('Contents', [])]
+                if objs:
+                    s3.delete_objects(Bucket=_S3, Delete={'Objects': objs})
+                    deleted_s3 += len(objs)
+        # topics.json と pending_ai.json を空に
+        for k in ('api/topics.json', 'api/pending_ai.json'):
+            try:
+                s3.put_object(Bucket=_S3, Key=k, Body=json.dumps({'topics': [], 'topicIds': [], 'trendingKeywords': [], 'updatedAt': datetime.now(timezone.utc).isoformat()}), ContentType='application/json')
+            except Exception:
+                pass
+        print(f'[Processor] purgeAll 完了: META={deleted_meta}件, SNAP={deleted_snap}件, S3 objects={deleted_s3}件')
+        return {'statusCode': 200, 'body': json.dumps({'purged': True, 'metaDeleted': deleted_meta, 'snapDeleted': deleted_snap, 's3Deleted': deleted_s3})}
+
     # 特殊モード: 全トピックの AI を強制再生成 (新プロンプト適用のため・2026-04-27)
     # 使い方:
     #   コスト確認(dry_run): aws lambda invoke --function-name p003-processor --payload '{"forceRegenerateAll":true,"dryRun":true}' /tmp/r.json
