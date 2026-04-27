@@ -75,6 +75,9 @@ done
 # grep -v で物理的に弾く (LANG=C で英語固定。i18n 環境でも安定)。
 # 実害ある warning/error は素通しする (フィルタは substring 一致のみ・正規表現使わない)。
 _strip_fuse_noise() {
+  # FUSE 環境 + 並行セッション起因の "実害ゼロ noise" のみ落とす。
+  # 実害ある warning/error (push 失敗・auth・network など) は通すこと。
+  # 追加する場合は「実害が無い・mv/_garbage で吸収済」と確認してから入れる。
   LANG=C grep -v -e 'may have crashed in this repository earlier' \
                  -e 'remove the file manually to continue' \
                  -e "warning: unable to unlink" \
@@ -82,6 +85,9 @@ _strip_fuse_noise() {
                  -e "an editor opened by 'git commit'" \
                  -e 'are terminated then try again' \
                  -e 'Another git process seems to be running' \
+                 -e "error: cannot lock ref 'refs/remotes/" \
+                 -e "error: update_ref failed for ref 'refs/remotes/" \
+                 -e "Unable to create '.*\.lock': File exists" \
     | sed -E '/^[[:space:]]*$/d; /^ \! .*unable to update local ref/d' \
     || true
 }
