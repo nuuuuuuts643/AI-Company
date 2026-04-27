@@ -404,8 +404,14 @@ def lambda_handler(event, context):
             and (not _needs_timeline or _has_timeline)
         )
 
+        _tier1_img = next(
+            (a.get('imageUrl') for a in g
+             if a.get('imageUrl') and a.get('tier', 99) == 1),
+            None,
+        )
         image_url = (
             existing.get('imageUrl') or
+            _tier1_img or
             next((a.get('imageUrl') for a in g if a.get('imageUrl')), None) or
             ogp_results.get(tid)
         )
