@@ -418,7 +418,15 @@ def update_topic_s3_file(tid, upd, articles=None):
             )
         # 静的SEO用HTML生成: JSON変更時のみ再生成（変更なしはスキップしてS3 PUT削減）
         if json_changed and (meta.get('aiGenerated') or meta.get('generatedSummary')):
-            generate_static_topic_html(tid, meta, articles or data.get('articles', []))
+            # articles_cacheが空の場合はtimeline[].articlesから収集（トップレベルにarticlesキーは存在しない）
+            if not articles:
+                _tl_arts, _seen = [], set()
+                for _snap in reversed(data.get('timeline', [])):
+                    for _a in _snap.get('articles', []):
+                        if _a.get('url') and _a['url'] not in _seen:
+                            _seen.add(_a['url']); _tl_arts.append(_a)
+                articles = _tl_arts
+            generate_static_topic_html(tid, meta, articles)
     except Exception:
         pass
 
@@ -995,7 +1003,13 @@ def batch_generate_static_html(max_topics: int = 500) -> int:
             resp = s3.get_object(Bucket=S3_BUCKET, Key=key)
             data = json.loads(resp['Body'].read())
             meta = data.get('meta', {})
-            articles = data.get('articles', [])
+            # トップレベルの 'articles' キーは存在しない。timeline[].articles から収集する
+            _tl_arts, _seen = [], set()
+            for _snap in reversed(data.get('timeline', [])):
+                for _a in _snap.get('articles', []):
+                    if _a.get('url') and _a['url'] not in _seen:
+                        _seen.add(_a['url']); _tl_arts.append(_a)
+            articles = _tl_arts
             generate_static_topic_html(tid, meta, articles)
             return 'ok'
         except Exception as e:
