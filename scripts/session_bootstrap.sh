@@ -79,6 +79,8 @@ _strip_fuse_noise() {
                  -e 'remove the file manually to continue' \
                  -e "warning: unable to unlink" \
                  -e ': unable to update local ref' \
+                 -e "an editor opened by 'git commit'" \
+                 -e 'are terminated then try again' \
     || true
 }
 git add -A 2>/dev/null

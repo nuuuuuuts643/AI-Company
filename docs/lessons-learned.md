@@ -21,6 +21,8 @@
 - 2026-04-28 production 鮮度 SLI 不在で 14h 壊れに気付かなかった (static analysis bias)
 - 2026-04-28 環境スクリプトに session ID hardcode + UTC を JST と誤ラベル (環境スクリプトが Verify 対象外と暗黙解釈された)
 - 2026-04-28 仕組み化タスクが起票だけで実装されない（メタ・schedule-task 構造ガード v3）
+- 2026-04-28 06 success-but-empty を AI 生成側に横展開できず keyPoint 充填率 11.5% を素通りした (SLI 粒度の構造欠陥)
+- 2026-04-28 06 docs/system-status.md と実測の数値齟齬 (スナップショット二重管理問題)
 
 ---
 
