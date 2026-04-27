@@ -90,4 +90,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] schedule-task 2026-04-28 05:10 多角調査+即時改善 | Cowork | TASKS.md, HISTORY.md, docs/lessons-learned.md, lambda/processor/proc_ai.py | 2026-04-28 05:10 | yes |
