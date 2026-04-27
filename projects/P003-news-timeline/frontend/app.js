@@ -899,12 +899,10 @@ function renderQuickNews(topics) {
     ${candidates.map(t => {
       const h = Math.floor((nowSec - toUnixSec(t.lastArticleAt || t.lastUpdated)) / 3600);
       const timeLabel = h < 1 ? '1時間以内' : `${h}時間前`;
-      const snippet = cleanSummary(t.generatedSummary || '').slice(0, 55);
       const cnt = t.articleCount || 0;
       return `<a href="topic.html?id=${esc(t.topicId)}" class="qn-item">
         <div class="qn-meta">${cnt ? `📄 ${cnt}件` : ''} · ${timeLabel}更新</div>
         <div class="qn-title">${esc(t.generatedTitle || t.title)}</div>
-        ${snippet ? `<div class="qn-snippet">${esc(snippet)}…</div>` : ''}
       </a>`;
     }).join('')}`;
   grid.parentNode.insertBefore(strip, grid);
