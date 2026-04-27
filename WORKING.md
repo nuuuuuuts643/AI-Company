@@ -90,4 +90,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] schedule-task 2026-04-28 18:10 実態調査+即時改善 | Cowork | `.github/workflows/freshness-check.yml`, `docs/sli-slo.md`, `.github/workflows/ci.yml`, `docs/system-status.md`, `docs/lessons-learned.md`, `TASKS.md`, `HISTORY.md`, `WORKING.md` | 2026-04-28 18:10 | yes |
 | [Cowork] T2026-0428-D 運用ルール仕組み化 (schedule task) | Cowork | scripts/session_bootstrap.sh, docs/lessons-learned.md, docs/rules/global-baseline.md | 2026-04-28 18:10 | yes |
