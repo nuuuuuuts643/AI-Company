@@ -136,14 +136,22 @@ def auto_archive_incoherent(tid: str, gen_story: dict | None) -> bool:
 
 
 def force_reset_pending_all() -> int:
-    """全トピックの META に pendingAI=True をセットして強制再AI処理対象にする。
-    新プロンプト適用の一括クリーンアップ用 (2026-04-27)。
+    """topics.json 可視 (active/cooling) なトピックの META に pendingAI=True をセットし強制再AI処理対象にする。
+    archived/legacy は無駄に再生成しても表示されないため除外 (2026-04-27 コスト最適化)。
     Returns: リセットしたトピック数。"""
     if not S3_BUCKET:
         return 0
     count = 0
+    # archived/legacy は除外 (表示されないので再生成不要・コスト無駄)
     scan_kwargs = {
-        'FilterExpression': Attr('SK').eq('META') & Attr('articleCount').gte(2),
+        'FilterExpression': (
+            Attr('SK').eq('META')
+            & Attr('articleCount').gte(2)
+            & (
+                ~Attr('lifecycleStatus').exists()
+                | Attr('lifecycleStatus').is_in(['active', 'cooling'])
+            )
+        ),
         'ProjectionExpression': 'topicId',
     }
     while True:

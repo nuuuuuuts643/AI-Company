@@ -113,8 +113,16 @@ def lambda_handler(event, context):
             from proc_config import table
             from boto3.dynamodb.conditions import Attr
             count = 0
+            # active/cooling のみ対象 (archived/legacy は無駄)
             scan_kwargs = {
-                'FilterExpression': Attr('SK').eq('META') & Attr('articleCount').gte(2),
+                'FilterExpression': (
+                    Attr('SK').eq('META')
+                    & Attr('articleCount').gte(2)
+                    & (
+                        ~Attr('lifecycleStatus').exists()
+                        | Attr('lifecycleStatus').is_in(['active', 'cooling'])
+                    )
+                ),
                 'Select': 'COUNT',
             }
             while True:
