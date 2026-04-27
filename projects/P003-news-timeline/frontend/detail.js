@@ -906,15 +906,19 @@ function renderDetail(data) {
           if (picked.length >= 3) break;
           if (!picked.some(p => p.url === a.url)) picked.push(a);
         }
-        relatedEl.innerHTML = picked.map(a => `
+        relatedEl.innerHTML = picked.map(a => {
+          const wayback = `https://web.archive.org/web/*/${encodeURIComponent(a.url || '')}`;
+          return `
           <div class="article-item">
             <a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
             <div class="article-meta">
               ${srcFaviconImg(a.source)}
               ${esc(a.source)} · ${fmtTl(a._snapTs)}
+              <a href="${esc(wayback)}" class="article-archive-link" target="_blank" rel="noopener noreferrer" title="リンク切れ時は Internet Archive で記事を遡れます">📦 アーカイブ</a>
             </div>
           </div>
-        `).join('');
+        `;
+        }).join('');
       }
     }
 
