@@ -812,10 +812,12 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   align-items: center;
   justify-content: center;
   padding: 4px 0;
+  max-height: 120px;
+  overflow: hidden;
 }
 /* PC/スマホ広告切替（レガシー） */
 .ad-pc-only { display: none; }
-.ad-sp-only { display: block; }
+.ad-sp-only { display: block; max-height: 120px; overflow: hidden; }
 @media (min-width: 768px) {
   .ad-pc-only { display: block; }
   .ad-sp-only { display: none; }
@@ -850,7 +852,7 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   z-index: 2;
   letter-spacing: .05em;
 }
-.ad-card-wrapper { width: 100%; grid-column: 1 / -1; }
+.ad-card-wrapper { width: 100%; grid-column: 1 / -1; max-height: 120px; overflow: hidden; }
 .ad-card {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
