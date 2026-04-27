@@ -1339,7 +1339,8 @@
     }
     const picUrl = savedAvatar || serverAvatar || (user && user.picture ? safeEsc(user.picture) : '');
     const userSuffix = user && user.userId ? '#' + user.userId.slice(-4) : '';
-    const displayName = safeEsc(user ? (user.nickname || ('ユーザー' + userSuffix)) : 'ユーザー');
+    const _emailPrefix = user && user.email ? user.email.split('@')[0] : '';
+    const displayName = safeEsc(user ? (user.nickname || user.name || user.given_name || _emailPrefix || ('ユーザー' + userSuffix)) : 'ユーザー');
     const initial = (displayName.replace(/&[^;]+;/g,'')[0] || '?').toUpperCase();
     const avatarHtml = picUrl
       ? `<img class="mp-avatar" src="${picUrl}" alt="アバター" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="mp-avatar-placeholder" style="display:none">${initial}</div>`
