@@ -114,25 +114,63 @@ def save_prediction_log(tid: str, gen_story: dict | None) -> bool:
         return False
 
 
+_ARCHIVED_META_TTL_DAYS = 90  # archived 化された META は 90日で自動削除 (コスト削減)
+
+
 def auto_archive_incoherent(tid: str, gen_story: dict | None) -> bool:
-    """AI が isCoherent=false と判定したトピックを lifecycleStatus='archived' に自動退避。
-    指針(主語+目的語+一発理解)が定まる前にまとめられた雑なクラスタを視界から消すための仕組み。
+    """AI が isCoherent=false と判定したトピックを lifecycleStatus='archived' に自動退避 + TTL 90日付与。
+    指針(主語+目的語+一発理解)が定まる前にまとめられた雑なクラスタを視界から消す + ストレージコストも削減。
     Returns: archive したかどうか。"""
     if not gen_story:
         return False
     is_coherent = gen_story.get('isCoherent')
     if is_coherent is False:  # 明示的 False のときだけ (None/未設定はOK扱い)
         try:
+            ttl_ts = int(time.time()) + _ARCHIVED_META_TTL_DAYS * 86400
             table.update_item(
                 Key={'topicId': tid, 'SK': 'META'},
-                UpdateExpression='SET lifecycleStatus = :ls, topicCoherent = :tc',
-                ExpressionAttributeValues={':ls': 'archived', ':tc': False},
+                UpdateExpression='SET lifecycleStatus = :ls, topicCoherent = :tc, ttl = :ttl',
+                ExpressionAttributeValues={':ls': 'archived', ':tc': False, ':ttl': ttl_ts},
             )
-            print(f'[auto_archive] {tid[:8]}... isCoherent=false → archived (中身が乖離)')
+            print(f'[auto_archive] {tid[:8]}... isCoherent=false → archived + TTL{_ARCHIVED_META_TTL_DAYS}日 (コスト削減)')
             return True
         except Exception as e:
             print(f'[auto_archive] {tid[:8]}... 失敗: {e}')
     return False
+
+
+def add_ttl_to_existing_archived() -> int:
+    """既存の lifecycleStatus='archived' なメタに TTL 90日を後付けする (1回限り運用)。
+    proc_ai が isCoherent ベースで自動 TTL を付ける前にすでに archive されたトピック対応。
+    Returns: TTL を追加した件数。"""
+    if not S3_BUCKET:
+        return 0
+    count = 0
+    ttl_ts = int(time.time()) + _ARCHIVED_META_TTL_DAYS * 86400
+    scan_kwargs = {
+        'FilterExpression': (
+            Attr('SK').eq('META')
+            & Attr('lifecycleStatus').is_in(['archived', 'legacy'])
+            & ~Attr('ttl').exists()
+        ),
+        'ProjectionExpression': 'topicId',
+    }
+    while True:
+        r = table.scan(**scan_kwargs)
+        for item in r.get('Items', []):
+            try:
+                table.update_item(
+                    Key={'topicId': item['topicId'], 'SK': 'META'},
+                    UpdateExpression='SET ttl = :ttl',
+                    ExpressionAttributeValues={':ttl': ttl_ts},
+                )
+                count += 1
+            except Exception:
+                pass
+        if not r.get('LastEvaluatedKey'):
+            break
+        scan_kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
+    return count
 
 
 def force_reset_pending_all() -> int:

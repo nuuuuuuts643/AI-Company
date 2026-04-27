@@ -47,6 +47,14 @@ def lambda_handler(event, context):
         filled = backfill_missing_detail_json()
         return {'statusCode': 200, 'body': json.dumps({'filled': filled})}
 
+    # 特殊モード: 既存 archived/legacy メタに TTL 90日を後付け (コスト削減・1回限り)
+    # 使い方: aws lambda invoke --function-name p003-processor --payload '{"backfillArchivedTtl":true}' /tmp/r.json
+    if event.get('backfillArchivedTtl'):
+        from proc_storage import add_ttl_to_existing_archived
+        n = add_ttl_to_existing_archived()
+        print(f'[Processor] backfillArchivedTtl: {n} 件に TTL 90日を追加 → 90日後 DynamoDB 自動削除')
+        return {'statusCode': 200, 'body': json.dumps({'updated': n})}
+
     # 特殊モード: 全トピック完全削除 (核オプション・2026-04-27)
     # 使い方:
     #   件数確認(dry_run): aws lambda invoke --function-name p003-processor --payload '{"purgeAll":true,"dryRun":true}' /tmp/r.json
