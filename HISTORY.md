@@ -1435,3 +1435,12 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T257~~ | ~~中~~ | ~~**profile.html・admin.html・mypage.html などログイン系ページが noindex のまま** — これは正解だが、サイトマップにこれらが含まれていないか確認が必要~~ — **2026-04-28 07:13 schedule-task で curl 確認**: sitemap.xml 121 URL のうち 115 が `/topics/{tid}.html`、残り 6 は `/`, `catchup.html`, `about.html`, `terms.html`, `privacy.html`, `contact.html`。admin/profile/mypage は **含まれていない** ✅。各ページの noindex 設定: admin/profile/mypage/contact = NOINDEX、privacy/terms/about = INDEXABLE。**問題なし、close**。 | ~~`lambda/processor/proc_storage.py`~~ | ~~2026-04-28~~ |
 
 </details>
+
+
+### 自動 triage: 2026-04-28 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T2026-0428-X~~ | 🟡 中 | 安定性 | **P0-STABLE-C: WORKING.md 同時並行 3 行以上で session_bootstrap が警告** — 現状は needs-push 滞留警告のみ。`scripts/session_bootstrap.sh` に「WORKING.md の進行中タスク行 ≥3 なら警告して 1 行サマリに含める」を追加。lock 競合・重複作業の早期検知。**完了条件**: WORKING.md に意図的に 3 行入れて bootstrap 実行→警告が出る。 | `scripts/session_bootstrap.sh` | 2026-04-28 |
+
+</details>
