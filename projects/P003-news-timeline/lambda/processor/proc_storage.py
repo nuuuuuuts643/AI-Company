@@ -880,10 +880,13 @@ header a{{color:#6366f1;font-weight:bold;font-size:1.1rem;text-decoration:none}}
 .aff-btn{{display:inline-block;padding:8px 14px;border-radius:6px;font-size:.84rem;font-weight:600;text-decoration:none}}
 .aff-amz{{background:#ff9900;color:#fff}}.aff-rkt{{background:#bf0000;color:#fff}}.aff-yhs{{background:#ff0033;color:#fff}}
 .aff-note{{font-size:.7rem;color:#92400e;margin:0}}
+.flotopic-cta-banner{{background:#6366f1;border-radius:8px;padding:12px 16px;margin:1rem 0;text-align:center}}
+.flotopic-cta-banner a{{color:#fff;font-weight:bold;font-size:.95rem;text-decoration:none}}
 </style>
 </head>
 <body>
 <header><a href="https://flotopic.com">Flotopic</a><span style="color:#94a3b8;font-size:.85rem">— 話題の盛り上がりをAIで追う</span></header>
+<div class="flotopic-cta-banner"><a href="{interactive}">🌊 Flotopicでこのトピックの全流れを見る</a></div>
 <span class="genre">#{genre}</span>{phase_badge}
 <h1>{title}</h1>
 <p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0 1.5rem;">{article_count}件の記事</p>
