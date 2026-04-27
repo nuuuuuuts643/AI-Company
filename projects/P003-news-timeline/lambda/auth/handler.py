@@ -1,12 +1,12 @@
 """
 P003 Auth Lambda
 - POST /auth  → Google ID トークン検証 + ユーザー作成/取得/profile更新
-  body: { idToken, handle?, ageGroup?, gender? }
-  response: { userId, name, picture, handle, ageGroup, gender, token }
+  body: { idToken, handle?, ageGroup?, gender?, nickname?, interests?, avatarUrl? }
+  response: { userId, name, picture, handle, ageGroup, gender, nickname, interests, avatarUrl, token }
 
 DynamoDB テーブル: flotopic-users
   PK=userId (Google sub)
-  fields: email, name, picture, handle, ageGroup, gender, createdAt
+  fields: email, name, picture, handle, ageGroup, gender, nickname, interests, avatarUrl, createdAt
 """
 
 import base64
@@ -62,16 +62,22 @@ def verify_google_token(id_token: str) -> dict | None:
         return None
 
 
+VALID_GENRES = {'総合','政治','経済','テクノロジー','スポーツ','エンタメ','科学','国際','社会','健康','ビジネス','教育','文化','環境'}
+
+
 def get_or_create_user(payload: dict, new_handle: str = '',
                        new_age: str = '', new_gender: str = '',
-                       new_nickname: str = '') -> dict:
+                       new_nickname: str = '', new_interests: list = None,
+                       new_avatar_url: str = '') -> dict:
     """DynamoDB からユーザーを取得 or 作成。プロフィールが渡されたら更新する。"""
     user_id = payload['sub']
     now_iso = datetime.now(timezone.utc).isoformat()
-    valid_handle   = new_handle   if (new_handle and HANDLE_RE.match(new_handle)) else ''
-    valid_age      = new_age      if new_age    in VALID_AGE_GROUPS else ''
-    valid_gender   = new_gender   if new_gender in VALID_GENDERS    else ''
-    valid_nickname = new_nickname[:30] if new_nickname else ''
+    valid_handle    = new_handle   if (new_handle and HANDLE_RE.match(new_handle)) else ''
+    valid_age       = new_age      if new_age    in VALID_AGE_GROUPS else ''
+    valid_gender    = new_gender   if new_gender in VALID_GENDERS    else ''
+    valid_nickname  = new_nickname[:30] if new_nickname else ''
+    valid_interests = [g for g in (new_interests or []) if g in VALID_GENRES][:10]
+    valid_avatar    = new_avatar_url[:500] if new_avatar_url else ''
 
     try:
         result = table.get_item(Key={'userId': user_id})
@@ -96,6 +102,12 @@ def get_or_create_user(payload: dict, new_handle: str = '',
             if valid_nickname:
                 expr += ', nickname = :nk'
                 vals[':nk'] = valid_nickname
+            if valid_interests:
+                expr += ', interests = :in'
+                vals[':in'] = valid_interests
+            if valid_avatar:
+                expr += ', avatarUrl = :av'
+                vals[':av'] = valid_avatar
             table.update_item(
                 Key={'userId': user_id},
                 UpdateExpression=expr,
@@ -104,10 +116,12 @@ def get_or_create_user(payload: dict, new_handle: str = '',
             )
             existing['name']    = payload.get('name', existing.get('name', ''))
             existing['picture'] = payload.get('picture', existing.get('picture', ''))
-            if valid_handle:   existing['handle']   = valid_handle
-            if valid_age:      existing['ageGroup'] = valid_age
-            if valid_gender:   existing['gender']   = valid_gender
-            if valid_nickname: existing['nickname'] = valid_nickname
+            if valid_handle:    existing['handle']    = valid_handle
+            if valid_age:       existing['ageGroup']  = valid_age
+            if valid_gender:    existing['gender']    = valid_gender
+            if valid_nickname:  existing['nickname']  = valid_nickname
+            if valid_interests: existing['interests'] = valid_interests
+            if valid_avatar:    existing['avatarUrl'] = valid_avatar
             return existing
     except ClientError:
         pass
@@ -119,10 +133,12 @@ def get_or_create_user(payload: dict, new_handle: str = '',
         'picture':   payload.get('picture', ''),
         'createdAt': now_iso,
     }
-    if valid_handle:   item['handle']   = valid_handle
-    if valid_age:      item['ageGroup'] = valid_age
-    if valid_gender:   item['gender']   = valid_gender
-    if valid_nickname: item['nickname'] = valid_nickname
+    if valid_handle:    item['handle']    = valid_handle
+    if valid_age:       item['ageGroup']  = valid_age
+    if valid_gender:    item['gender']    = valid_gender
+    if valid_nickname:  item['nickname']  = valid_nickname
+    if valid_interests: item['interests'] = valid_interests
+    if valid_avatar:    item['avatarUrl'] = valid_avatar
     table.put_item(Item=item)
     return item
 

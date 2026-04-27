@@ -82,8 +82,8 @@
       display: inline-block; font-size: .65rem; font-weight: 700;
       border-radius: 999px; padding: 2px 8px;
     }
-    .sm-status-badge.active { background: #dcfce7; color: #16a34a; }
-    .sm-status-badge.cooling { background: #fef3c7; color: #92400e; }
+    .sm-status-badge.active { background: rgba(78,201,192,0.15); color: #4EC9C0; border: 1px solid rgba(78,201,192,0.3); }
+    .sm-status-badge.cooling { background: rgba(78,201,192,0.08); color: #7DD8D2; }
     .sm-status-badge.archived { background: var(--bg-page); color: #64748b; }
 
     /* ===== Branches section ===== */
@@ -118,11 +118,11 @@
       position: relative;
     }
     .sm-branch-card:hover {
-      border-color: #93c5fd;
-      background: #eff6ff;
+      border-color: rgba(78,201,192,0.4);
+      background: rgba(78,201,192,0.04);
       transform: translateY(-2px);
     }
-    [data-theme="dark"] .sm-branch-card:hover { background: #1e2540; }
+    [data-theme="dark"] .sm-branch-card:hover { border-color: rgba(78,201,192,0.35); background: rgba(78,201,192,0.06); }
     .sm-branch-card-title {
       font-size: .83rem; font-weight: 600;
       color: var(--text-primary); line-height: 1.45;
@@ -207,11 +207,11 @@
     /* ===== Entity tag ===== */
     .sm-entity-tag {
       font-size: .62rem; padding: 1px 6px; border-radius: 999px; font-weight: 600;
-      background: #eff6ff; color: #2563eb;
+      background: rgba(78,201,192,0.1); color: #4EC9C0;
     }
-    [data-theme="dark"] .sm-entity-tag { background: rgba(37,99,235,.18); color: #93c5fd; }
-    [data-theme="dark"] .sm-status-badge.active  { background: rgba(34,197,94,.15);  color: #4ade80; }
-    [data-theme="dark"] .sm-status-badge.cooling { background: rgba(245,158,11,.15); color: #fbbf24; }
+    [data-theme="dark"] .sm-entity-tag { background: rgba(78,201,192,0.12); color: #7DD8D2; }
+    [data-theme="dark"] .sm-status-badge.active  { background: rgba(78,201,192,0.18); color: #4EC9C0; border: 1px solid rgba(78,201,192,0.3); }
+    [data-theme="dark"] .sm-status-badge.cooling { background: rgba(78,201,192,0.08); color: #7DD8D2; }
 
     /* ===== Responsive ===== */
     @media (max-width: 520px) {
@@ -227,7 +227,7 @@
     .sm-next-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.1); }
     .sm-next-card-title { font-size: .86rem; font-weight: 600; color: var(--text, #1e293b); line-height: 1.4; margin-bottom: 4px; }
     .sm-next-card-meta { font-size: .72rem; color: var(--text-muted, #94a3b8); }
-    .sm-see-all { display: inline-block; margin-top: 12px; font-size: .8rem; color: var(--primary, #6366f1); text-decoration: none; font-weight: 600; }
+    .sm-see-all { display: inline-block; margin-top: 12px; font-size: .8rem; color: var(--primary, #4EC9C0); text-decoration: none; font-weight: 600; }
     .sm-see-all:hover { text-decoration: underline; }
   </style>
 </head>
@@ -409,7 +409,7 @@ function renderBranchCard(t, showStatus, idx) {
   const entities = extractEntities(title).slice(0,2);
   const entityHtml = entities.map(e => `<span class="sm-entity-tag">${esc(e)}</span>`).join(' ');
   const stepLabel = idx === 0 ? '発端' : (status === 'active' ? '継続中' : status === 'cooling' ? '収束' : '');
-  const stepHtml = stepLabel ? `<span style="font-size:.6rem;font-weight:700;color:#6366f1;background:rgba(99,102,241,.1);padding:1px 6px;border-radius:999px;margin-right:4px;">${stepLabel}</span>` : '';
+  const stepHtml = stepLabel ? `<span style="font-size:.6rem;font-weight:700;color:#4EC9C0;background:rgba(78,201,192,.1);padding:1px 6px;border-radius:999px;margin-right:4px;">${stepLabel}</span>` : '';
 
   return `
     <a href="topic.html?id=${esc(t.topicId)}" class="sm-branch-card ${statusClass(status)}">
@@ -634,7 +634,7 @@ function renderStorymapList(topics) {
         const ago     = fmtAgo(t.lastArticleAt || t.lastUpdated || 0);
         const status  = t.lifecycleStatus || '';
         return `<a href="storymap.html?id=${esc(t.topicId)}" class="sm-branch-card ${statusClass(status)}">
-          ${phase ? `<div style="font-size:.6rem;font-weight:700;color:#6366f1;background:rgba(99,102,241,.1);padding:1px 8px;border-radius:999px;display:inline-block;margin-bottom:6px;">${esc(phase)}</div>` : ''}
+          ${phase ? `<div style="font-size:.6rem;font-weight:700;color:#4EC9C0;background:rgba(78,201,192,.1);padding:1px 8px;border-radius:999px;display:inline-block;margin-bottom:6px;">${esc(phase)}</div>` : ''}
           <div class="sm-branch-card-title">${esc(title)}</div>
           ${snippet ? `<div style="font-size:.75rem;color:#94a3b8;line-height:1.4;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(snippet)}…</div>` : ''}
           <div class="sm-branch-card-foot">
