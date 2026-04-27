@@ -308,6 +308,11 @@ def needs_ai_processing(item):
     # 曖昧タイトルは強制再生成
     if _is_low_quality_title(item.get('generatedTitle', '')):
         return True
+    # T256 (2026-04-28): keyPoint は minimal/standard/full 全モードで生成される。
+    # aiGenerated=True でも keyPoint が未設定/空文字なら再処理対象。
+    # handler.py _required_full_fields の _is_minimal 免除削除（T256 fix）と対で機能する。
+    if not str(item.get('keyPoint') or '').strip():
+        return True
     return False
 
 
@@ -350,7 +355,7 @@ def get_pending_topics(max_topics=100):
             try:
                 r = table.get_item(
                     Key={'topicId': tid, 'SK': 'META'},
-                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres',
+                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode',
                 )
                 item = r.get('Item')
                 if item and needs_ai_processing(item):
@@ -395,7 +400,7 @@ def get_pending_topics(max_topics=100):
                     try:
                         r = table.get_item(
                             Key={'topicId': tid, 'SK': 'META'},
-                            ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres',
+                            ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode',
                         )
                         item = r.get('Item')
                         if item and needs_ai_processing(item):
@@ -734,6 +739,31 @@ def update_topic_s3_file(tid, upd, articles=None):
         old_etag = resp.get('ETag', '')
         raw = resp['Body'].read()
         data = json.loads(raw)
+
+        # Fix A1 (T256, 2026-04-28): 2026-04-27以前に作成された SNAP は articles=[] だった。
+        # 既存 timeline に SNAP は存在するが全エントリで articles が空の場合、
+        # DynamoDB から最新 SNAP を再取得して timeline を再構築する。
+        # update_topic_s3_file は meta のみ更新していたため topic JSON の timeline が
+        # 永久に古いまま放置される構造バグを根本修正する。
+        _current_tl = data.get('timeline', [])
+        if _current_tl and all(not _s.get('articles') for _s in _current_tl):
+            try:
+                _snaps_resp = table.query(
+                    KeyConditionExpression=Key('topicId').eq(tid) & Key('SK').begins_with('SNAP#'),
+                    ScanIndexForward=False, Limit=30,
+                )
+                _fresh = sorted(_snaps_resp.get('Items', []), key=lambda x: x['SK'])
+                if any(_s.get('articles') for _s in _fresh):
+                    data['timeline'] = [
+                        {'timestamp': _s['timestamp'], 'articleCount': _s['articleCount'],
+                         'score': _s.get('score', 0), 'hatenaCount': _s.get('hatenaCount', 0),
+                         'articles': _s.get('articles', [])}
+                        for _s in _fresh
+                    ]
+                    print(f'[TIMELINE_REFRESH] tid={tid} snaps={len(data["timeline"])}件 articles再取得完了')
+            except Exception as _te:
+                print(f'[TIMELINE_REFRESH] tid={tid} SNAP再取得失敗: {_te}')
+
         meta = data.get('meta', {})
         meta.pop('pendingAI', None)
         if upd.get('generatedTitle'):
