@@ -48,7 +48,7 @@ def get_all_topics():
     items, kwargs = [], {
         'FilterExpression': 'SK = :m',
         'ExpressionAttributeValues': {':m': 'META'},
-        'ProjectionExpression': 'topicId,title,generatedTitle,generatedSummary,spreadReason,imageUrl,#s,articleCount,lastUpdated,genre,genres,#l,score,mediaCount,hatenaCount,lastArticleAt,velocityScore,lifecycleStatus,pendingAI,aiGenerated,relatedTopics,sources',
+        'ProjectionExpression': 'topicId,title,generatedTitle,generatedSummary,spreadReason,imageUrl,#s,articleCount,lastUpdated,genre,genres,#l,score,mediaCount,hatenaCount,lastArticleAt,velocityScore,diversityScore,lifecycleStatus,pendingAI,aiGenerated,relatedTopics,sources',
         'ExpressionAttributeNames': {'#s': 'status', '#l': 'lang'},
     }
     while True:
