@@ -126,6 +126,47 @@ _WORD_RULES = (
 )
 
 
+# Flotopic で使うジャンル候補。AI に提示して選ばせる + 出力を検証する。
+# fetcher/text_utils.py の _SINGLE_HIT_GENRES と auth/handler.py の VALID_GENRES の和集合を取り、
+# Flotopic の 2026 ジャンルに合わせて整理。誤分類防止のため AI には必ずこの中から選ばせる。
+_VALID_GENRE_SET = (
+    '総合', '政治', '経済', 'ビジネス', 'テクノロジー', 'スポーツ', 'エンタメ',
+    '科学', '国際', '社会', '健康', '株・金融', 'ファッション', 'グルメ',
+    '教育', '文化', '環境',
+)
+
+_GENRES_PROMPT = (
+    '【ジャンル選択肢】\n'
+    f"次のリストからのみ選ぶ: {' / '.join(_VALID_GENRE_SET)}\n"
+    '- 必ず1〜2個。最も主軸になるものを先頭に。\n'
+    '- 該当が薄い場合は『総合』のみ。捨て台詞でジャンルを増やさない。\n'
+    '- スポーツ/エンタメ/政治 など主題と関係ないジャンルは混ぜない (例: 米中外交トピックに『スポーツ』を付けない)。\n\n'
+)
+
+
+def _validate_genres(raw):
+    """AI が返した genres を _VALID_GENRE_SET 内に絞り込む。
+    - 文字列が来たら 1 要素配列扱い
+    - リスト以外は ['総合']
+    - 全要素が無効なら ['総合']
+    - 重複除去 + 最大 2 個
+    """
+    if isinstance(raw, str):
+        raw = [raw]
+    if not isinstance(raw, list):
+        return ['総合']
+    seen = []
+    for g in raw:
+        if not isinstance(g, str):
+            continue
+        g = g.strip()
+        if g in _VALID_GENRE_SET and g not in seen:
+            seen.append(g)
+        if len(seen) >= 2:
+            break
+    return seen if seen else ['総合']
+
+
 def _build_headlines(articles: list, limit: int = 15) -> tuple[str, int]:
     """記事リストからプロンプト用の見出し文字列と件数を返す。"""
     lines = []
