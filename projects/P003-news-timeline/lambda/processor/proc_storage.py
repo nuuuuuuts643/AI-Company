@@ -136,39 +136,24 @@ def auto_archive_incoherent(tid: str, gen_story: dict | None) -> bool:
 
 
 def force_reset_pending_all() -> int:
-    """topics.json 可視 (active/cooling) なトピックの META に pendingAI=True をセットし強制再AI処理対象にする。
-    archived/legacy は無駄に再生成しても表示されないため除外 (2026-04-27 コスト最適化)。
+    """topics.json に**実際に公開中**のトピックのみ pendingAI=True にリセット。
+    DynamoDB scan ではなく S3 の topics.json を直接読んで対象を絞る (2026-04-27 コスト最適化)。
+    結果: ~110件 ($0.25) で済む。
     Returns: リセットしたトピック数。"""
     if not S3_BUCKET:
         return 0
+    visible_tids = _load_visible_topic_ids()
     count = 0
-    # archived/legacy は除外 (表示されないので再生成不要・コスト無駄)
-    scan_kwargs = {
-        'FilterExpression': (
-            Attr('SK').eq('META')
-            & Attr('articleCount').gte(2)
-            & (
-                ~Attr('lifecycleStatus').exists()
-                | Attr('lifecycleStatus').is_in(['active', 'cooling'])
+    for tid in visible_tids:
+        try:
+            table.update_item(
+                Key={'topicId': tid, 'SK': 'META'},
+                UpdateExpression='SET pendingAI = :p, aiGenerated = :a',
+                ExpressionAttributeValues={':p': True, ':a': False},
             )
-        ),
-        'ProjectionExpression': 'topicId',
-    }
-    while True:
-        r = table.scan(**scan_kwargs)
-        for item in r.get('Items', []):
-            try:
-                table.update_item(
-                    Key={'topicId': item['topicId'], 'SK': 'META'},
-                    UpdateExpression='SET pendingAI = :p, aiGenerated = :a',
-                    ExpressionAttributeValues={':p': True, ':a': False},
-                )
-                count += 1
-            except Exception as e:
-                print(f'[force_reset_pending_all] {item["topicId"]} 失敗: {e}')
-        if not r.get('LastEvaluatedKey'):
-            break
-        scan_kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
+            count += 1
+        except Exception as e:
+            print(f'[force_reset_pending_all] {tid} 失敗: {e}')
     # pending_ai.json をクリアして全トピックがフルスキャンで拾われるように
     try:
         s3.put_object(
