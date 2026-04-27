@@ -90,4 +90,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] schedule-task 07:13 多角調査+AI フィールドカタログ化 | Cowork | docs/ai-fields-catalog.md, docs/system-status.md | 2026-04-28 07:13 | no |
