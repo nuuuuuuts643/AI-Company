@@ -4,6 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-27 T211 [2] uniqueSourceCount フィルタ強化）
+- ✅ **T211 [2] uniqueSourceCount>=2 で UGC 同一ドメイン記事の混入を二重防御** — 根本原因: T211[1]個人ブログタイトルパターンと _BLOCKED_DOMAIN_PATTERNS の追加（commit `74c45bc`）でMAQUIA等の個人ブログ投稿を主にタイトルとドメインで弾けるようになったが、新種のUGCパターンがすり抜ける可能性がブロックリスト・正規表現の追従コスト上ゼロにはならない。修正: `lambda/fetcher/handler.py` 600行目の topics_deduped フィルタを `articleCount >= 2` に加えて `uniqueSourceCount >= 2` も要求するように強化。`uniqueSourceCount` は347行目で既に算出・455行目で META に保存されており、フィールド未設定（レガシー）の場合は articleCount にフォールバックして既存挙動を維持。再フェッチで META が更新されるたびに新フィルタが順次完全適用される。これにより同一ドメインから複数記事が出るUGC・PR系のすり抜けを構造的に防御する第二の網が張られた。npm test 42/42 パス・py_compile OK・GH Actions Lambdaデプロイ確認済み。commit `4b15949`。
+
 ### 完了済み（2026-04-27 T193follow-up/T204 バグ修正・小改善）
 - ✅ **T193follow-up: handler.py ai_updatesにbackgroundContext追加** — 根本原因: T193でproc_storage.pyのupdate_topic_s3_fileにbackgroundContext保存を追加したが、handler.pyのai_updates辞書にはbackgroundContextが含まれていなかった。upd.get('backgroundContext')が常にNoneになりS3 JSONに書き込まれなかった。修正: ai_updates[tid]にbackgroundContextフィールドを追加。DynamoDB(update_topic_with_ai)は既にgen_story経由で保存済みで問題なし。
 - ✅ **favorites.js _showFavLoginToast innerHTML安全化** — 根本原因: インラインのonclick属性でopenAuthModalを呼ぶパターンはCSPに引っかかる可能性。修正: DOM要素をcreateElement/appendChildで構築し、addEventListener('click')に変更。
