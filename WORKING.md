@@ -90,3 +90,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T-merge-2026-0428-0238 SVG/admin 2ブランチ統合 | Code | projects/P003-news-timeline/frontend/* | 2026-04-28 02:38 | yes |
