@@ -87,24 +87,52 @@ def extract_source_name(item, article_link: str, feed_url: str) -> str:
     return 'Unknown'
 
 
+_IMAGE_EXTS = ('.jpg', '.jpeg', '.png', '.webp', '.gif')
+
+
+def _looks_like_image(url: str) -> bool:
+    return bool(url) and any(ext in url.lower() for ext in _IMAGE_EXTS)
+
+
 def extract_rss_image(item):
-    mc = item.find('media:content', MEDIA_NS)
-    if mc is not None and mc.get('url') and mc.get('medium', '') in ('image', ''):
-        return mc.get('url')
+    # 1. media:thumbnail — 配信者が明示したサムネイル（最優先）
     mt = item.find('media:thumbnail', MEDIA_NS)
     if mt is not None and mt.get('url'):
         return mt.get('url')
+
+    # 2. media:content — medium="image" 優先、次に medium 属性なし（旧動作互換）
+    mcs = item.findall('media:content', MEDIA_NS)
+    for mc in mcs:
+        url = mc.get('url', '')
+        if url and mc.get('medium') == 'image':
+            return url
+    for mc in mcs:
+        url = mc.get('url', '')
+        if url and mc.get('medium', '') == '':
+            return url
+
+    # 3. enclosure (type="image/...")
     enc = item.find('enclosure')
-    if enc is not None and enc.get('type', '').startswith('image'):
+    if enc is not None and enc.get('type', '').startswith('image') and enc.get('url'):
         return enc.get('url')
-    # descriptionのHTML内の<img>タグからも抽出
-    desc = item.findtext('description') or ''
-    if desc:
-        m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', desc, re.I)
-        if m:
-            src = m.group(1)
-            if src.startswith('http') and any(ext in src.lower() for ext in ('.jpg', '.jpeg', '.png', '.webp')):
-                return src
+
+    # 4. <image><url>...</url></image>
+    img_el = item.find('image')
+    if img_el is not None:
+        url = (img_el.findtext('url') or '').strip()
+        if url.startswith('http'):
+            return url
+
+    # 5. description / content:encoded の <img> タグ
+    for field in ('description', f'{{{MEDIA_NS["content"]}}}encoded'):
+        raw = item.findtext(field) or ''
+        if raw:
+            m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', raw, re.I)
+            if m:
+                src = m.group(1)
+                if src.startswith('http') and _looks_like_image(src):
+                    return src
+
     return None
 
 
