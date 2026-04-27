@@ -427,9 +427,52 @@ function applyGenreDiversity(topics, genreFiltered) {
   return [...result, ...overflow];
 }
 
+// T237 (2026-04-28): 「今動いているストーリー」を最上部 hero として 1件だけ大きく見せる。
+// CLAUDE.md vision-roadmap フェーズ1「①トップ画面でストーリーの『動き』が見える」の実装。
+// 候補条件: lifecycleStatus !== 'archived' && articleCount >= 3 && phase=拡散|ピーク && summaryMode=full|standard
+// (storyTimeline は topics.json では _PROC_INTERNAL で除外されるので summaryMode で代用)
+// 並び替え: velocityScore DESC → score DESC で上位1件。
+// 該当なしなら placeholder を非表示にする (空コンテナ非表示ルール遵守)。
+function renderHeroStoryPreview(list) {
+  const el = document.getElementById('hero-story-preview');
+  if (!el) return;
+  // フィルター中・検索中・お気に入り表示中は出さない (主役を奪わない)
+  if (currentSearch || showFavsOnly || (currentGenre && currentGenre !== '総合') || (currentStatus && currentStatus !== 'all')) {
+    el.style.display = 'none'; el.innerHTML = ''; return;
+  }
+  const candidates = (list || []).filter(t =>
+    t.lifecycleStatus !== 'archived' &&
+    parseInt(t.articleCount || 0, 10) >= 3 &&
+    (t.storyPhase === '拡散' || t.storyPhase === 'ピーク') &&
+    (t.summaryMode === 'full' || t.summaryMode === 'standard')
+  );
+  candidates.sort((a, b) =>
+    (Number(b.velocityScore || 0) - Number(a.velocityScore || 0)) ||
+    (Number(b.score || 0) - Number(a.score || 0))
+  );
+  const t = candidates[0];
+  if (!t) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  const phaseBadge = t.storyPhase && PHASE_BADGE[t.storyPhase] ? PHASE_BADGE[t.storyPhase] : '';
+  const title = t.topicTitle || t.generatedTitle || t.title || '';
+  const beat  = t.latestUpdateHeadline || t.keyPoint || cleanSummary(t.generatedSummary || '').slice(0, 50);
+  const cnt   = parseInt(t.articleCount || 0, 10);
+  el.innerHTML = `
+    <div class="hero-story-tagline">⚡ 今動いているストーリー</div>
+    <a href="topic.html?id=${esc(t.topicId)}" class="hero-story-card" aria-label="${esc(title)}の経緯を読む">
+      <div class="hero-story-label">${esc(phaseBadge)} · 記事${cnt}件</div>
+      <div class="hero-story-title">${esc(title)}</div>
+      ${beat ? `<div class="hero-story-beat">${esc(beat)}</div>` : ''}
+      <div class="hero-story-cta">📖 経緯を読む →</div>
+    </a>`;
+  el.style.display = 'block';
+}
+
 function renderTopics(topics) {
   const grid = document.getElementById('topics-grid');
   if (!grid) return;
+  // T237: 「今動いているストーリー」hero を全件 (フィルター前) から選定して最上部に表示。
+  //  filter/search/genre 中は renderHeroStoryPreview 内で自動的に隠す。
+  try { renderHeroStoryPreview(topics); } catch (e) { console.error('hero preview error:', e); }
   let list = topics;
   if (currentSearch) {
     const q = currentSearch.toLowerCase();
