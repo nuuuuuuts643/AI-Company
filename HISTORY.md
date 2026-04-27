@@ -1337,3 +1337,12 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T250~~ | ~~高~~ | ~~static HTML 生成例外をサイレント握り潰し~~ → **本セッション修正済 (commit待ち)**。観測: `/topics/3d28bb46b99072e9.html` が `<title>...— スポーツニュース 経緯・最新情報まとめ</title>` を含む (実際は genre=国際の外交トピック)。topics.json では genres=['国際','政治'] と修正されているが、静的 HTML は古い genre のまま。**根本原因**: `proc_storage.py update_topic_s3_file` L803-805 で `generate_static_topic_html()` を呼ぶ try ブロックの except が `except Exception: pass` でエラーを完全に握り潰しており、CloudWatch ログにも何も出ない (典型的 silent failure)。「対症療法ではなく根本原因」CLAUDE.md ルール違反。**仕組み的対策**: 本コミットで `print(f'[TOPIC_STATIC_FAIL] tid={tid} error=...')` に書き換え。governance worker に集計用 metric 追加余地を作った。完了判定: 次回スケジュール後 CloudWatch で `[TOPIC_STATIC_FAIL]` の件数を確認 → 0 件なら正常、出てくれば根本原因を別タスクで追う。 | `lambda/processor/proc_storage.py` | 2026-04-28 |
 
 </details>
+
+### 完了済み（2026-04-28 schedule task: 運用ルール仕組み化 v2）
+
+- ✅ **scripts/session_bootstrap.sh 新設** — CLAUDE.md 「セッション開始時に必ず最初に実行すること」の 12 行 bash ブロックを 1 コマンドに集約。git lock / rebase-merge を `_garbage/` に複数回トライで退避（FUSE permission denied 環境向け強化）、sync commit + pull `--no-rebase` 固定 + push、CLAUDE.md 変更検知、WORKING.md 8h stale 自動削除、TASKS.md 取消線 → HISTORY.md 集約移動、`needs-push: yes` 滞留警告まで全部やる。AI が起動時に唱える bash の量を大幅削減。
+- ✅ **scripts/triage_tasks.py 新設** — `--clean-working-md`（8h stale 削除）、`--triage-tasks`（`~~T...~~` 行を HISTORY.md に集約移動）、`--check-duplicate-task-ids`（同 ID 重複を CI で exit 1 させるための検出）の 3 機能。bootstrap が呼ぶ。実測: 今回起動で 13 行の取消線済み完了タスクを TASKS.md → HISTORY.md に移動・150 → 137 行に短縮。
+- ✅ **WORKING.md `needs-push` カラム恒久化（T244 相当を実装）** — Cowork がコードファイルを編集する場合は `needs-push: yes` を立てる物理ルール。push 完了で `no` に切り替えるか行を削除。bootstrap がこの値を grep して滞留警告を出すため、「Cowork で fix を書いたが push 滞留 14h」を起動時に検知できるようになった。
+- ✅ **docs/rules/global-baseline.md 新設** — POから繰り返し指摘される全プロダクト共通の前提条件（言語・根本原因・完了の定義・依存確認・PII禁止・なぜなぜ Why1〜Why5・仕組み的対策の質基準）を 1 ファイルに集約。P002・将来 P006 等で `CLAUDE.md` から参照する形で再利用できる。**§6 「AI が動きやすくなるための原則」に「気を付ける禁止」「仕組み的対策は CI / hook / metric / SLI / scripts のいずれかで物理化」を明記**——テキストルールだけで closure しない質基準を物理化。
+- ✅ **CLAUDE.md 起動チェックを bootstrap 1 行に簡素化** — 12 行 bash ブロック → `bash /Users/OWNER/ai-company/scripts/session_bootstrap.sh` 1 行 + 7 ステップの責務だけ箇条書き。「規則の置き場所」表に `docs/rules/global-baseline.md` を追加。CLAUDE.md は 132 行で 250 行ガード内維持。
+- ✅ **docs/lessons-learned.md なぜなぜ追記** — 「運用ルールの仕組み化メタなぜなぜ」を Why1〜Why5 + 仕組み的対策 5 つで構造化。**メタ教訓**: 「ルール（テキスト）で予防」と「構造（scripts / CI / hook）で予防」を**同列の "再発防止" として扱わない**。仕組み的対策の少なくとも 1 つは AI が読まなくても動作するもの（cron / hook / CI / SLI / scripts）でなければならない。
