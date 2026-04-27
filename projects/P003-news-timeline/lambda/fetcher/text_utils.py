@@ -363,49 +363,104 @@ def find_related_topics(topics: list, max_related: int = 5) -> dict:
     return related
 
 
-def detect_topic_hierarchy(topics: list, topic_entities: dict) -> dict:
-    parent_map = {}
-    sorted_topics = sorted(topics, key=lambda t: int(t.get('score', 0)), reverse=True)
-    topic_meta = {t['topicId']: t for t in sorted_topics}
+_HIERARCHY_TIME_WINDOW = 72 * 3600  # 72時間以上離れたトピックは別イベント
 
-    # 転置インデックス: エンティティ → そのエンティティを持つtopicIdの集合
+
+def detect_topic_hierarchy(topics: list, topic_entities: dict) -> dict:
+    """
+    親子トピックを検出する。
+    修正ポイント:
+    - entity数ではなく記事数(articleCount)で親を判定（同一entity数でも機能する）
+    - 72時間の時間ウィンドウ（異なる日のイベントを誤接続しない）
+    - entityインデックスに加えてキーワードインデックスでも候補を探す
+    - 最も記事数の多い候補を親として選択
+    """
+    parent_map = {}
+    topic_meta = {t['topicId']: t for t in topics}
+
+    # キーワードトークンを事前計算
+    topic_kw: dict = {
+        t['topicId']: _extract_kw_tokens(t.get('generatedTitle') or t.get('title', ''))
+        for t in topics
+    }
+
+    # 転置インデックス: entity → topicId集合
     entity_to_tids: dict = {}
     for tid, ents in topic_entities.items():
         for e in ents:
             entity_to_tids.setdefault(e, set()).add(tid)
 
-    for topic_b in sorted_topics:
+    # 転置インデックス: キーワード → topicId集合
+    kw_to_tids: dict = {}
+    for tid, kws in topic_kw.items():
+        for kw in kws:
+            kw_to_tids.setdefault(kw, set()).add(tid)
+
+    for topic_b in topics:
         tid_b = topic_b['topicId']
         if tid_b in parent_map:
             continue
 
-        entities_b = topic_entities.get(tid_b, set())
-        if not entities_b:
-            continue
-
         score_b = int(topic_b.get('score', 0))
         cnt_b   = int(topic_b.get('articleCount', 0))
-
-        # 記事数・スコアが低いスタブトピック（株価ページ等）を親子関係から除外
         if score_b < 3 or cnt_b < 2:
             continue
 
-        # entities_b を全て含む候補 = 全エンティティの積集合
-        candidate_tids: set | None = None
+        entities_b = topic_entities.get(tid_b, set())
+        kw_b       = topic_kw.get(tid_b, set())
+        first_b    = int(topic_b.get('firstArticleAt', topic_b.get('lastUpdated', 0)) or 0)
+
+        # 候補: entity または キーワードを共有するトピック（和集合）
+        candidate_tids: set = set()
         for e in entities_b:
-            tids = entity_to_tids.get(e, set())
-            candidate_tids = tids if candidate_tids is None else candidate_tids & tids
-            if not candidate_tids:
-                break
+            candidate_tids |= entity_to_tids.get(e, set())
+        for kw in kw_b:
+            candidate_tids |= kw_to_tids.get(kw, set())
+        candidate_tids.discard(tid_b)
+
         if not candidate_tids:
             continue
 
-        candidate_tids.discard(tid_b)
+        best_parent: str | None = None
+        best_priority             = -1
+
         for tid_a in candidate_tids:
+            t_a = topic_meta.get(tid_a)
+            if not t_a:
+                continue
+
+            score_a = int(t_a.get('score', 0))
+            cnt_a   = int(t_a.get('articleCount', 0))
+            first_a = int(t_a.get('firstArticleAt', t_a.get('lastUpdated', 0)) or 0)
+
+            if score_a < 3 or cnt_a < 2:
+                continue
+
+            # 親は子より記事数が多い（entity数ではなく記事数で判定）
+            if cnt_a <= cnt_b:
+                continue
+
+            # 時間ウィンドウ: 72時間以内
+            if first_a > 0 and first_b > 0:
+                if abs(first_b - first_a) > _HIERARCHY_TIME_WINDOW:
+                    continue
+
             entities_a = topic_entities.get(tid_a, set())
-            score_a = int(topic_meta[tid_a].get('score', 0))
-            if score_a > score_b and len(entities_a) > len(entities_b):
-                parent_map[tid_b] = tid_a
-                break
+            kw_a       = topic_kw.get(tid_a, set())
+
+            # entity または キーワードの重複が最低1つ必要
+            if not (entities_a & entities_b) and not (kw_a & kw_b):
+                continue
+
+            # 優先度: 記事数 × 100 + スコア + 早出現ボーナス
+            time_bonus = max(0, (first_b - first_a) // 3600) if first_a > 0 and first_b > 0 else 0
+            priority   = cnt_a * 100 + score_a + time_bonus
+
+            if priority > best_priority:
+                best_priority = priority
+                best_parent   = tid_a
+
+        if best_parent:
+            parent_map[tid_b] = best_parent
 
     return parent_map

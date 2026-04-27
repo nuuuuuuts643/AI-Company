@@ -343,10 +343,25 @@ function renderTopicCard(t, i) {
     ? `<div class="velocity-bar-wrap ${displayStatus}"><div class="velocity-bar" style="width:${velPct}%"></div></div>`
     : '';
 
+  // 分岐ストーリーバー（親トピックのみ）
+  const childTopics = Array.isArray(t.childTopics) ? t.childTopics : [];
+  const storyBarHtml = childTopics.length > 0
+    ? `<a href="storymap.html?id=${esc(t.topicId)}" class="story-branches-bar">
+        <span class="story-branches-bar-label">🌿 ストーリー ${childTopics.length}件の分岐</span>
+        <span class="story-branches-bar-pills">
+          ${childTopics.slice(0, 2).map(c =>
+            `<span class="story-branch-pill">${esc((c.title || '').slice(0, 16))}</span>`
+          ).join('')}
+          ${childTopics.length > 2 ? `<span class="story-branch-more">+${childTopics.length - 2}</span>` : ''}
+        </span>
+        <span class="story-branches-bar-arrow">→</span>
+      </a>`
+    : (t.storyPhase ? `<a href="storymap.html?id=${esc(t.topicId)}" class="card-storymap-link">📖 経緯を読む →</a>` : '');
+
   return `
     <div class="topic-card-wrapper" style="position:relative;">
       ${renderBadges(t)}
-      <a class="topic-card ${displayStatus}${isViewed ? ' viewed' : ''}" href="topic.html?id=${esc(t.topicId)}" data-tid="${esc(t.topicId)}">
+      <a class="topic-card ${displayStatus}${isViewed ? ' viewed' : ''}${childTopics.length > 0 ? ' has-story' : ''}" href="topic.html?id=${esc(t.topicId)}" data-tid="${esc(t.topicId)}">
         ${thumbHtml}
         <div class="card-body">
           <div class="topic-status ${displayStatus}">${STATUS_LABEL[displayStatus] || displayStatus}${coolingAgeHtml}${phaseHtml}</div>
@@ -359,7 +374,7 @@ function renderTopicCard(t, i) {
       </a>
       <button class="fav-btn ${isFav ? 'fav-active' : ''}" data-topic-id="${esc(t.topicId)}" title="${isFav ? 'お気に入りを解除' : 'お気に入りに追加'}" aria-label="お気に入り">♥</button>
       <button class="card-share-btn" data-share-id="${esc(t.topicId)}" data-share-title="${esc(t.generatedTitle || t.title)}" title="URLをコピー" aria-label="URLをコピー">🔗</button>
-      ${t.storyPhase ? `<a href="storymap.html?id=${esc(t.topicId)}" class="card-storymap-link">📖 経緯を読む →</a>` : ''}
+      ${storyBarHtml}
     </div>`;
 }
 
@@ -408,6 +423,13 @@ function renderTopics(topics) {
   }
   // 記事1件かつスコア5未満のスタブトピックは品質が低いのでフィードから除外
   list = list.filter(t => parseInt(t.articleCount) >= 2);
+
+  // 子トピック（parentTopicId あり）は親がリストに存在する場合はメインリストから非表示
+  // 検索・ジャンルフィルター中は非表示にしない（検索で見つけられるように）
+  if (!currentSearch && currentGenre === '総合' && !showFavsOnly) {
+    const presentIds = new Set(list.map(t => t.topicId));
+    list = list.filter(t => !t.parentTopicId || !presentIds.has(t.parentTopicId));
+  }
 
   // declining フィルターは lifecycleStatus=cooling を含める（status=decliningは実質未使用のため）
   if (currentStatus === 'declining') {
