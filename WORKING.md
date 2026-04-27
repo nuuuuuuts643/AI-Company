@@ -22,11 +22,21 @@
 
 **開始JSTから8時間を超えたエントリーは無効（stale）とみなす。**
 
-- セッション起動時に「開始JSTから8時間超」の行は問答無用で削除してよい
-- staleエントリーを削除したら即 `git add WORKING.md && git commit -m "wip: remove stale entry" && git push` する
-- 削除の判断は人間確認不要（ルールに従って機械的に処理する）
+- `bash scripts/session_bootstrap.sh` が起動時に自動削除する（手動不要）
+- スクリプト失敗時のみ手動で行を削除して push
 
 > 理由: セッションがクラッシュ/タイムアウトした場合、完了処理が走らずエントリーが残り続ける。手動掃除に頼ると発見が遅れる。8時間TTLで自動的に解消する。
+
+## ⚠️ needs-push カラム（恒久ルール・2026-04-28 制定）
+
+**コードファイルを編集する Cowork セッションは `needs-push: yes` を立てる。**
+
+- `lambda/` `frontend/` `scripts/` `.github/` を変更したら必ず `yes`
+- push 完了後に行を消すか `no` に書き換える
+- 起動チェックスクリプトが `needs-push.*yes` を grep して滞留警告を出す
+- 文書だけの変更（`*.md`）では立てなくてよい
+
+> 理由: 「Cowork で実装→push 失敗→Code 起動まで滞留」の事故を物理ゲートで防ぐ（lessons-learned: 2026-04-28 連携の構造的欠陥より）。
 
 ## ⚠️ セッション役割分担（恒久定義・2026-04-28 制定）
 
@@ -68,15 +78,17 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 ## 記入フォーマット
 
-| タスク名 | 種別 | 変更予定ファイル | 開始 JST |
-|---|---|---|---|
-| [Code] T021 fetcher高速化 | Code | lambda/fetcher/handler.py | 2026-04-26 14:00 |
-| [Cowork] サイト価値可視化 | Cowork | frontend/index.html, frontend/js/app.js | 2026-04-27 15:00 |
+| タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
+|---|---|---|---|---|
+| [Code] T021 fetcher 高速化 | Code | lambda/fetcher/handler.py | 2026-04-26 14:00 | yes |
+| [Cowork] T244 needs-push カラム検証 | Cowork | WORKING.md | 2026-04-28 03:00 | no |
+
+> code 編集を含むセッションは必ず `needs-push: yes`。push 後は `no` に切り替える or 行を削除する。
 
 ---
 
 ## 現在着手中
 
-| タスク名 | 種別 | 変更予定ファイル | 開始 JST |
-|---|---|---|---|
-| [Cowork] T2026-0428-スケジュール調査 | Cowork | TASKS.md, lambda/processor/handler.py, frontend/topic.html | 2026-04-28 17:15 |
+| タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
+|---|---|---|---|---|
+| [Cowork] T2026-0428-スケジュール調査 | Cowork | TASKS.md, lambda/processor/handler.py, frontend/topic.html | 2026-04-28 17:15 | yes |
