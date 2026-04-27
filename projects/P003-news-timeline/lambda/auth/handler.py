@@ -170,22 +170,29 @@ def lambda_handler(event, context):
     if not payload:
         return resp(401, {'error': 'トークンの検証に失敗しました'})
 
-    new_handle   = (data.get('handle')   or '').strip()
-    new_age      = (data.get('ageGroup') or '').strip()
-    new_gender   = (data.get('gender')   or '').strip()
-    new_nickname = (data.get('nickname') or '').strip()
+    new_handle    = (data.get('handle')    or '').strip()
+    new_age       = (data.get('ageGroup')  or '').strip()
+    new_gender    = (data.get('gender')    or '').strip()
+    new_nickname  = (data.get('nickname')  or '').strip()
+    new_interests = data.get('interests')  # list or None
+    new_avatar    = (data.get('avatarUrl') or '').strip()
+    if not isinstance(new_interests, list):
+        new_interests = None
     try:
-        user = get_or_create_user(payload, new_handle, new_age, new_gender, new_nickname)
+        user = get_or_create_user(payload, new_handle, new_age, new_gender,
+                                  new_nickname, new_interests, new_avatar)
     except Exception as e:
         return resp(500, {'error': 'ユーザーの処理に失敗しました', 'detail': str(e)})
 
     return resp(200, {
-        'userId':   user['userId'],
-        'name':     user.get('name', ''),
-        'picture':  user.get('picture', ''),
-        'handle':   user.get('handle', ''),
-        'ageGroup': user.get('ageGroup', ''),
-        'gender':   user.get('gender', ''),
-        'nickname': user.get('nickname', ''),
-        'token':    id_token,
+        'userId':    user['userId'],
+        'name':      user.get('name', ''),
+        'picture':   user.get('picture', ''),
+        'handle':    user.get('handle', ''),
+        'ageGroup':  user.get('ageGroup', ''),
+        'gender':    user.get('gender', ''),
+        'nickname':  user.get('nickname', ''),
+        'interests': user.get('interests', []),
+        'avatarUrl': user.get('avatarUrl', ''),
+        'token':     id_token,
     })
