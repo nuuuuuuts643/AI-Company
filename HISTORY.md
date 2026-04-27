@@ -1416,6 +1416,6 @@ bash projects/P003-news-timeline/deploy.sh
 
 <details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
 
-| ~~T248~~ | ~~低~~ | ~~**privacy.html「アフィリエイトプログラムへの参加」記述が UI 実装と乖離**~~ → 2026-04-28 06 schedule-task で本番 affiliate 未表示の実態確認後、L139 を「現時点では表示していません。将来導入時に再更新」に書き換え完了。frontend/js/ にも affiliate.js が無いことを確認。 | (済) | 2026-04-28 |
+| ~~T248~~ | ~~低~~ | ~~**privacy.html「アフィリエイトプログラムへの参加」記述が UI 実装と乖離**~~ → 2026-04-28 06 schedule-task で本番 affiliate 未表示の実態確認後、L139 を「現時点では表示していません。将来導入時に再更新」に書き換え完了。frontend/js/ にも affiliate.js が無いことを確認。**Verified: https://flotopic.com/privacy.html:200:2026-04-28T06:22:55+0900** | (済) | 2026-04-28 |
 
 </details>
