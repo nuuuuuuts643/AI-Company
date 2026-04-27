@@ -1126,6 +1126,23 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW registration failed:', err));
   }
 
+  // index ページの page_view を analytics に送信（active 閲覧者数集計用）
+  (function trackIndexView() {
+    if (typeof ANALYTICS_URL === 'undefined') return;
+    try {
+      let anonId = localStorage.getItem('flotopic_anon_id');
+      if (!anonId) {
+        anonId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now());
+        localStorage.setItem('flotopic_anon_id', anonId);
+      }
+      fetch(ANALYTICS_URL + 'analytics/event', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ anonymousId: anonId, topicId: 'home', eventType: 'page_view' }),
+      }).catch(() => {});
+    } catch {}
+  })();
+
   // PWAインストールバナー
   (function initPwaBanner() {
     if (localStorage.getItem(LS_KEYS.PWA_DISMISSED) === '1') return;
