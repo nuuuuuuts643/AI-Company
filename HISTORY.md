@@ -4,9 +4,15 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-28 08:30 JST Code T2026-0428-F topics-card.json infra Step1）
+
+- ✅ **T2026-0428-F topics-card.json + topics-full.json 二系統 + 250KB サイズ監視** — 根本問題: topics.json (現状 207KB / 115件) はモバイル初回表示の最大 payload で、件数増加に対して線形に肥大化する設計上の天井を抱える。**Step1 (本タスク)** として: ① `projects/P003-news-timeline/lambda/processor/handler.py` で publish 時に `api/topics.json` (現状互換) と並べて `api/topics-full.json` (互換 alias) と `api/topics-card.json` (一覧用 minimal: topicId/topicTitle/generatedTitle/articleCount/genres/genre/keyPoint/storyPhase/imageUrl/aiGenerated/score/lifecycleStatus + top-level updatedAt/count) の 2 系統を同時生成。② `proc_storage.write_s3` の Cache-Control 分岐に新 key を追加 (max-age=60, must-revalidate)。③ `.github/workflows/freshness-check.yml` に「topics.json サイズ観測 (T2026-0428-F)」step + 「topics.json サイズ超過で警告 (Slack)」step を追加 (250KB 閾値超で Slack POST、未設定時は GH Annotation)。frontend は当面 `api/topics.json` を使い続け互換を維持 (Step2 で切替)。**物理検証**: ① 全 Python+YAML を `ast.parse` / `yaml.safe_load` で構文 OK、② handler.py の card 生成ロジックを単体実行 → storyTimeline/perspectives/generatedSummary 等の重フィールドが除外され、card 558→386B (69.2%) と縮小することを確認、③ シェル simulate で 200KB → exceeded=false / 300KB → exceeded=true を物理確認。Lambda コード反映後 `https://flotopic.com/api/topics-card.json` HTTP 200 を再観測する。
+
+---
+
 ### 完了済み（2026-04-28 08:10 JST Code T2026-0428-X P0-STABLE-C 並行タスク警告）
 
-- ✅ **T2026-0428-X session_bootstrap.sh 並行タスク行 ≥3 警告追加** — 根本問題: 既存の起動チェックは needs-push 滞留しか警告せず、複数セッションが同じ WORKING.md に重複登録した状態 (lock 競合・同名ファイル並行編集の温床) を素通りしていた。仕組み的対策: `scripts/session_bootstrap.sh` ステップ 6b として「現在着手中」テーブル本体行 (ヘッダ・区切り行を除外) を awk でカウント → ≥3 で `⚠️ WORKING.md 並行タスク行 N 件 (≥3) — lock 競合・重複作業の可能性` を 1 行サマリに含める。物理検証: ① 通常状態 (1 行) で警告非表示を確認、② 合成 WORKING.md (3 行) で警告表示・カウント `concurrent=3` を awk 単体・bootstrap end-to-end の両方で確認。完了判定: TASKS.md「WORKING.md に意図的に 3 行入れて bootstrap 実行→警告が出る」を物理確認済。
+- ✅ **T2026-0428-X session_bootstrap.sh 並行タスク行 ≥3 警告追加** — 根本問題: 既存の起動チェックは needs-push 滞留しか警告せず、複数セッションが同じ WORKING.md に重複登録した状態 (lock 競合・同名ファイル並行編集の温床) を素通りしていた。仕組み的対策: `scripts/session_bootstrap.sh` ステップ 6b として「現在着手中」テーブル本体行 (ヘッダ・区切り行を除外) を awk でカウント → ≥3 で `⚠️ WORKING.md 並行タスク行 N 件 (≥3) — lock 競合・重複作業の可能性` を 1 行サマリに含める。物理検証: ① 通常状態 (1 行) で警告非表示を確認、② 合成 WORKING.md (3 行) で警告表示・カウント `concurrent=3` を awk 単体・bootstrap end-to-end の両方で確認。完了判定: TASKS.md「WORKING.md に意図的に 3 行入れて bootstrap 実行→警告が出る」を物理確認済。本セッション中に Cowork+Code 並行で実 3 行状態が偶発発生し、警告が実環境でも発火することを確認 (本人観測)。
 
 ---
 

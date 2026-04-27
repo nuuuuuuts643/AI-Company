@@ -189,6 +189,65 @@ jobs:
                   f.write(f"start_ratio={start_ratio:.1f}\n")
           PY
 
+      # =====================================================================
+      # topics.json サイズ監視 (T2026-0428-F Step1)
+      # 背景: 207KB / 115件 → 件数線形で増加。モバイル初回表示帯域コストの天井対策。
+      # 250KB 超で警告 (将来 topics-card.json 切替の昇格 trigger)。
+      # =====================================================================
+      - name: topics.json サイズ観測 (T2026-0428-F)
+        id: topics_size
+        continue-on-error: true
+        shell: bash
+        env:
+          FRESHNESS_URL: https://flotopic.com/api/topics.json
+          SIZE_THRESHOLD_KB: '250'
+        run: |
+          set -u
+          PAYLOAD=$(mktemp)
+          if ! curl -fsS --max-time 30 "$FRESHNESS_URL" -o "$PAYLOAD"; then
+            echo "size_kb=-1" >> "$GITHUB_OUTPUT"
+            echo "exceeded=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BYTES=$(wc -c < "$PAYLOAD")
+          KB=$(( (BYTES + 1023) / 1024 ))
+          if [ "$KB" -gt "$SIZE_THRESHOLD_KB" ]; then
+            EXC=true
+          else
+            EXC=false
+          fi
+          echo "size_kb=$KB" >> "$GITHUB_OUTPUT"
+          echo "size_bytes=$BYTES" >> "$GITHUB_OUTPUT"
+          echo "exceeded=$EXC" >> "$GITHUB_OUTPUT"
+          echo "### topics.json サイズ" >> "$GITHUB_STEP_SUMMARY"
+          echo "- bytes: $BYTES" >> "$GITHUB_STEP_SUMMARY"
+          echo "- KB: $KB (閾値 $SIZE_THRESHOLD_KB KB)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- exceeded: $EXC" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: topics.json サイズ超過で警告 (Slack)
+        if: steps.topics_size.outputs.exceeded == 'true'
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          KB: ${{ steps.topics_size.outputs.size_kb }}
+        shell: bash
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::warning::topics.json サイズ超過: ${KB}KB (閾値 250KB)。topics-card.json 切替を検討"
+            exit 0
+          fi
+          PAYLOAD=$(KB="$KB" python3 -c "
+          import json, os
+          text = (
+              '⚠️ *Flotopic topics.json サイズ超過*\n'
+              f'• 現在: \`{os.environ[\"KB\"]} KB\` (閾値 250 KB)\n'
+              '• モバイル初回表示帯域コスト増加。topics-card.json 切替 (T2026-0428-F Step2) 着手検討\n'
+              '\n_T2026-0428-F freshness-check.yml サイズ観測_'
+          )
+          print(json.dumps({'text': text, 'username': 'Flotopic Size Monitor', 'icon_emoji': ':warning:'}))
+          ")
+          curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
+
       - name: AI フィールド半壊で警告 (Slack)
         if: steps.ai_fields.outputs.warnings != 'ok' && steps.ai_fields.outputs.warnings != ''
         continue-on-error: true
