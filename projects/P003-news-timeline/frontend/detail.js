@@ -428,8 +428,29 @@ function renderDetail(data) {
   if (canvas) {
     const chartCard = canvas.closest('.card');
     if (timeline.length < 2) {
-      // データ不足時はグラフカードごと非表示（空の暗いブロックを残さない）
-      if (chartCard) chartCard.style.display = 'none';
+      // データ不足時: 隠さず「正直に表示」(2026-04-27 思想に沿った変更)
+      if (chartCard) {
+        // 既存の chart-header / canvas を非表示にしてプレースホルダーに置換
+        chartCard.querySelectorAll('canvas').forEach(c => c.style.display = 'none');
+        const header = chartCard.querySelector('.chart-header');
+        if (header) header.style.display = 'none';
+        if (noData) noData.style.display = 'none';  // 重複防止
+        // 既にプレースホルダーがあれば再生成しない
+        if (!chartCard.querySelector('.chart-placeholder')) {
+          const ph = document.createElement('div');
+          ph.className = 'chart-placeholder';
+          ph.style.cssText = 'padding:24px 16px;text-align:center;color:var(--text-muted);font-size:.85rem;line-height:1.7;';
+          const totalViews = (views || []).reduce((s, v) => s + Number(v.count || 0), 0);
+          const viewsLine = totalViews > 0
+            ? `📊 直近の閲覧 ${totalViews} 回`
+            : '👁 まだ誰も見ていません';
+          const dataLine = timeline.length === 0
+            ? 'まだスナップショットが取られていません。'
+            : 'スナップショットが2件以上たまるとグラフが描画されます (約30分後〜)。';
+          ph.innerHTML = `<div style="font-size:1rem;margin-bottom:6px;">推移グラフ</div><div>${viewsLine}</div><div style="margin-top:6px;">${dataLine}</div>`;
+          chartCard.appendChild(ph);
+        }
+      }
     } else {
       if (chartCard) {
         // プレースホルダー削除 & chart-header 復元
