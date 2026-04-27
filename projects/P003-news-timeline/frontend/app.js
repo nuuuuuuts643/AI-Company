@@ -168,32 +168,6 @@ function apiUrl(path) { return API_BASE + path + '.json'; }
 
 // ===== 一覧ページ =====
 
-function renderFeaturedTopic(topics) {
-  const el = document.getElementById('featured-topic');
-  if (!el) return;
-  const top = (topics || [])
-    .filter(t => t.lifecycleStatus === 'active' && parseInt(t.articleCount || 0) >= 2)
-    .sort((a, b) => {
-      const va = Math.max(Number(a.velocityScore || 0), Number(a.articleCount || 0) * 0.3);
-      const vb = Math.max(Number(b.velocityScore || 0), Number(b.articleCount || 0) * 0.3);
-      return vb - va;
-    })[0];
-  if (!top) { el.style.display = 'none'; return; }
-  const isCooling = top.lifecycleStatus === 'cooling' || top.lifecycleStatus === 'archived';
-  const status = isCooling ? 'declining' : (top.status || 'rising');
-  const statusLabel = STATUS_LABEL[status] || status;
-  el.innerHTML = `
-    <a href="topic.html?id=${esc(top.topicId)}" class="featured-topic-card">
-      <div class="featured-topic-meta">
-        <span class="featured-topic-status-badge ${status}">${esc(statusLabel)}</span>
-        <span class="featured-topic-count">📄 ${top.articleCount || 0}件 · ${esc(fmtDate(top.lastUpdated))}</span>
-      </div>
-      <h2 class="featured-topic-title">${esc(top.generatedTitle || top.title)}</h2>
-      <span class="featured-topic-cta">経緯を見る →</span>
-    </a>`;
-  el.style.display = '';
-}
-
 /**
  * topics.json をフェッチし、キーワードストリップを描画してトピック配列を返す
  * @returns {Promise<Array>} トピックの配列
@@ -728,7 +702,6 @@ async function refreshTopics() {
     }
     lastFetchTime = Date.now();
     updateFreshnessDisplay();
-    renderFeaturedTopic(allTopics);
     renderReturnStrip(allTopics);
     renderFavStrip(allTopics);
     // 初訪問時（_prevSnapなし）はhot-stripで十分なためスキップ、再訪問時のみ表示
