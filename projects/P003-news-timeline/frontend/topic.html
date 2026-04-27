@@ -222,6 +222,25 @@
     /* dark mode for hero is already dark */
     [data-theme="dark"] .auth-user-name { color: var(--text-secondary); }
     [data-theme="dark"] .auth-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
+    .back-to-topics {
+      text-align: center;
+      padding: 24px 16px 8px;
+    }
+    .btn-back {
+      display: inline-block;
+      padding: 12px 28px;
+      border: 2px solid var(--color-primary, #4EC9C0);
+      border-radius: 8px;
+      color: var(--color-primary, #4EC9C0);
+      background: transparent;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background .15s, color .15s;
+    }
+    .btn-back:hover { background: var(--color-primary, #4EC9C0); color: #fff; }
+    [data-theme="dark"] .btn-back { border-color: var(--color-primary, #4EC9C0); color: var(--color-primary, #4EC9C0); }
+    [data-theme="dark"] .btn-back:hover { background: var(--color-primary, #4EC9C0); color: #fff; }
   </style>
 </head>
 <body>
@@ -418,6 +437,10 @@
     <div id="comments-list" class="comments-list">
       <div class="comments-loading">読み込み中...</div>
     </div>
+  </div>
+
+  <div class="back-to-topics">
+    <a href="/index.html" class="btn-back">← TOPICSに戻る</a>
   </div>
 
 </main>
