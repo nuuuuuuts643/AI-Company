@@ -39,3 +39,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 変更予定ファイル | 開始 JST |
 |---|---|---|
 | T205 finder: さらなる改善点調査 | — | 2026-04-27 |
+| T207 ログイン反映・interests・avatar・genre選択 | frontend/js/auth.js, frontend/app.js, frontend/mypage.html, lambda/auth/handler.py | 2026-04-27 |
