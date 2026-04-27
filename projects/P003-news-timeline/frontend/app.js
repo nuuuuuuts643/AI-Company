@@ -861,12 +861,14 @@ function renderQuickNews(topics) {
   if (!grid) return;
 
   const nowSec = Date.now() / 1000;
+  const isGenresOnlySogo = t => { const g = t.genres || (t.genre ? [t.genre] : []); return g.length === 1 && g[0] === '総合'; };
   const candidates = (topics || [])
     .filter(t =>
       t.lifecycleStatus !== 'archived' &&
       toUnixSec(t.lastArticleAt || t.lastUpdated) >= nowSec - 86400 &&
       Number(t.velocityScore || 0) >= CONFIG.HOT_STRIP_MIN_VELOCITY &&
       Number(t.diversityScore || 0) >= 1.5 &&
+      !isGenresOnlySogo(t) &&
       t.generatedSummary
     )
     .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0))
@@ -908,7 +910,7 @@ function showTrendingBanner(topics) {
   const existing = document.getElementById('trending-banner');
   if (existing) existing.remove();
   const rising = (topics || [])
-    .filter(t => t.status === 'rising' && Number(t.velocityScore || 0) >= 8 && Number(t.diversityScore || 0) >= 1.5)
+    .filter(t => { const g = t.genres || (t.genre ? [t.genre] : []); const sogoOnly = g.length === 1 && g[0] === '総合'; return t.status === 'rising' && Number(t.velocityScore || 0) >= 8 && Number(t.diversityScore || 0) >= 1.5 && !sogoOnly; })
     .sort((a, b) => Number(b.velocityScore || 0) - Number(a.velocityScore || 0))
     .slice(0, 3);
   if (!rising.length) return;
