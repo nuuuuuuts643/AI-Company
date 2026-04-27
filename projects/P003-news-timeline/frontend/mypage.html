@@ -1003,7 +1003,7 @@
     function setStatus(msg, isError) {
       if (!statusEl) return;
       statusEl.textContent = msg;
-      statusEl.style.color = isError ? '#ef4444' : '#4EC9C0';
+      statusEl.style.color = isError ? 'var(--color-danger)' : 'var(--accent, #4EC9C0)';
     }
 
     function updatePreview(dataUrl) {
