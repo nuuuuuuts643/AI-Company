@@ -90,4 +90,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0428-AA mypage UI改善（コメント数stat追加・タブ名「履歴」に改名） | Code | frontend/mypage.html | 2026-04-28 07:55 | yes |
