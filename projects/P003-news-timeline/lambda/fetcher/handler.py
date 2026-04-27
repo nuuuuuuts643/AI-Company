@@ -327,7 +327,8 @@ def lambda_handler(event, context):
         first_article_ts = int(existing.get('firstArticleAt') or
                                min((a.get('published_ts', 0) for a in g if a.get('published_ts')), default=0))
         score = apply_time_decay(score, last_article_ts)
-        score = max(1, int(score * source_diversity_score(g)))
+        _div_mult = source_diversity_score(g)
+        score = max(1, int(score * _div_mult))
         velocity_score  = calc_velocity_score(g)
 
         secondary_penalty, feedback_entries = _apply_secondary_penalty(g)
@@ -433,6 +434,7 @@ def lambda_handler(event, context):
             'mediaCount':      media,
             'hatenaCount':     hb,
             'score':           score,
+            'diversityScore':  _div_mult,
             'velocity':        Decimal(str(velocity)),
             'velocityScore':   Decimal(str(velocity_score)),
             'lastUpdated':     ts_iso,
