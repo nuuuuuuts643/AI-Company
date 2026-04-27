@@ -248,6 +248,9 @@ function renderDetail(data) {
     const backgroundContext = cleanSummary(meta.backgroundContext || '');
     const spreadReason      = cleanSummary(meta.spreadReason || '');
     const forecast          = cleanSummary(meta.forecast     || '');
+    const background        = cleanSummary(meta.background   || '');
+    const perspectives      = cleanSummary(meta.perspectives || '');
+    const outlook           = cleanSummary(meta.outlook      || '');
     const beats        = Array.isArray(meta.storyTimeline) ? meta.storyTimeline : [];
     const phase        = meta.storyPhase   || '';
     const summaryMode  = meta.summaryMode  || (beats.length > 0 || spreadReason || forecast ? 'full' : 'minimal');
@@ -291,9 +294,13 @@ function renderDetail(data) {
 
       // ── minimal: 1〜2件記事 → シンプルな1段落表示（見出しなし）
       if (summaryMode === 'minimal') {
+        const sectBgM = background ? `<p class="ai-summary-bg">📚 <strong>なぜ今:</strong> ${esc(background)}</p>` : '';
+        const sectOlM = outlook ? `<p class="ai-summary-outlook">🔮 <strong>見通し:</strong> ${esc(outlook)}</p>` : '';
         aiAnalysisEl.innerHTML = `
           <div class="ai-analysis-inner ai-analysis-minimal">
             <p class="ai-summary-simple">${esc(summary)}</p>
+            ${sectBgM}
+            ${sectOlM}
             ${trustFooterHtml}
           </div>`;
 
@@ -309,10 +316,20 @@ function renderDetail(data) {
             <div class="ai-section-label">なぜ起きたか（背景・構造的原因）</div>
             <p class="ai-section-body">${esc(backgroundContext)}</p>
           </div>` : '';
+        const sectBgNow = background ? `
+          <div class="ai-section">
+            <div class="ai-section-label">📚 なぜ今この話題か</div>
+            <p class="ai-section-body">${esc(background)}</p>
+          </div>` : '';
         const sect2 = spreadReason ? `
           <div class="ai-section">
             <div class="ai-section-label">なぜ広がったか</div>
             <p class="ai-section-body">${esc(spreadReason)}</p>
+          </div>` : '';
+        const sectPersp = perspectives ? `
+          <div class="ai-section">
+            <div class="ai-section-label">📰 メディアの立場の違い</div>
+            <p class="ai-section-body">${esc(perspectives)}</p>
           </div>` : '';
         const beatsHtml = beats.length ? buildBeatsHtml(beats) : '';
         const sect3 = (phaseBarHtml || beatsHtml) ? `
@@ -322,7 +339,12 @@ function renderDetail(data) {
             ${originHtml}
             ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
           </div>` : '';
-        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sectBg}${sect2}${sect3}${trustFooterHtml}${storyNavHtml}</div>`;
+        const sectOl = outlook ? `
+          <div class="ai-section ai-section-forecast">
+            <div class="ai-section-label">🔮 見通し <span class="ai-hypothesis-badge">仮説</span></div>
+            <p class="ai-section-body">${esc(outlook)}</p>
+          </div>` : '';
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sectBg}${sectBgNow}${sect2}${sectPersp}${sect3}${sectOl}${trustFooterHtml}${storyNavHtml}</div>`;
 
       // ── full: 6件以上 → フル4セクション（従来通り）
       } else {
@@ -353,13 +375,31 @@ function renderDetail(data) {
             ${originHtml}
             ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
           </div>` : '';
+        // ⑤ なぜ今この話題か (background ≠ backgroundContext: bg は時事文脈、bg-context は構造的)
+        const sectBgNowF = background ? `
+          <div class="ai-section">
+            <div class="ai-section-label">📚 なぜ今この話題か</div>
+            <p class="ai-section-body">${esc(background)}</p>
+          </div>` : '';
+        // ⑥ メディア立場の違い (perspectives がある場合のみ)
+        const sectPerspF = perspectives ? `
+          <div class="ai-section">
+            <div class="ai-section-label">📰 メディアの立場の違い</div>
+            <p class="ai-section-body">${esc(perspectives)}</p>
+          </div>` : '';
         // ⑤ 今後どうなるか
         const sect4 = forecast ? `
           <div class="ai-section ai-section-forecast">
             <div class="ai-section-label">${backgroundContext ? '⑤' : '④'} 今後どうなるか <span class="ai-hypothesis-badge">仮説</span></div>
             <p class="ai-section-body">${esc(forecast)}</p>
           </div>` : '';
-        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2bg}${sect2}${sect3}${sect4}${trustFooterHtml}${storyNavHtml}</div>`;
+        // ⑥ 短い見通し (outlook: 1文。forecast がない時の補完、または併記)
+        const sectOlF = (outlook && !forecast) ? `
+          <div class="ai-section ai-section-forecast">
+            <div class="ai-section-label">🔮 見通し <span class="ai-hypothesis-badge">仮説</span></div>
+            <p class="ai-section-body">${esc(outlook)}</p>
+          </div>` : '';
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${sect1}${sect2bg}${sectBgNowF}${sect2}${sectPerspF}${sect3}${sect4}${sectOlF}${trustFooterHtml}${storyNavHtml}</div>`;
       }
 
       aiAnalysisEl.style.display = 'block';
