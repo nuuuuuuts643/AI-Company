@@ -594,9 +594,16 @@ def lambda_handler(event, context):
             parent_to_children.setdefault(tid_a, [])
             child_t = next((t for t in topics if t['topicId'] == tid_b), None)
             if child_t:
+                # T41: childTopics ref に articleCount/lastArticleAt/lifecycleStatus も含める
+                # 親側 detail page で「分岐」カードを描く際、tMap (topics.jsonベース) が
+                # この子を持たない (archived など) 場合でも footer メタを正しく描けるように
+                # する (旧バグ: footer に "0件 · 1/1" が出ていた)
                 parent_to_children[tid_a].append({
-                    'topicId': tid_b,
-                    'title':   child_t.get('generatedTitle') or child_t.get('title', ''),
+                    'topicId':         tid_b,
+                    'title':           child_t.get('generatedTitle') or child_t.get('title', ''),
+                    'articleCount':    int(child_t.get('articleCount', 0) or 0),
+                    'lastArticleAt':   child_t.get('lastArticleAt') or child_t.get('lastUpdated') or '',
+                    'lifecycleStatus': child_t.get('lifecycleStatus') or 'active',
                 })
 
         for t in topics:

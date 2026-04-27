@@ -940,9 +940,16 @@ async function fetchAllTopicsOnce() {
 }
 
 function fmtElapsed(isoOrTs) {
+  // 0 / null / undefined / 空文字 は無効として空を返す。
+  // (旧バグ: fmtElapsed(0) が new Date(0*1000)=1970-01-01 から '1/1' を返し、
+  //  childTopics ref が allTopics に無い (archived 等) 場合に "0件 · 1/1" として出ていた)
+  if (!isoOrTs && isoOrTs !== 0) return '';
+  if (isoOrTs === 0 || isoOrTs === '0') return '';
   try {
     const d = typeof isoOrTs === 'number' ? new Date(isoOrTs * 1000) : new Date(isoOrTs);
     if (isNaN(d)) return '';
+    // 1970-01-01 近辺の epoch値ガード (1990年以前は誤った値とみなす)
+    if (d.getFullYear() < 1990) return '';
     const diff = (Date.now() - d.getTime()) / 1000;
     if (diff < 3600)   return `${Math.floor(diff / 60)}分前`;
     if (diff < 86400)  return `${Math.floor(diff / 3600)}時間前`;
@@ -1007,13 +1014,24 @@ function renderDiscovery(meta) {
           ${items.map(({ t, badge, extraHtml }) => {
             const title = t.generatedTitle || t.title || '';
             const ago   = fmtElapsed(t.lastArticleAt || t.lastUpdated || 0);
-            const cnt   = t.articleCount || 0;
-            const dot   = t.lifecycleStatus === 'active' ? '🔴' : t.lifecycleStatus === 'cooling' ? '🟡' : '⚪';
+            // childTopics ref は {topicId,title} だけのこともあるので articleCount が無い場合は表示しない
+            const rawCnt = parseInt(t.articleCount, 10);
+            const cnt   = (Number.isFinite(rawCnt) && rawCnt > 0) ? rawCnt : null;
+            const dot   = t.lifecycleStatus === 'active' ? '🔴' : t.lifecycleStatus === 'cooling' ? '🟡' : t.lifecycleStatus ? '⚪' : '';
             const badgeHtml = badge ? `<span class="disc-badge disc-badge-${badge.cls}">${esc(badge.label)}</span>` : '';
             const safeThumb = t.imageUrl ? esc(typeof safeImgUrl === 'function' ? safeImgUrl(t.imageUrl) : t.imageUrl.replace(/['"<>]/g, '')) : '';
             const thumbHtml = safeThumb
               ? `<img class="disc-card-thumb" src="${safeThumb}" alt="" loading="lazy" referrerpolicy="origin-when-cross-origin" onerror="this.style.display='none'">`
               : '';
+            // フッター: 無効値（0件/1970-1-1由来）を一切表示しないため空欄なら meta 行ごと省略
+            const metaParts = [];
+            if (dot) metaParts.push(dot);
+            if (cnt) metaParts.push(`${cnt}件`);
+            if (ago) metaParts.push(esc(ago));
+            const metaText = metaParts.join(' · ');
+            const metaHtml = metaText
+              ? `<span class="disc-card-meta">${metaText}</span>`
+              : '<span class="disc-card-meta disc-card-meta-muted">続き読む →</span>';
             return `
               <a href="topic.html?id=${esc(t.topicId)}" class="disc-card">
                 ${thumbHtml}
@@ -1021,7 +1039,7 @@ function renderDiscovery(meta) {
                   ${badgeHtml}
                   <div class="disc-card-title">${esc(title)}</div>
                   <div class="disc-card-footer">
-                    <span class="disc-card-meta">${dot} ${cnt}件${ago ? ` · ${esc(ago)}` : ''}</span>
+                    ${metaHtml}
                     ${extraHtml || ''}
                   </div>
                 </div>
