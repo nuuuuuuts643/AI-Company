@@ -5,7 +5,7 @@
 const CONFIG = {
   HOT_STRIP_HOURS: 6,           // 今急上昇中セクションの対象時間（時間）
   NEW_BADGE_HOURS: 1,           // NEWバッジを表示する最大経過時間（時間）
-  AD_CARD_INTERVAL: 9,          // 広告を挿入する間隔（カード枚数）
+  AD_CARD_INTERVAL: 5,          // 広告を挿入する間隔（カード枚数）
   FRESHNESS_INTERVAL_MS: 60000, // 鮮度表示テキストの更新間隔（ミリ秒）
   TOPICS_PER_PAGE: 20,          // 1ページに表示するトピック数
 };
