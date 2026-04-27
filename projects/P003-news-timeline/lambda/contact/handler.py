@@ -231,11 +231,103 @@ def send_ses_notification(data, contact_id):
         print(f'SES通知スキップ: {e}')
 
 
+# T2026-0428-Z: カテゴリ別返信テンプレート（ADMIN_EMAIL宛ドラフト用）
+_DRAFT_TEMPLATES = {
+    'copyright': (
+        '著作権に関するご申告を確認しました。'
+        '内容を精査のうえ、48時間以内に対応いたします。'
+        '問題が確認された場合は速やかに該当コンテンツを削除いたします。'
+    ),
+    'privacy': (
+        'プライバシー・削除依頼を確認しました。'
+        'ご指摘の情報を精査し、確認次第速やかに対応いたします。'
+    ),
+    'error': (
+        '誤情報・内容に関するご指摘を確認しました。'
+        '内容を精査のうえ修正対応いたします。'
+        'ご報告いただきありがとうございます。'
+    ),
+    'media': (
+        'メディア掲載除外申請を確認しました。'
+        '内容を精査し、確認次第ご連絡いたします。'
+    ),
+    'other': (
+        'お問い合わせを確認しました。'
+        '内容を確認のうえ、改めてご連絡いたします。'
+    ),
+}
+
+
+def send_draft_to_admin(data: dict, contact_id: str):
+    """お問い合わせ受信時にカテゴリ別返信テンプレートを含むドラフトを ADMIN_EMAIL 宛に送信。
+    ADMIN_EMAIL 宛のみなので SES sandbox 環境でも動作する。
+    T2026-0428-Z: 自動対応ドラフト機能。
+    """
+    if not ADMIN_EMAIL:
+        print('send_draft_to_admin: ADMIN_EMAIL 未設定のためスキップ')
+        return
+    try:
+        import datetime
+        ses = boto3.client('ses', region_name=SES_REGION)
+        category_label = CATEGORIES.get(data['category'], data['category'])
+        template = _DRAFT_TEMPLATES.get(data['category'], _DRAFT_TEMPLATES['other'])
+        now_jst = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+
+        body_text = f"""[Flotopic要対応] 新規お問い合わせ (ID: {contact_id})
+
+━━━━ 受信情報 ━━━━
+種別     : {category_label}
+送信者   : {data['name']} <{data['email']}>
+トピックID: {data['topicId'] or '未指定'}
+受信日時 : {now_jst}
+
+━━━━ メッセージ全文 ━━━━
+{data['message']}
+
+━━━━ 返信テンプレート案 ━━━━
+（以下を参考に {data['name']} 様 <{data['email']}> 宛に返信してください）
+
+{data['name']} 様
+
+この度はFlotopicへのお問い合わせありがとうございます。
+
+{template}
+
+引き続きFlotopicをよろしくお願いいたします。
+
+Flotopic 運営チーム
+
+━━━━━━━━━━━━━━━━━━
+管理画面で対応済みにする: https://flotopic.com/admin.html
+━━━━━━━━━━━━━━━━━━
+"""
+        ses.send_email(
+            Source=FROM_EMAIL,
+            Destination={'ToAddresses': [ADMIN_EMAIL]},
+            Message={
+                'Subject': {
+                    'Data': f'[Flotopic要対応] {category_label} - {data["name"]}様より',
+                    'Charset': 'UTF-8',
+                },
+                'Body': {'Text': {'Data': body_text, 'Charset': 'UTF-8'}},
+            },
+            ReplyToAddresses=[data['email']],
+        )
+        print(f'send_draft_to_admin: sent to {ADMIN_EMAIL} (contact_id={contact_id})')
+    except Exception as e:
+        print(f'send_draft_to_admin: SESエラー（スキップ）: {e}')
+
+
 def list_contacts(limit=100) -> list:
-    """flotopic-contacts テーブルから最新件を取得して返す。"""
+    """flotopic-contacts テーブルから未対応件を取得して返す。
+    T2026-0428-Z: resolved 済みを除外して未対応のみ返す。
+    """
     result = contacts.scan(
         Limit=limit,
-        FilterExpression=boto3.dynamodb.conditions.Attr('status').exists(),
+        FilterExpression=(
+            boto3.dynamodb.conditions.Attr('status').exists()
+            & boto3.dynamodb.conditions.Attr('status').ne('resolved')
+        ),
     )
     items = result.get('Items', [])
     items.sort(key=lambda x: x.get('createdAt', 0), reverse=True)
@@ -339,5 +431,6 @@ def lambda_handler(event, context):
     contact_id = save_to_dynamodb(data)
     check_auto_archive(data['category'], data['topicId'])
     send_ses_notification(data, contact_id)
+    send_draft_to_admin(data, contact_id)  # T2026-0428-Z: カテゴリ別ドラフトを ADMIN_EMAIL 宛に送信
 
     return resp(200, '送信しました。内容を確認次第、対応いたします。')
