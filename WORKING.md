@@ -90,6 +90,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0428-X P0-STABLE-C WORKING.md 並行3行警告 | Code | scripts/session_bootstrap.sh | 2026-04-28 08:08 | yes |
-| [Test] dummy-A 並行検証 | Code | /tmp/x | 2026-04-28 08:00 | no |
-| [Test] dummy-B 並行検証 | Code | /tmp/y | 2026-04-28 08:01 | no |

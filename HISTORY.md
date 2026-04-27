@@ -4,6 +4,12 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-28 08:10 JST Code T2026-0428-X P0-STABLE-C 並行タスク警告）
+
+- ✅ **T2026-0428-X session_bootstrap.sh 並行タスク行 ≥3 警告追加** — 根本問題: 既存の起動チェックは needs-push 滞留しか警告せず、複数セッションが同じ WORKING.md に重複登録した状態 (lock 競合・同名ファイル並行編集の温床) を素通りしていた。仕組み的対策: `scripts/session_bootstrap.sh` ステップ 6b として「現在着手中」テーブル本体行 (ヘッダ・区切り行を除外) を awk でカウント → ≥3 で `⚠️ WORKING.md 並行タスク行 N 件 (≥3) — lock 競合・重複作業の可能性` を 1 行サマリに含める。物理検証: ① 通常状態 (1 行) で警告非表示を確認、② 合成 WORKING.md (3 行) で警告表示・カウント `concurrent=3` を awk 単体・bootstrap end-to-end の両方で確認。完了判定: TASKS.md「WORKING.md に意図的に 3 行入れて bootstrap 実行→警告が出る」を物理確認済。
+
+---
+
 ### 完了済み（2026-04-28 05:10 JST Cowork schedule-task 多角調査+即時改善 T235/T2026-0428-H）
 
 - ✅ **T235 Claude API 5xx / network リトライ実装 + boundary test** — 根本問題: 旧 `_call_claude` (proc_ai.py L14) は HTTP 429 のみ最大 3 回リトライで、500/502/503/504 系は 1 回失敗で raise → handler 上位で握り潰し → 当該 topic の AI フィールドが空のまま topics.json に publish される構造。Tool Use API 化で 1 call が 5-15 秒に伸び、Anthropic 側 generation timeout / internal error 確率が上昇していた。本番観測 (2026-04-28 05:13 JST) で keyPoint=8.5% / perspectives=20.5% / outlook=49.6% / relatedTopicTitles=24.8% の低充填が判明、その主因の一つ。修正 (`lambda/processor/proc_ai.py`): `_RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}` を導入、4 attempt × 指数バックオフ (5s→10s→20s)、`URLError`/`TimeoutError`/`ConnectionError` も transient として retry。観測用に `[METRIC] claude_retry attempt=N code=X kind=Y wait_s=Z` および `[METRIC] claude_retry_exhausted code=X attempts=N` をフォーマット固定で出力 → governance worker / CloudWatch Insights で集計可能。boundary test 同梱 (`tests/test_proc_ai_retry.py`): 8 ケース (429-then-success / 500-then-success / 503×3-then-success / 504×4-exhausted / 400-no-retry / URLError / TimeoutError / 即時成功)。boto3 未インストール環境でも動くよう `proc_config` を fake module で stub する設計。`ANTHROPIC_API_KEY=sk-ant-dummy-test python3 -m unittest tests.test_proc_ai_retry -v` → `Ran 8 tests in 0.002s OK`。npm test (JS 68 件) も全パス。CLAUDE.md「新規 formatter は boundary test 同梱」を変更関数にも展開した運用。
