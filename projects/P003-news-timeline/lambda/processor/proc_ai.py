@@ -353,7 +353,7 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
     headlines, _ = _build_headlines(articles, limit=10)
     prompt = (
         '以下は同じニューストピックに関する記事の一覧です（日付付きの場合あり）。\n'
-        'このトピックを4つの視点で分析し、JSONのみを出力してください。\n\n'
+        'このトピックを7つの視点で分析し、JSONのみを出力してください。\n\n'
         + _WORD_RULES
         + _GENRES_PROMPT
         + '【出力フォーマット（JSON以外出力禁止）】\n'
