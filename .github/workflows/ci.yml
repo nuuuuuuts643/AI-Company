@@ -38,8 +38,8 @@ jobs:
       - name: ユニットテスト（node:test）
         run: |
           echo "=== P003 ユニットテスト ==="
-          cd projects/P003-news-timeline && npm test
-          echo "✅ 全テストパス"
+          cd projects/P003-news-timeline && npm run test:unit
+          echo "✅ ユニットテスト全件パス"
 
       - name: HTML 基本チェック（必須要素の確認）
         run: |
@@ -53,6 +53,29 @@ jobs:
             fi
             echo "  ✅ $f"
           done
+
+  e2e-frontend:
+    name: フロントエンド E2E スモーク（puppeteer）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Node.js セットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: projects/P003-news-timeline/package-lock.json
+
+      - name: puppeteer 依存インストール
+        working-directory: projects/P003-news-timeline
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: E2E スモーク (index.html / about.html)
+        working-directory: projects/P003-news-timeline
+        run: |
+          npm run test:e2e
+          echo "✅ E2E スモーク完了"
 
   lint-lambda:
     name: Lambda 構文チェック
