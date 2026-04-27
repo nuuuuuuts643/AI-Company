@@ -18,7 +18,7 @@
 
 | プロジェクト | 状態 | 備考 |
 |---|---|---|
-| P001 AI-Company 自走システム | **保留** ⏸ | エージェント群のスケジュール停止中（API費用削減のため）。インフラは存在。ユーザー・収益が生まれたら再開。 |
+| P001 AI 自走プロダクト運営 OS | **稼働中** ✅ | `projects/P001-ai-company-os/README.md` で部署構成を言語化。P003 で自走運営の実証中。Editorial/Marketing/Revenue/SEO/DevOps Agent は schedule 停止中（API費用削減）、CEO 判断で再開可能。 |
 | P002 Flutter ゲーム | **開発中** 🔧 | Flutter+Flame で実装済み（50+ ファイル）。動作確認未実施。コンセプト: オートバトル × HD-2D ドット絵 × ローグライト抽出。 |
 | P003 Flotopic | **本番稼働中** ✅ | flotopic.com。AI 要約 4 セクション形式。sitemap 自動更新。CI 全テスト通過。AdSense 審査待ち。 |
 | P004 Slack ボット | **保留** ⏸ | Lambda デプロイ済みだが Slash Command 未設定のため誰も使えない。優先度低。 |
