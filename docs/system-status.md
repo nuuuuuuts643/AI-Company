@@ -1,0 +1,133 @@
+# AI-Company システム状態（毎セッション必読）
+
+> このファイルはセッションをまたいで状態を引き継ぐための機械的な記録。
+> Cowork/Code どちらでも、セッション開始時にここを読んでから作業を始める。
+> CLAUDE.md から外出し（CLAUDE.md は規則本体に集中する）。
+
+---
+
+## 会社構造
+
+- **出資者・取締役**: PO（承認のみ、日常運営は CEO に委任）
+- **CEO**: Claude（自律的に会社を動かす）
+- **方針**: 指示を待たず毎日前進する。空報告禁止。実行した証拠がないものは完了扱いしない。
+
+---
+
+## 現在のプロジェクト状態（最終更新: 2026-04-28）
+
+| プロジェクト | 状態 | 備考 |
+|---|---|---|
+| P001 AI-Company 自走システム | **保留** ⏸ | エージェント群のスケジュール停止中（API費用削減のため）。インフラは存在。ユーザー・収益が生まれたら再開。 |
+| P002 Flutter ゲーム | **開発中** 🔧 | Flutter+Flame で実装済み（50+ ファイル）。動作確認未実施。コンセプト: オートバトル × HD-2D ドット絵 × ローグライト抽出。 |
+| P003 Flotopic | **本番稼働中** ✅ | flotopic.com。AI 要約 4 セクション形式。sitemap 自動更新。CI 全テスト通過。AdSense 審査待ち。 |
+| P004 Slack ボット | **保留** ⏸ | Lambda デプロイ済みだが Slash Command 未設定のため誰も使えない。優先度低。 |
+| P005 メモリ DB | **保留** ⏸ | DynamoDB 稼働中だがエージェント停止中で実質未使用。インフラは残存。 |
+
+---
+
+## P003 技術状態スナップショット
+
+> このテーブルはセッションをまたいで整合性を保つための機械的な記録。
+> 作業完了のたびに更新する。
+
+| コンポーネント | 状態 | 最終更新 | 備考 |
+|---|---|---|---|
+| CI | ✅ 全テスト通過 | 2026-04-25 | `npm test` 42 件全パス必須 |
+| processor AI 要約 | ✅ 稼働中 | 2026-04-27 | 4x/day JST 01:00/07:00/13:00/19:00。MAX_API_CALLS=200 |
+| AI 要約カバレッジ | 📉 要改善 | 2026-04-27 | 実測: 可視 203 件中 aiGenerated=True 50 件 (24.6%)。pending queue 優先度問題が根本原因 |
+| DynamoDB SNAP | 📉 改善中 | 2026-04-26 | lifecycle 週次で削除中。TTL(7日) ENABLED |
+| Bluesky 自動投稿 | ✅ 継続稼働 | 2026-04-27 | 1日 3 回 (JST 08:00/12:00/18:00) |
+| 静的 SEO HTML 生成 | ✅ 本番稼働 | 2026-04-26 | topics/{tid}.html 500/500 件生成済み |
+| fetcher UGC 混入防御 | ✅ 二重防御稼働 | 2026-04-27 | filters.py + handler.py uniqueSourceCount>=2 |
+| お問い合わせフォーム | ✅ SES 稼働中 (sandbox) | 2026-04-26 | 実送信確認済。flotopic.com DKIM 成功 |
+| 安定コンポーネント群 | ✅ 全稼働 | 2026-04-26 | sw.js・CloudFront・sitemap・Slack・filter-weights・lifecycle・アフィリエイト・ストーリー・ジャンル分類等 |
+
+> 完了済みコンポーネント詳細は HISTORY.md を参照
+
+---
+
+## 専門 AI 稼働状況
+
+**運営エージェント**: 全 8 本停止中（API 費用削減。ユーザー増加後に再開）
+
+**ガバナンスエージェント**:
+- SecurityAI (✅ push+週次→Slack)
+- LegalAI (⏸ 停止中)
+- AuditAI (✅ push+週次→PO直報)
+
+共通基盤: `scripts/_governance_check.py` / `.github/workflows/governance.yml` / DynamoDB: `ai-company-agent-status`, `ai-company-audit`
+
+---
+
+## 残タスク（PO手動作業が必要なもの）
+
+- **P002 動作確認**（未実施）: `cd ~/ai-company/projects/P002-flutter-game && flutter pub get && flutter run`
+- **SES 本番アクセス申請**: sandbox 解除後、未検証アドレスへも送信可能になる
+- **待ち**: AdSense 審査中（忍者AdMaxで代替中）
+
+---
+
+## 開発ルール（一人開発・事故防止）
+
+### 基本フロー
+1. コードを変更する
+2. `git add / commit / push` → GH Actions が自動で本番反映（2〜4 分）
+3. 動作確認したい場合は `bash projects/P003-news-timeline/deploy-staging.sh` でステージングに先行反映
+
+### ステージング環境
+- URL: http://p003-news-staging-946554699567.s3-website-ap-northeast-1.amazonaws.com
+- 手動デプロイ: `bash projects/P003-news-timeline/deploy-staging.sh`
+- 本番との違い: フロントエンドのみ別バケット。Lambda/DynamoDB は本番共有
+
+### CI（自動構文チェック）
+- main への push 時に自動実行（`.github/workflows/ci.yml`）
+- JS 構文チェック（node --check）
+- Python 構文チェック（py_compile）
+- API キーのハードコード検出
+- CLAUDE.md 250 行ガード（2026-04-28 追加）
+- task-id 重複検出（2026-04-28 追加）
+
+### deploy.sh は直接実行しない（2026-04-25 変更）
+**デプロイは GitHub Actions が自動で行う。Claude から deploy.sh を叩かない。**
+
+| 変更ファイル | 自動デプロイ |
+|---|---|
+| `projects/P003-news-timeline/frontend/**` | `.github/workflows/deploy-p003.yml` |
+| `projects/P003-news-timeline/lambda/**` | `.github/workflows/deploy-lambdas.yml` |
+
+例外: インフラ新規作成（DynamoDB テーブル作成・Lambda 新規追加等）が必要な場合のみ `deploy.sh` を使ってよい。その場合はPOに確認してから実行する。
+
+---
+
+## 未解決の問題 / 素材不足
+
+- **P003 AdSense 審査待ち** — 申請済み。通過まで数週間かかる場合あり。それまでは忍者 AdMax で代替
+- **P003 グラフデータ蓄積中** — 長期グラフ（1ヶ月〜1年）はデータ蓄積後に意味を持つ
+- **P002 Flutter スプライト素材未作成** — AI 生成で後日追加
+- **P002 BGM 本番版未作成** — Suno AI で後日生成・差し替え
+- **P002 動作確認未実施** — `flutter pub get && flutter run` をローカルで実行する
+
+---
+
+## 次フェーズのタスク（優先度順）
+
+1. **SEO 流入**: 静的 HTML 実装済み。次→Qiita/note 記事でリンク獲得・Bluesky 流入
+2. **コンテンツ品質**: AI 要約 4x/day 自動改善中。lifecycle ARCHIVE_DAYS=7 週次整理
+3. **収益化**: AdSense 審査中→通過後に切り替え。Amazon/楽天アフィリ申請（PO手動）
+4. **UX**: モバイル改善・表示名分離はユーザー増加後
+
+---
+
+## 将来アイデア候補
+
+詳細は **docs/operations-design.md**（運用設計）・**docs/infra-migration-strategy.md**（インフラ移行戦略）参照
+
+- P003 拡張: トピック起点 SNS 機能（コメント lambda 実装済み。ユーザー増加後に有効化）
+- P006 候補: Flotopic × 株式投資シグナル（精度向上・ユーザー基盤確立後）
+
+---
+
+## P002 Flutter
+
+→ `projects/P002-flutter-game/briefing.md` 参照（コンセプト/システム/収益化/フォルダ構造）
