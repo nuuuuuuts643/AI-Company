@@ -51,6 +51,36 @@ def _extract_trending_keywords(topics: list) -> list:
     return [{'keyword': w, 'count': c} for w, c in counter.most_common(_KW_MAX * 3) if c >= 3][:_KW_MAX]
 
 
+# タイトル一発理解性が低いと判定するNGパターン (2026-04-27)
+# このパターンを含むタイトルは「何の話か」が抜けてるので強制再生成する
+_NG_TITLE_PATTERNS = (
+    'をめぐる最新の動き',
+    '最新の動きまとめ',
+    'をめぐる動き',
+    'わかりやすく解説',
+    'をわかりやすく',
+    'について解説',
+    'とは何か',  # 単独「とは何か」(タイトル末尾) のみ NG。「〜とは何か・なぜ〜」のような複合句はOK
+    '動向と争点',
+    '最新情報',
+    '詳細まとめ',
+    '背景まとめ',
+    'と背景',
+    '経緯まとめ',
+)
+
+
+def _is_low_quality_title(title: str) -> bool:
+    """初見ユーザーが一発で『何の話か』分からない曖昧タイトルを検出。"""
+    if not title:
+        return False
+    # 末尾が NG パターンで終わる場合のみ判定 (途中にあるのはOK)
+    for pat in _NG_TITLE_PATTERNS:
+        if title.endswith(pat) or title.endswith(pat + 'まとめ'):
+            return True
+    return False
+
+
 def needs_ai_processing(item):
     """このトピックがAI処理を必要とするかを判定。
 
@@ -59,6 +89,7 @@ def needs_ai_processing(item):
     - storyTimeline が空または未設定（4セクション形式未生成）
     - pendingAI=True（fetcher が新記事を検知してフラグを立てた）
     - imageUrl が未設定（OGP画像未生成）
+    - generatedTitle が「〇〇をめぐる最新の動き」等の曖昧パターンで終わる(2026-04-27)
 
     Note: articleCount<2 のトピックはフロントエンドで非表示（processor もスキップ）のため
     False を返して pending_ai.json から自動クリーンアップされるようにする。
@@ -78,6 +109,9 @@ def needs_ai_processing(item):
     if not is_minimal and not item.get('storyPhase'):
         return True
     if not item.get('imageUrl'):
+        return True
+    # 曖昧タイトルは強制再生成
+    if _is_low_quality_title(item.get('generatedTitle', '')):
         return True
     return False
 
