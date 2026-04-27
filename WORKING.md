@@ -90,3 +90,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] T2026-0428-Z P003 contacts UI改善+自動返信 | Cowork | frontend/admin.html, lambda/contact/handler.py | 2026-04-28 07:45 | yes |
