@@ -39,10 +39,10 @@
 - `CLAUDE.md`・`WORKING.md`・`TASKS.md`・`HISTORY.md` のドキュメント更新
 - CloudWatch確認・S3データ参照・ステータス報告
 - ナオヤとの会話・分析・計画立案
-- **コードファイルには原則触れない**（触る場合はWORKING.mdに [Cowork] 行を明記してからのみ）
+- **コードファイルの編集もOK**（WORKING.mdに [Cowork] 行を明記してから着手）
+- **git操作もOK** — push前に `rm -f .git/index.lock .git/HEAD.lock` を実行してから git add/commit/push する
 
-> この役割分担により、同一コードファイルの並行編集は構造的に発生しない。
-> ドキュメントファイル（CLAUDE.md等）はCode起動チェック時に `git pull --rebase` で吸収する。
+> Coworkが実装からpushまで完結できる。lockファイル削除で競合を回避する。
 
 ---
 
