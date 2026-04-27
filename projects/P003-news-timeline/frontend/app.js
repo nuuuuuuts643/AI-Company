@@ -1,6 +1,9 @@
 // app.js — メイン。auth.js / favorites.js / comments.js を先に読み込むこと。
 // 読み込み順: config.js → js/auth.js → js/favorites.js → js/comments.js → app.js
 
+// ── 広告タイマー（stale timeout防止） ────────────────────────
+let adHideTimer = null;
+
 // ── 設定定数 ──────────────────────────────────────────────────
 const CONFIG = {
   HOT_STRIP_HOURS: 6,                   // 今急上昇中セクションの対象時間（時間）
@@ -481,13 +484,16 @@ function renderTopics(topics) {
     });
     slot.appendChild(adDiv);
   });
-  // 3秒後に広告未填充のスロットを非表示（空スペース防止）
-  setTimeout(() => {
+  // 5秒後に広告未填充のスロットを非表示（空スペース防止）
+  // module-level変数で前回のタイマーをキャンセルし、re-render直後の誤hideを防ぐ
+  if (adHideTimer) clearTimeout(adHideTimer);
+  adHideTimer = setTimeout(() => {
+    adHideTimer = null;
     grid.querySelectorAll('.ad-card-wrapper').forEach(wrapper => {
       const inner = wrapper.querySelector('.admax-ads');
-      if (!inner || inner.children.length === 0) wrapper.style.display = 'none';
+      if (!inner || !inner.innerHTML.trim()) wrapper.style.display = 'none';
     });
-  }, 3000);
+  }, 5000);
 
   if (lmContainer) {
     if (pageList.length < list.length) {
