@@ -70,6 +70,23 @@ MSG_FILE="$1"
 
 FIRST_LINE=$(grep -v '^#' "$MSG_FILE" | head -n 1)
 
+# ---- (A) schedule-task commit: [Schedule-KPI] 行を必須化（プレフィックスに依らず先に判定）----
+# commit message 全文に "schedule-task" (case-insensitive) が含まれる場合、
+# `[Schedule-KPI] implemented=N created=M closed=K queue_delta=±X` を含めること。
+# bootstrap の sync commit (`chore: bootstrap sync ...`) には schedule-task 文言が無いため誤発火しない。
+# 「発見偏重 anti-pattern」を物理ガード化（lessons-learned 2026-04-28 由来）。
+if grep -qiE 'schedule-task' "$MSG_FILE"; then
+  if ! grep -qE '^\[Schedule-KPI\] implemented=[0-9]+ created=[0-9]+ closed=[0-9]+ queue_delta=[+-]?[0-9]+' "$MSG_FILE"; then
+    echo "❌ commit-msg blocked: schedule-task commit には [Schedule-KPI] 行が必須です。"
+    echo "   format: [Schedule-KPI] implemented=N created=M closed=K queue_delta=±X"
+    echo "   例   : [Schedule-KPI] implemented=2 created=1 closed=3 queue_delta=-1"
+    echo "   理由  : docs/lessons-learned.md 2026-04-28「scheduled-task が発見偏重」対策"
+    echo "   bypass (緊急のみ): git commit --no-verify"
+    exit 1
+  fi
+fi
+
+# ---- (B) Verified 行（feat:/fix:/perf: のみ強制） ----
 # skip non-verify-required prefixes (case-insensitive)
 SKIP_RE='^[[:space:]]*(wip|docs|chore|test|refactor|style|build|ci|revert):'
 if echo "$FIRST_LINE" | grep -qiE "$SKIP_RE"; then
@@ -95,21 +112,6 @@ fi
 # 2xx でなければ警告のみ（commit は通す）
 if ! grep -qE '^Verified: .*:2[0-9]{2}:' "$MSG_FILE"; then
   echo "⚠️  Verified line found but HTTP status is not 2xx. Continuing — please double-check."
-fi
-
-# ---- schedule-task commit: [Schedule-KPI] 行を必須化 ----
-# commit message 全文に "schedule-task" (case-insensitive) が含まれる場合、
-# `[Schedule-KPI] implemented=N created=M closed=K queue_delta=±X` を含めること。
-# 「発見偏重 anti-pattern」を物理ガード化（lessons-learned 2026-04-28 由来）。
-if grep -qiE 'schedule-task' "$MSG_FILE"; then
-  if ! grep -qE '^\[Schedule-KPI\] implemented=[0-9]+ created=[0-9]+ closed=[0-9]+ queue_delta=[+-]?[0-9]+' "$MSG_FILE"; then
-    echo "❌ commit-msg blocked: schedule-task commit には [Schedule-KPI] 行が必須です。"
-    echo "   format: [Schedule-KPI] implemented=N created=M closed=K queue_delta=±X"
-    echo "   例   : [Schedule-KPI] implemented=2 created=1 closed=3 queue_delta=-1"
-    echo "   理由  : docs/lessons-learned.md 2026-04-28「scheduled-task が発見偏重」対策"
-    echo "   bypass (緊急のみ): git commit --no-verify"
-    exit 1
-  fi
 fi
 
 exit 0
