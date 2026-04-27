@@ -226,6 +226,30 @@
       transition: color .2s;
     }
     #pwa-dismiss-btn:hover { color: #fff; }
+    /* iOS向けインストール案内バナー */
+    #pwa-ios-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #1e293b;
+      color: #fff;
+      padding: 10px 16px;
+      font-size: .88rem;
+      flex-wrap: wrap;
+    }
+    #pwa-ios-banner .pwa-banner-text { flex: 1; min-width: 0; }
+    #pwa-ios-dismiss-btn {
+      background: transparent;
+      color: #94a3b8;
+      border: none;
+      font-size: 1.1rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    #pwa-ios-dismiss-btn:hover { color: #fff; }
     [data-theme="dark"] .auth-user-name { color: var(--text-secondary); }
     [data-theme="dark"] .auth-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
   </style>
@@ -233,13 +257,18 @@
 <body>
 <!-- エラーバナー（fetch失敗時に表示） -->
 <div id="error-banner" role="alert" aria-live="assertive" style="display:none;position:fixed;top:64px;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;padding:10px 20px;border-radius:8px;font-size:.88rem;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,0.2);white-space:nowrap;max-width:90vw;text-overflow:ellipsis;overflow:hidden;"></div>
-<!-- PWAインストールバナー -->
+<!-- PWAインストールバナー（Chrome/Android） -->
 <div id="pwa-install-banner" role="banner" aria-label="アプリインストール案内">
   <span class="pwa-banner-text">📱 ホーム画面に追加してFlotopicをアプリとして使う</span>
   <div class="pwa-banner-actions">
     <button id="pwa-install-btn">インストール</button>
     <button id="pwa-dismiss-btn" aria-label="閉じる">×</button>
   </div>
+</div>
+<!-- PWAインストールバナー（iOS Safari） -->
+<div id="pwa-ios-banner" role="banner" aria-label="iOSアプリインストール案内">
+  <span class="pwa-banner-text">📱 ホーム画面に追加: Safariの共有ボタン <strong>⎙</strong> →「ホーム画面に追加」</span>
+  <button id="pwa-ios-dismiss-btn" aria-label="閉じる">×</button>
 </div>
 <header>
   <div class="inner header-inner">
