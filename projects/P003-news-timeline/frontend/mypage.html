@@ -1104,6 +1104,8 @@
         } else if (mpWrap) {
           mpWrap.innerHTML = `<img class="mp-avatar" src="${avatarUrl}" alt="アバター">`;
         }
+        // DynamoDB users テーブルに avatarUrl を保存
+        if (typeof syncAvatarToServer === 'function') syncAvatarToServer(avatarUrl);
       }
     );
 
@@ -1311,6 +1313,9 @@
     if (!container) return;
     container.innerHTML = '<div class="loading"><div class="spinner"></div>読み込み中...</div>';
 
+    // クラウド履歴をlocalStorageにマージ（mypage経由でのアクセス時も同期）
+    if (typeof loadCloudHistory === 'function') loadCloudHistory();
+
     const favIds  = readLocalFavIds();
     const history = readHistory().slice(0, 15);
     const user    = getUser();
@@ -1325,18 +1330,26 @@
       favTopics = all.filter(t => favIds.includes(t.topicId));
     } catch {}
 
-    // ローカル保存アバター優先、次にGoogleの写真
+    // アバター: localStorageのカスタム画像 > DynamoDBのavatarUrl > Googleの写真
     const savedAvatar = (() => { try { return localStorage.getItem('flotopic_avatar') || ''; } catch { return ''; } })();
-    const picUrl = savedAvatar || (user && user.picture ? safeEsc(user.picture) : '');
-    const rawName = user ? (user.name || '') : '';
+    const serverAvatar = user && user.avatarUrl ? user.avatarUrl : '';
+    // サーバーにカスタム画像があればlocalStorageを更新
+    if (serverAvatar && !savedAvatar) {
+      try { localStorage.setItem('flotopic_avatar', serverAvatar); } catch {}
+    }
+    const picUrl = savedAvatar || serverAvatar || (user && user.picture ? safeEsc(user.picture) : '');
     const userSuffix = user && user.userId ? '#' + user.userId.slice(-4) : '';
     const displayName = safeEsc(user ? (user.nickname || ('ユーザー' + userSuffix)) : 'ユーザー');
     const initial = (displayName.replace(/&[^;]+;/g,'')[0] || '?').toUpperCase();
     const avatarHtml = picUrl
       ? `<img class="mp-avatar" src="${picUrl}" alt="アバター" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="mp-avatar-placeholder" style="display:none">${initial}</div>`
       : `<div class="mp-avatar-placeholder">${initial}</div>`;
-    const profile     = readProfile();
-    const handleText  = profile.handle ? `@${profile.handle}` : '@Flotopicメンバー';
+    const profile = readProfile();
+    // DynamoDB由来のデータはcurrentUser(flotopic_user)にも保存されているためフォールバック
+    const effectiveHandle   = profile.handle   || (user && user.handle)   || '';
+    const effectiveAgeGroup = profile.ageGroup || (user && user.ageGroup) || '';
+    const effectiveGender   = profile.gender   || (user && user.gender)   || '';
+    const handleText = effectiveHandle ? `@${effectiveHandle}` : '@Flotopicメンバー';
 
     const LAST_VISIT_KEY = 'flotopic_last_mypage_visit';
     const lastVisitSec = (() => { try { const v = localStorage.getItem(LAST_VISIT_KEY); return v ? Number(v) : 0; } catch { return 0; } })();
@@ -1528,7 +1541,7 @@
           </div>
           <div class="mp-nickname-field">
             <span class="mp-nickname-label" title="@メンションに使うID（英数字・アンダースコアのみ）">ハンドル名</span>
-            <input class="mp-nickname-input" id="mp-handle-input" type="text" value="${safeEsc(profile.handle || '')}" maxlength="20" placeholder="例: flotopic_user123" autocomplete="off" spellcheck="false">
+            <input class="mp-nickname-input" id="mp-handle-input" type="text" value="${safeEsc(effectiveHandle)}" maxlength="20" placeholder="例: flotopic_user123" autocomplete="off" spellcheck="false">
             <button class="mp-nickname-save" id="mp-handle-save">保存</button>
           </div>
           <div class="mp-nickname-field" style="flex-direction:column;align-items:flex-start;gap:4px;">
@@ -1537,22 +1550,22 @@
                 <span class="mp-nickname-label" style="display:block;margin-bottom:4px;">年齢層</span>
                 <select class="mp-nickname-input" id="mp-age-select" style="border:1.5px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:.84rem;width:100%;">
                   <option value="">回答しない</option>
-                  <option value="10代未満"${profile.ageGroup==='10代未満'?' selected':''}>10代未満</option>
-                  <option value="10代"${profile.ageGroup==='10代'?' selected':''}>10代</option>
-                  <option value="20代"${profile.ageGroup==='20代'?' selected':''}>20代</option>
-                  <option value="30代"${profile.ageGroup==='30代'?' selected':''}>30代</option>
-                  <option value="40代"${profile.ageGroup==='40代'?' selected':''}>40代</option>
-                  <option value="50代"${profile.ageGroup==='50代'?' selected':''}>50代</option>
-                  <option value="60代以上"${profile.ageGroup==='60代以上'?' selected':''}>60代以上</option>
+                  <option value="10代未満"${effectiveAgeGroup==='10代未満'?' selected':''}>10代未満</option>
+                  <option value="10代"${effectiveAgeGroup==='10代'?' selected':''}>10代</option>
+                  <option value="20代"${effectiveAgeGroup==='20代'?' selected':''}>20代</option>
+                  <option value="30代"${effectiveAgeGroup==='30代'?' selected':''}>30代</option>
+                  <option value="40代"${effectiveAgeGroup==='40代'?' selected':''}>40代</option>
+                  <option value="50代"${effectiveAgeGroup==='50代'?' selected':''}>50代</option>
+                  <option value="60代以上"${effectiveAgeGroup==='60代以上'?' selected':''}>60代以上</option>
                 </select>
               </div>
               <div style="flex:1;">
                 <span class="mp-nickname-label" style="display:block;margin-bottom:4px;">性別</span>
                 <select class="mp-nickname-input" id="mp-gender-select" style="border:1.5px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:.84rem;width:100%;">
                   <option value="">回答しない</option>
-                  <option value="male"${profile.gender==='male'?' selected':''}>男性</option>
-                  <option value="female"${profile.gender==='female'?' selected':''}>女性</option>
-                  <option value="other"${profile.gender==='other'?' selected':''}>その他</option>
+                  <option value="male"${effectiveGender==='male'?' selected':''}>男性</option>
+                  <option value="female"${effectiveGender==='female'?' selected':''}>女性</option>
+                  <option value="other"${effectiveGender==='other'?' selected':''}>その他</option>
                 </select>
               </div>
             </div>
@@ -1652,6 +1665,8 @@
         } else if (mpWrap) {
           mpWrap.innerHTML = `<img class="mp-avatar" src="${avatarUrl}" alt="アバター">`;
         }
+        // DynamoDB users テーブルに avatarUrl を保存（デバイス間同期）
+        if (typeof syncAvatarToServer === 'function') syncAvatarToServer(avatarUrl);
       }
     );
 
