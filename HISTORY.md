@@ -1248,3 +1248,37 @@ bash projects/P003-news-timeline/deploy.sh
 ### 完了済み（2026-04-27 ジャンル分類改善 T215）
 - ✅ **T215 キーワードマッチング補完** — `fetcher/config.py` GENRE_KEYWORDS['スポーツ']に'マラソン','駅伝','競馬','スキー','体操','競泳','卓球','バドミントン','柔道','レスリング','自転車','フィギュア','スケート','トライアスロン','選手権','優勝','準優勝','決勝','開幕','閉幕'を追加。['エンタメ']に'タレント','芸人','お笑い','声優','バラエティ','ミュージシャン','バンド','舞台','演劇','漫才','落語','ヒット','興行'を追加。根本原因: 「男子マラソンで世界新記録」等のスポーツ記事が'総合'に落ちていた。
 - ✅ **T215 processorにAIジャンル分類追加** — `proc_ai.py`の全3モード(minimal/standard/full)のプロンプトに`"genres": [...]`フィールドを追加。利用可能ジャンル15種を明示し`_validate_genres()`で検証。`proc_storage.py`のupdate_topic_with_ai()でDynamoDB genre/genres更新。`handler.py`のai_updatesとtopics.json再生成ループに反映。追加API cost: ゼロ（同一コール内のJSONフィールド追加のみ）。既存AI済みトピックは次回記事追加時の再処理で順次更新される。
+
+### 完了済み（2026-04-28 過去24h cycle: Tool Use migration + keyPoint + safe_format ライブラリ化）
+
+セッション形式: ナオヤとの単一チャット運用 (Cowork チャット 1 本) で約 30 commits を回した cycle。
+方針: 仕組みで止まる > ルール > band-aid。なぜなぜ Why1〜Why5 + 仕組み的対策 3+ を全件で。
+
+#### 仕組み化レイヤー (CIで物理ブロック)
+- ✅ **CI content-drift-guard ジョブ追加** — 旧4セクション/旧フェーズ/必須キーワード喪失/script defer-async禁止/意味色ハードコード/tokushoho 内部参照の 6 ガードを `.github/workflows/ci.yml` に追加。drift が main に landing できなくなった
+- ✅ **scripts/install_hooks.sh** — ローカル `.git/hooks/pre-commit` を一括設置。section_sync 違反 + AdSense pub-id ↔ ads.txt 整合性も blocking
+- ✅ **既存 CSS 意味色ハードコード違反 7 件全修正** — profile/index/contact/mypage/storymap/topic.html の `#ef4444`/`#f43f5e` を `var(--color-danger)`/`var(--color-heart)` に置換
+- ✅ **frontend/js/safe_format.js (汎用ライブラリ)** — fmtElapsed/formatCount/formatCountAllowZero/join/lifecycleDot を集約。0/null/undefined/NaN/未来日付/<1990年 を全て無効扱い。UMD で Browser+Node 両対応。任意プロジェクトで再利用可能
+- ✅ **tests/safe_format.test.js (68 boundary tests)** — 0/null/undefined/'空文字'/NaN/'invalid'/1985年/未来 を網羅 assert。CI で blocking → Claude が次に編集しても境界が崩れたら main に landing 不可
+- ✅ **done.sh に動作確認内蔵** — `lambda:<fn>` / `url:<https>` / `topic-ai:<id>` の 3 種 verify_target を追加。CloudWatch 直近5分エラー検出 + 本番URL 200 確認 + AI処理済み確認。verification 失敗で exit 1
+
+#### 致命バグ駆除 (Why1〜Why5 + 仕組み対策付き、CLAUDE.md に追記済み)
+- ✅ **T39 _GENRES_PROMPT / _validate_genres 未定義で processor 全 invoke crash** — 3 箇所参照されているのに定義無し。NameError で c1bbe0fe 12記事topic 含む全 AI 処理が止まっていた根本原因。proc_ai.py に _VALID_GENRE_SET (17) + _GENRES_PROMPT + _validate_genres() を実装
+- ✅ **T38 extractive_summary 検出パターン古く c1bbe0fe 漂流** — `_is_old_extractive` が「複数の報道」「関連して」しか見ておらず、現行 extractive `また、「…」など` `最新では「…」と報じられている` `（…ほかN件）` を素通り。is_extractive_summary() ヘルパを text_utils に新設、fetcher + processor の両方で参照
+- ✅ **T40 DynamoDB ttl 予約語 ValidationException** — auto_archive_incoherent + add_ttl_to_existing_archived の 2 箇所で SET ttl = :ttl が ValidationException。`#ttl` 別名置換 + ExpressionAttributeNames で修正
+- ✅ **T41 (P0) Anthropic Tool Use API 移行で JSON 構文エラー根絶** — `Expecting , delimiter` が頻発し perspectives/keyPoint が空のままになっていた。`_call_claude_tool` ヘルパ + `_build_story_schema(mode)` で minimal/standard/full の JSON Schema 厳格化 → malformed JSON は物理的に発生不可。旧 text-mode prompt 100+ 行を削除
+- ✅ **proc_storage update_topic_s3_file: genres/genre + keyPoint の merge 漏れ修正** — Tool Use 後に新 genres が DDB に書かれても S3 個別 topic JSON に反映されないバグ
+- ✅ **handler.py ai_updates dict から keyPoint 漏れ修正**
+- ✅ **proc_storage.py [AI_FIELD_GAP] 観測ログの変数名 topic_id → tid 修正**
+
+#### 思想・コンテンツ品質改善
+- ✅ **T35 AI prompt: perspectives/background/outlook 0% null 撲滅** — Tool Use の required + 強化されたプロンプト指示で全フィールド充填強制。perspectives は「各社の懸念・可能性・着目点を並列列挙」フォーマット。background は「直近1〜4週間の触媒」と backgroundContext との棲み分け明文化
+- ✅ **T30 keyPoint hero box (💡ひとことで言うと)** — proc_ai.py 全 mode に keyPoint フィールド追加 (40字以内・体言止め・「普通と違う角度」)。detail.js + style.css に hero block 追加。c1bbe0fe で「米国の一方的交渉要求にイランが地域外交で対抗」と取れている
+- ✅ **T31 AI解析待ちバッジ + 媒体名サフィックス除去** — `🤖 解析待ち` バッジ + stripMediaSuffix() でカード見栄え改善
+
+#### Discovery / Storymap UX
+- ✅ **Discovery '0件 · 1/1' バグ完全撲滅** — fmtElapsed(0) 防御 + cnt=0 非表示 + 「続き読む →」フォールバック + fetcher childTopics ref に articleCount/lastArticleAt/lifecycleStatus 添付の構造的フォールバック
+- ✅ **storymap 分岐カードに『#1/N 順序・1行要約・storyPhase バッジ』追加** — 流れがクリックなしで読める
+
+#### T27 完了
+- ✅ **記事リンク永続性 (Wayback Machine)** — timeline 側 + 関連記事リスト両方に `📦 アーカイブ` リンク追加。元記事消失でも Internet Archive 経由で読者は遡れる
