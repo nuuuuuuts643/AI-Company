@@ -13,12 +13,16 @@ AWSコストアラート設定スクリプト（一度だけ実行）
 
 import boto3
 import json
+import os
 from datetime import datetime
 from botocore.exceptions import ClientError
 
 BUDGET_NAME = "flotopic-monthly-budget"
-ALERT_EMAIL = "mrkm.naoya643@gmail.com"
+ALERT_EMAIL = os.environ.get("ALERT_EMAIL", "")  # PII漏洩対策(2026-04-27): 環境変数経由に変更。ローカル実行時は環境変数を設定すること
 MONTHLY_LIMIT_USD = "30.0"
+
+if not ALERT_EMAIL:
+    raise SystemExit("ALERT_EMAIL 環境変数が未設定です。export ALERT_EMAIL=... してから実行してください")
 
 
 def get_account_id() -> str:
