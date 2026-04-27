@@ -301,7 +301,6 @@ details.collapsible .details-body{padding:14px 20px 20px;border-top:1px solid #2
 // CONFIG
 // ═══════════════════════════════════════════════════════════════════════
 const CONFIG = {
-  allowedEmail:    'owner643@gmail.com',
   googleClientId:  '632899056251-hmk2ap6tv98miqj8n96lig3vj7uoa057.apps.googleusercontent.com',
   apiBase:         'https://flotopic.com/api/',
   contactsApiBase: 'https://x73mzc0v06.execute-api.ap-northeast-1.amazonaws.com',
@@ -1013,15 +1012,10 @@ const Auth = {
       document.getElementById('auth-error').textContent = '認証データの解析に失敗しました';
       return;
     }
-    if (payload.email !== CONFIG.allowedEmail) {
-      document.getElementById('auth-error').textContent =
-        `このアカウント (${payload.email}) はアクセスできません`;
-      return;
-    }
+    // メールアドレスのクライアント判定は廃止。Lambda側のADMIN_EMAIL環境変数で認可する。
     sessionStorage.setItem('admin_token', response.credential);
-    sessionStorage.setItem('admin_email', payload.email);
     document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('user-badge').textContent = payload.email;
+    document.getElementById('user-badge').textContent = payload.email ?? '';
     Dashboard.load();
   },
   logout() {
@@ -1042,10 +1036,12 @@ const Auth = {
     );
   },
   init() {
-    const savedEmail = sessionStorage.getItem('admin_email');
-    if (savedEmail === CONFIG.allowedEmail) {
+    // セッション継続チェック: トークンが存在すれば認証済みとみなす（認可はLambda側）
+    const savedToken = sessionStorage.getItem('admin_token');
+    if (savedToken) {
+      const savedPayload = Auth.parseJwt(savedToken);
       document.getElementById('auth-screen').style.display = 'none';
-      document.getElementById('user-badge').textContent = savedEmail;
+      document.getElementById('user-badge').textContent = savedPayload?.email ?? '';
       Dashboard.load();
       return;
     }

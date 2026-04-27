@@ -1,0 +1,181 @@
+name: セキュリティ監査（週次）
+
+on:
+  # 毎週月曜 JST 09:00 = UTC 00:00
+  schedule:
+    - cron: '0 0 * * 1'
+  # 手動実行
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '監査モード (pii / secrets / aws / all)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - pii
+          - secrets
+          - aws
+
+env:
+  AUDIT_LOG_BUCKET: flotopic-audit-logs
+  AWS_REGION: ap-northeast-1
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  # Job 1: PII・シークレット スキャン（AWS 不要）
+  # ──────────────────────────────────────────────────────────────
+  scan-code:
+    name: PII & シークレットスキャン
+    runs-on: ubuntu-latest
+    outputs:
+      pii_result: ${{ steps.pii.outcome }}
+      secrets_result: ${{ steps.secrets.outcome }}
+
+    steps:
+      - name: リポジトリ取得
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # git history 全体を取得（gitleaks用）
+
+      - name: gitleaks インストール
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_$(uname -s | tr '[:upper:]' '[:lower:]')_x64.tar.gz \
+            | tar -xz -C /usr/local/bin gitleaks && \
+          gitleaks version || echo "gitleaks インストール失敗（スキップ）"
+
+      - name: A. PII スキャン
+        id: pii
+        run: |
+          MODE="${{ github.event.inputs.mode || 'all' }}"
+          if [ "$MODE" = "aws" ]; then
+            echo "ℹ️  モード=aws のため PII スキャンをスキップ"
+            exit 0
+          fi
+          bash scripts/security_audit.sh pii
+
+      - name: B. シークレットスキャン
+        id: secrets
+        run: |
+          MODE="${{ github.event.inputs.mode || 'all' }}"
+          if [ "$MODE" = "aws" ]; then
+            echo "ℹ️  モード=aws のためシークレットスキャンをスキップ"
+            exit 0
+          fi
+          bash scripts/security_audit.sh secrets
+
+  # ──────────────────────────────────────────────────────────────
+  # Job 2: AWS インフラ監査（AWS CLI 必要）
+  # ──────────────────────────────────────────────────────────────
+  audit-aws:
+    name: AWS インフラ監査
+    runs-on: ubuntu-latest
+    outputs:
+      aws_result: ${{ steps.aws.outcome }}
+
+    steps:
+      - name: リポジトリ取得
+        uses: actions/checkout@v4
+
+      - name: AWS 認証
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 監査ログ用 S3 バケット作成（初回のみ・存在済みは無視）
+        run: |
+          aws s3api head-bucket --bucket "$AUDIT_LOG_BUCKET" 2>/dev/null || \
+          aws s3api create-bucket \
+            --bucket "$AUDIT_LOG_BUCKET" \
+            --region "$AWS_REGION" \
+            --create-bucket-configuration LocationConstraint="$AWS_REGION" && \
+          aws s3api put-public-access-block \
+            --bucket "$AUDIT_LOG_BUCKET" \
+            --public-access-block-configuration \
+              "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true" && \
+          echo "✅ flotopic-audit-logs バケット準備完了" || \
+          echo "ℹ️  バケット作成スキップ（既存 or 権限不足）"
+
+      - name: C/D/E. AWS 監査実行
+        id: aws
+        env:
+          AUDIT_LOG_BUCKET: ${{ env.AUDIT_LOG_BUCKET }}
+        run: |
+          MODE="${{ github.event.inputs.mode || 'all' }}"
+          if [ "$MODE" = "pii" ] || [ "$MODE" = "secrets" ]; then
+            echo "ℹ️  モード=$MODE のため AWS 監査をスキップ"
+            exit 0
+          fi
+          bash scripts/security_audit.sh aws
+
+  # ──────────────────────────────────────────────────────────────
+  # Job 3: 結果集計 & アラートメール送信
+  # ──────────────────────────────────────────────────────────────
+  notify:
+    name: 結果集計 & アラート
+    runs-on: ubuntu-latest
+    needs: [scan-code, audit-aws]
+    if: always()
+
+    steps:
+      - name: 結果判定
+        id: result
+        run: |
+          PII="${{ needs.scan-code.outputs.pii_result }}"
+          SEC="${{ needs.scan-code.outputs.secrets_result }}"
+          AWS="${{ needs.audit-aws.outputs.aws_result }}"
+
+          FAILED=0
+          [ "$PII" = "failure" ]  && FAILED=1 && echo "❌ PII スキャン: 失敗"
+          [ "$SEC" = "failure" ]  && FAILED=1 && echo "❌ シークレットスキャン: 失敗"
+          [ "$AWS" = "failure" ]  && FAILED=1 && echo "❌ AWS 監査: 失敗"
+          [ "$FAILED" = "0" ]     && echo "✅ 全項目クリア"
+
+          echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
+          echo "summary=PII=$PII / Secrets=$SEC / AWS=$AWS" >> "$GITHUB_OUTPUT"
+
+      - name: リポジトリ取得（SES送信用）
+        if: steps.result.outputs.failed == '1'
+        uses: actions/checkout@v4
+
+      - name: AWS 認証（アラートメール用）
+        if: steps.result.outputs.failed == '1'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: SES アラートメール送信
+        if: steps.result.outputs.failed == '1'
+        env:
+          ALERT_FROM: ${{ secrets.SES_ALERT_FROM }}
+          ADMIN_EMAIL_DEST: ${{ secrets.SES_ALERT_TO }}
+          SUMMARY: ${{ steps.result.outputs.summary }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          aws ses send-email \
+            --from "$ALERT_FROM" \
+            --destination "ToAddresses=$ADMIN_EMAIL_DEST" \
+            --message '{
+              "Subject": {"Data": "[flotopic] 🚨 セキュリティ監査: 問題検出 '"$(date -u +%Y-%m-%d)"'"},
+              "Body": {
+                "Text": {
+                  "Data": "セキュリティ監査で問題が検出されました。\n\n結果サマリ:\n'"$SUMMARY"'\n\n詳細ログ:\n'"$RUN_URL"'\n\n対応が必要です。"
+                }
+              }
+            }' \
+            --region ap-northeast-1 && \
+          echo "✅ アラートメール送信完了" || \
+          echo "⚠️  メール送信失敗（SES設定を確認してください）"
+
+      - name: 最終ステータスチェック（問題あれば赤にする）
+        run: |
+          if [ "${{ steps.result.outputs.failed }}" = "1" ]; then
+            echo "🚨 セキュリティ問題が検出されました。上記のログを確認してください。"
+            exit 1
+          fi
+          echo "✅ セキュリティ監査: 全項目クリア"
