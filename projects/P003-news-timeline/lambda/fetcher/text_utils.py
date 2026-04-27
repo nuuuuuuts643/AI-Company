@@ -113,21 +113,33 @@ _SINGLE_HIT_GENRES = frozenset({'テクノロジー', 'スポーツ', '政治', 
 
 
 def dominant_genres(articles, max_genres=2):
-    all_titles = ' '.join(a['title'] for a in articles)
+    # 記事単位スコアリング: 各記事ごとにキーワードヒット数を集計して合算する。
+    # 旧実装（全記事結合テキストでユニークキーワード数）は、少数の汚染記事が多数の記事を
+    # 上回るスコアを出せてしまう欠陥があった（例: 国際ニュース群に野球記事1件が混入→スポーツ誤分類）。
     scores = {}
+    for a in articles:
+        title = a['title']
+        for genre, keywords in GENRE_KEYWORDS.items():
+            hit = sum(1 for kw in keywords if kw in title)
+            if hit > 0:
+                scores[genre] = scores.get(genre, 0) + hit
 
-    # 強固キーワード: 1件ヒットでも高スコア（×3）として計上
+    # 強固キーワード: 結合タイトルで検索し×3ボーナス（従来通り）
+    all_titles = ' '.join(a['title'] for a in articles)
     for genre, keywords in GENRE_STRONG_KEYWORDS.items():
         hit = sum(1 for kw in keywords if kw in all_titles)
         if hit >= 1:
-            scores[genre] = hit * 3
+            scores[genre] = scores.get(genre, 0) + hit * 3
 
-    # 通常キーワード: 特定性の高いジャンルは1件、広義ジャンルは2件以上でスコア計上
-    for genre, keywords in GENRE_KEYWORDS.items():
-        hit = sum(1 for kw in keywords if kw in all_titles)
-        threshold = 1 if genre in _SINGLE_HIT_GENRES else 2
-        if hit >= threshold:
-            scores[genre] = scores.get(genre, 0) + hit
+    # 閾値フィルター: 広義ジャンル(グルメ・くらし等)は最低2件の記事でマッチが必要
+    # 特定ジャンルは1件でも可（従来ルール維持）
+    filtered = {}
+    for genre, score in scores.items():
+        min_articles = 1 if genre in _SINGLE_HIT_GENRES else 2
+        matching_cnt = sum(1 for a in articles if any(kw in a['title'] for kw in GENRE_KEYWORDS.get(genre, [])))
+        if matching_cnt >= min_articles:
+            filtered[genre] = score
+    scores = filtered
 
     if scores:
         priority_rank = {g: i for i, g in enumerate(GENRE_PRIORITY)}

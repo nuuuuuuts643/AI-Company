@@ -24,6 +24,9 @@ _CHUNK_COMMON = {'大統領', '首相', '大臣', '政府', '国会', '議員', 
                  '発表', '開始', '実施', '決定', '対応', '影響', '問題', '検討', '対策'}
 
 def normalize(text):
+    # パイプ区切りのカテゴリ・ソースラベルを除去（例: "タイトル | キャリア・教育 | 東洋経済オンライン"）
+    # 「|」以降はセクション名・媒体名で内容と無関係。除去しないと全記事が共通ラベルで高Jaccard誤クラスタになる
+    text = re.sub(r'\s*[|｜].*$', '', text)
     text = _LIVE_PREFIX.sub('', text).strip()  # 【中継】【速報】等のプレフィックスを除去してから比較
     text = re.sub(r'[【】「」『』（）()\[\]！？!?\s　・]+', ' ', text.lower())
     words = set()
@@ -46,6 +49,7 @@ def topic_fingerprint(articles):
 
 def _precompute_chunks(text):
     """チャンクデータを事前計算（O(n²)ループ内での重複regex呼び出しを排除）。"""
+    text = re.sub(r'\s*[|｜].*$', '', text)  # normalize()と同様にセクションラベルを除去
     text = _LIVE_PREFIX.sub('', text)
     text = re.sub(r'[0-9\s　・！？!?「」【】（）()]+', ' ', text)
     kana  = frozenset(SYNONYMS.get(t, t) for t in _KATAKANA_RUN.findall(text))
