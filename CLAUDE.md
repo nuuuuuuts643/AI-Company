@@ -15,67 +15,38 @@ git push || echo "push failed, continuing"
 
 # 3. CLAUDE.md の変更を検知（変更あれば「再読必須」警告が出る）
 git log --oneline -5 -- CLAUDE.md
-
-# 4. 作業競合チェック
-cat WORKING.md
 ```
 
 - `git log --oneline -5 -- CLAUDE.md` に今日の日付のコミットが表示された場合 → **CLAUDE.md の冒頭〜「絶対ルール」セクションまでを全文再読してから続行する（スキップ禁止）**
-- `WORKING.md` に自分が着手しようとするファイルが記載されている → そのタスクはスキップ（`[Cowork]` 行も同様にチェック）
 - エラーが出ても止まらず最後まで実行する
 - 完了後に「✅ 起動チェック完了」と報告してからユーザーの指示を待つ。
 
-> **[Cowork]行の読み方**: Coworkセッション（スマホ/デスクトップアプリ）が書き込む行。`[Cowork]` プレフィックスが付く。Claude Codeはこれをリードオンリー情報として扱い、衝突するファイルへの編集はスキップする。
+## ⚡ 絶対に守る実装安全ルール（2026-04-27 改訂・単一チャット運用前提）
 
-## ⚡ 絶対に守る実装安全ルール（2026-04-27 制定）
-
-> タスクエージェントはCLAUDE.mdの後半を読み飛ばす可能性があるため、最重要ルールをここに置く。
+> ナオヤからの指示は単一チャットで来る (セッションは切れることがある)。並行セッション制御は仕組みで担保し、ルールは最低限に。
 
 | ルール | 内容 |
 |---|---|
-| **同一ファイル並行編集禁止** | detail.js / app.js / topic.html / style.css / handler.py / proc_storage.py / proc_ai.py は同時に複数タスクが編集禁止。前タスクのpush＋本番動作確認後に次を開始する |
-| **scriptタグdefer/async禁止** | chart.js / config.js / app.js / detail.js のscriptタグにdefer/asyncを付けない。実行順序依存があるため。Lighthouse最適化でも例外なし |
+| **scriptタグdefer/async禁止** | chart.js / config.js / app.js / detail.js のscriptタグにdefer/asyncを付けない。実行順序依存があるため。Lighthouse最適化でも例外なし。CIで物理ブロック (content-drift-guard ジョブ) |
 | **変更前に副作用確認** | コード変更前に「このファイルが何に依存されているか」を言語化してから変更する。確認できなければ変更しない |
-| **完了=動作確認済み** | 「pushした」は完了ではない。フロント=本番URL目視確認、Lambda=CloudWatchエラーなし確認が完了の定義 |
-| **なぜなぜ分析は自発的に** | 問題発生時は指摘前に5段階なぜなぜ分析を実施しCLAUDE.mdに追記する。「甘かった」の一言総括禁止。**「再発防止ルールを追記する」と宣言した時点で、5段階なぜなぜを必ず書く。テーブルに1行追記して終わりは禁止。なぜなぜ分析忘れ・省略は、それ自体が再発防止違反** |
-
-## ⚡ セッションロール（2026-04-26 制定）
-
-`cat WORKING.md` の結果を見て自動ロール判定（ナオヤ指定が最優先）：
-
-| WORKING.md状態 | ロール | 動き方 |
-|---|---|---|
-| 着手中テーブルが空 | **finder** | コード読み取り→TASKS.md未着手に問題追記（コード編集禁止） |
-| 他セッション着手中+未着手あり | **implementer** | 未着手取得→WORKING.md宣言→実装→`bash done.sh T000`→HISTORY.md |
-| 他セッション着手中+未着手なし | **finder** | 新改善点を探してTASKS.md追記 |
-
-- **finder**: コード読み取り・TASKS.md追記・CloudWatch確認のみ（コード編集禁止）
-- **implementer**: `done.sh` は冪等（何度実行しても同じ結果）。クラッシュ後も再実行で完了できる
+| **完了=動作確認済み** | 「pushした」は完了ではない。フロント=本番URL目視確認、Lambda=CloudWatchエラーなし確認が完了の定義。**done.sh に `lambda:<fn>` / `url:<https>` / `topic-ai:<id>` の verify_target を渡せば自動検証 (T39 後続)** |
+| **なぜなぜ分析は自発的に** | 問題発生時は指摘前に Why1〜Why5 構造化分析を実施しCLAUDE.mdに追記する。「甘かった」の一言総括禁止。**仕組み的対策3つ以上 + 実装済み証跡を含める。テーブル1行追記は再発防止と呼ばない** |
+| **新規 formatter 追加時 boundary test 必須** | 0/null/undefined/NaN/未来日付を全部 assert する unit test を同 commit で書く。`tests/safe_format.test.js` をテンプレに。CI 落ちる仕組みで物理担保 |
 
 ---
 
-## ⚡ 作業前後ルール（2026-04-26 改訂）
+## ⚡ 作業前後ルール（2026-04-27 簡素化・単一チャット）
 
-> 着手中管理は **WORKING.md** で行う。CLAUDE.md には書かない。
-
-**タスク開始前（必須・毎回）：**
+**タスク開始前：**
 ```bash
 git pull --rebase origin main
-git log --oneline -5 -- CLAUDE.md   # 今日の変更があれば CLAUDE.md 全文再読（スキップ禁止）
-cat WORKING.md                       # 重複ファイルがあればそのタスクはスキップ
+git log --oneline -5 -- CLAUDE.md   # 直近の変更があれば該当箇所を確認
 ```
-→ 空きを確認したら WORKING.md に追記 → 即 `git add WORKING.md && git commit -m "wip: [タスク名]" && git push`
 
-**タスク完了後（必須）：**
-1. WORKING.md から自分の行を削除する
-2. `P003 技術状態スナップショット` テーブルを最新状態に更新する
-3. 完了タスクを **HISTORY.md** に移動し、CLAUDE.md には痕跡1行を残す（「完了済みタスク管理ルール」参照）
-4. `git add -A && git commit && git push`
-
-**CLAUDE.md 変更検知ルール（重要）：**
-- PreToolUse フックが `📋 CLAUDE.md のルールが更新されています` を出したら → **即作業を止めて CLAUDE.md 冒頭〜「絶対ルール」を全文再読してから再開（無視禁止）**
-- `⚠️ 他セッションの未取り込みコミットが N 件` → 即 `git pull --rebase` してから再開
-- フックが出なくても、git pull で取り込んだコミットに CLAUDE.md の変更が含まれていれば同様に再読する
+**タスク完了後：**
+1. 完了タスクを HISTORY.md に追記 (CLAUDE.md には1行痕跡)
+2. `bash done.sh <task_id> [verify_target]` で動作確認込みで完了処理
+3. `git add -A && git commit && git push` (done.sh が実施)
 
 ## 完了済みタスク管理ルール
 - 完了直後に HISTORY.md へ移動（時間を置かない）。CLAUDE.md には `→ HISTORY.md 移動済み HH:MM JST` の1行痕跡のみ残す
