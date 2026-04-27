@@ -77,6 +77,25 @@ NEEDS_PUSH=$(awk '
   in_sec && /^\|/ && /\| *yes( *\| *)?$/ { printf "%d:%s\n", NR, $0 }
 ' WORKING.md 2>/dev/null || true)
 
+# ---- 6.5 schedule-task モード検知 ----
+# `SCHEDULE_TASK=1` または引数 `--schedule` を渡された場合、
+# scheduled-task-protocol.md と最優先 unblocked タスク 1 件を強調表示する。
+# Claude が起動チェック直後にこの 1 件を見るため、発見前に実装着手を考えさせる狙い。
+SCHED=0
+case " $* " in *" --schedule "*) SCHED=1 ;; esac
+[ "${SCHEDULE_TASK:-0}" = "1" ] && SCHED=1
+
+# 最優先 unblocked task: TASKS.md「🔥 今週やること」テーブルの先頭から ~~ で取消線化
+# されていない最初の行を抽出する（簡易ヒューリスティック）。
+TOP_TASK=""
+if [ -f TASKS.md ]; then
+  TOP_TASK=$(awk '
+    /^## 🔥/ { in_main=1; next }
+    /^## / && in_main { exit }
+    in_main && /^\| *T[0-9A-Za-z\-]+ *\|/ && $0 !~ /~~T/ { print; exit }
+  ' TASKS.md 2>/dev/null || true)
+fi
+
 # ---- 7. サマリ出力 ----
 echo "─────────────────────────────────────────"
 echo "✅ 起動チェック完了 ($(date '+%Y-%m-%d %H:%M JST'))"
@@ -84,6 +103,18 @@ echo "  CLAUDE.md latest: $LATEST_CLAUDE"
 if [ -n "$NEEDS_PUSH" ]; then
   echo "  ⚠️ needs-push 滞留:"
   echo "$NEEDS_PUSH" | sed 's/^/    /'
+fi
+if [ "$SCHED" = "1" ]; then
+  echo ""
+  echo "  📋 schedule-task モード:"
+  echo "    1. cat docs/rules/scheduled-task-protocol.md を必ず読んでから動く"
+  echo "    2. 探索 → 実装 1 件以上 → 報告（フェーズ順序固定）"
+  echo "    3. commit message に [Schedule-KPI] implemented=N created=M closed=K queue_delta=±X 行を含める（commit-msg hook で物理強制）"
+  if [ -n "$TOP_TASK" ]; then
+    echo ""
+    echo "  🎯 最優先 unblocked タスク (このセッションで実装候補):"
+    echo "$TOP_TASK" | sed 's/^/    /'
+  fi
 fi
 echo "  次の TASKS.md 着手: cat TASKS.md で未着手を確認"
 echo "─────────────────────────────────────────"
