@@ -91,4 +91,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Code] T2026-0428-AI トピック詳細の記事数グラフが実件数と乖離 修正 | Code | projects/P003-news-timeline/frontend/, projects/P003-news-timeline/lambda/ | 2026-04-28 08:40 | yes |
-| [Code] T2026-0428-AK about/privacy/terms 最新化 | Code | projects/P003-news-timeline/frontend/about.html, privacy.html, terms.html | 2026-04-28 08:43 | yes |
