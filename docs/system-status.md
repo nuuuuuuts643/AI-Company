@@ -43,7 +43,7 @@
 | topics.json サイズ | ✅ 閾値内 | 2026-04-28 07:13 | 実測 213 KB (Content-Length=213045) / アラート閾値 250 KB (T2026-0428-F)。前回 312KB 記載は誤記訂正。Step1 (topics-card.json 二系統化) 未着手 |
 | DynamoDB SNAP | 📉 改善中 | 2026-04-26 | lifecycle 週次で削除中。TTL(7日) ENABLED |
 | Bluesky 自動投稿 | ✅ 継続稼働 | 2026-04-27 | 1日 3 回 (JST 08:00/12:00/18:00) |
-| 静的 SEO HTML 生成 | ✅ 本番稼働 | 2026-04-26 | topics/{tid}.html 500/500 件生成済み |
+| 静的 SEO HTML 生成 | 🔴 本番断絶 | 2026-04-28 08:15 | **2026-04-28 08:15 schedule-task で発見**: news-sitemap.xml 登録 50 件サンプリング 3/3 全て **HTTP 404 (x-cache: Error from cloudfront)**。S3 に `topics/{tid}.html` が無い。手書き「500/500件」は誤記録 (T2026-0428-AC「手書き嘘記述防止」へ)。SLI 11 (`freshness-check.yml` sitemap_reach step) で再発防止。**復旧タスク**: T2026-0428-AB |
 | fetcher UGC 混入防御 | ✅ 二重防御稼働 | 2026-04-27 | filters.py + handler.py uniqueSourceCount>=2 |
 | お問い合わせフォーム | ✅ SES 稼働中 (sandbox) | 2026-04-26 | 実送信確認済。flotopic.com DKIM 成功 |
 | 安定コンポーネント群 | ✅ 全稼働 | 2026-04-26 | sw.js・CloudFront・sitemap・Slack・filter-weights・lifecycle・アフィリエイト・ストーリー・ジャンル分類等 |
