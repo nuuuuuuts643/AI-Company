@@ -448,8 +448,17 @@ def detect_topic_hierarchy(topics: list, topic_entities: dict) -> dict:
             entities_a = topic_entities.get(tid_a, set())
             kw_a       = topic_kw.get(tid_a, set())
 
-            # entity または キーワードの重複が最低1つ必要
-            if not (entities_a & entities_b) and not (kw_a & kw_b):
+            # ジャンル互換性チェック: 両方に具体的なジャンルがある場合、共通ジャンルがなければスキップ
+            # 「総合」は汎用なので除外して判定
+            genres_a = {g for g in (t_a.get('genres') or ([t_a['genre']] if t_a.get('genre') else [])) if g != '総合'}
+            genres_b = {g for g in (topic_b.get('genres') or ([topic_b.get('genre', '')] if topic_b.get('genre') else [])) if g != '総合'}
+            if genres_a and genres_b and not (genres_a & genres_b):
+                continue
+
+            # entity 共有1件以上、またはキーワード共有2件以上が必要（1件のkw一致は誤検知が多い）
+            shared_ents = entities_a & entities_b
+            shared_kws  = kw_a & kw_b
+            if not shared_ents and len(shared_kws) < 2:
                 continue
 
             # 優先度: 記事数 × 100 + スコア + 早出現ボーナス
