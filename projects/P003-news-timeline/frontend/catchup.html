@@ -397,7 +397,7 @@
       <p>大きな流れを、1分で。</p>
     </a>
     <div class="header-right">
-      <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替">🌙</button>
+      <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替"><i data-lucide="moon" aria-hidden="true"></i></button>
       <div class="auth-area">
         <button id="auth-signin-btn" class="auth-btn" style="display:none;">ログイン</button>
         <div class="user-menu-wrap" id="user-menu-wrap" style="display:none;">
@@ -408,7 +408,7 @@
             <span class="user-menu-caret">▾</span>
           </button>
           <div class="user-dropdown" id="user-dropdown" role="menu">
-            <a href="mypage.html" class="user-dd-item" role="menuitem">👤 マイページ</a>
+            <a href="mypage.html" class="user-dd-item" role="menuitem"><i data-lucide="user" aria-hidden="true"></i> マイページ</a>
             <button id="dd-signout-btn" class="user-dd-item user-dd-signout" role="menuitem">ログアウト</button>
           </div>
         </div>
@@ -424,7 +424,7 @@
 <div id="auth-modal" class="auth-modal" style="display:none;" role="dialog" aria-modal="true">
   <div class="auth-modal-inner">
     <button id="auth-modal-close" class="auth-modal-close" aria-label="閉じる">×</button>
-    <div class="auth-modal-logo">🌊 Flotopic</div>
+    <div class="auth-modal-logo"><i data-lucide="waves" aria-hidden="true"></i> Flotopic</div>
     <h2 class="auth-modal-title">ログイン / 新規登録</h2>
     <div id="auth-modal-google-wrap" class="auth-modal-provider-wrap"></div>
   </div>
@@ -432,7 +432,7 @@
 
 <!-- ヒーロー：期間セレクター -->
 <div class="catchup-hero">
-  <h1>振り返る ✦</h1>
+  <h1>振り返る <i data-lucide="star" aria-hidden="true"></i></h1>
   <p>この期間内に初めて出現したトピックをお届けします</p>
 
   <div class="period-selector" id="periodSelector">
@@ -459,14 +459,14 @@
 <!-- フィルターバー -->
 <div class="filter-bar">
   <label>状況：</label>
-  <button class="lifecycle-btn active" data-lc="active">🟢 進行中</button>
-  <button class="lifecycle-btn active" data-lc="cooling">🟡 沈静化</button>
-  <button class="lifecycle-btn" data-lc="archived">⚫ 終息</button>
+  <button class="lifecycle-btn active" data-lc="active"><i data-lucide="circle" class="dot dot-green" aria-hidden="true"></i> 進行中</button>
+  <button class="lifecycle-btn active" data-lc="cooling"><i data-lucide="circle" class="dot dot-yellow" aria-hidden="true"></i> 沈静化</button>
+  <button class="lifecycle-btn" data-lc="archived"><i data-lucide="circle" class="dot dot-black" aria-hidden="true"></i> 終息</button>
   <span class="result-count" id="resultCount">読み込み中…</span>
 </div>
 
 <!-- AI免責 -->
-<p style="margin:4px 16px 8px;font-size:.75rem;color:#94a3b8;">⚠️ AI自動生成。情報の正確性は各元記事をご確認ください。<a href="contact.html" style="color:#94a3b8;text-decoration:underline;margin-left:4px;">誤情報のご指摘</a></p>
+<p style="margin:4px 16px 8px;font-size:.75rem;color:#94a3b8;"><i data-lucide="alert-triangle" aria-hidden="true"></i>️ AI自動生成。情報の正確性は各元記事をご確認ください。<a href="contact.html" style="color:#94a3b8;text-decoration:underline;margin-left:4px;">誤情報のご指摘</a></p>
 
 <!-- トピックリスト -->
 <div class="catchup-list" id="catchupList">
@@ -760,11 +760,14 @@ setTimeout(() => {
   <div class="site-footer-copy">記事の著作権は各報道機関に帰属します。AI要約は自動生成です。© 2026 Flotopic</div>
 </footer>
 <nav class="bottom-nav" aria-label="ナビゲーション">
-  <a href="index.html" class="bn-item"><span class="bn-icon">🏠</span><span>TOPICS</span></a>
-  <a href="catchup.html" class="bn-item active"><span class="bn-icon">🕐</span><span>振り返る</span></a>
-  <a href="index.html?focus=search" class="bn-item"><span class="bn-icon">🔍</span><span>SEARCH</span></a>
-  <a href="mypage.html" class="bn-item"><span class="bn-icon">👤</span><span>HOME</span></a>
+  <a href="index.html" class="bn-item"><span class="bn-icon"><i data-lucide="home" aria-hidden="true"></i></span><span>TOPICS</span></a>
+  <a href="catchup.html" class="bn-item active"><span class="bn-icon"><i data-lucide="clock" aria-hidden="true"></i></span><span>振り返る</span></a>
+  <a href="index.html?focus=search" class="bn-item"><span class="bn-icon"><i data-lucide="search" aria-hidden="true"></i></span><span>SEARCH</span></a>
+  <a href="mypage.html" class="bn-item"><span class="bn-icon"><i data-lucide="user" aria-hidden="true"></i></span><span>HOME</span></a>
 </nav>
 <script src="js/auth.js"></script>
+<!-- Lucide Icons (ISC license) -->
+<script defer src="https://cdn.jsdelivr.net/npm/lucide@1.11.0/dist/umd/lucide.min.js" crossorigin="anonymous"></script>
+<script>document.addEventListener("DOMContentLoaded",function(){if(window.lucide&&typeof lucide.createIcons==="function"){lucide.createIcons();}});</script>
 </body>
 </html>

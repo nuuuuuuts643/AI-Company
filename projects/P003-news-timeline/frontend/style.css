@@ -2,6 +2,28 @@
 html, body { overflow-x: hidden; }
 
 /* ═══════════════════════════════════
+   LUCIDE ICONS (ISC license, https://lucide.dev)
+   絵文字置き換え用 SVG アイコンの基本スタイル。
+   stroke は currentColor を継承するため、親要素の color で着色できる。
+   ═══════════════════════════════════ */
+.lucide,
+[data-lucide] {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  stroke-width: 2;
+  flex-shrink: 0;
+}
+.lucide-lg { width: 1.25em; height: 1.25em; vertical-align: -0.2em; }
+.lucide-xl { width: 1.5em; height: 1.5em; vertical-align: -0.25em; }
+.lucide-2x { width: 2em; height: 2em; vertical-align: -0.35em; }
+/* ブランドカラーで塗りたいときは .lucide-brand を付ける */
+.lucide-brand { color: var(--primary); }
+/* heart などフィル付きにしたいとき */
+.lucide-fill { fill: currentColor; }
+
+/* ═══════════════════════════════════
    DESIGN TOKENS
    ═══════════════════════════════════ */
 
