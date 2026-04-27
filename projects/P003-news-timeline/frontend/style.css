@@ -1045,7 +1045,7 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .story-empty { font-size: .8rem; color: #d1d5db; }
 .summary-placeholder { font-size: .86rem; color: var(--text-muted); padding: 8px 0; }
 
-/* ===== AI 4セクション分析 ===== */
+/* ===== AI 7セクション分析（思想フレーム順） ===== */
 .ai-analysis-inner { display: flex; flex-direction: column; gap: 16px; }
 .ai-section { padding: 12px 14px; border-radius: 8px; background: var(--surface2, rgba(255,255,255,.04)); border-left: 3px solid var(--primary, #4EC9C0); }
 .ai-section-forecast { border-left-color: #4EC9C0; }
