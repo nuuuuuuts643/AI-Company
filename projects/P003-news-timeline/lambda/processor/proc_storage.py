@@ -775,6 +775,10 @@ def update_topic_s3_file(tid, upd, articles=None):
             meta['relatedTopicTitles'] = upd['relatedTopicTitles']
         if upd.get('aiGenerated'):
             meta['aiGenerated'] = True
+        # T41: Tool Use 後に genres が AI で更新される (例: スポーツ→国際) → S3 にも反映
+        if upd.get('genres'):
+            meta['genres'] = upd['genres']
+            meta['genre'] = upd['genres'][0] if upd['genres'] else meta.get('genre')
         if upd.get('imageUrl') and not meta.get('imageUrl'):
             meta['imageUrl'] = upd['imageUrl']
         data['meta'] = meta
