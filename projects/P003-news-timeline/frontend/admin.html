@@ -111,6 +111,30 @@ details.collapsible .details-body{padding:14px 20px 20px;border-top:1px solid #2
 .btn:hover{background:#30363d}
 .no-data{color:#8b949e;font-size:.85rem;text-align:center;padding:20px}
 
+/* CONTACT MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:1100;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-box{background:#161b22;border:1px solid #30363d;border-radius:12px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #30363d;position:sticky;top:0;background:#161b22;z-index:1}
+.modal-title{font-size:.95rem;font-weight:700;color:#e6edf3}
+.modal-close{background:none;border:none;color:#8b949e;font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1}
+.modal-close:hover{background:#21262d;color:#e6edf3}
+.modal-body{padding:20px}
+.modal-field{margin-bottom:14px}
+.modal-label{font-size:.7rem;color:#8b949e;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.modal-value{font-size:.9rem;color:#e6edf3;line-height:1.6;word-break:break-word}
+.modal-message-box{background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:12px 14px;font-size:.88rem;color:#c9d1d9;line-height:1.75;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto}
+.modal-actions{display:flex;gap:10px;padding:16px 20px;border-top:1px solid #30363d;justify-content:flex-end;flex-wrap:wrap}
+.btn-resolve{background:#122d20;border:1px solid #2ea043;color:#3fb950;padding:8px 18px;border-radius:6px;font-size:.85rem;cursor:pointer;font-weight:700}
+.btn-resolve:hover{background:#196127;color:#fff}
+.btn-archive{background:#2a1515;border:1px solid #6e2b2b;color:#f85149;padding:8px 18px;border-radius:6px;font-size:.85rem;cursor:pointer}
+.btn-archive:hover{background:#6e2b2b;color:#fff}
+.contact-row{cursor:pointer}
+.contact-row:hover td{background:#1c2128 !important}
+.inline-resolve{font-size:.73rem;padding:3px 9px;background:#122d20;border:1px solid #2ea043;color:#3fb950;border-radius:4px;cursor:pointer;font-weight:600;white-space:nowrap}
+.inline-resolve:hover{background:#196127;color:#fff}
+.inline-archive{font-size:.73rem;padding:3px 9px;background:#21262d;border:1px solid #30363d;color:#cdd9e5;border-radius:4px;cursor:pointer;margin-left:4px;white-space:nowrap}
+.inline-archive:hover{background:#30363d}
+
 /* TREND */
 .trend-up{color:#3fb950;font-weight:600}
 .trend-down{color:#f85149;font-weight:600}
@@ -229,11 +253,12 @@ details.collapsible .details-body{padding:14px 20px 20px;border-top:1px solid #2
         <span class="summary-meta" id="contact-summary-meta"></span>
       </summary>
       <div class="details-body" style="overflow-x:auto">
+        <p style="font-size:.75rem;color:#8b949e;margin-bottom:10px">行をクリックすると全文・送信者情報を確認できます</p>
         <table class="data-table">
           <thead><tr>
-            <th>日時</th><th>種別</th><th>送信者</th><th>内容</th><th>トピックID</th><th>操作</th>
+            <th style="width:130px">日時</th><th style="width:80px">種別</th><th style="width:140px">送信者</th><th>内容（プレビュー）</th><th style="width:160px">操作</th>
           </tr></thead>
-          <tbody id="table-contacts"><tr><td colspan="6" class="muted">読み込み中...</td></tr></tbody>
+          <tbody id="table-contacts"><tr><td colspan="5" class="muted">読み込み中...</td></tr></tbody>
         </table>
       </div>
     </details>
@@ -258,6 +283,18 @@ details.collapsible .details-body{padding:14px 20px 20px;border-top:1px solid #2
 
   </div><!-- /#dashboard -->
 </main>
+
+<!-- お問い合わせ詳細モーダル (T2026-0428-Z) -->
+<div class="modal-overlay" id="contact-modal" style="display:none" onclick="if(event.target===this)closeContactModal()">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title-text">お問い合わせ詳細</span>
+      <button class="modal-close" onclick="closeContactModal()" aria-label="閉じる">✕</button>
+    </div>
+    <div class="modal-body" id="contact-modal-body"></div>
+    <div class="modal-actions" id="contact-modal-actions"></div>
+  </div>
+</div>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════
@@ -704,75 +741,164 @@ function renderRecentTopics(topics) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// お問い合わせ（KPIにcountを返す）
+// お問い合わせ（KPIにcountを返す）T2026-0428-Z: モーダル対応・resolved除外・対応済みボタン追加
 // ═══════════════════════════════════════════════════════════════════════
+const CONTACT_LABELS = {
+  copyright: '著作権', privacy: 'プライバシー', error: '誤情報',
+  media: 'メディア', other: 'その他',
+};
+
+let _contactsList = [];  // モーダル参照用キャッシュ
+
 async function renderContacts() {
-  const LABELS = {
-    copyright: '著作権', privacy: 'プライバシー', error: '誤情報',
-    media: 'メディア', other: 'その他',
-  };
   try {
     const token = sessionStorage.getItem('admin_token') || '';
     const res = await fetch(CONFIG.contactsApiBase + '/contacts?_=' + Date.now(), {
       headers: token ? { 'Authorization': 'Bearer ' + token } : {},
     });
     if (!res.ok) {
-      U.setHtml('table-contacts', '<tr><td colspan="6" class="muted">取得できません（API未実装）</td></tr>');
+      U.setHtml('table-contacts', '<tr><td colspan="5" class="muted">取得できません（API未実装）</td></tr>');
       U.setText('contact-summary-meta', 'API応答なし');
       return null;
     }
     const data = await res.json();
-    const list = data.contacts || [];
+    // サーバー側で resolved 除外済みだが念のためクライアントでも除外
+    const list = (data.contacts || []).filter(c => c.status !== 'resolved');
+    _contactsList = list;
+
     U.setText('contact-summary-meta', list.length === 0 ? '未対応なし' : `未対応 ${list.length} 件`);
 
     if (list.length === 0) {
-      U.setHtml('table-contacts', '<tr><td colspan="6" class="muted" style="padding:16px">お問い合わせはありません</td></tr>');
+      U.setHtml('table-contacts', '<tr><td colspan="5" class="muted" style="padding:16px">未対応のお問い合わせはありません</td></tr>');
       return 0;
     }
     // 件数があれば自動で開く
     const det = document.getElementById('contacts-details');
     if (det) det.open = true;
 
-    const rows = list.map(c => {
-      const dt    = new Date(c.createdAt * 1000).toLocaleString('ja-JP');
-      const label = LABELS[c.category] || c.category;
-      const msg   = U.esc((c.message||'').slice(0, 80)) + (c.message?.length > 80 ? '…' : '');
-      const tid   = c.topicId ? `<a href="/topics/${U.esc(c.topicId)}.html" target="_blank" style="color:#58a6ff">${U.esc(c.topicId.slice(0,8))}</a>` : '—';
-      const sender= [c.name ? U.esc(c.name) : '', c.email ? `<span class="muted">${U.esc(c.email)}</span>` : ''].filter(Boolean).join('<br>') || '—';
-      return `<tr>
-        <td class="muted" style="white-space:nowrap">${dt}</td>
+    const rows = list.map((c, i) => {
+      const dt      = new Date(c.createdAt * 1000).toLocaleString('ja-JP');
+      const label   = CONTACT_LABELS[c.category] || c.category;
+      const preview = U.esc((c.message || '').slice(0, 55)) + ((c.message || '').length > 55 ? '…' : '');
+      const sender  = U.esc(c.name || '—');
+      const cid     = U.esc(c.contactId || '');
+      const tid     = U.esc(c.topicId   || '');
+      return `<tr class="contact-row" onclick="openContactModal(${i})" title="クリックで全文・詳細を表示">
+        <td class="muted" style="white-space:nowrap;font-size:.8rem">${dt}</td>
         <td><span class="tag">${label}</span></td>
-        <td>${sender}</td>
-        <td>${msg}</td>
-        <td>${tid}</td>
-        <td><button onclick="archiveTopic('${U.esc(c.topicId||'')}','${U.esc(c.contactId)}')" style="font-size:.75rem;padding:3px 8px;background:#21262d;border:1px solid #30363d;color:#cdd9e5;border-radius:4px;cursor:pointer">archived化</button></td>
+        <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sender}</td>
+        <td style="color:#8b949e;font-size:.82rem">${preview}</td>
+        <td onclick="event.stopPropagation()" style="white-space:nowrap">
+          <button class="inline-resolve" onclick="quickResolve('${cid}')">✓ 対応済み</button>
+          ${tid ? `<button class="inline-archive" onclick="archiveTopic('${tid}','${cid}')">archived化</button>` : ''}
+        </td>
       </tr>`;
     });
     U.setHtml('table-contacts', rows.join(''));
     return list.length;
   } catch(e) {
-    U.setHtml('table-contacts', `<tr><td colspan="6" style="color:#f85149">${e.message}</td></tr>`);
+    U.setHtml('table-contacts', `<tr><td colspan="5" style="color:#f85149">${U.esc(e.message)}</td></tr>`);
     U.setText('contact-summary-meta', 'エラー');
     return null;
   }
 }
 
+// ── モーダル関連 ─────────────────────────────────────────────────────
+function openContactModal(idx) {
+  const c = _contactsList[idx];
+  if (!c) return;
+  const dt    = new Date(c.createdAt * 1000).toLocaleString('ja-JP');
+  const label = CONTACT_LABELS[c.category] || c.category;
+  const cid   = U.esc(c.contactId || '');
+  const tid   = U.esc(c.topicId   || '');
+
+  document.getElementById('contact-modal-body').innerHTML = `
+    <div class="modal-field">
+      <div class="modal-label">日時</div>
+      <div class="modal-value">${U.esc(dt)}</div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">種別</div>
+      <div class="modal-value"><span class="tag">${U.esc(label)}</span></div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">送信者名</div>
+      <div class="modal-value">${U.esc(c.name || '—')}</div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">メールアドレス</div>
+      <div class="modal-value">${c.email
+        ? `<a href="mailto:${U.esc(c.email)}" style="color:#58a6ff">${U.esc(c.email)}</a>`
+        : '—'}</div>
+    </div>
+    ${tid ? `<div class="modal-field">
+      <div class="modal-label">トピックID</div>
+      <div class="modal-value"><a href="/topic.html?id=${tid}" target="_blank" style="color:#58a6ff">${tid}</a></div>
+    </div>` : ''}
+    <div class="modal-field">
+      <div class="modal-label">メッセージ全文</div>
+      <div class="modal-message-box">${U.esc(c.message || '（本文なし）')}</div>
+    </div>`;
+
+  const actions = document.getElementById('contact-modal-actions');
+  actions.innerHTML =
+    `<button class="btn-resolve" onclick="resolveFromModal('${cid}')">✓ 対応済みにする</button>` +
+    (tid ? `<button class="btn-archive" onclick="archiveTopic('${tid}','${cid}')">archived化</button>` : '');
+
+  document.getElementById('contact-modal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeContactModal() {
+  document.getElementById('contact-modal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+// ESCキーでモーダルを閉じる
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeContactModal();
+});
+
+// ── お問い合わせ操作 ─────────────────────────────────────────────────
+async function _callResolve(contactId, topicId, action) {
+  const token = sessionStorage.getItem('admin_token') || '';
+  const res = await fetch(CONFIG.contactsApiBase + '/contacts/resolve', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+    },
+    body: JSON.stringify({ contactId, topicId: topicId || '', action }),
+  });
+  return res;
+}
+
+async function quickResolve(contactId) {
+  if (!confirm('このお問い合わせを対応済みにしますか？')) return;
+  try {
+    const res = await _callResolve(contactId, '', 'resolved');
+    if (res.ok) { renderContacts(); }
+    else        { alert('失敗: ' + await res.text()); }
+  } catch(e)   { alert('エラー: ' + e.message); }
+}
+
+async function resolveFromModal(contactId) {
+  if (!confirm('このお問い合わせを対応済みにしますか？')) return;
+  try {
+    const res = await _callResolve(contactId, '', 'resolved');
+    if (res.ok) { closeContactModal(); renderContacts(); }
+    else        { alert('失敗: ' + await res.text()); }
+  } catch(e)   { alert('エラー: ' + e.message); }
+}
+
 async function archiveTopic(topicId, contactId) {
-  if (!topicId) { alert('トピックIDなし'); return; }
+  if (!topicId) { alert('このお問い合わせにはトピックIDがありません'); return; }
   if (!confirm(`トピック ${topicId} をarchived化しますか？`)) return;
   try {
-    const token2 = sessionStorage.getItem('admin_token') || '';
-    const res = await fetch(CONFIG.contactsApiBase + '/contacts/resolve', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token2 ? { 'Authorization': 'Bearer ' + token2 } : {}),
-      },
-      body: JSON.stringify({ contactId, topicId, action: 'archive' }),
-    });
-    if (res.ok) { alert('完了'); renderContacts(); }
+    const res = await _callResolve(contactId, topicId, 'archive');
+    if (res.ok) { closeContactModal(); renderContacts(); }
     else        { alert('失敗: ' + await res.text()); }
-  } catch(e)    { alert('エラー: ' + e.message); }
+  } catch(e)   { alert('エラー: ' + e.message); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
