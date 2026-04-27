@@ -51,9 +51,9 @@ def lambda_handler(event, context):
     # 使い方: aws lambda invoke --function-name p003-processor --payload '{"backfillArchivedTtl":true}' /tmp/r.json
     if event.get('backfillArchivedTtl'):
         from proc_storage import add_ttl_to_existing_archived
-        n = add_ttl_to_existing_archived()
-        print(f'[Processor] backfillArchivedTtl: {n} 件に TTL 90日を追加 → 90日後 DynamoDB 自動削除')
-        return {'statusCode': 200, 'body': json.dumps({'updated': n})}
+        result = add_ttl_to_existing_archived()
+        print(f'[Processor] backfillArchivedTtl: {result["ttl_added"]} 件 TTL 追加 / {result["protected"]} 件保護 (大規模・人気・親子関係・長期継続) / 合計 {result["total"]} 件処理')
+        return {'statusCode': 200, 'body': json.dumps(result)}
 
     # 特殊モード: 全トピック完全削除 (核オプション・2026-04-27)
     # 使い方:
