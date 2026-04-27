@@ -91,3 +91,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Code] T2026-0428-AE 空トピック再発防止 (stub META 物理ガード) | Code | projects/P003-news-timeline/lambda/processor/proc_storage.py, projects/P003-news-timeline/lambda/fetcher/storage.py, projects/P003-news-timeline/tests/, scripts/cleanup_stub_meta.py | 2026-04-28 08:35 | yes |
+| [Code] T2026-0428-AI トピック詳細の記事数グラフが実件数と乖離 修正 | Code | projects/P003-news-timeline/frontend/, projects/P003-news-timeline/lambda/ | 2026-04-28 08:40 | yes |
