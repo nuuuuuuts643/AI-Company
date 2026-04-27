@@ -40,8 +40,8 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 
 | ルール | 内容 |
 |---|---|
-| **完了 = 動作確認済み** | push しただけは未完了。フロント=本番URL目視 / Lambda=CloudWatchエラーなし。`done.sh <task_id> <verify_target>` で自動検証 |
-| **Verified 行 commit 必須** | `feat:` `fix:` `perf:` の commit には `Verified: <url>:<status>:<JST_timestamp>` 行を含める。pre-commit hook で物理ゲート (`scripts/git-hooks/pre-commit`)。`scripts/verified_line.sh <url>` でヘルパ |
+| **完了 = 動作確認済み + 効果検証済み** | push しただけは未完了。①フロント=本番URL目視 / Lambda=CloudWatchエラーなし。`done.sh <task_id> <verify_target>` で自動検証。②**修正の効果検証** — 「URL が開ける」だけでは不十分。修正種別に応じて `bash scripts/verify_effect.sh <fix_type>` を実行し、改善が数値で出ていることを確認。fix_type: `ai_quality` (keyPoint/perspectives 充填率)、`mobile_layout` (375px 横スクロール)、`freshness` (topics.json 鮮度)。閾値未達は未完了。 |
+| **Verified 行 commit 必須** | `feat:` `fix:` `perf:` の commit には `Verified: <url>:<status>:<JST_timestamp>` 行に加え、効果検証を行った場合は `Verified-Effect: <fix_type> <metric>=<value> PASS @ <JST>` 行も含める。pre-commit hook で物理ゲート (`scripts/git-hooks/pre-commit`)。ヘルパ: `scripts/verified_line.sh <url>` (URL 到達)、`scripts/verify_effect.sh <fix_type>` (効果計測)。**「修正した」と「改善した」を区別する物理ゲート。** |
 | **変更前に副作用確認** | 「このファイルが何に依存されているか」を声に出す。言えなければ変更しない |
 | **同名ファイル並行編集禁止** | WORKING.md 宣言なしで触らない |
 | **scriptタグ defer/async 禁止** | chart.js / config.js / app.js / detail.js。CI で物理ブロック |

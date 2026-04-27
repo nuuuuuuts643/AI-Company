@@ -107,9 +107,20 @@ async function main() {
 
   let puppeteer;
   try {
-    puppeteer = require('puppeteer');
+    // P003 の node_modules を最優先で探索 (CI と local の差異を吸収)
+    const candidatePaths = [
+      path.join(REPO_ROOT, 'projects', 'P003-news-timeline', 'node_modules'),
+      path.join(REPO_ROOT, 'node_modules'),
+    ];
+    let resolved;
+    for (const p of candidatePaths) {
+      try { resolved = require.resolve('puppeteer', { paths: [p] }); break; } catch (_) {}
+    }
+    if (!resolved) resolved = require.resolve('puppeteer'); // fallback
+    puppeteer = require(resolved);
   } catch (e) {
-    console.error('[check_mobile_layout] puppeteer not installed. Run: npm install puppeteer');
+    console.error('[check_mobile_layout] puppeteer not installed.');
+    console.error('[check_mobile_layout] Run: cd projects/P003-news-timeline && npm install');
     console.error('[check_mobile_layout] error:', e.message);
     process.exit(2);
   }
