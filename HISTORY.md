@@ -4,7 +4,9 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
-### 完了済み（2026-04-28 早朝・追加調査ラウンド2 T247/T249/T250 Cowork スケジュール 01:30 JST）
+### 完了済み（2026-04-28 早朝・追加調査ラウンド2 T247/T249/T250/T251 Cowork スケジュール 01:30 JST）
+
+- ✅ **T251 CloudFront セキュリティヘッダ追加 (HSTS / X-Frame-Options / X-Content-Type-Options / Referrer-Policy / Permissions-Policy)** — 根本問題: `curl -I https://flotopic.com/` のレスポンスヘッダにこれら 5 種が全て無く、HTTPS ダウングレード攻撃面 (HSTS無し)・クリックジャッキング面 (X-Frame-Options無し)・カメラ/マイク/位置情報の暗黙許可 (Permissions-Policy無し) が放置されていた。修正: AWS CLI で CloudFront Response Headers Policy `flotopic-security-headers` (id=`9e6d0de3-2b5d-4bed-8d3f-d9e52ff07263`) を新設し、distribution `E2Q21LM58UY0K8` (flotopic.com / www.flotopic.com) の DefaultCacheBehavior にアタッチ。設定値: `Strict-Transport-Security: max-age=31536000; includeSubDomains` / `X-Frame-Options: DENY` / `X-Content-Type-Options: nosniff` / `Referrer-Policy: strict-origin-when-cross-origin` / `Permissions-Policy: camera=(), microphone=(), geolocation=()`。完了確認: `curl -sI https://flotopic.com/`, `https://flotopic.com/api/topics.json`, `https://www.flotopic.com/` の 3 経路で 5 ヘッダ全て返却を実測 (deploy InProgress 中に既に edge 反映済み)。CSP は別タスク T252。`scripts/security_headers_check.sh` の月次 SLI モニタは将来 (T242 系列) で実装。
 
 - ✅ **T247 security.txt (RFC 9116) 新設** — 根本問題: `https://flotopic.com/.well-known/security.txt` が 404 で脆弱性報告ルート不在。bug bounty hunter / 善意の研究者が SNS 公開前に運営者へ報告するルートが無い。修正: `frontend/.well-known/security.txt` に Contact / Expires (2027-12-31) / Preferred-Languages / Canonical / Policy の 5 行を新設。GH Actions deploy-p003.yml の最終 sync で「画像・その他」扱いとして S3 配信される (max-age=604800)。完了判定: `curl -I https://flotopic.com/.well-known/security.txt` HTTP 200。
 
