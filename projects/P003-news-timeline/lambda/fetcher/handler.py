@@ -597,10 +597,23 @@ def lambda_handler(event, context):
         topics_deduped_all = _topic_cluster_dedup(topics_deduped_all)
         # 2件以上の記事を持つトピックのみtopics.jsonに含める（1件=コアバリュー違反）
         # velocityScore降順でソートし上位500件に絞り込む
+        # T211: 同一ドメインで複数記事が出るUGC・PR記事の混入を防ぐため、
+        #   uniqueSourceCount >= 2 も要求する。レガシートピック（uniqueSourceCount未設定）は
+        #   articleCount にフォールバックして既存挙動を維持し、再フェッチ後に新フィルタが適用される。
+        def _unique_src_or_articles(t):
+            v = t.get('uniqueSourceCount')
+            if v is None:
+                return int(t.get('articleCount', 0) or 0)
+            try:
+                return int(v or 0)
+            except (TypeError, ValueError):
+                return int(t.get('articleCount', 0) or 0)
+
         topics_deduped = sorted(
             [t for t in topics_deduped_all
              if t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES
              and int(t.get('articleCount', 0) or 0) >= 2
+             and _unique_src_or_articles(t) >= 2
              and not any(p.search(t.get('title', '') + t.get('generatedTitle', '')) for p in _DIGEST_SKIP_PATS)
             ],
             key=lambda t: (float(t.get('velocityScore', 0) or 0), t.get('lastUpdated', '') or ''),
