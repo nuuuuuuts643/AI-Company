@@ -90,3 +90,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork schedule-task 08:10] 運用ルール検討 (protocol vs naoya前提矛盾なぜなぜ) | Cowork | docs/lessons-learned.md, docs/rules/scheduled-task-protocol.md | 2026-04-28 08:10 | no |
+| [Code] T2026-0428-F topics-card.json infra Step1 | Code | projects/P003-news-timeline/lambda/processor/{handler.py,proc_storage.py}, scripts/_governance_check.py | 2026-04-28 08:14 | yes |
