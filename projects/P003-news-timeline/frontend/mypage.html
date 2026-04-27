@@ -105,7 +105,7 @@
       width: 32px;
       height: 32px;
       border-radius: 50%;
-      background: #eff6ff;
+      background: rgba(78,201,192,0.1);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -134,7 +134,7 @@
 
     /* ===== プロフィールヘッダー ===== */
     .mp-profile-banner {
-      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%);
+      background: linear-gradient(135deg, #0f172a 0%, #0A1A22 55%, #0D2A38 100%);
       border-radius: 16px 16px 0 0;
       height: 120px;
       position: relative;
@@ -145,7 +145,7 @@
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(circle at 75% 60%, rgba(99,102,241,0.35) 0%, transparent 55%),
+        radial-gradient(circle at 75% 60%, rgba(78,201,192,0.35) 0%, transparent 55%),
         radial-gradient(circle at 15% 90%, rgba(56,189,248,0.18) 0%, transparent 45%);
     }
     .mp-profile-banner::after {
@@ -184,7 +184,7 @@
       border-radius: 50%;
       border: 4px solid #fff;
       box-shadow: 0 2px 8px rgba(0,0,0,.15);
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      background: linear-gradient(135deg, #4EC9C0, #3BB5AC);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -219,7 +219,7 @@
       object-fit: cover;
       display: block;
     }
-    .avatar-upload-circle:hover { border-color: #818cf8; background: #eef2ff; }
+    .avatar-upload-circle:hover { border-color: #7DD8D2; background: rgba(78,201,192,0.08); }
     .avatar-upload-circle .avatar-edit-overlay {
       position: absolute; inset: 0;
       background: rgba(0,0,0,.35);
@@ -233,17 +233,17 @@
     .avatar-upload-save-btn {
       padding: 5px 16px;
       border-radius: 999px;
-      border: 1.5px solid #818cf8;
+      border: 1.5px solid #7DD8D2;
       background: #fff;
-      color: #4f46e5;
+      color: #4EC9C0;
       font-size: .8rem; font-weight: 600;
       cursor: pointer;
       transition: all .15s;
       display: none;
     }
-    .avatar-upload-save-btn:hover { background: #eef2ff; }
+    .avatar-upload-save-btn:hover { background: rgba(78,201,192,0.08); }
     .avatar-upload-save-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .avatar-upload-status { font-size: .76rem; color: #6366f1; min-height: 1em; }
+    .avatar-upload-status { font-size: .76rem; color: #4EC9C0; min-height: 1em; }
 
     .mp-display-name {
       font-size: 1.25rem;
@@ -253,7 +253,7 @@
     }
     .mp-handle {
       font-size: .82rem;
-      color: #6366f1;
+      color: #4EC9C0;
       font-weight: 500;
       margin-bottom: 16px;
     }
@@ -310,13 +310,13 @@
       white-space: nowrap;
     }
     .mp-tab.active {
-      border-bottom-color: #6366f1;
-      color: #6366f1;
+      border-bottom-color: #4EC9C0;
+      color: #4EC9C0;
       font-weight: 700;
     }
     .mp-tab:hover:not(.active) {
       color: #475569;
-      background: rgba(99,102,241,0.03);
+      background: rgba(78,201,192,0.03);
     }
 
     /* ===== パネルトランジション ===== */
@@ -342,8 +342,8 @@
       display: inline-block;
       margin-top: 16px;
       padding: 4px 14px;
-      background: rgba(99,102,241,0.1);
-      color: #6366f1;
+      background: rgba(78,201,192,0.1);
+      color: #4EC9C0;
       border-radius: 999px;
       font-size: .75rem;
       font-weight: 700;
@@ -441,7 +441,7 @@
     [data-theme="dark"] .mp-fav-group-header { color: #6b7280; }
     [data-theme="dark"] .mp-fav-group-header.new { color: #fbbf24; }
     [data-theme="dark"] .mp-topic-row.fav-new-activity { background: rgba(245,158,11,.08); }
-    [data-theme="dark"] .mp-fav-unchanged { border-top-color: rgba(99,102,241,.1); }
+    [data-theme="dark"] .mp-fav-unchanged { border-top-color: rgba(78,201,192,.1); }
 
     /* ===== ニックネーム編集 ===== */
     .mp-nickname-field {
@@ -609,45 +609,45 @@
     [data-theme="dark"] .mp-login-desc { color: #9ba3c4; }
     [data-theme="dark"] .mp-login-title { color: #eef0f8; }
     [data-theme="dark"] .mp-benefit-row { color: #9ba3c4; }
-    [data-theme="dark"] .mp-benefit-icon { background: rgba(99,102,241,.15); }
-    [data-theme="dark"] .google-signin-btn { background: #252840; border-color: rgba(99,102,241,.3); color: #eef0f8; }
-    [data-theme="dark"] .google-signin-btn:hover { border-color: #818cf8; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+    [data-theme="dark"] .mp-benefit-icon { background: rgba(78,201,192,.15); }
+    [data-theme="dark"] .google-signin-btn { background: #252840; border-color: rgba(78,201,192,.3); color: #eef0f8; }
+    [data-theme="dark"] .google-signin-btn:hover { border-color: #7DD8D2; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
     [data-theme="dark"] .back-link { color: #9ba3c4; }
     [data-theme="dark"] .back-link:hover { color: #eef0f8; }
     [data-theme="dark"] .mp-profile-banner::after { background: linear-gradient(to bottom, transparent, rgba(19,20,31,0.04)); }
     [data-theme="dark"] .mp-profile-card { background: #1e2035; box-shadow: 0 2px 12px rgba(0,0,0,.3); }
     [data-theme="dark"] .mp-avatar { border-color: #1e2035; background: #252840; }
     [data-theme="dark"] .mp-avatar-placeholder { border-color: #1e2035; }
-    [data-theme="dark"] .avatar-upload-circle { border-color: rgba(99,102,241,.3); background: #252840; }
-    [data-theme="dark"] .avatar-upload-circle:hover { border-color: #818cf8; background: rgba(99,102,241,.1); }
+    [data-theme="dark"] .avatar-upload-circle { border-color: rgba(78,201,192,.3); background: #252840; }
+    [data-theme="dark"] .avatar-upload-circle:hover { border-color: #7DD8D2; background: rgba(78,201,192,.1); }
     [data-theme="dark"] .mp-display-name { color: #eef0f8; }
-    [data-theme="dark"] .mp-stat { border-right-color: rgba(99,102,241,.15); }
+    [data-theme="dark"] .mp-stat { border-right-color: rgba(78,201,192,.15); }
     [data-theme="dark"] .mp-stat-num { color: #eef0f8; }
-    [data-theme="dark"] .mp-tabs { background: #1e2035; border-bottom-color: rgba(99,102,241,.18); }
+    [data-theme="dark"] .mp-tabs { background: #1e2035; border-bottom-color: rgba(78,201,192,.18); }
     [data-theme="dark"] .mp-tab { color: #5c6080; }
-    [data-theme="dark"] .mp-tab.active { color: #818cf8; border-bottom-color: #818cf8; }
-    [data-theme="dark"] .mp-tab:hover:not(.active) { color: #9ba3c4; background: rgba(99,102,241,.05); }
+    [data-theme="dark"] .mp-tab.active { color: #7DD8D2; border-bottom-color: #7DD8D2; }
+    [data-theme="dark"] .mp-tab:hover:not(.active) { color: #9ba3c4; background: rgba(78,201,192,.05); }
     [data-theme="dark"] .mp-card { background: #1e2035; box-shadow: 0 1px 6px rgba(0,0,0,.3); }
-    [data-theme="dark"] .mp-topic-row { border-bottom-color: rgba(99,102,241,.1); }
+    [data-theme="dark"] .mp-topic-row { border-bottom-color: rgba(78,201,192,.1); }
     [data-theme="dark"] .mp-topic-row:hover { background: #252840; }
     [data-theme="dark"] .mp-topic-icon.fav  { background: rgba(234,179,8,.15); }
     [data-theme="dark"] .mp-topic-icon.hist { background: rgba(34,197,94,.1); }
     [data-theme="dark"] .mp-topic-title { color: #eef0f8; }
-    [data-theme="dark"] .mp-nickname-field { border-bottom-color: rgba(99,102,241,.1); }
+    [data-theme="dark"] .mp-nickname-field { border-bottom-color: rgba(78,201,192,.1); }
     [data-theme="dark"] .mp-nickname-label { color: #9ba3c4; }
     [data-theme="dark"] .mp-nickname-input { color: #eef0f8; }
     [data-theme="dark"] .mp-account-card { background: #1e2035; box-shadow: 0 1px 6px rgba(0,0,0,.3); }
-    [data-theme="dark"] .mp-account-row { border-bottom-color: rgba(99,102,241,.1); }
+    [data-theme="dark"] .mp-account-row { border-bottom-color: rgba(78,201,192,.1); }
     [data-theme="dark"] .mp-account-label { color: #9ba3c4; }
     [data-theme="dark"] .mp-account-value { color: #eef0f8; }
-    [data-theme="dark"] .mp-signout-btn { background: #252840; border-color: rgba(99,102,241,.2); color: #9ba3c4; }
+    [data-theme="dark"] .mp-signout-btn { background: #252840; border-color: rgba(78,201,192,.2); color: #9ba3c4; }
     [data-theme="dark"] .mp-signout-btn:hover { background: #2d2f4a; }
     [data-theme="dark"] .mp-delete-btn { background: #1e2035; border-color: rgba(252,165,165,.3); }
     [data-theme="dark"] .mp-delete-btn:hover { background: rgba(220,38,38,.1); border-color: #f87171; }
     [data-theme="dark"] .mp-modal { background: #1e2035; }
     [data-theme="dark"] .mp-modal-title { color: #eef0f8; }
     [data-theme="dark"] .mp-modal-body { color: #9ba3c4; }
-    [data-theme="dark"] .mp-modal-cancel { background: #252840; border-color: rgba(99,102,241,.2); color: #9ba3c4; }
+    [data-theme="dark"] .mp-modal-cancel { background: #252840; border-color: rgba(78,201,192,.2); color: #9ba3c4; }
     [data-theme="dark"] .mp-timeline-empty-title { color: #eef0f8; }
 
     /* ===== ダークモード ===== */
@@ -656,35 +656,35 @@
     [data-theme="dark"] .mp-avatar { border-color: #1e2035; }
     [data-theme="dark"] .mp-avatar-placeholder { border-color: #1e2035; }
     [data-theme="dark"] .mp-display-name { color: #eef0f8; }
-    [data-theme="dark"] .mp-handle { color: #818cf8; }
+    [data-theme="dark"] .mp-handle { color: #7DD8D2; }
     [data-theme="dark"] .mp-stat-num { color: #eef0f8; }
-    [data-theme="dark"] .mp-stat { border-right-color: rgba(99,102,241,0.15); }
-    [data-theme="dark"] .mp-tabs { background: #1e2035; border-bottom-color: rgba(99,102,241,0.12); }
+    [data-theme="dark"] .mp-stat { border-right-color: rgba(78,201,192,0.15); }
+    [data-theme="dark"] .mp-tabs { background: #1e2035; border-bottom-color: rgba(78,201,192,0.12); }
     [data-theme="dark"] .mp-tab { color: #5c6080; }
-    [data-theme="dark"] .mp-tab.active { border-bottom-color: #818cf8; color: #818cf8; }
-    [data-theme="dark"] .mp-tab:hover:not(.active) { color: #9ba3c4; background: rgba(99,102,241,0.05); }
+    [data-theme="dark"] .mp-tab.active { border-bottom-color: #7DD8D2; color: #7DD8D2; }
+    [data-theme="dark"] .mp-tab:hover:not(.active) { color: #9ba3c4; background: rgba(78,201,192,0.05); }
     [data-theme="dark"] .mp-timeline-empty-title { color: #eef0f8; }
     [data-theme="dark"] .mp-card { background: #1e2035; box-shadow: 0 1px 6px rgba(0,0,0,.3); }
-    [data-theme="dark"] .mp-topic-row { border-bottom-color: rgba(99,102,241,0.1); color: #eef0f8; }
+    [data-theme="dark"] .mp-topic-row { border-bottom-color: rgba(78,201,192,0.1); color: #eef0f8; }
     [data-theme="dark"] .mp-topic-row:hover { background: #252840; }
     [data-theme="dark"] .mp-topic-title { color: #eef0f8; }
     [data-theme="dark"] .mp-topic-sub { color: #5c6080; }
     [data-theme="dark"] .mp-account-card { background: #1e2035; }
-    [data-theme="dark"] .mp-account-row { border-bottom-color: rgba(99,102,241,0.1); }
+    [data-theme="dark"] .mp-account-row { border-bottom-color: rgba(78,201,192,0.1); }
     [data-theme="dark"] .mp-account-label { color: #5c6080; }
     [data-theme="dark"] .mp-account-value { color: #eef0f8; }
-    [data-theme="dark"] .mp-nickname-field { border-bottom-color: rgba(99,102,241,0.1); }
+    [data-theme="dark"] .mp-nickname-field { border-bottom-color: rgba(78,201,192,0.1); }
     [data-theme="dark"] .mp-nickname-input { color: #eef0f8; }
-    [data-theme="dark"] .mp-signout-btn { background: #252840; border-color: rgba(99,102,241,0.2); color: #9ba3c4; }
+    [data-theme="dark"] .mp-signout-btn { background: #252840; border-color: rgba(78,201,192,0.2); color: #9ba3c4; }
     [data-theme="dark"] .mp-signout-btn:hover { background: #2a2d4a; }
     [data-theme="dark"] .mp-login-card { background: #1e2035; }
     [data-theme="dark"] .mp-login-title { color: #eef0f8; }
     [data-theme="dark"] .mp-modal { background: #1e2035; }
     [data-theme="dark"] .mp-modal-title { color: #eef0f8; }
-    [data-theme="dark"] .mp-modal-cancel { background: #252840; border-color: rgba(99,102,241,0.2); color: #9ba3c4; }
+    [data-theme="dark"] .mp-modal-cancel { background: #252840; border-color: rgba(78,201,192,0.2); color: #9ba3c4; }
     [data-theme="dark"] .back-link { color: #5c6080; }
     [data-theme="dark"] .back-link:hover { color: #eef0f8; }
-    [data-theme="dark"] .mp-profile-banner { background: linear-gradient(135deg, #0a0b14 0%, #13104f 55%, #1e1b6f 100%); }
+    [data-theme="dark"] .mp-profile-banner { background: linear-gradient(135deg, #0a0b14 0%, #071520 55%, #0A2030 100%); }
     [data-theme="dark"] .auth-user-name { color: var(--text-secondary); }
     [data-theme="dark"] .auth-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
     .notif-item { padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
@@ -1005,7 +1005,7 @@
     function setStatus(msg, isError) {
       if (!statusEl) return;
       statusEl.textContent = msg;
-      statusEl.style.color = isError ? '#ef4444' : '#6366f1';
+      statusEl.style.color = isError ? '#ef4444' : '#4EC9C0';
     }
 
     function updatePreview(dataUrl) {
@@ -1282,8 +1282,8 @@
         const unread = n.read === false;
         return `
           <div class="notif-item${unread ? ' notif-unread' : ''}">
-            <div style="font-size:.82rem;color:#94a3b8;margin-bottom:4px;">${time}${unread ? ' <span style="color:#6366f1;font-weight:700;">NEW</span>' : ''}</div>
-            <div style="font-size:.9rem;"><a href="${topicUrl}" style="color:#6366f1;font-weight:600;text-decoration:none;">@${escHtml(n.fromHandle || '')}</a> さんがあなたをメンションしました</div>
+            <div style="font-size:.82rem;color:#94a3b8;margin-bottom:4px;">${time}${unread ? ' <span style="color:#4EC9C0;font-weight:700;">NEW</span>' : ''}</div>
+            <div style="font-size:.9rem;"><a href="${topicUrl}" style="color:#4EC9C0;font-weight:600;text-decoration:none;">@${escHtml(n.fromHandle || '')}</a> さんがあなたをメンションしました</div>
             <div class="notif-excerpt">${escHtml(n.excerpt || '')}</div>
           </div>`;
       }).join('');
@@ -1469,7 +1469,7 @@
       <!-- コメント履歴パネル -->
       <div class="mp-panel" id="panel-comments">
         ${savedItems.length ? `
-        <div style="font-size:.78rem;font-weight:700;color:#6366f1;letter-spacing:.04em;padding:4px 4px 8px;text-transform:uppercase;">🔖 保存したコメント（${savedItems.length}件）</div>
+        <div style="font-size:.78rem;font-weight:700;color:#4EC9C0;letter-spacing:.04em;padding:4px 4px 8px;text-transform:uppercase;">🔖 保存したコメント（${savedItems.length}件）</div>
         <div class="mp-card" style="margin-bottom:16px;">${savedHtml}</div>
         <div style="font-size:.78rem;font-weight:700;color:#94a3b8;letter-spacing:.04em;padding:4px 4px 8px;text-transform:uppercase;">💬 投稿したコメント</div>
         ` : ''}
