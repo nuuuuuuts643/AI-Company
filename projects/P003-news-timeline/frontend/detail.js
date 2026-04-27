@@ -1099,33 +1099,35 @@ function renderDiscovery(meta) {
   });
 }
 
-// ── スティッキーCTAバー（モバイル） ──────────────────────────────────────
+// ── スティッキーCTAバー（モバイル） ─────────────────────────────────
+// #2: 表示制御を再設計
+//   - hero がビューポートに見えている間: 非表示（hero の CTA で十分）
+//   - hero を抜けて記事を読み始めたら: 表示（コメント誘導）
+//   - コメントセクションに到達したら: 非表示（直接コメントできるので不要）
 (function initStickyCta() {
   const bar        = document.getElementById('sticky-cta-bar');
-  const favBtn     = document.getElementById('scb-fav-btn');
   const commentBtn = document.getElementById('scb-comment-btn');
   const commSec    = document.getElementById('comments-section');
+  const hero       = document.querySelector('.topic-hero');
   if (!bar || !commSec) return;
 
-  // コメントセクションが見えたら非表示
-  const observer = new IntersectionObserver(
-    entries => { bar.classList.toggle('visible', !entries[0].isIntersecting); },
-    { threshold: 0.1 }
-  );
-  observer.observe(commSec);
-
-  // お気に入りボタン：topic-fav-btn と連動
-  function syncFav() {
-    const srcBtn = document.getElementById('topic-fav-btn');
-    if (favBtn && srcBtn) {
-      favBtn.classList.toggle('fav-active', srcBtn.classList.contains('fav-active'));
-      favBtn.textContent = srcBtn.textContent;
-    }
+  let heroVisible = !!hero;          // 初期は hero が見えているはず
+  let commentsVisible = false;
+  function update() {
+    bar.classList.toggle('visible', !heroVisible && !commentsVisible);
   }
-  new MutationObserver(syncFav).observe(document.getElementById('topic-fav-btn') || document.body, { attributes: true, childList: true, subtree: true });
-  if (favBtn) favBtn.addEventListener('click', () => document.getElementById('topic-fav-btn')?.click());
 
-  // コメントボタン
+  if (hero) {
+    new IntersectionObserver(entries => {
+      heroVisible = entries[0].isIntersecting;
+      update();
+    }, { threshold: 0.1 }).observe(hero);
+  }
+  new IntersectionObserver(entries => {
+    commentsVisible = entries[0].isIntersecting;
+    update();
+  }, { threshold: 0.05 }).observe(commSec);
+
   if (commentBtn) {
     commentBtn.addEventListener('click', () => {
       commSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
