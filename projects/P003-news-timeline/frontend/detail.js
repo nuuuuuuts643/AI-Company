@@ -4,15 +4,25 @@ let chartInstance = null, viewsChartInstance = null;
 
 function getNextUpdateTime() {
   // 実機 EventBridge cron: 0 16,22,4,10 UTC = JST 01:00 / 07:00 / 13:00 / 19:00 (4x/day)
-  // ハードコード値とプロセッサ実機を一致させる(2026-04-27 修正・誤値だった)
+  // 「N時間後」「N分後」の相対表示も付与してユーザーが待ち時間を直感的に分かるように(2026-04-27)
   const now = new Date();
   const jstNow = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000);
   const hours = [1, 7, 13, 19];
   const currentMin = jstNow.getHours() * 60 + jstNow.getMinutes();
-  for (const h of hours) {
-    if (h * 60 > currentMin) return `${h}:00 JST`;
+  let nextH = hours.find(h => h * 60 > currentMin);
+  let absStr;
+  let waitMin;
+  if (nextH !== undefined) {
+    waitMin = nextH * 60 - currentMin;
+    absStr = `${nextH}:00 JST`;
+  } else {
+    waitMin = (24 + 1) * 60 - currentMin;
+    absStr = '翌 01:00 JST';
   }
-  return '翌 01:00 JST';
+  const relStr = waitMin < 60
+    ? `${waitMin}分後`
+    : `約${Math.round(waitMin / 60)}時間後`;
+  return `${absStr} (${relStr})`;
 }
 
 function getAnonymousId() {
