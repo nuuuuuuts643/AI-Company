@@ -101,7 +101,6 @@ const _urlGenre  = new URLSearchParams(location.search).get('genre');
 let allTopics = [], currentStatus = _urlFilter || _prefs.status || 'all', currentGenre = _urlGenre || _prefs.genre || '総合', currentSearch = '';
 let currentPage = 1;
 let lastFetchTime = null;
-let _nativeAdIdx = -1;
 let _pendingHeroHighlight = false;
 const _prevSnap = (() => { try { return JSON.parse(localStorage.getItem('ftpc_snap') || '{}'); } catch { return {}; } })();
 
