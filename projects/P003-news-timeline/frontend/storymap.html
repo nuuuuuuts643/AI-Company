@@ -5,15 +5,15 @@
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6754575901141756"
      crossorigin="anonymous"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ストーリーマップ | Flotopic</title>
+  <title>フォロー中 | Flotopic</title>
   <meta name="description" content="このトピックから派生した分岐ストーリー。Flotopicで話題の広がりを追う。">
-  <meta property="og:title" content="Flotopic | ストーリーマップ">
+  <meta property="og:title" content="フォロー中 | Flotopic">
   <meta property="og:description" content="このトピックから派生した分岐ストーリーを可視化。">
   <meta property="og:type" content="article">
   <meta property="og:url" content="https://flotopic.com/storymap.html">
   <meta property="og:image" content="https://flotopic.com/ogp.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta id="twitter-title" name="twitter:title" content="Flotopic | ストーリーマップ">
+  <meta id="twitter-title" name="twitter:title" content="フォロー中 | Flotopic">
   <meta id="twitter-description" name="twitter:description" content="このトピックから派生した分岐ストーリーを可視化。">
   <meta name="twitter:image" content="https://flotopic.com/ogp.png">
   <link rel="canonical" id="canonical-url" href="https://flotopic.com/storymap.html">
@@ -128,6 +128,7 @@
       color: var(--text-primary); line-height: 1.45;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
       overflow: hidden; margin-bottom: 8px;
+      min-width: 0; word-break: break-word;
     }
     .sm-branch-card-foot {
       display: flex; align-items: center; justify-content: space-between;
@@ -234,8 +235,7 @@
 <header>
   <div class="inner" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
     <div style="flex:1;min-width:0;">
-      <a href="index.html" class="back-link">← 一覧に戻る</a>
-      <h1 style="font-size:1.05rem;font-weight:700;margin-top:3px;">🗺 ストーリーマップ</h1>
+      <h1 style="font-size:1.05rem;font-weight:700;margin-top:3px;">📖 フォロー中</h1>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマ切替" aria-label="テーマ切替">🌙</button>
@@ -401,7 +401,7 @@ function statusLabel(status) {
 
 function renderBranchCard(t, showStatus, idx) {
   const title = t.generatedTitle || t.title || '';
-  const count = t.articleCount || 0;
+  const count = parseInt(t.articleCount || 0, 10);
   const ago   = fmtAgo(t.lastArticleAt || t.lastUpdated || 0);
   const startedAt = t.firstArticleAt || t.lastUpdated || 0;
   const startAgo = startedAt ? fmtAgo(startedAt) : '';
@@ -443,7 +443,7 @@ function renderStorymap(parent, allTopics) {
     });
 
   const parentTitle = parent.generatedTitle || parent.title || '';
-  document.title = `${parentTitle} | ストーリーマップ`;
+  document.title = `${parentTitle} | フォロー中`;
 
   // ---- Breadcrumb ----
   // Walk up 1 level if there's a grandparent
@@ -510,7 +510,7 @@ function renderStorymap(parent, allTopics) {
     const pills = related.map(r => {
       const rt = allMap[r.topicId] || r;
       const rtTitle = rt.generatedTitle || rt.title || '';
-      const rtCount = rt.articleCount || 0;
+      const rtCount = parseInt(rt.articleCount || 0, 10);
       return `<a href="topic.html?id=${esc(rt.topicId)}" class="sm-related-pill">
         ${esc(rtTitle.length > 18 ? rtTitle.slice(0,18)+'…' : rtTitle)}
         <span class="sm-related-pill-count">${rtCount}件</span>
@@ -526,7 +526,7 @@ function renderStorymap(parent, allTopics) {
   }
 
   // ---- 同ジャンルで今動いているストーリー（読了後の導線）----
-  const _PL = { '発端':'🌱 始まり','拡散':'📡 広まってる','ピーク':'🔥 急上昇','現在地':'📍 進行中','収束':'✅ ひと段落' };
+  const _PL = { '発端':'🌱 始まり','拡散':'📡 急拡散中','ピーク':'🔥 急上昇','現在地':'📍 進行中','収束':'✅ ひと段落' };
   const parentGenres = new Set(parent.genres || (parent.genre ? [parent.genre] : []));
   const excludeIds   = new Set([parent.topicId, ...children.map(c => c.topicId)]);
   const activeGenreTopics = allTopics
@@ -542,7 +542,7 @@ function renderStorymap(parent, allTopics) {
     const genreLabel = [...parentGenres][0] || 'このジャンル';
     const nextCards = activeGenreTopics.map(t => {
       const tTitle = t.generatedTitle || t.title || '';
-      const tCnt   = t.articleCount || 0;
+      const tCnt   = parseInt(t.articleCount || 0, 10);
       const tPhase = t.storyPhase ? (_PL[t.storyPhase] || t.storyPhase) : '';
       return `<a href="topic.html?id=${esc(t.topicId)}" class="sm-next-card">
         <div class="sm-next-card-title">${esc(tTitle.length > 48 ? tTitle.slice(0,48)+'…' : tTitle)}</div>
@@ -561,7 +561,7 @@ function renderStorymap(parent, allTopics) {
 
   // ---- Active child count ----
   const activeCount  = children.filter(c => c.lifecycleStatus === 'active').length;
-  const totalArticles = children.reduce((s, c) => s + (c.articleCount || 0), 0);
+  const totalArticles = children.reduce((s, c) => s + parseInt(c.articleCount || 0, 10), 0);
 
   // ---- Connector decoration ----
   const connectorHtml = children.length > 0 ? `
@@ -614,7 +614,7 @@ function renderError(msg) {
 function renderStorymapList(topics) {
   const root = document.getElementById('sm-root');
   if (!root) return;
-  document.title = 'ストーリー一覧 | Flotopic';
+  document.title = 'フォロー中 | Flotopic';
 
   const stories = topics
     // storyTimeline は topics.json の _INTERNAL 除外フィールドのため使用不可。storyPhase で判定
@@ -630,7 +630,7 @@ function renderStorymapList(topics) {
         const title   = t.generatedTitle || t.title || '';
         const phase   = t.storyPhase ? (PHASE_LABEL[t.storyPhase] || t.storyPhase) : '';
         const snippet = cleanSummary(t.generatedSummary || '').slice(0, 55);
-        const cnt     = t.articleCount || 0;
+        const cnt     = parseInt(t.articleCount || 0, 10);
         const ago     = fmtAgo(t.lastArticleAt || t.lastUpdated || 0);
         const status  = t.lifecycleStatus || '';
         return `<a href="storymap.html?id=${esc(t.topicId)}" class="sm-branch-card ${statusClass(status)}">
@@ -648,7 +648,7 @@ function renderStorymapList(topics) {
     <div class="sm-breadcrumb">
       <a href="index.html">🏠 トップ</a>
       <span class="sep">›</span>
-      <span class="current">ストーリー一覧</span>
+      <span class="current">フォロー中/span>
     </div>
     <div class="sm-section">
       <div class="sm-section-header">
@@ -712,7 +712,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   <a href="index.html" class="bn-item"><span class="bn-icon">🏠</span><span>ホーム</span></a>
   <a href="index.html?focus=search" class="bn-item"><span class="bn-icon">🔍</span><span>検索</span></a>
   <a href="storymap.html" class="bn-item active"><span class="bn-icon">📖</span><span>ストーリー</span></a>
-  <a href="catchup.html" class="bn-item"><span class="bn-icon">🕰️</span><span>リワインド</span></a>
+  <a href="catchup.html" class="bn-item"><span class="bn-icon">🕰️</span><span>振り返る</span></a>
   <a href="mypage.html" class="bn-item"><span class="bn-icon">👤</span><span>マイページ</span></a>
 </nav>
 <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "099f0d39ef2649a5b3b9421595dd5474"}'></script><!-- End Cloudflare Web Analytics -->
