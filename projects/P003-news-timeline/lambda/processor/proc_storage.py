@@ -171,6 +171,25 @@ def get_pending_topics(max_topics=100):
     return items[:max_topics]
 
 
+def get_topics_by_ids(topic_ids):
+    """指定IDのトピックをDynamoDBから直接取得し、AI処理が必要なものを返す。fetcher_trigger専用。"""
+    proj = 'topicId,title,articleCount,score,velocityScore,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres'
+    items = []
+    for tid in topic_ids:
+        try:
+            r = table.get_item(
+                Key={'topicId': tid, 'SK': 'META'},
+                ProjectionExpression=proj,
+            )
+            item = r.get('Item')
+            if item and needs_ai_processing(item):
+                items.append(item)
+        except Exception as e:
+            print(f'get_topics_by_ids error [{tid}]: {e}')
+    items.sort(key=lambda x: (float(x.get('velocityScore', 0) or 0), int(x.get('score', 0) or 0)), reverse=True)
+    return items
+
+
 def get_latest_articles_for_topic(tid):
     """最新SNAPを優先しつつ過去スナップも合わせて最大20件の記事を返す（重複排除済み）。"""
     try:
