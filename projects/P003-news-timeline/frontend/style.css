@@ -2264,11 +2264,6 @@ details[open] .day-more-btn::before { content: '▼ '; }
     border-color: rgba(255,255,255,0.08);
   }
 
-  .ad-slot {
-    background: #161618;
-    border-color: rgba(255,255,255,0.08);
-  }
-
   .related-topic-item {
     background: #161618;
     border-color: rgba(255,255,255,0.08);
@@ -2543,36 +2538,6 @@ details[open] .day-more-btn::before { content: '▼ '; }
 }
 .auth-modal-divider::before, .auth-modal-divider::after {
   content: ''; flex: 1; height: 1px; background: var(--border, #e2e8f0);
-}
-
-/* ── Apple ラッパー（ボタン + 近日公開バッジ） ── */
-.auth-modal-apple-wrap {
-  position: relative; margin-bottom: 20px;
-}
-.auth-modal-apple-btn {
-  width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
-  padding: 12px 16px; border-radius: 8px;
-  border: 1.5px solid #1d1d1f;
-  background: #1d1d1f; color: #fff;
-  font-size: .9rem; font-weight: 600; font-family: inherit;
-  cursor: not-allowed; opacity: .45;
-  transition: opacity .15s;
-}
-.auth-modal-apple-btn .apple-icon { width: 17px; height: 17px; flex-shrink: 0; }
-
-/* ダークモードではAppleボタンを白背景に反転 */
-@media (prefers-color-scheme: dark) {
-  .auth-modal-apple-btn { background: #fff; color: #1d1d1f; border-color: #fff; }
-}
-[data-theme="dark"] .auth-modal-apple-btn { background: #fff; color: #1d1d1f; border-color: #fff; }
-[data-theme="light"] .auth-modal-apple-btn { background: #1d1d1f; color: #fff; border-color: #1d1d1f; }
-
-.auth-coming-soon {
-  position: absolute; top: -9px; right: 14px;
-  background: #3b82f6; color: #fff;
-  font-size: .65rem; font-weight: 700; letter-spacing: .04em;
-  padding: 2px 8px; border-radius: 999px;
-  pointer-events: none;
 }
 
 /* ── 利用規約リンク ── */
