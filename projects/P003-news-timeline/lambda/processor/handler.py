@@ -148,7 +148,7 @@ def lambda_handler(event, context):
             'storyTimeline':     gen_story['timeline']           if gen_story else None,
             'storyPhase':        gen_story['phase']              if gen_story else None,
             'summaryMode':       gen_story['summaryMode']        if gen_story else None,
-            'backgroundContext': gen_story['backgroundContext']   if gen_story else None,
+            'backgroundContext': gen_story.get('backgroundContext') if gen_story else None,
             'aiGenerated':       ai_succeeded,
             'imageUrl':          ogp_url,
         }
