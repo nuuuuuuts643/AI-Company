@@ -116,8 +116,8 @@
       z-index: 2;
       line-height: 1;
     }
-    .fav-btn:hover { color: #f43f5e; background: #fff; }
-    .fav-btn.fav-active { color: #f43f5e; }
+    .fav-btn:hover { color: var(--color-heart); background: #fff; }
+    .fav-btn.fav-active { color: var(--color-heart); }
     /* ===== お気に入りフィルタートグル ===== */
     .fav-toggle-btn {
       padding: 8px 16px;
@@ -262,7 +262,7 @@
 </head>
 <body>
 <!-- エラーバナー（fetch失敗時に表示） -->
-<div id="error-banner" role="alert" aria-live="assertive" style="display:none;position:fixed;top:64px;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;padding:10px 20px;border-radius:8px;font-size:.88rem;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,0.2);white-space:nowrap;max-width:90vw;text-overflow:ellipsis;overflow:hidden;"></div>
+<div id="error-banner" role="alert" aria-live="assertive" style="display:none;position:fixed;top:64px;left:50%;transform:translateX(-50%);background:var(--color-danger);color:#fff;padding:10px 20px;border-radius:8px;font-size:.88rem;font-weight:600;z-index:9998;box-shadow:0 4px 16px rgba(0,0,0,0.2);white-space:nowrap;max-width:90vw;text-overflow:ellipsis;overflow:hidden;"></div>
 <!-- PWAインストールバナー（Chrome/Android） -->
 <div id="pwa-install-banner" role="banner" aria-label="アプリインストール案内">
   <span class="pwa-banner-text">📱 ホーム画面に追加してFlotopicをアプリとして使う</span>
