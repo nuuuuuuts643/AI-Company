@@ -37,6 +37,25 @@ def lambda_handler(event, context):
     start_time = time.time()
     print(f'[Processor] 開始: {datetime.now(timezone.utc).isoformat()}')
 
+    # Wallclock budget guard (T218 根本対策・2026-04-28)
+    # Why: Tool Use 化で 1 API call が 5-15 秒に膨張、MAX_API_CALLS=200 だと
+    #      200 * 10s = 2000s で Lambda Timeout (900s) を確実に越える。
+    #      Timeout で in-flight 中断 → S3書き戻しフェーズ未実行 →
+    #      processed 件の aiGenerated=True が topics.json に反映されない。
+    # 仕組み: 残り Lambda 実行時間が WALLCLOCK_GUARD_MS を切ったら主ループを break。
+    #         break 後の S3 書き戻し (update_topic_s3_files_parallel + topics.json 生成 +
+    #         sitemap/RSS 生成) には ~100s 程度必要なので 120s 残す。
+    # 観測: forceRegenerateAll は次回スケジュール (4x/day) で続きを処理するため、
+    #       単発 invoke 上限 ≠ 全件処理の制約にならない。
+    WALLCLOCK_GUARD_MS = 120_000  # 120秒残し: S3書き戻し + topics.json生成 + sitemap
+    def _wallclock_remaining_ms():
+        try:
+            return context.get_remaining_time_in_millis()
+        except Exception:
+            return 9_000_000  # local test or context 不在時は無制限扱い
+    def _wallclock_ok():
+        return _wallclock_remaining_ms() > WALLCLOCK_GUARD_MS
+
     # 特殊モード: 既存トピックの静的HTML一括生成
     if event.get('regenerateStaticHtml'):
         count = batch_generate_static_html(max_topics=event.get('maxTopics', 500))
@@ -165,6 +184,10 @@ def lambda_handler(event, context):
     for topic in pending:
         if api_calls >= MAX_API_CALLS:
             print(f'[Processor] API呼び出し上限 ({MAX_API_CALLS}) 到達。残り {len(pending) - processed - skipped} 件は次回。')
+            break
+        if not _wallclock_ok():
+            remaining_s = _wallclock_remaining_ms() / 1000
+            print(f'[Processor] Wallclock guard 到達 (残り {remaining_s:.1f}s < {WALLCLOCK_GUARD_MS/1000:.0f}s)。残り {len(pending) - processed - skipped} 件は次回スケジュールで継続')
             break
 
         tid = topic['topicId']
