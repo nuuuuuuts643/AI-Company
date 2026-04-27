@@ -24,6 +24,7 @@ from proc_storage import (
     write_s3, notify_slack_error, generate_and_upload_sitemap,
     generate_and_upload_rss, generate_and_upload_news_sitemap,
     batch_generate_static_html, backfill_missing_detail_json,
+    auto_archive_incoherent,
 )
 
 _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext'}
@@ -148,6 +149,11 @@ def lambda_handler(event, context):
                 print(f'  [OGP] {tid[:8]}... 失敗（スキップ）: {ogp_err}')
 
         update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=ai_succeeded, image_url=ogp_url)
+        # AI が「記事の中身が乖離」と判定した場合は自動で archive (思想: 雑なクラスタを視界から消す)
+        archived = auto_archive_incoherent(tid, gen_story)
+        if archived:
+            skipped += 1
+            continue
         processed += 1
         articles_cache[tid] = articles
         ai_updates[tid] = {
