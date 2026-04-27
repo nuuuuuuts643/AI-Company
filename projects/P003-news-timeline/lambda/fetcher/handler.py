@@ -39,7 +39,7 @@ from storage import (
     write_s3, get_all_topics, get_topic_detail,
     recent_counts, calc_velocity, validate_topics_exist,
     load_seen_articles, save_seen_articles,
-    generate_rss, generate_sitemap,
+    generate_rss, generate_sitemap, get_latest_snap_articles,
 )
 
 
@@ -479,13 +479,16 @@ def lambda_handler(event, context):
             'mediaCount':   media,
             'timestamp':    ts_iso,
             'ttl':          int(time.time()) + SNAP_TTL_DAYS * 86400,
+            # 累積マージ: 前回 SNAP の articles + 今回の articles を URL-dedup して保存
+            # これで古い記事が RSS から消えても topic detail の履歴に残る (2026-04-27 履歴15件問題の根本修正)
             'articles': sort_by_pubdate(list({
-                a['url']: {
+                **{prev['url']: prev for prev in get_latest_snap_articles(tid, max_articles=50) if prev.get('url')},
+                **{a['url']: {
                     'title':       a['title'], 'url': a['url'],
                     'source':      a['source'], 'pubDate': a['pubDate'],
                     'publishedAt': a.get('published_ts', 0),
-                } for a in g
-            }.values()))[:50],  # 20→50: SNAP1件あたりの保持記事数を拡大(2026-04-27)
+                } for a in g},
+            }.values()))[:50],  # cap=50: 全期間の累積上位50件を保持
         })
         saved_ids.append(tid)
 
