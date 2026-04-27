@@ -1,5 +1,22 @@
 // app.js — メイン。auth.js / favorites.js / comments.js を先に読み込むこと。
-// 読み込み順: config.js → js/auth.js → js/favorites.js → js/comments.js → app.js
+// 読み込み順: config.js → js/formatters.js → js/auth.js → js/favorites.js → js/comments.js → app.js
+//
+// ─── 構造マップ（行番号は概算。再編した際は更新する） ───
+//  §1  設定定数 / LSキー / トースト・エラーバナー       (約 1-60)
+//  §2  ステータス・フェーズラベル / cleanSummary         (約 60-90)
+//  §3  ジャンル定義 / パーソナライズ履歴                  (約 90-105)
+//  §4  純粋整形（esc / fmtDate / safeImgUrl 等）          (約 105-170)
+//        → ※テスト容易な版は frontend/js/formatters.js に分離。
+//          window.Formatters.{esc,formatDate,cleanSummary,...} で参照可能。
+//  §5  loadTopics / キーワードチップ                      (約 170-235)
+//  §6  バッジ / カードメタ / 信頼度                        (約 235-360)
+//  §7  カード描画 / ヒーロー / トピック一覧                (約 360-680)
+//  §8  フィルター / トレンドジャンル / 検索               (約 680-775)
+//  §9  refreshTopics / 鮮度・オンボーディング              (約 775-930)
+//  §10 戻る・お気に入り・クイックニュースのストリップ      (約 930-1060)
+//  §11 既読管理 / Back-to-top / スクロール復元 / Reading    (約 1060-1185)
+//  §12 ボトムナビ / スケルトン                              (約 1185-1235)
+//  §13 DOMContentLoaded ハンドラ                            (約 1235-end)
 
 // ── 広告タイマー（stale timeout防止） ────────────────────────
 let adHideTimer = null;
