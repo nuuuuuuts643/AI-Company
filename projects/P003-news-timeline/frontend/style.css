@@ -1552,6 +1552,71 @@ details[open] .day-more-btn::before { content: '▼ '; }
   transition: background .15s;
 }
 .card-storymap-link:hover { background: rgba(99,102,241,.13); }
+
+/* ===== ストーリー分岐バー（親トピックのみ） ===== */
+.story-branches-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  background: linear-gradient(90deg, rgba(16,185,129,.08), rgba(99,102,241,.08));
+  border-top: 1px solid rgba(16,185,129,.18);
+  border-radius: 0 0 10px 10px;
+  text-decoration: none;
+  transition: background .15s;
+  flex-wrap: wrap;
+}
+.story-branches-bar:hover { background: linear-gradient(90deg, rgba(16,185,129,.15), rgba(99,102,241,.15)); }
+.story-branches-bar-label {
+  font-size: .7rem;
+  font-weight: 700;
+  color: #10b981;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.story-branches-bar-pills {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+.story-branch-pill {
+  font-size: .65rem;
+  color: #475569;
+  background: rgba(255,255,255,.7);
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+.story-branch-more {
+  font-size: .65rem;
+  color: #64748b;
+  padding: 1px 4px;
+}
+.story-branches-bar-arrow {
+  font-size: .7rem;
+  color: #6366f1;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+/* 親トピックカードに軽い左ボーダー */
+.topic-card.has-story {
+  border-left: 3px solid rgba(16,185,129,.5);
+}
+[data-theme="dark"] .story-branches-bar {
+  background: linear-gradient(90deg, rgba(16,185,129,.1), rgba(99,102,241,.1));
+  border-top-color: rgba(16,185,129,.2);
+}
+[data-theme="dark"] .story-branch-pill {
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.12);
+  color: #94a3b8;
+}
 @media (min-width: 768px) {
   /* 同じ行のカード高さを揃える。flex:1でstorymap-linkが下に押し出されても高さが正しく収まる */
   .topic-card { flex: 1; box-sizing: border-box; }
