@@ -9,8 +9,10 @@ function saveUser(u) { try { if (u) localStorage.setItem('flotopic_user', JSON.s
 function getDisplayName(user) {
   if (!user) return '';
   if (user.nickname) return user.nickname;
-  const full = user.name || '';
-  return full.split(/\s+/)[0] || full || 'ユーザー';
+  const full = user.name || user.given_name || '';
+  if (full) return full.split(/\s+/)[0] || full;
+  if (user.email) return user.email.split('@')[0];
+  return 'ユーザー';
 }
 function saveNickname(nickname) {
   try { const u = loadUser(); if (u) { u.nickname = nickname; saveUser(u); if (currentUser) currentUser.nickname = nickname; } } catch {}
