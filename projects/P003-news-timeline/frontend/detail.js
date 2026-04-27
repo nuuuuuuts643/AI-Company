@@ -725,7 +725,6 @@ function renderDetail(data) {
   } catch(e) { console.error('storyEl/related rendering error:', e); }
 
   renderDiscovery(meta);
-  try { renderAffiliate(meta); } catch(e) { console.error('renderAffiliate error:', e); }
 }
 
 // ===== Discovery: 深掘り & 拡張 =====
