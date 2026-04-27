@@ -204,7 +204,7 @@ def fetch_image_blob(client: Client, image_url: str):
             mime = 'image/png'
         elif image_url.lower().endswith('.webp'):
             mime = 'image/webp'
-        blob_resp = client.upload_blob(data, mime_type=mime)
+        blob_resp = client.upload_blob(data)
         return blob_resp.blob
     except Exception as e:
         print(f'[bluesky_agent] 画像アップロード失敗（スキップ）: {e}')
