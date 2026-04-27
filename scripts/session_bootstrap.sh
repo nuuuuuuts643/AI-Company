@@ -81,6 +81,8 @@ _strip_fuse_noise() {
                  -e ': unable to update local ref' \
                  -e "an editor opened by 'git commit'" \
                  -e 'are terminated then try again' \
+                 -e 'Another git process seems to be running' \
+    | sed -E '/^[[:space:]]*$/d; /^ \! .*unable to update local ref/d' \
     || true
 }
 git add -A 2>/dev/null
