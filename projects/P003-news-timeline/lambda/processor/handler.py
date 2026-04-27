@@ -43,6 +43,16 @@ def lambda_handler(event, context):
         filled = backfill_missing_detail_json()
         return {'statusCode': 200, 'body': json.dumps({'filled': filled})}
 
+    # 特殊モード: 全トピックの AI を強制再生成 (新プロンプト適用のため・2026-04-27)
+    # 使い方: aws lambda invoke --function-name p003-processor --payload '{"forceRegenerateAll":true}' /tmp/r.json
+    # 注意: 1回のinvokeで MAX_API_CALLS 件のみ処理。complete までPOが複数回 invoke 必要
+    if event.get('forceRegenerateAll'):
+        from proc_storage import force_reset_pending_all
+        reset_count = force_reset_pending_all()
+        print(f'[Processor] forceRegenerateAll: {reset_count} 件を pendingAI=True にリセット → 通常処理に流す')
+        # リセット後は通常のスケジュール処理ルートに合流して MAX_API_CALLS まで処理
+        # 続きは次回手動 invoke or 次回スケジュール (4x/day)で
+
     # 特殊モード: サイトマップ・RSS・静的JSON再生成のみ（AI呼び出しなし）
     if event.get('regenerateSitemap'):
         try:
