@@ -66,13 +66,28 @@ done
 
 # ---- 2. sync commit & pull --no-rebase & push ----
 # rebase 系の中断を作らないため pull は merge 戦略で固定。
+#
+# FUSE 環境では git fetch/pull/push が以下の "harmless noise" を吐く:
+#   - "may have crashed in this repository earlier:" / "remove the file manually to continue."
+#   - "warning: unable to unlink '...': Operation not permitted"
+#   - "! refs/remotes/origin/main: unable to update local ref"
+# これらは _garbage 退避ロジックで実害ゼロ。Claude のコンテキストを汚染するだけなので
+# grep -v で物理的に弾く (LANG=C で英語固定。i18n 環境でも安定)。
+# 実害ある warning/error は素通しする (フィルタは substring 一致のみ・正規表現使わない)。
+_strip_fuse_noise() {
+  LANG=C grep -v -e 'may have crashed in this repository earlier' \
+                 -e 'remove the file manually to continue' \
+                 -e "warning: unable to unlink" \
+                 -e ': unable to update local ref' \
+    || true
+}
 git add -A 2>/dev/null
 if ! git diff --cached --quiet 2>/dev/null; then
   git commit -m "chore: bootstrap sync $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" 2>/dev/null || true
 fi
-git pull --no-rebase --no-edit origin main 2>&1 | tail -2 || true
+git pull --no-rebase --no-edit origin main 2>&1 | _strip_fuse_noise | tail -2 || true
 mv .git/index.lock .git/_garbage/ 2>/dev/null
-git push 2>&1 | tail -2 || true
+git push 2>&1 | _strip_fuse_noise | tail -2 || true
 
 # ---- 3. CLAUDE.md 変更検知 ----
 LATEST_CLAUDE=$(git log --oneline -1 -- CLAUDE.md 2>/dev/null || echo "(none)")
