@@ -234,7 +234,7 @@ function renderDetail(data) {
     const beats        = Array.isArray(meta.storyTimeline) ? meta.storyTimeline : [];
     const phase        = meta.storyPhase   || '';
     const summaryMode  = meta.summaryMode  || (beats.length > 0 || spreadReason || forecast ? 'full' : 'minimal');
-    const hasSummary   = !!summary;
+    const hasSummary   = !!summary && !!meta.aiGenerated;
     const isFullAI     = summary && meta.aiGenerated;
 
     const PHASE_COLOR = { '発端':'rgba(78,201,192,0.55)','拡散':'rgba(78,201,192,0.7)','ピーク':'#4EC9C0','現在地':'#3BB5AC','収束':'#64748b' };
@@ -353,7 +353,7 @@ function renderDetail(data) {
       aiAnalysisEl.innerHTML = `
         <div class="ai-analysis-inner ai-pending">
           <span class="ai-pending-icon">⏳</span>
-          <span>AI分析を生成中です。次の更新: ${getNextUpdateTime()}。${cnt}件の記事を追跡中${sources ? `（${sources} ほか）` : ''}。</span>
+          <span>AI分析を準備中です。次の更新: ${getNextUpdateTime()}。${cnt}件の記事を追跡中${sources ? `（${sources} ほか）` : ''}。</span>
         </div>`;
       aiAnalysisEl.style.display = 'block';
     }
