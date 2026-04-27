@@ -1355,3 +1355,20 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T255~~ | ~~中~~ | ~~AI 処理 skip 条件に keyPoint チェック未実装~~ → **Cowork実装完了 (2026-04-28 17:25 JST・schedule task)・Code push 待ち**。`handler.py` L223-233 を「必須フィールドリスト」型に書き換え (`_required_full_fields` タプル) — 新フィールド追加時は 1 行追記で済む構造化。次回スケジュール 19:00 JST で 93 件再処理開始 (Haiku 約 $0.21・許容範囲)。完了判定: 19:00 JST 以降の topics.json で keyPoint 充填率 80%+。 | `lambda/processor/handler.py` skip 条件 | 2026-04-28 |
 
 </details>
+
+
+### 自動 triage: 2026-04-28 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T263~~ | ✅ 完了 | 安定性 | ~~**topics.json 鮮度 SLI モニタ実装**~~ → **2026-04-28 18:10 完了**。`.github/workflows/freshness-check.yml` 新設。1h cron で `curl /api/topics.json` → updatedAt 90 分超で Slack 警告 + GH Actions UI に赤エラー。governance worker と別系統 (外部観測)。`docs/sli-slo.md` SLI 1 として登録。 | `.github/workflows/freshness-check.yml` (済) | 2026-04-28 |
+| ~~T231~~ | ✅ 完了 | ~~**推移グラフ長期ボタン disabled 制御**~~ → 2026-04-28 HISTORY「品質確認: T231/T232/AI処理待ち時刻 全て実装済みと検証」で `_RANGE_H` + `meta.firstArticleAt` で `btn.disabled=true` 制御済み確認 (detail.js line 580-592)。 | (済) | 2026-04-28 |
+| ~~T232~~ | ✅ 完了 | ~~**「関連記事」h2 0件時非表示**~~ → 2026-04-28 HISTORY 同上で `relatedCard.style.display='none'` 実装済み確認 (line 888-889 / 928-933)。 | (済) | 2026-04-28 |
+| ~~T233~~ | ✅ 完了 | ~~**AI分析「処理待ち」次回更新時刻表示**~~ → 2026-04-28 HISTORY 同上で `getNextUpdateTime()` 実装済み確認 (detail.js line 5-21 + 443、JST 1/7/13/19 + 相対表示)。 | (済) | 2026-04-28 |
+| ~~T234~~ | ✅ 完了 | ~~**ヘッダーキャッチコピー統一**~~ → 2026-04-28 HISTORY 2 件で完了確認。`📰 Flotopic / 話題の流れをAIで追う` を全ページから除去し `Flotopic / 大きな流れを、1分で。` に統一。`リワインド` → `振り返る`、`2営業日` → `7営業日` も同時統一。 | (済) | 2026-04-28 |
+| ~~T239~~ | ✅ 完了 | ~~**ads.txt と index.html pub-id 整合 CI**~~ → 2026-04-28 18:10 完了。`.github/workflows/ci.yml` content-drift-guard ジョブに「ads.txt と index.html pub-id 整合性検査」追加。AdSense `ca-pub-` と忍者AdMax `data-shinobi-id` を index.html / *.html から抽出し ads.txt と grep 照合。実機検証で `pub-6754575901141756` が ads.txt と一致確認。pre-merge 物理ガード成立。 | (済) | 2026-04-28 |
+| ~~T243~~ | ✅ 完了 | ~~**タスクID 同日衝突対策**~~ → 2026-04-28 完了。`scripts/next_task_id.sh` 実装済 (動作確認: `T2026-0428-D` を返す)。`.github/workflows/meta-doc-guard.yml` の `task-id-uniqueness` ジョブで重複検出 (warning 段階)。 | (済) | 2026-04-28 |
+| ~~T244~~ | ✅ 完了 | ~~**WORKING.md needs-push カラム**~~ → 2026-04-28 HISTORY 1345 で完了確認。bootstrap script が `needs-push.*yes` を grep して滞留警告。 | (済) | 2026-04-28 |
+| ~~TBD-SLI~~ | ✅ 完了 | ~~**`docs/sli-slo.md` 新設**~~ → 2026-04-28 18:10 完了。`docs/sli-slo.md` 新規。SLI 1-7 列挙 (topics.json 鮮度・トップページ HTTP/2/AI カバレッジ/storyPhase 偏り/fetcher 成功率/ads.txt 整合/セキュリティヘッダ)。実装済 SLI には「監視ファイル」、未実装 SLI には「TBD」を明記。再現可能 curl/jq 併記で「Lambda metric だけで設計するな」を物理化。 | (済) | 2026-04-28 |
+
+</details>

@@ -13,7 +13,6 @@
 
 | ID | 優先 | 軸 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|---|
-| ~~T263~~ | ✅ 完了 | 安定性 | ~~**topics.json 鮮度 SLI モニタ実装**~~ → **2026-04-28 18:10 完了**。`.github/workflows/freshness-check.yml` 新設。1h cron で `curl /api/topics.json` → updatedAt 90 分超で Slack 警告 + GH Actions UI に赤エラー。governance worker と別系統 (外部観測)。`docs/sli-slo.md` SLI 1 として登録。 | `.github/workflows/freshness-check.yml` (済) | 2026-04-28 |
 | T212 | 🔴 高 | AI品質 | **同一事象が複数トピックに分裂している** — 北海道地震で「北海道・三陸沖後発地震注意情報発表に伴う試合開催」と「北海道で震度5強の地震　津波の心配なし」が別トピックとして並立。同じ出来事の別角度の記事がクラスタリングで分離している。根本原因: fetcher のクラスタリング閾値が低すぎるか、タイトル類似度の計算が地名・数字の一致を十分に重視していない。調査方法: `lambda/fetcher/` のクラスタリングロジックを確認し、同一事象を同一トピックにまとめる閾値・ロジックを見直す。 | `lambda/fetcher/` | 2026-04-27 |
 | T2026-0428-E | 🔴 高 | AI品質 | **AI 要約プロンプトを「自分ごと感」軸に改修** — 現状の AI 要約は「何が起きたか」中心で、ユーザーが「自分にどう関係するか」を判断できない。`lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` と各 mode のプロンプトに以下4軸を追加: ① **自分ごと感**: 読者の生活・仕事・お金・安全のどこに影響するか1行で示す。② **誰が得して誰が損か**: 利害関係者を明示 (例: 「金利上昇 → 借り手が損・預金者が得」)。③ **専門用語→平易語**: 専門用語が出たら必ず括弧書きで平易化 (例: 「FOMC（米国の金融政策を決める会議）」)。④ **状況ラベル**: トピックの現状を「観測中 / 進行中 / 沈静化 / 決着」等のラベルで示す。output schema にも `personalImpact`/`stakeholders`/`statusLabel` フィールドを追加し、frontend で表示。 | `lambda/processor/proc_ai.py`, `frontend/detail.js`, `frontend/app.js` | 2026-04-28 |
 | T2026-0428-F | 🟡 中 | 安定性・拡張性 | **topics.json 日付分割 Step1 インフラ準備** — 現状 207KB の topics.json がモバイル初回表示の最大 payload。115件で207KBなので、件数増加で線形増加する設計上の天井がある。**Step1 (本タスク)**: ① `/api/topics-card.json` (一覧用 minimal: tid/title/articleCount/genres/keyPoint/storyPhase/updatedAt) と `/api/topics-full.json` (現状互換) の2系統を proc_storage.py で生成する仕組みを作る。② frontend は当面 topics-full.json を使い続ける (互換維持)。③ governance worker に「topics.json size > 250KB」アラート追加。④ Brotli 圧縮を S3+CloudFront で確認。Step2 (別タスク化): card 表示を topics-card.json に切り替え + 日付別 shard。T265 を発展。 | `lambda/processor/proc_storage.py`, `.github/workflows/governance.yml`, CloudFront 設定 | 2026-04-28 |
@@ -65,10 +64,6 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| ~~T231~~ | ✅ 完了 | ~~**推移グラフ長期ボタン disabled 制御**~~ → 2026-04-28 HISTORY「品質確認: T231/T232/AI処理待ち時刻 全て実装済みと検証」で `_RANGE_H` + `meta.firstArticleAt` で `btn.disabled=true` 制御済み確認 (detail.js line 580-592)。 | (済) | 2026-04-28 |
-| ~~T232~~ | ✅ 完了 | ~~**「関連記事」h2 0件時非表示**~~ → 2026-04-28 HISTORY 同上で `relatedCard.style.display='none'` 実装済み確認 (line 888-889 / 928-933)。 | (済) | 2026-04-28 |
-| ~~T233~~ | ✅ 完了 | ~~**AI分析「処理待ち」次回更新時刻表示**~~ → 2026-04-28 HISTORY 同上で `getNextUpdateTime()` 実装済み確認 (detail.js line 5-21 + 443、JST 1/7/13/19 + 相対表示)。 | (済) | 2026-04-28 |
-| ~~T234~~ | ✅ 完了 | ~~**ヘッダーキャッチコピー統一**~~ → 2026-04-28 HISTORY 2 件で完了確認。`📰 Flotopic / 話題の流れをAIで追う` を全ページから除去し `Flotopic / 大きな流れを、1分で。` に統一。`リワインド` → `振り返る`、`2営業日` → `7営業日` も同時統一。 | (済) | 2026-04-28 |
 
 ### 安定性・運用
 
@@ -85,7 +80,6 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| ~~T239~~ | ✅ 完了 | ~~**ads.txt と index.html pub-id 整合 CI**~~ → 2026-04-28 18:10 完了。`.github/workflows/ci.yml` content-drift-guard ジョブに「ads.txt と index.html pub-id 整合性検査」追加。AdSense `ca-pub-` と忍者AdMax `data-shinobi-id` を index.html / *.html から抽出し ads.txt と grep 照合。実機検証で `pub-6754575901141756` が ads.txt と一致確認。pre-merge 物理ガード成立。 | (済) | 2026-04-28 |
 | T240 | 低 | **Cloudflare Web Analytics トークンがフロントに直書き** — index.html / topic.html 等の最後で `data-cf-beacon='{"token": "..."}'` がハードコード。これは CF 側仕様で公開するもので問題はないが、サブドメインや別環境を増やす際にビルド時 env 注入する設計が無い点だけメモ。 | `frontend/*.html` | 2026-04-28 |
 | T241 | 低 | **アフィリエイトのセンシティブトピック自動非表示ロジック未実装** — CLAUDE.md「過去の設計ミスパターン」⑧で「事件・事故・医療・政治では非表示にする」とルール明記済み。affiliate.js で genre が `'社会'`/`'国際'`/`'健康'` × 記事タイトルが事件/事故/疾患キーワードを含む時は出さない実装が必要。AdSense 通過後・収益性確認後でよい。 | `frontend/js/affiliate.js`（推定）, `frontend/topic.html` | 2026-04-28 |
 | T253 | 低 | **AI 学習クローラー全禁止 vs AI Visibility (AEO/GEO) のトレードオフ判断** — `robots.txt` で GPTBot / ChatGPT-User / Claude-Web / anthropic-ai / Google-Extended / PerplexityBot / Applebot-Extended / CCBot 全て Disallow。ChatGPT/Perplexity で「Flotopic」の名前を引いた時に検索結果に出てこない機会損失が発生。AI生成要約の知的財産価値 vs AEO/GEO 流入の機会値を Naoya 判断。 | `frontend/robots.txt`, `searchfit-seo:ai-visibility` | 2026-04-28 |
@@ -97,8 +91,6 @@
 | T2026-0428-G | 🟠 高 | **schedule-task の commit message に `[Schedule-KPI]` 行強制 (発見偏重 anti-pattern 対策)** — 2026-04-28 lessons-learned「scheduled-task が課題発見に偏り即時改善に進まない」の仕組み的対策3。schedule-task push の commit message には `[Schedule-KPI] implemented=N created=M closed=K queue_delta=±X` を含める。pre-commit hook で「commit message に schedule-task が含まれかつ KPI 行が無ければ reject」。`git log --oneline --grep "schedule-task"` で時系列 anti-pattern (implemented=0 が連続 3 回) を可視化。 | `.git/hooks/pre-commit` または `scripts/git-hooks/pre-commit` 拡張 | 2026-04-28 |
 | T2026-0428-H | 🟡 中 | **`scripts/triage_implemented_likely.py` 新設** — TASKS.md に `(HISTORY 確認要)` を含む行は HISTORY.md と grep で突合し、HISTORY 側に同 ID `done` 行があれば自動的に取消線化する。`session_bootstrap.sh` から定期呼び出し。今回手動で T231/T232/T234/T244 の 4 件を取消線化したのを次回から物理化。 | `scripts/triage_implemented_likely.py` 新規, `scripts/session_bootstrap.sh` | 2026-04-28 |
 | T2026-0428-I | 🟡 中 | **`scripts/session_bootstrap.sh` の schedule mode 検知 + 最優先タスク強調表示** — lessons-learned 仕組み的対策 2。環境変数 `SCHEDULE_TASK=1` (または `--schedule` 引数) が立っている時、TASKS.md の最優先 unblocked 1 件を STDOUT に強調表示する。Claude が起動チェック直後にこの 1 件を見るため発見前に実装着手を考える。 | `scripts/session_bootstrap.sh` | 2026-04-28 |
-| ~~T243~~ | ✅ 完了 | ~~**タスクID 同日衝突対策**~~ → 2026-04-28 完了。`scripts/next_task_id.sh` 実装済 (動作確認: `T2026-0428-D` を返す)。`.github/workflows/meta-doc-guard.yml` の `task-id-uniqueness` ジョブで重複検出 (warning 段階)。 | (済) | 2026-04-28 |
-| ~~T244~~ | ✅ 完了 | ~~**WORKING.md needs-push カラム**~~ → 2026-04-28 HISTORY 1345 で完了確認。bootstrap script が `needs-push.*yes` を grep して滞留警告。 | (済) | 2026-04-28 |
 | T245 | 中 | **AI フィールド データフロー文書 `docs/ai-fields-flow.md` 新設** — AI フィールドが `proc_ai.py schema → _normalize_story_result → handler.py ai_updates → S3 topics.json + S3 per-topic.json + DynamoDB → frontend (app.js card / detail.js detail) ` の 5 層を通るが、フィールドごとの「どの層に入る/入らない」の一覧が無い。マトリクスを書く + PR テンプレートで全層チェック必須化 + CI で field 名差分 grep。 | `docs/ai-fields-flow.md` 新規, `.github/workflows/ai-fields-coverage.yml` 新規 | 2026-04-28 |
 | T246 | 中 | **`Verified:` 行を完了 commit に必須化（done.sh 拡張）** — CLAUDE.md「完了=動作確認済み」と書いてあるがテキスト規則のため形骸化しがち。`done.sh` を拡張し、引数 `verify_target` から URL/log/test を取得して証跡として commit message に `Verified: <url>:<status>:<timestamp>` を自動付与。pre-commit hook で「`done:` プレフィックス commit に `Verified:` 行が無ければ reject」。※実装済 (2026-04-28)。HISTORY 確認要。 | `done.sh`, `.git/hooks/pre-commit`, `CLAUDE.md` | 2026-04-28 |
 | T256 | 中 | **AI フィールドの「層を1つ忘れる」を CI で物理検出する仕組み不在** — T249 (keyPoint・backgroundContext merge 漏れ) は手動調査で発見。`.github/workflows/ai-fields-coverage.yml` 新規。proc_ai.py の input_schema を grep して field 名一覧を抽出 → handler.py merge ループの両方に同名キーがあるか check → 欠落あれば CI ERROR。 | `.github/workflows/ai-fields-coverage.yml` 新規, `scripts/check_ai_fields_coverage.py` 新規 | 2026-04-28 |
@@ -114,7 +106,6 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| ~~TBD-SLI~~ | ✅ 完了 | ~~**`docs/sli-slo.md` 新設**~~ → 2026-04-28 18:10 完了。`docs/sli-slo.md` 新規。SLI 1-7 列挙 (topics.json 鮮度・トップページ HTTP/2/AI カバレッジ/storyPhase 偏り/fetcher 成功率/ads.txt 整合/セキュリティヘッダ)。実装済 SLI には「監視ファイル」、未実装 SLI には「TBD」を明記。再現可能 curl/jq 併記で「Lambda metric だけで設計するな」を物理化。 | (済) | 2026-04-28 |
 
 ---
 
