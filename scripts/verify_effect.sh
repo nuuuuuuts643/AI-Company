@@ -41,7 +41,7 @@ if [ -z "$FIX_TYPE" ]; then
 usage: $0 <fix_type> [args]
 
 fix_type:
-  ai_quality      [topics_url]   aiGenerated=True 母集団の keyPoint>=50% / perspectives>=60% で PASS
+  ai_quality      [topics_url]   aiGenerated=True 母集団の keyPoint>=50% / keyPoint>=100字>=30% / perspectives>=60% / watchPoints>=30% で PASS
   mobile_layout   [pages_csv]    375px 幅で横スクロール無し (PASS) — puppeteer 必要
   mobile                         mobile_layout の別名
   freshness       [topics_url]   topics.json updatedAt が 90 分以内 (PASS)
@@ -57,9 +57,14 @@ fi
 case "$FIX_TYPE" in
   ai_quality)
     URL="${1:-https://flotopic.com/api/topics.json}"
-    # aiGenerated=True 母集団に対する充填率。閾値: keyPoint>=50%, perspectives>=60% (T2026-0428-Y)
+    # aiGenerated=True 母集団に対する充填率。
+    # 閾値: keyPoint(any len)>=50%, perspectives>=60% (T2026-0428-Y)
+    # パターン5 横断 (2026-04-29): keyPoint 長さ≥100字 / watchPoints 存在率を追加判定。
+    #   閾値は緩く 30% (proc_ai.py 側 minLength:100 retry が浸透するまで段階的)。
     KP_THRESHOLD="${AI_QUALITY_KP_THRESHOLD:-50}"
     PV_THRESHOLD="${AI_QUALITY_PV_THRESHOLD:-60}"
+    KP_LONG_THRESHOLD="${AI_QUALITY_KP_LONG_THRESHOLD:-30}"   # keyPoint ≥100字 充填率 (緩い段階目標)
+    WP_THRESHOLD="${AI_QUALITY_WP_THRESHOLD:-30}"             # watchPoints 存在率 (パターン5 新規)
     if ! command -v jq >/dev/null 2>&1; then
       echo "[verify_effect] jq 必要 (brew install jq)" >&2
       exit 2
@@ -78,17 +83,23 @@ case "$FIX_TYPE" in
       exit 2
     fi
     if [ "$TOTAL" = "0" ]; then
-      echo "Verified-Effect: ai_quality aiGenerated=0 keyPoint=N/A perspectives=N/A SKIP @ ${JST_TS}"
+      echo "Verified-Effect: ai_quality aiGenerated=0 keyPoint=N/A perspectives=N/A watchPoints=N/A SKIP @ ${JST_TS}"
       exit 0
     fi
     KP_FILLED=$(jq '[(.topics // .)[] | select(.aiGenerated == true) | select(.keyPoint != null and (.keyPoint | tostring | length) > 0)] | length' "$TMP")
+    KP_LONG_FILLED=$(jq '[(.topics // .)[] | select(.aiGenerated == true) | select(.keyPoint != null and (.keyPoint | tostring | length) >= 100)] | length' "$TMP")
     PV_FILLED=$(jq '[(.topics // .)[] | select(.aiGenerated == true) | select(.perspectives != null and (.perspectives | length // 0) > 0)] | length' "$TMP")
+    WP_FILLED=$(jq '[(.topics // .)[] | select(.aiGenerated == true) | select(.watchPoints != null and (.watchPoints | tostring | length) > 0)] | length' "$TMP")
     KP_PCT=$(awk -v a="$KP_FILLED" -v b="$TOTAL" 'BEGIN{ if(b>0) printf "%.1f", a/b*100; else print "0.0" }')
+    KP_LONG_PCT=$(awk -v a="$KP_LONG_FILLED" -v b="$TOTAL" 'BEGIN{ if(b>0) printf "%.1f", a/b*100; else print "0.0" }')
     PV_PCT=$(awk -v a="$PV_FILLED" -v b="$TOTAL" 'BEGIN{ if(b>0) printf "%.1f", a/b*100; else print "0.0" }')
+    WP_PCT=$(awk -v a="$WP_FILLED" -v b="$TOTAL" 'BEGIN{ if(b>0) printf "%.1f", a/b*100; else print "0.0" }')
     KP_PASS=$(awk -v p="$KP_PCT" -v t="$KP_THRESHOLD" 'BEGIN{ if(p+0 >= t+0) print "PASS"; else print "FAIL" }')
+    KP_LONG_PASS=$(awk -v p="$KP_LONG_PCT" -v t="$KP_LONG_THRESHOLD" 'BEGIN{ if(p+0 >= t+0) print "PASS"; else print "FAIL" }')
     PV_PASS=$(awk -v p="$PV_PCT" -v t="$PV_THRESHOLD" 'BEGIN{ if(p+0 >= t+0) print "PASS"; else print "FAIL" }')
-    if [ "$KP_PASS" = "PASS" ] && [ "$PV_PASS" = "PASS" ]; then PASS="PASS"; else PASS="FAIL"; fi
-    echo "Verified-Effect: ai_quality keyPoint=${KP_PCT}%(${KP_FILLED}/${TOTAL}) perspectives=${PV_PCT}%(${PV_FILLED}/${TOTAL}) thresholds=kp${KP_THRESHOLD}/pv${PV_THRESHOLD} ${PASS} @ ${JST_TS}"
+    WP_PASS=$(awk -v p="$WP_PCT" -v t="$WP_THRESHOLD" 'BEGIN{ if(p+0 >= t+0) print "PASS"; else print "FAIL" }')
+    if [ "$KP_PASS" = "PASS" ] && [ "$KP_LONG_PASS" = "PASS" ] && [ "$PV_PASS" = "PASS" ] && [ "$WP_PASS" = "PASS" ]; then PASS="PASS"; else PASS="FAIL"; fi
+    echo "Verified-Effect: ai_quality keyPoint=${KP_PCT}%(${KP_FILLED}/${TOTAL}) keyPoint>=100=${KP_LONG_PCT}%(${KP_LONG_FILLED}/${TOTAL}) perspectives=${PV_PCT}%(${PV_FILLED}/${TOTAL}) watchPoints=${WP_PCT}%(${WP_FILLED}/${TOTAL}) thresholds=kp${KP_THRESHOLD}/kpL${KP_LONG_THRESHOLD}/pv${PV_THRESHOLD}/wp${WP_THRESHOLD} ${PASS} @ ${JST_TS}"
     [ "$PASS" = "PASS" ] || exit 1
     exit 0
     ;;
