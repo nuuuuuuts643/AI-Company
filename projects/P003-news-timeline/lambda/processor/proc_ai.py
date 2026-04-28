@@ -508,7 +508,7 @@ _STORY_PROMPT_RULES = (
 # T2026-0428-AJ: prompt caching 用の共通システムプロンプト。
 # 全モード (minimal/standard/full) で **完全に同一バイト** を渡すことで cache prefix がヒットする。
 # Haiku 最低 2048 tokens / Sonnet 最低 1024 tokens 必要 → _WORD_RULES + _STORY_PROMPT_RULES +
-# _GENRES_PROMPT + 役割定義 + forecast/timeline/出力品質チェックをまとめて 4000 字超 (≒2500-3500 tokens)
+# _GENRES_PROMPT + 役割定義 + forecast/timeline/出力品質チェックをまとめて 7000 字超 (≒4000 tokens 以上)
 # を確保する。中身を変えるとキャッシュが破棄されるため、修正時は意図的に行うこと。
 _SYSTEM_PROMPT = (
     'あなたはニュース記事を構造化分析して JSON Schema で出力する専門アシスタントです。\n'
@@ -630,3 +630,85 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
 # Tool Use API + JSON Schema (`_build_story_schema`) で structured output を物理的に強制。
 # malformed JSON の発生確率は 0 になり、`generate_story (full) error: Expecting ',' delimiter`
 # 系の警告が消える (T39 の続き、JSON parse error なぜなぜ分析の対策実装)。
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T2026-0428-PRED: outlook (AI予想) 自動当否判定
+# ─────────────────────────────────────────────────────────────────────────────
+_VALID_PREDICTION_RESULTS = ('matched', 'partial', 'missed', 'pending')
+
+_PREDICTION_JUDGE_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'result': {
+            'type': 'string',
+            'enum': list(_VALID_PREDICTION_RESULTS),
+            'description': (
+                'matched=新記事群が予想内容を明確に裏付けている / '
+                'partial=部分的に方向性は合っているが完全には一致しない / '
+                'missed=予想と異なる方向に展開した・反対の事実が報じられた / '
+                'pending=判定可能な根拠が新記事群に十分含まれない (継続観測)'
+            ),
+        },
+        'evidence': {
+            'type': 'string',
+            'description': '判定の根拠を 80 字以内で。どの記事の何を根拠にしたかを簡潔に。',
+        },
+    },
+    'required': ['result', 'evidence'],
+}
+
+
+def judge_prediction(outlook: str, new_titles: list, min_titles: int = 5) -> dict | None:
+    """outlook (AI 予想) と、predictionMadeAt 以降に追加された新記事タイトル群を比較し
+    matched / partial / missed / pending を返す。
+
+    Args:
+        outlook:    AI が立てた予想文 (1〜2 文)。文末に [確信度:高/中/低] が付与されている。
+        new_titles: predictionMadeAt 以降に追加された記事タイトルのリスト。
+        min_titles: 判定に必要な最小タイトル数 (5 件未満は 1 件で判断するとノイズになるため None を返す)。
+
+    Returns:
+        {'result': 'matched'|'partial'|'missed'|'pending', 'evidence': '...'}
+        または None (API 未設定 / 入力不足 / API 失敗時)。
+    """
+    if not ANTHROPIC_API_KEY:
+        return None
+    outlook = (outlook or '').strip()
+    if not outlook:
+        return None
+    titles = [str(t).strip() for t in (new_titles or []) if str(t).strip()]
+    if len(titles) < min_titles:
+        # 1〜数件で判定するとノイズなので明示的に「pending = 継続観測」を返す。
+        # API は呼ばずローカルで返す (コスト抑制)。
+        return {'result': 'pending', 'evidence': f'新記事 {len(titles)} 件 < {min_titles} 件のため継続観測。'}
+
+    headlines = '\n'.join(f'- {clean_headline(t)[:80]}' for t in titles[:20])
+    prompt = (
+        '以下は過去にAIが立てた「予想」と、その予想を立てた時刻以降に追加された新しい記事タイトル群です。\n'
+        '新記事群の内容から、予想の当否を 4 値で判定してください。\n\n'
+        '【判定ルール】\n'
+        '- matched: 新記事群が予想の内容を明確に裏付けている (固有名詞・事象の方向性が一致)。\n'
+        '- partial: 方向性は合っているが完全には一致しない / 部分的に進展。\n'
+        '- missed:  予想と異なる方向に展開した、または反対の事実が報じられた。\n'
+        '- pending: 新記事群に判定可能な根拠が十分含まれない (継続観測すべき)。\n\n'
+        '【evidence】判定の根拠を 80 字以内で簡潔に。「どの記事の何を根拠にしたか」を書く。\n'
+        '推測ではなく、新記事群に書かれた事実を引用すること。\n\n'
+        f'【予想文】\n{outlook}\n\n'
+        f'【新記事タイトル ({len(titles)} 件)】\n{headlines}'
+    )
+    try:
+        result = _call_claude_tool(
+            prompt, 'judge_prediction', _PREDICTION_JUDGE_SCHEMA,
+            max_tokens=300, timeout=20,
+        )
+        if not result:
+            return None
+        verdict = result.get('result')
+        if verdict not in _VALID_PREDICTION_RESULTS:
+            return None
+        evidence = str(result.get('evidence') or '').strip()[:200]
+        return {'result': verdict, 'evidence': evidence}
+    except Exception as e:
+        print(f'judge_prediction error: {e}')
+        return None
