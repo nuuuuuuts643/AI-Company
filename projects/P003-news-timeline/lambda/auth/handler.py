@@ -85,7 +85,10 @@ def verify_google_token(id_token: str) -> dict | None:
         return None
 
 
-VALID_GENRES = {'総合','政治','経済','テクノロジー','スポーツ','エンタメ','科学','国際','社会','健康','ビジネス','教育','文化','環境'}
+# T2026-0428-AU: フロント GENRES と processor _VALID_GENRE_SET と完全一致 (14ジャンル)
+# 旧「経済・教育・文化・環境」は廃止 (経済→ビジネス, 文化/教育/環境→くらし)。
+# 既存ユーザーが旧 genre を持っている場合、frontend 側 _LEGACY_GENRE_MAP で吸収する。
+VALID_GENRES = {'総合','政治','ビジネス','株・金融','テクノロジー','スポーツ','エンタメ','科学','健康','国際','くらし','社会','グルメ','ファッション'}
 
 
 def get_or_create_user(payload: dict, new_handle: str = '',
