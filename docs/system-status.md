@@ -30,17 +30,21 @@
 
 > このテーブルはセッションをまたいで整合性を保つための機械的な記録。
 > 作業完了のたびに更新する。
+>
+> **※`[AUTO]` 接頭辞付きの行は将来 `freshness-check.yml` (1h cron) からの実測値で自動更新する対象 (T2026-0428-AC)**。
+> 手書きで嘘を書ける構造を排除するため、観測値はワークフロー出力で sed 置換する設計に移行する。
+> 接頭辞なしの行は人間が方針スナップショットとして手書き更新する (CI 状態・スケジュール等)。
 
 | コンポーネント | 状態 | 最終更新 | 備考 |
 |---|---|---|---|
 | CI | ✅ 全テスト通過 | 2026-04-25 | `npm test` 42 件全パス必須 |
 | processor AI 要約 | ✅ 稼働中 | 2026-04-27 | 4x/day JST 01:00/07:00/13:00/19:00。MAX_API_CALLS=200 |
-| AI 要約カバレッジ | ✅ FRESH | 2026-04-28 07:13 | 実測: 115 件中 aiGenerated=True 93 件 (**80.9%**)。T218 wallclock guard 反映後 24.6% → 80.9%。観測コマンドは `docs/sli-slo.md` SLI 3 |
-| keyPoint 充填率 | 🔴 半壊 | 2026-04-28 07:13 | **全体 10/115 = 8.7%**。aiGenerated=True なのに必須フィールド空 = success-but-empty。T255 修正済 (skip 条件) だが次 cycle (07/13/19 JST) 反映待ち。SLI 8 (`freshness-check.yml` ai_fields step)。フィールドカタログ: `docs/ai-fields-catalog.md` |
-| perspectives 充填率 | 🔴 半壊 | 2026-04-28 07:13 | 23/115 = 20.0% (全体)。SLI 9 |
-| storyPhase 偏り | ⚠️ 警告寸前 | 2026-04-28 07:13 | 「発端」 54/115 = 47.0% (閾値 50%)。クラスタ過分割 (T212) と相関。SLI 4 |
-| topics.json 鮮度 | ✅ FRESH | 2026-04-28 07:13 | 実測 07:13 JST: updatedAt 22:05 UTC = 07:05 JST、diff 約 8 分。閾値 90 分 (`docs/sli-slo.md` SLI 1)。外部観測 `freshness-check.yml` 1h cron (T263) |
-| topics.json サイズ | ✅ 閾値内 | 2026-04-28 07:13 | 実測 213 KB (Content-Length=213045) / アラート閾値 250 KB (T2026-0428-F)。前回 312KB 記載は誤記訂正。Step1 (topics-card.json 二系統化) 未着手 |
+| [AUTO] AI 要約カバレッジ | ✅ FRESH | 2026-04-28 07:13 | 実測: 115 件中 aiGenerated=True 93 件 (**80.9%**)。T218 wallclock guard 反映後 24.6% → 80.9%。観測コマンドは `docs/sli-slo.md` SLI 3 |
+| [AUTO] keyPoint 充填率 | 🔴 半壊 | 2026-04-28 07:13 | **全体 10/115 = 8.7%**。aiGenerated=True なのに必須フィールド空 = success-but-empty。T255 修正済 (skip 条件) だが次 cycle (07/13/19 JST) 反映待ち。SLI 8 (`freshness-check.yml` ai_fields step)。フィールドカタログ: `docs/ai-fields-catalog.md` |
+| [AUTO] perspectives 充填率 | 🔴 半壊 | 2026-04-28 07:13 | 23/115 = 20.0% (全体)。SLI 9 |
+| [AUTO] storyPhase 偏り | ⚠️ 警告寸前 | 2026-04-28 07:13 | 「発端」 54/115 = 47.0% (閾値 50%)。クラスタ過分割 (T212) と相関。SLI 4 |
+| [AUTO] topics.json 鮮度 | ✅ FRESH | 2026-04-28 07:13 | 実測 07:13 JST: updatedAt 22:05 UTC = 07:05 JST、diff 約 8 分。閾値 90 分 (`docs/sli-slo.md` SLI 1)。外部観測 `freshness-check.yml` 1h cron (T263) |
+| [AUTO] topics.json サイズ | ✅ 閾値内 | 2026-04-28 07:13 | 実測 213 KB (Content-Length=213045) / アラート閾値 250 KB (T2026-0428-F)。前回 312KB 記載は誤記訂正。Step1 (topics-card.json 二系統化) 未着手 |
 | DynamoDB SNAP | 📉 改善中 | 2026-04-26 | lifecycle 週次で削除中。TTL(7日) ENABLED |
 | Bluesky 自動投稿 | ✅ 継続稼働 | 2026-04-27 | 1日 3 回 (JST 08:00/12:00/18:00) |
 | 静的 SEO HTML 生成 | 🔴 本番断絶 | 2026-04-28 08:15 | **2026-04-28 08:15 schedule-task で発見**: news-sitemap.xml 登録 50 件サンプリング 3/3 全て **HTTP 404 (x-cache: Error from cloudfront)**。S3 に `topics/{tid}.html` が無い。手書き「500/500件」は誤記録 (T2026-0428-AC「手書き嘘記述防止」へ)。SLI 11 (`freshness-check.yml` sitemap_reach step) で再発防止。**復旧タスク**: T2026-0428-AB |
