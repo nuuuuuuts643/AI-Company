@@ -91,4 +91,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Code] T2026-0428-AB topics/{tid}.html 404 復旧 | bugfix | lambda/processor/, lambda/lifecycle/ | 2026-04-28 09:55 | yes |
-| [Code] T2026-0428-V/Y/W verify_effect.sh + CI mobile + Slack SLI alert | feature | scripts/verify_effect.sh, scripts/check_mobile_layout.js, .github/workflows/ci.yml, .github/workflows/freshness-check.yml, CLAUDE.md | 2026-04-28 09:58 | yes |
