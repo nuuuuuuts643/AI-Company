@@ -32,6 +32,13 @@ TABLE = 'p003-topics'
 PROCESSOR_SCHEMA_VERSION = 3
 S3_BUCKET = os.environ.get('S3_BUCKET', 'p003-news-946554699567')
 
+# E2-2 (2026-04-28 PM): proc_storage.py の KEYPOINT_MIN_LENGTH と一致させる。
+# proc_storage 側は不十分扱いで再処理対象化するが、quality_heal が _is_empty しか
+# 見ていないと「短い keyPoint」を pending_ai.json に投入しない。
+# 結果、aiGenerated=True で短い keyPoint のトピックは再処理キューに入らず滞留した
+# (本番 100 件 / 1-99 字、99 件は pendingAI=False のまま固着)。
+KEYPOINT_MIN_LENGTH = 100
+
 
 def _is_empty(v):
     if v is None:
@@ -39,6 +46,16 @@ def _is_empty(v):
     if isinstance(v, str) and not v.strip():
         return True
     if isinstance(v, (list, dict)) and len(v) == 0:
+        return True
+    return False
+
+
+def _is_keypoint_inadequate(v):
+    """proc_storage.py._is_keypoint_inadequate と同等。
+    空 / 100 字未満を「不十分」と判定する。"""
+    if _is_empty(v):
+        return True
+    if isinstance(v, str) and len(v.strip()) < KEYPOINT_MIN_LENGTH:
         return True
     return False
 
@@ -94,8 +111,15 @@ def find_unhealthy(metas):
             continue
 
         reasons = []
-        if _is_empty(m.get('keyPoint')):
-            reasons.append('keyPoint空')
+        # E2-2 (2026-04-28 PM): 空だけでなく 100 字未満の短い keyPoint も再処理対象に含める。
+        # proc_storage.py 側の `_is_keypoint_inadequate` と一致させ、aiGenerated=True で
+        # 短い keyPoint (1-99 字) が pendingAI=False のまま放置される問題を解消する。
+        if _is_keypoint_inadequate(m.get('keyPoint')):
+            kp = m.get('keyPoint')
+            if _is_empty(kp):
+                reasons.append('keyPoint空')
+            else:
+                reasons.append(f'keyPoint短い({len(str(kp).strip())}字<100)')
         if sv < PROCESSOR_SCHEMA_VERSION:
             reasons.append(f'schemaVersion={sv}<{PROCESSOR_SCHEMA_VERSION}')
         if ac >= 3:
