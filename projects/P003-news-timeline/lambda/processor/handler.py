@@ -30,6 +30,7 @@ from proc_storage import (
     get_articles_added_after, generate_topics_card_json,
     generate_health_json,
     _is_keypoint_inadequate,
+    _strip_title_markdown,
 )
 
 _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext', 'background'}
@@ -271,7 +272,7 @@ def lambda_handler(event, context):
             raw_title = topic.get('title', '')
             articles  = [{'title': raw_title}] if raw_title else []
 
-        gen_title       = topic.get('generatedTitle')
+        gen_title       = _strip_title_markdown(topic.get('generatedTitle'))
         title_succeeded = False
         story_succeeded = False
 
@@ -284,7 +285,7 @@ def lambda_handler(event, context):
             api_calls += 1
             time.sleep(1.5)
             if new_title:
-                gen_title       = new_title
+                gen_title       = _strip_title_markdown(new_title)
                 title_succeeded = True
                 print(f'  [Claude タイトル] {tid[:8]}... → {new_title[:30]}')
 

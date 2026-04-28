@@ -4,6 +4,35 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 07:58 JST Code 横断スキャン 根本原因全適用 — パターン1〜6）
+
+- ✅ **パターン1 完了** — title markdown strip 漏れ全 write path 適用。
+  - `lambda/processor/handler.py` で `gen_title` を pickup する 2 箇所 (line 274 / 287) に `_strip_title_markdown()` を適用。OGP 画像生成・Bluesky pending マーカー・topics-full.json 書き戻し全てに stripped 値が伝播するようになる。
+  - `lambda/processor/proc_storage.py:generate_ogp_image()` 冒頭で defensive strip を追加。markdown 文字 (#, **) が画像に焼き込まれる事故を防ぐ。
+  - `lambda/fetcher/handler.py:574` の `'generatedTitle': gen_title or g[0]['title']` を `strip_title_markdown(gen_title or g[0]['title'])` に変更。fetcher は processor とは別 Lambda なので `lambda/fetcher/text_utils.py` に `strip_title_markdown()` を新設して import。
+  - **commit**: d3fd0f1 / 4 ファイル変更。
+
+- ✅ **パターン2 完了** — AI field min length perspectives/watchPoints/outlook 強制。
+  - `lambda/processor/proc_ai.py` で keyPoint のみ持っていた minLength を 3 フィールドに横展開: perspectives (≥60字) / watchPoints (≥80字 = ① + ② 2項目分) / outlook (≥60字)。Tool Use validation で schema 違反として再要求が走る物理ガード。
+  - prompt rules (`_STORY_PROMPT_RULES`) と system prompt の出力品質チェックも対応する文字数明示に更新。
+  - **基準値**: 本番 watchPoints 平均 38 字 / outlook 41 字 / perspectives 47 字。**目標**: 次回 forceRegenerateAll 後 平均 ≥80/60/60 字。
+  - **commit**: c293df9 / proc_ai.py 1 ファイル。
+
+- ✅ **パターン3 完了** — GitHub Actions JSON shorthand 問題は PR #14 (claude/intelligent-goldberg-ca2d0f) が `--targets file://` 形式で既に修正済 (commit 2c8d8e9)。同一 deploy-lambdas.yml への二重編集を避ける (T2026-0429-PR-CONFLICT 運用ルール) ため本ブランチでは別途修正しない。他の workflow (cf-analytics-setup.yml 等) には同パターン未検出。
+
+- ✅ **パターン4 完了** — TASKS.md に残っていた `<<<<<<< HEAD ... >>>>>>> 013d0b2` コンフリクトマーカーを解消 (両側のタスク T2026-0428-K / T2026-0428-Q を保持)。`T2026-0429-PR-CONFLICT` を新設し「同一ファイル並行編集禁止 / 衝突しない順番で merge」を運用ルール化。PR #13 (T237) は別経路で push 完了 (CI run 25081752068 green)。
+  - **commit**: f07953f / TASKS.md 1 ファイル。
+
+- ✅ **パターン5 完了** — `scripts/verify_effect.sh ai_quality` の判定軸を強化。
+  - 旧: keyPoint 空でない / perspectives 空でない の 2 軸のみ。21 字の短文 keyPoint でも PASS する穴があった。
+  - 新: `keyPoint ≥100 字` 充填率 (閾値 30%) と `watchPoints` 存在率 (閾値 30%) を追加判定。閾値は緩く設定し proc_ai.py minLength:100 retry の浸透を Verified-Effect で段階観測。
+  - 環境変数 `AI_QUALITY_KP_LONG_THRESHOLD` / `AI_QUALITY_WP_THRESHOLD` で上書き可能。
+  - **commit**: 9ce3556 / verify_effect.sh 1 ファイル。
+
+- ✅ **パターン6 完了** — `scripts/session_bootstrap.sh` の `[Code]` 並走 ≥2 件 ERROR 化は T2026-0428-BB で既に実装済 (line 273-282)。`BOOTSTRAP_EXIT=1` + 末尾 `exit "$BOOTSTRAP_EXIT"` で物理ブロックが効いていることをコード検査で確認。緊急 bypass は `ALLOW_CONCURRENT_CODE=1` のみ。
+
+---
+
 ### 完了済み（2026-04-29 07:55 JST Code T2026-0429-B + CI fix(deploy-lambdas put-targets) + T2026-0428-L 整理）
 
 - ✅ **T2026-0429-B 完了** — semantic branching ロジックと prompt 改善。
