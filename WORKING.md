@@ -91,4 +91,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 |---|---|---|---|---|
 | [Code] T2026-0428-AK 空トピック量産バグ根本修正 | Code | lambda/fetcher/handler.py, lambda/lifecycle/handler.py, scripts/verify_effect.sh | 2026-04-28 10:34 | yes |
 | [Code] T2026-0428-AO 全トピック棚卸し＆一括クリーンアップ | Code | scripts/cleanup_all_topics.py, S3 topics*.json | 2026-04-28 10:40 | yes |
-| [Code] T2026-0428-AP データ品質プレイブック化 | Code | docs/rules/data-quality-playbook.md, docs/lessons-learned.md | 2026-04-28 11:09 | no |
