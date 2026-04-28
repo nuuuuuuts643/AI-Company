@@ -102,3 +102,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code T2026-0428-BH] keyPoint平均長 43.8字 根本原因調査+修正 | 調査+修正 | projects/P003-news-timeline/lambda/processor/proc_ai.py | 2026-04-28 22:34 JST | yes |
