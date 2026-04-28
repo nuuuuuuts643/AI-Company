@@ -11,10 +11,10 @@
 > 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**現在のフェーズ**: **フェーズ2（AI品質改善）進行中** — T2026-0429-D 繰り返し失敗自動検出 Code セッション稼働中（08:00 JST 開始・残 7h53m）
+**現在のフェーズ**: **フェーズ2（AI品質改善）進行中** — T237/T2026-0429-A/T2026-0428-Q Code セッション稼働中（07:08 JST 開始）
 **直近のPO指示** (2026-04-29): 「p003巡回を自律的に動かせ」「完成度上げてくれ」
-**次のアクション**: **CASE A — Code セッション完了待ち**。**2026-04-29 08:10 JST 自律巡回 SLI 実測** (topics-full.json updatedAt=**2026-04-28T23:08Z=JST 08:08・1 分前更新**, count=**108**): ① keyPoint 100字以上 **2/108=1.9%**（前回と同じ 2 件・新規 3 件は keyPoint 未生成）② keyPoint 空でない 94/108=87.0% ③ 文字数分布 21–50字に 83件 (76.9%) 集中・51–99字 3件・100+ 2件・1-20字 6件・空 14件 ④ storyPhase 発端率(ac≥3) **4/50=8.0%**（目標 <10% 既達継続）⑤ phase 分布: 拡散 28、ピーク 5、現在地 4、発端 4、none 9 ⑥ schemaVersion≥3 33/108、statusLabel 37、watchPoints 37、perspectives 38、outlook 94 ⑦ judge_prediction AWS 認証なくスキップ。**前回 07:09 JST 観測時の「5h 停滞」誤判定を撤回** — 実際 processor は稼働中（count 105→108、updatedAt 5h→1m）。**起動中タスクとは別軸**で次セッションは T2026-0429-KP3（proc_ai.py プロンプト minLength:100 強化）+ T2026-0428-E（4軸化）が候補。新規起動禁止（CASE A 物理ルール）。
-**最終更新**: 2026-04-29 08:10 JST 自律巡回（CASE A: Code 行 1 件稼働中・新規起動禁止 / processor 健全動作確認 / keyPoint 100字以上 1.9% 横ばい・新規 3 件で母数増のため数値据置 / 100字以上化が次サイクル本命）
+**次のアクション**: **CASE A — Code セッション完了待ち**。**2026-04-29 07:09 JST 自律巡回 SLI 実測** (topics-full.json updatedAt=**2026-04-28T17:05Z=JST 02:05・約 5h 停滞**, count=105): ① keyPoint 100字以上 **2/105=1.9%**（前回 06:10 JST と完全同一 = データ更新自体が動いてない）② keyPoint 空でない 94/105=89.5% ③ 文字数分布 21–50字に 83件 (79%) 集中・51–99字 3件・100+ 2件・1-20字 6件 ④ storyPhase 発端率(ac≥3) **2/48=4.2%**（目標 <10% 既達継続）⑤ phase 分布: 拡散 28/拡散優位、ピーク 5、現在地 4、発端 2、none 9 ⑥ schemaVersion≥3 32/105、statusLabel 37/105、watchPoints 37/105、perspectives 38/105、outlook 94/105 ⑦ judge_prediction 0 件継続。**新規発見**: topics-full.json `updatedAt` が 5 時間更新されていない → regenerateSitemap または processor の処理停止疑い。**起動中タスクとは別軸**でPO指示後の次セッションで T2026-0429-KP3（proc_ai.py プロンプト minLength:100 強化）+ T2026-0428-E（4軸化）+ topics.json 停滞調査が候補。新規起動禁止（CASE A 物理ルール）。
+**最終更新**: 2026-04-29 07:09 JST 自律巡回（CASE A: Code 行 1 件稼働中・新規起動禁止 / SLI 完全同値 / topics-full.json 5h 停滞検知 / regenerateSitemap または processor 停止疑い・次サイクルで要観測）
 
 ---
 
@@ -102,8 +102,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-<<<<<<< HEAD
-| [Code] T2026-0429-D 繰り返し失敗自動検出の実装 | feat | scripts/detect_repeated_failures.sh, scripts/analyze_task_patterns.sh, scripts/session_bootstrap.sh, .github/workflows/ci.yml | 2026-04-29 08:00 JST | needs-push: yes |
-| [Code] E2-2 keyPoint充填率改善 Lambda手動invoke | ops | TASKS.md (record only) | 2026-04-29 08:14 JST | needs-push: no |
-=======
->>>>>>> 88a2a55a374e755afe6e929ded5479711671c27c
