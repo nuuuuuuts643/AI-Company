@@ -24,11 +24,11 @@
 - ✅ session_bootstrap.sh で運用前提 5 ファイル（CLAUDE.md / global-baseline.md / system-status.md / product-direction.md / project-phases.md）が毎回確認できる
 - ✅ freshness-check SLI 1〜11（updatedAt / sitemap_reach 等）外部観測
 
-### B. リリース管理・ロールバック（新規・未達）
-- ❌ **develop / main ブランチ分離** — main は常に動く / 開発は develop でマージ → main へは「ロールバック可能な単位の commit」のみ。実装: GitHub branch protection rules で main へ直接 push 禁止 + PR 経由のみ
-- ❌ **git tag v1.x.x によるリリース管理** — `vYYYY.MMDD.N` 形式で push 時点の releases を tag。実装: `.github/workflows/release-tag.yml` (新設) を deploy 成功時に走らせ、自動 tag。手動でも `bash scripts/tag_release.sh` で生成可
-- ❌ **ロールバック手順の文書化** — `docs/runbooks/rollback.md` (新設)。「main が壊れたら何をすれば戻るか」を Lambda（`aws lambda update-function-code` で前 tag に戻す）/ Frontend（`aws s3 sync` で前 tag に戻す）/ DB（quality_heal で再処理）の 3 経路で言語化。CI で「本ファイルが空でないこと」「`git revert` または `aws lambda update-function-code` のいずれかが手順に含まれること」を物理検査
-- ❌ **CI 全パス必須化** — main マージ前に CI 全 job 通過が必須（branch protection の required status checks）
+### B. リリース管理・ロールバック（新規・進行中）
+- ❌ **develop / main ブランチ分離** — main は常に動く / 開発は develop でマージ → main へは「ロールバック可能な単位の commit」のみ。実装: GitHub branch protection rules で main へ直接 push 禁止 + PR 経由のみ。※ GitHub Settings で設定要・PO手動
+- ✅ **git tag v1.x.x によるリリース管理** — `vYYYY.MMDD.N` 形式で push 時点の releases を tag。実装: `.github/workflows/release-tag.yml` + `scripts/tag_release.sh` で自動 tag（deploy 成功時 or 手動実行）。T2026-0428-AZ で実装済
+- ✅ **ロールバック手順の文書化** — `docs/runbooks/rollback.md` (T2026-0428-AX で新設済)。「main が壊れたら何をすれば戻るか」を Lambda（`aws lambda update-function-code` で前 tag に戻す）/ Frontend（`aws s3 sync` で前 tag に戻す）/ DB（quality_heal で再処理）の 3 経路で言語化済
+- ❌ **CI 全パス必須化** — main マージ前に CI 全 job 通過が必須（branch protection の required status checks）。※ GitHub Settings で設定要・PO手動
 
 ### C. Dispatch 運用安定（新規・未達 — 2026-04-28 PM 追加）
 - ❌ **Dispatch から起動できるコードセッション = 同時 1 件まで**（Dispatch 自身を含めて 2 件以内）。新規タスクは前のコードセッション完了までキューに積む。WORKING.md の `[Code]` 行が 2 件以上ある瞬間は session_bootstrap.sh が物理 ERROR を出す（既存は WARNING のみ）
