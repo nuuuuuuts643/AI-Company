@@ -1273,6 +1273,10 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
         timeline_html = '<section><h2>ストーリーの流れ</h2>' + ''.join(items_html) + '</section>'
 
     # 記事リストHTML（上位10件）
+    # T2026-0428-AN: a.get('isPrimary') が True なら一次情報バッジを付与。
+    # フラグは fetcher 側で URL ドメイン照合（is_primary_source）により付与済み。
+    # 古い SNAP（フラグ未付与）はバッジ無しで表示する（後方互換）。
+    # 著作権法32条「引用」として利用、出典明示必須（必ず source 名を表示する）。
     articles_html = ''
     if articles:
         art_items = []
@@ -1281,9 +1285,13 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
             a_url    = _html_esc(a.get('url', ''))
             a_src    = _html_esc(a.get('source', ''))
             a_date   = _html_esc(str(a.get('pubDate', ''))[:10])
+            primary_badge = (
+                '<span class="primary-badge" title="この記事は一次情報源からの報道です">🔵 一次情報</span>'
+                if a.get('isPrimary') else ''
+            )
             if a_url and a_title:
                 art_items.append(
-                    f'<li><a href="{a_url}" rel="noopener">{a_title}</a>'
+                    f'<li>{primary_badge}<a href="{a_url}" rel="noopener">{a_title}</a>'
                     f'<span class="src"> — {a_src} {a_date}</span></li>'
                 )
         if art_items:
@@ -1361,6 +1369,7 @@ header a{{color:#6366f1;font-weight:bold;font-size:1.1rem;text-decoration:none}}
 .aff-btn{{display:inline-block;padding:8px 14px;border-radius:6px;font-size:.84rem;font-weight:600;text-decoration:none}}
 .aff-amz{{background:#ff9900;color:#fff}}.aff-rkt{{background:#bf0000;color:#fff}}.aff-yhs{{background:#ff0033;color:#fff}}
 .aff-note{{font-size:.7rem;color:#92400e;margin:0}}
+.primary-badge{{display:inline-block;background:rgba(59,130,246,.12);color:#1d4ed8;border:1px solid rgba(59,130,246,.4);border-radius:4px;padding:1px 6px;font-size:.72rem;font-weight:700;margin-right:6px;vertical-align:middle}}
 </style>
 </head>
 <body>
