@@ -21,7 +21,7 @@
    * 日時 (Unix秒 / ISO文字列 / Date) を経過時間表記にする。
    * - 0/null/undefined/空文字 → '' (UI に漏らさない)
    * - 1990年以前の Date → '' (epoch=0 由来の偽装値ガード)
-   * - <1h: N分前 / <24h: N時間前 / <7日: N日前 / それ以上: M/D
+   * - <1h: N分前 / <24h: N時間前 / <7日: N日前 / それ以上: YYYY/M/D
    */
   function fmtElapsed(input) {
     if (input === 0 || input === '0' || input === null || input === undefined || input === '') {
@@ -38,7 +38,7 @@
       if (diff < 3600)   return `${Math.floor(diff / 60)}分前`;
       if (diff < 86400)  return `${Math.floor(diff / 3600)}時間前`;
       if (diff < 604800) return `${Math.floor(diff / 86400)}日前`;
-      return `${d.getMonth() + 1}/${d.getDate()}`;
+      return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
     } catch (e) {
       return '';
     }

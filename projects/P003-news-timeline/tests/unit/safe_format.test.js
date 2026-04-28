@@ -52,6 +52,21 @@ test('fmtElapsed of future date returns empty (timezone mismatch guard)', () => 
   const future = Math.floor(Date.now() / 1000) + 3600 * 24 * 365;  // 1年後
   assert.strictEqual(SF.fmtElapsed(future), '');
 });
+// 7日以上前は YYYY/M/D 形式（西暦付き）— 年またぎを正しく区別できることを保証
+test('fmtElapsed >7d returns YYYY/M/D format (year included)', () => {
+  // 30日前
+  const thirtyDaysAgo = Math.floor(Date.now() / 1000) - 86400 * 30;
+  const result = SF.fmtElapsed(thirtyDaysAgo);
+  assert.match(result, /^\d{4}\/\d{1,2}\/\d{1,2}$/);
+});
+test('fmtElapsed boundary: 12/31 and 1/1 of different years are distinguishable', () => {
+  // 同じ "12/31" / "1/1" でも年が違えば異なる文字列になる
+  const dec31_2023 = SF.fmtElapsed(new Date('2023-12-31T12:00:00').getTime() / 1000);
+  const jan01_2025 = SF.fmtElapsed(new Date('2025-01-01T12:00:00').getTime() / 1000);
+  assert.match(dec31_2023, /^2023\//);
+  assert.match(jan01_2025, /^2025\//);
+  assert.notStrictEqual(dec31_2023, jan01_2025);
+});
 
 // ============================================================
 // formatCount: 0/不明値は null (UI に「0件」を出さない)
