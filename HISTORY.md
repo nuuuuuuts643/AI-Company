@@ -4,6 +4,28 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 07:55 JST Code T2026-0429-B + CI fix(deploy-lambdas put-targets) + T2026-0428-L 整理）
+
+- ✅ **T2026-0429-B 完了** — semantic branching ロジックと prompt 改善。
+  - **背景**: `docs/rules/story-branching-policy.md` §3.3 判定マトリクス (主役重複×因果連続×Jaccard) を実装フェーズに移行。velocityScore (数字) ではなく内容軸のみで分岐判断する方針を物理担保。
+  - **追加**: `lambda/processor/proc_ai.py`
+    - `_STORY_PROMPT_RULES` に「同一事件の新展開はブランチではなく同トピック継続」「watchPoints 観点 1 件は次回ブランチ判定材料を必ず含める」指針を追加。
+    - 末尾に「ストーリー分岐の指針 (T2026-0429-B)」ブロック (主役 PERSON/ORG が変わる or 因果独立のみブランチ)。
+    - 新関数 `should_branch(parent, candidate)` — entities/title/keyPoint から内容軸のみで分岐判定 (4 ケース判定マトリクス: ①主役重複+因果連続→継続 / ②主役不一致→分岐 / ③主役一致+因果なし+Jac<.25→分岐 / ④Jaccard 0.35 以上で継続)。
+    - `_CAUSAL_SEQUENCES` 28 ペア定義 (逮捕→起訴, 発売→不具合, 申請→受理, 提案→可決 等)。
+    - `_extract_primary_entities()` — type=PERSON|ORG 上位2件 (旧 str list 形式互換)。
+    - `from __future__ import annotations` 追加 (Python 3.9 でもテスト可・lambda runtime 3.12 影響なし)。
+  - **追加**: `projects/P003-news-timeline/tests/test_story_branching.py` 新設 13 ケース全 pass。
+  - **検証**: `python3 -m pytest tests/test_story_branching.py -v` = 13 passed / 全体 184 passed (regression なし)。
+
+- ✅ **CI fix(deploy-lambdas put-targets) 完了** — bluesky-morning EventBridge ターゲット登録の連続 5 回失敗を修正。
+  - **症状**: `Lambda デプロイ（全関数）` workflow が 2026-04-28 15:39 UTC 以降 push のたびに `aws events put-targets` で `ParamValidation: Error parsing parameter '--targets': Expected: '=', received: '"'` エラー。
+  - **根本原因**: AWS CLI shorthand 構文 (`Id=1,Arn=...,Input={"mode":"morning"}`) は Input 値の JSON 内コンマで parse error を起こす。
+  - **修正**: `--targets` を `file://$(mktemp)` 経由で JSON 配列ファイルとして渡し shorthand parse を回避。冪等性 (put-rule / add-permission の存在チェック) は維持。
+  - **Verified**: `python3 -c "import yaml; yaml.safe_load(...)"` = YAML_OK。次の push で deploy-lambdas.yml が green を期待。
+
+- ✅ **T2026-0428-L 整理** — security-headers-check は既に main 着地済 (`scripts/security_headers_check.sh` + `.github/workflows/security-headers-check.yml`)。HSTS / X-Frame-Options / X-Content-Type-Options / Referrer-Policy / Permissions-Policy の 5 ヘッダ毎日 03:17 JST 検査、欠落で exit 1。TASKS.md の T2026-0428-L 行を取消線化。
+
 ### 完了済み（2026-04-29 07:25 JST Code T237 + T2026-0429-A + T2026-0428-Q — fetcher_trigger keyPoint backfill + velocityScore バッジ + success-but-empty 観測）
 
 - ✅ **T237 完了** — AI 生成カバレッジの第4層原因確定 + コード修正。
