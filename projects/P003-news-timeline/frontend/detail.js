@@ -144,6 +144,35 @@ function updateOGP(meta) {
 
 
 function renderDetail(data) {
+  // T2026-0428-AM: 単一 SNAP しかないトピックでも記事 publishedAt から
+  // 疑似 timeline を生成してグラフを描けるようにする。
+  // fetcher は new_urls に1件も該当しない group は SNAP を追加しない
+  // (lambda/fetcher/handler.py:328) ため、初回クラスタリング以後 RSS から
+  // 記事が消えたトピックは timeline.length=1 で固定され、いつまでもグラフが
+  // 出なかった (例: 87cf1e16705c39e0、~12% のトピックが該当)。
+  if (Array.isArray(data.timeline) && data.timeline.length === 1) {
+    const tl0 = data.timeline[0];
+    const arts = (tl0.articles || [])
+      .filter(a => Number(a.publishedAt) > 0)
+      .map(a => ({...a, _ts: Number(a.publishedAt) * 1000}))
+      .sort((a, b) => a._ts - b._ts);
+    if (arts.length >= 2 && arts[arts.length - 1]._ts > arts[0]._ts) {
+      const finalScore = Number(tl0.score || 0);
+      const finalHb    = Number(tl0.hatenaCount || 0);
+      data.timeline = arts.map((a, i) => {
+        const slice = arts.slice(0, i + 1);
+        const isLast = i === arts.length - 1;
+        return {
+          timestamp: new Date(a._ts).toISOString(),
+          articleCount: i + 1,
+          score: isLast ? finalScore : Math.round(finalScore * (i + 1) / arts.length),
+          hatenaCount: isLast ? finalHb : 0,
+          mediaCount: new Set(slice.map(x => x.source)).size,
+          articles: slice.map(({_ts, ...rest}) => rest),
+        };
+      });
+    }
+  }
   const {meta, timeline, views} = data;
   if (!meta) return;
 
