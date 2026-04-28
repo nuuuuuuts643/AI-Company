@@ -102,4 +102,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0429-D 繰り返し失敗自動検出 | feat | scripts/detect_repeated_failures.sh, scripts/analyze_task_patterns.sh, scripts/session_bootstrap.sh, .github/workflows/ci.yml | 2026-04-29 08:00 JST | needs-push: yes |
