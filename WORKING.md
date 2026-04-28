@@ -102,3 +102,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T191+T2026-0428-BRANCH ストーリー追跡フロー設計+分岐方針メモ | 設計+実装 | docs/ux-flow-story.md, docs/rules/story-branching-policy.md, projects/P003-news-timeline/frontend/* | 2026-04-29 06:50 JST | yes |
