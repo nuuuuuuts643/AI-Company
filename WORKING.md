@@ -90,4 +90,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0428-O Tier-0 固定budget | Code | projects/P003-news-timeline/lambda/processor/proc_storage.py | 2026-04-28 09:46 | yes |
