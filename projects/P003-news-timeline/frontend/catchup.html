@@ -509,7 +509,7 @@ function relativeTime(isoStr) {
 function formatDate(isoStr) {
   if (!isoStr) return '';
   const d = new Date(isoStr);
-  return `${d.getMonth()+1}月${d.getDate()}日`;
+  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
 }
 
 function isWithinDays(isoStr, days) {
