@@ -32,10 +32,17 @@ import json
 import sys
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
 import boto3
 from boto3.dynamodb.conditions import Attr, Key
+
+# stdout を line-buffered に (パイプ越しでも進捗が即見える)
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+except Exception:
+    pass
 
 REGION = 'ap-northeast-1'
 TABLE = 'p003-topics'
@@ -467,14 +474,25 @@ def main():
         items = cats.get(cat, [])
         if not items:
             continue
+        tids = [it['topicId'] for it in items]
         print(f'\n  [{cat}] 削除中 ({len(items)}件)...')
         cnt = 0
-        for it in items:
-            tid = it['topicId']
-            n = delete_topic_completely(table, tid)
-            if n:
-                cnt += 1
-                deleted_tids.append(tid)
+        # 並列度 16 で delete_topic_completely を実行
+        with ThreadPoolExecutor(max_workers=16) as ex:
+            futures = {ex.submit(delete_topic_completely, table, tid): tid for tid in tids}
+            done = 0
+            for fut in as_completed(futures):
+                tid = futures[fut]
+                try:
+                    n = fut.result()
+                    if n:
+                        cnt += 1
+                        deleted_tids.append(tid)
+                except Exception as e:
+                    print(f'    [delete] tid={tid} error: {e}', file=sys.stderr)
+                done += 1
+                if done % 100 == 0:
+                    print(f'    ... {done}/{len(tids)} 件処理中')
         print(f'    → {cnt} 件削除完了')
         total_deleted += cnt
 
@@ -507,7 +525,7 @@ def main():
 
     print('\n[cleanup] === Phase 4: 再処理キュー投入 ===')
 
-    # NO_AI / PARTIAL_AI に pendingAI=True セット
+    # NO_AI / PARTIAL_AI に pendingAI=True セット (並列)
     REPROCESS_CATS = ('NO_AI', 'PARTIAL_AI')
     queued = 0
     queued_tids = []
@@ -517,14 +535,23 @@ def main():
         items = cats.get(cat, [])
         if not items:
             continue
+        tids = [it['topicId'] for it in items]
         print(f'\n  [{cat}] pendingAI=True セット中 ({len(items)}件)...')
         cnt = 0
-        for it in items:
-            tid = it['topicId']
-            ok = mark_topic_for_reprocessing(table, tid)
-            if ok:
-                cnt += 1
-                queued_tids.append(tid)
+        with ThreadPoolExecutor(max_workers=16) as ex:
+            futures = {ex.submit(mark_topic_for_reprocessing, table, tid): tid for tid in tids}
+            done = 0
+            for fut in as_completed(futures):
+                tid = futures[fut]
+                try:
+                    if fut.result():
+                        cnt += 1
+                        queued_tids.append(tid)
+                except Exception as e:
+                    print(f'    [mark] tid={tid} error: {e}', file=sys.stderr)
+                done += 1
+                if done % 200 == 0:
+                    print(f'    ... {done}/{len(tids)} 件処理中')
         print(f'    → {cnt} 件キュー投入完了')
         queued += cnt
 
