@@ -188,6 +188,18 @@ function fmtDate(s) {
   try { return new Date(s).toLocaleString('ja-JP',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
   catch { return s; }
 }
+// T191: カード単位「ストーリー追跡」用の相対時刻ラベル。「いま動いているか」を即時可視化する。
+function fmtRelativeTime(s) {
+  if (!s) return '';
+  const t = new Date(s).getTime();
+  if (!Number.isFinite(t)) return '';
+  const diffSec = Math.max(0, (Date.now() - t) / 1000);
+  if (diffSec < 60) return 'たった今';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}分前`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}時間前`;
+  if (diffSec < 86400 * 30) return `${Math.floor(diffSec / 86400)}日前`;
+  return `${Math.floor(diffSec / (86400 * 30))}ヶ月前`;
+}
 function apiUrl(path) { return API_BASE + path + '.json'; }
 
 // ===== 一覧ページ =====
@@ -350,16 +362,22 @@ function renderCardMeta(t) {
         : '';
   const phaseLabel = t._phaseChanged
     ? `<span class="phase-change-badge">🔄 展開</span>` : '';
+  // T191: カード単位の相対更新時刻バッジ。動き中（過去24h増加あり）は強調する。
+  const rel = fmtRelativeTime(t.lastUpdated);
+  const isActive = (t.articleCountDelta || 0) > 0;
+  const freshnessLabel = rel
+    ? `<span class="freshness-badge${isActive ? ' freshness-active' : ''}" title="${esc(fmtDate(t.lastUpdated))}">${isActive ? '🔥 ' : '🕒 '}${rel}更新</span>`
+    : '';
   const genres = t.genres || [t.genre || '総合'];
   return `
     <div class="topic-meta">
       <span class="article-count">📄 ${t.articleCount}件 · 約${readMins}分</span>${deltaLabel}
+      ${freshnessLabel}
       ${phaseLabel}${srcLabel}
       ${hatenaLabel}
       ${branchLabel}
       ${parentLabel}
       ${genres.map(g => `<span class="genre-tag">${esc(g)}</span>`).join('')}
-      <span>${fmtDate(t.lastUpdated)}</span>
     </div>`;
 }
 

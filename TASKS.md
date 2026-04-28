@@ -39,8 +39,11 @@
 
 | ID | 優先 | 軸 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|---|
-| T191 | 🟠 高 | 体験 | **「ストーリーを追う」フロー設計** — トップ画面で動きが見える → 1 タップで経緯 → 「続きが来たら通知」で離脱。コード変更より先に画面遷移フロー図 | 設計フロー図 | 2026-04-27 |
-| T2026-0428-BRANCH | 🟡 中 | AI品質 | **ストーリー分岐はセマンティック関連性で判断する方針メモ** — 注目度（数字）ではなく内容（登場人物・因果関係・エンティティ重複）で。関連: T212 | `lambda/fetcher/`, `lambda/processor/proc_ai.py` | 2026-04-28 |
+| ~~T191~~ | 🟠 高 | 体験 | ~~**「ストーリーを追う」フロー設計** — `docs/ux-flow-story.md` 制定 + `app.js renderCardMeta()` にカード単位フレッシュネスバッジ実装（🕒 N時間前 / 🔥 動き中）。詳細実装は T2026-0429-A / T154 に分割~~ | docs/ux-flow-story.md, frontend/app.js, frontend/style.css | 2026-04-27 |
+| ~~T2026-0428-BRANCH~~ | 🟡 中 | AI品質 | ~~**ストーリー分岐はセマンティック関連性で判断する方針メモ** — `docs/rules/story-branching-policy.md` 制定。判定マトリクス（主役重複×因果連続×entity Jaccard）+ AI 判定 prompt 案。実装は T2026-0429-B / T2026-0429-C に分割~~ | docs/rules/story-branching-policy.md | 2026-04-28 |
+| T2026-0429-A | 🟡 中 | 体験 | **トピックカード velocityScore 可視化** — 現状はソート用内部値のみ。スパークラインまたは縦バーでカードに「勢い」を可視化。T191 から分離 | frontend/app.js, frontend/style.css | 2026-04-29 |
+| T2026-0429-B | 🟠 高 | AI品質 | **proc_ai.py に分岐判定 prompt 追加** — 数字を渡さず内容のみで `decision: merge\|branch\|new\|link` を AI が返す。`docs/rules/story-branching-policy.md` §3.4 の prompt 採用 | lambda/processor/proc_ai.py | 2026-04-29 |
+| T2026-0429-C | 🟡 中 | AI品質 | **分岐判定の効果検証** — T2026-0429-B 後に 30 件サンプル手動レビュー（誤分岐 / 誤マージ）+ 前後の分岐数比較 SLI | scripts/verify_branching_quality.py | 2026-04-29 |
 
 ---
 
