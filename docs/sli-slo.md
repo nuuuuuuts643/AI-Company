@@ -18,7 +18,7 @@
 | 4 | **storyPhase 分布の偏り** | `curl -s .../topics.json \| jq '[.topics[].storyPhase] \| group_by(.) \| map({phase:.[0], n:length})'` | 「発端」が 50% 超で警告 | T258 (T255 連動解消後に再評価) | 外部観測 |
 | 5 | **fetcher Lambda 成功率** | CloudWatch `Errors` metric / `Invocations` metric | 24h で 5% 超失敗 | governance worker | 内部 metric |
 | 6 | **AdSense ads.txt 整合** | `curl -s https://flotopic.com/ads.txt` と index.html の `ca-pub-` 突合 | 不整合で CI fail | `.github/workflows/ci.yml` content-drift-guard (T239) | CI 物理ガード |
-| 7 | **セキュリティヘッダ** | `curl -sI https://flotopic.com/ \| grep -iE "strict-transport\|x-frame\|csp\|permissions-policy"` | 必須ヘッダ欠落で警告 | (未実装・TBD `scripts/security_headers_check.sh`) | 外部観測 |
+| 7 | **セキュリティヘッダ** | `bash scripts/security_headers_check.sh https://flotopic.com/` | 必須ヘッダ欠落で CI fail | `scripts/security_headers_check.sh` + `.github/workflows/security-headers-check.yml` (1d cron, 2026-04-28 schedule-task T2026-0428-L で実装) | 外部観測 |
 | 8 | **keyPoint 充填率 (success-but-empty 検出)** | `curl -s .../topics.json \| jq '[.topics[] \| select(.articleCount>=3) \| select(.keyPoint != null)] \| length'` ÷ `[.articleCount>=3]` 件数 | 70% 未満で警告 | `freshness-check.yml` ai_fields step (2026-04-28 追加) | 外部観測 |
 | 9 | **perspectives 充填率** | 同 SLI 8 で `.perspectives` を対象 | 60% 未満で警告 | `freshness-check.yml` ai_fields step | 外部観測 |
 | 10 | **background 充填率** | 同 SLI 8 で `.background` または `.backgroundContext` を対象 | 60% 未満で警告 | `freshness-check.yml` ai_fields step | 外部観測 |
