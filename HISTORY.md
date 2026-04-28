@@ -4,6 +4,43 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-28 22:55 JST Code T2026-0428-BH keyPoint 平均長 根本原因 → incremental 上書きガード修正）
+
+- ✅ **T2026-0428-BH 完了** — keyPoint 平均長 43.8 字 (中央値 29 字) の根本原因を実測で特定し、incremental ヒールの上書きガードを修正。**Lambda invoke ゼロ・Anthropic API 呼び出しゼロ**でコード修正＋ pending_ai.json データ補充のみ。
+
+  **実測ファースト調査 (DynamoDB scan ONLY)**:
+  - keyPoint 充填済み = **107 件** / META 1068 件 (10.0% = SLI 値と一致)
+  - **96/107 件 (89.7%) が 50 字未満** — schema は 200〜300 字を要求しているのに大半がタイトル風 (例: 「ロシア撤退と過激派攻勢の同時進行が新段階へ」21 字)
+  - 全 96 件の lastUpdated が **2026-04-26 〜 04-27** に集中 (今日 04-28 は 0 件) → 過去の生成結果が残留
+  - schemaVersion: なし 58 件 / v3 38 件、aiGenerated=True が全件、pendingAI は True 56 / False 40 件混在
+
+  **根本原因 (Why1〜Why5)**:
+  - Why1: 短い keyPoint が DB に滞留している
+  - Why2: 過去に Tool Use API が schema 違反 (タイトル風 < 50 字) を返したか、旧プロンプト (200-300 字要求が無かった時代) のデータが残っている
+  - Why3: 現在のプロンプトは 200-300 字を強く要求しているのに、再生成しても上書きされない
+  - Why4: `update_topic_with_ai._can_write` / `update_topic_s3_file._can_set` の incremental ガードが「`_is_field_empty` (空文字 / null / 空配列) のみ」を空判定し、**短すぎる文字列も「埋まっている」と扱う**
+  - Why5 (構造): incremental モードは「過去の良い要約を消さない」ための物理ゲートだが、「明らかに不適切に短い値」も保護してしまう設計欠陥
+
+  **実装した修正 (1 ファイル変更 + 1 データ補充)**:
+  1. `proc_storage.py` — `KEYPOINT_MIN_LENGTH = 100` 追加。`_is_keypoint_inadequate(v)` 新設 (空 OR 100 字未満を不十分判定)
+  2. `proc_storage.py: _can_write/_can_set` — `field == 'keyPoint'` 分岐で `_is_keypoint_inadequate` を使用。短い既存 keyPoint を上書き許可
+  3. `proc_storage.py: needs_ai_processing` — 100 字未満を再処理対象に拡張 (キュー投入)
+  4. `proc_storage.py: get_pending_topics._sort_key` — kp_missing 判定を `_is_keypoint_inadequate` に拡張、可視 × 不十分 を priority 0 に
+  5. `s3://p003-news-946554699567/api/pending_ai.json` — 63 件の不十分 keyPoint topicId を union (37→100 件)。次 cron tick で priority 0 として処理開始
+
+  **100 字閾値の根拠**:
+  - 50-100 字 = 4 件 (3.7%)、100-200 字 = 1 件 (0.9%)、200-300 字 = 6 件 (5.6%)
+  - 100 字で 89.7% を救済しつつ、正常生成された 100-300 字を巻き込まない
+  - 200 字未満を不十分とすると 100-200 字 1 件 (rare な短めの正常生成) も巻き込むため安全側で 100 字採用
+
+  **横展開対象パターン** (`docs/lessons-learned.md` 横展開チェックリスト 行追加):
+  - 「`_is_field_empty` ガードは『最低限の品質要件』を満たさない値を弾けない」原則
+  - 同様パターン: outlook (確信度タグ必須)、aiSummary (150 字以内・2 文)、watchPoints (① ② ③ 列挙)、topicTitle (15 字以内・体言止め) も将来同種の救済が必要かもしれない
+
+  **しかける効果検証 (実測ベース・cron 待ち)**:
+  - 既存 SLI `sli_keypoint_fill_rate.py` (T2026-0428-BG) が hourly 観測。次の rate 上昇で再生成サイクル発動が確認できる
+  - 期待値: pending_ai.json 100 件 + 修正後 cron 1 周期で 10〜20 件処理 → 数日で 70% へ収束
+
 ### 完了済み（2026-04-28 22:35 JST Code T2026-0428-BG SLI-keypoint-fill-rate 追加: 検証粒度向上）
 
 - ✅ **T2026-0428-BG 完了** — pending_ai.json 40→950 件 遡及処理 (T2026-0428-AW) の効果を観測する SLI を新設。**Lambda invoke ゼロ・Anthropic API 呼び出しゼロ**で DynamoDB scan READ-ONLY のみ。

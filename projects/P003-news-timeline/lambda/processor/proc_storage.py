@@ -330,7 +330,9 @@ def needs_ai_processing(item):
     # T256 (2026-04-28): keyPoint は minimal/standard/full 全モードで生成される。
     # aiGenerated=True でも keyPoint が未設定/空文字なら再処理対象。
     # handler.py _required_full_fields の _is_minimal 免除削除（T256 fix）と対で機能する。
-    if not str(item.get('keyPoint') or '').strip():
+    # T2026-0428-BH: schema は 200〜300 字を要求するため 100 字未満は不十分扱いで再処理。
+    # 過去 (2026-04-26〜27) に滞留した平均 43.8 字の短い keyPoint をキューに取り込む。
+    if _is_keypoint_inadequate(item.get('keyPoint')):
         return True
     # T2026-0428-J/E: standard/full mode (記事3件以上) では statusLabel / watchPoints も必須。
     # 新フィールドが空の旧 aiGenerated=True topic を再処理対象に取り込み、滞留を解消する。
@@ -474,12 +476,14 @@ def get_pending_topics(max_topics=100):
         def _sort_key(x):
             tid = x.get('topicId', '')
             is_visible = tid in visible_tids
-            kp_missing = not str(x.get('keyPoint') or '').strip()
             # T2026-0428-AW: 可視 × keyPoint 欠落 を priority 0 に昇格。
             # 旧来は aiGenerated=True で keyPoint 欠落の topic は priority 1 に沈み、
             # 新規未生成 topic に押されて永続的に補完されない事象が確認された
             # (本番 keyPoint 充填率 10.02%・961/1068 件未充填)。ユーザーが見ている
             # トピックで keyPoint が空なのは新規未生成と同等のユーザー影響なので priority 0。
+            # T2026-0428-BH: 「欠落」判定を「100 字未満の不十分も含む」に拡張。
+            # 過去 (2026-04-26〜27) の短い keyPoint (平均 43.8 字) を priority 0 に救済する。
+            kp_missing = _is_keypoint_inadequate(x.get('keyPoint'))
             if is_visible and (not x.get('aiGenerated') or kp_missing):
                 priority = 0
             elif x.get('pendingAI'):
@@ -780,6 +784,27 @@ def _is_field_empty(v):
     return False
 
 
+# T2026-0428-BH: keyPoint は schema 上 200〜300 字の物語形式を要求するが、
+# 過去 (2026-04-26〜27) に Tool Use API が短いタイトル風 (20〜50 字) を返した、
+# あるいは fallback が記事見出しを書き込んだ結果、aiGenerated=True かつ keyPoint が
+# 著しく短いレコードが本番に滞留していた (96/107 = 89.7% 平均 43.8 字)。
+# 100 字未満は schema 要件を明確に満たさないため「不十分 = 空扱い」と判定し、
+# incremental ヒールでの上書き許可および needs_ai_processing 再処理対象化に使う。
+# 100 字閾値の根拠: 100-200 字は実測 1 件のみ、50-100 字は 4 件、< 50 字は 91 件
+# (2026-04-28 22:30 JST 実測)。100 字で 89.7% を救済しつつ正常生成を巻き込まない。
+KEYPOINT_MIN_LENGTH = 100
+
+
+def _is_keypoint_inadequate(v) -> bool:
+    """keyPoint が空 or 著しく短い (100 字未満) を不十分と判定。
+    incremental ヒールの上書き許可および再処理キュー投入の判定で使う。"""
+    if _is_field_empty(v):
+        return True
+    if isinstance(v, str) and len(v.strip()) < KEYPOINT_MIN_LENGTH:
+        return True
+    return False
+
+
 def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_url=None, existing_meta=None):
     """Claude 生成タイトル・ストーリーで DynamoDB META を更新。
 
@@ -800,9 +825,13 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
     """
     incremental = existing_meta is not None
     def _can_write(field):
-        """incremental モードでは既存値が空のときだけ書ける。full モードでは常に書ける。"""
+        """incremental モードでは既存値が空のときだけ書ける。full モードでは常に書ける。
+        T2026-0428-BH: keyPoint は 100 字未満を「不十分」と扱い、上書きを許可する
+        (schema 200〜300 字要件を満たさない過去データを再生成で上書きできるようにする)。"""
         if not incremental:
             return True
+        if field == 'keyPoint':
+            return _is_keypoint_inadequate(existing_meta.get(field))
         return _is_field_empty(existing_meta.get(field))
 
     try:
@@ -1181,9 +1210,12 @@ def update_topic_s3_file(tid, upd, articles=None, incremental=False):
         meta = data.get('meta', {})
         meta.pop('pendingAI', None)
         # T2026-0428-AO: incremental モードでは既存値があるフィールドを上書きしない (heal保護)
+        # T2026-0428-BH: keyPoint は 100 字未満を「不十分」扱い (上書き許可)
         def _can_set(field):
             if not incremental:
                 return True
+            if field == 'keyPoint':
+                return _is_keypoint_inadequate(meta.get(field))
             return _is_field_empty(meta.get(field))
 
         if upd.get('generatedTitle') and _can_set('generatedTitle'):
