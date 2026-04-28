@@ -1726,6 +1726,7 @@ def generate_ogp_image(tid: str, title: str, genre: str = '') -> 'str | None':
     """
     if not S3_BUCKET or not title:
         return None
+    title = _strip_title_markdown(title) or title
     try:
         from PIL import Image, ImageDraw, ImageFont
     except ImportError:
