@@ -93,4 +93,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | [Code] T2026-0428-AO 全トピック棚卸し＆一括クリーンアップ | Code | scripts/cleanup_all_topics.py, S3 topics*.json | 2026-04-28 10:40 | yes |
 | [Cowork] T2026-0428-L security_headers_check.sh + SLI 7 実装 | Cowork | scripts/security_headers_check.sh (新規), .github/workflows/security-headers-check.yml (新規), docs/sli-slo.md | 2026-04-28 11:25 | yes |
 | [Code] T2026-0428-AJ グラフUI修正＋記事ローディング修正 | Code | frontend/detail.js, frontend/topic.html, frontend/style.css | 2026-04-28 10:30 | yes |
-| [Code] T2026-0428-AQ 本番監視用health.json自動生成 | Code | lambda/processor/proc_storage.py, lambda/processor/handler.py, scripts/check_health.sh | 2026-04-28 13:42 | yes |
