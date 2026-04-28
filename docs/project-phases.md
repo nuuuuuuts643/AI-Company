@@ -32,7 +32,7 @@
 
 ### C. Dispatch 運用安定（新規・未達 — 2026-04-28 PM 追加）
 - ❌ **Dispatch から起動できるコードセッション = 同時 1 件まで**（Dispatch 自身を含めて 2 件以内）。新規タスクは前のコードセッション完了までキューに積む。WORKING.md の `[Code]` 行が 2 件以上ある瞬間は session_bootstrap.sh が物理 ERROR を出す（既存は WARNING のみ）
-- ❌ **コードセッション並走 0 件の常態化** — `[Code]` 行 2 件以上の状態が 1 時間継続したら Slack 警告（健康指標として観測）
+- ✅ **コードセッション並走 0 件の常態化** — `[Code]` 行 2 件以上の状態が 1 時間継続したら Slack 警告（健康指標として観測）。実装: `scripts/check_concurrent_sessions.sh` + `.github/workflows/concurrent-session-guard.yml` で 15 分ごと検出 × Slack 通知。T2026-0428-BB で実装済
 - ❌ **ナオヤ判断介入ゼロ** — Dispatch が 1 回受け取った指示について「止める？再開する？」を聞かずに完了まで走る。中断は「実装の前提が根本的に変わった場合」のみ（CLAUDE.md「中断ルール」を参照）
 - ❌ **コードセッション名規則の徹底** — セッション名は「何を commit するか」が一目で分かる名前（✅「CI 構文チェック fix」 ❌「調査」「作業」）。session_bootstrap.sh の出力で空抽象タイトルを自動 WARN
 

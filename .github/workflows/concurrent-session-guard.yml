@@ -1,0 +1,41 @@
+name: Concurrent Session Guard
+
+on:
+  schedule:
+    # 15分ごとに実行 (UTC)
+    # 日本時間 06:00-23:45 のみ実行
+    - cron: '*/15 21-23,0-14 * * *'  # UTC 21:00-15:00 = JST 06:00-00:00
+
+jobs:
+  check-concurrent-sessions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check concurrent [Code] sessions
+        id: check
+        run: |
+          bash scripts/check_concurrent_sessions.sh
+          exit_code=$?
+          echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
+          exit 0  # 検出結果に関わらず workflow は続行
+
+      - name: Notify Slack (concurrent sessions detected)
+        if: steps.check.outputs.exit_code != '0'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: warning
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
+          text: |
+            ⚠️ **Code セッション並走警告**
+            WORKING.md に [Code] 行が2件以上存在しています。
+
+            Dispatch ルール: コードセッションは同時1件まで
+            対応: 完了済みセッション行を削除 → push してから新規セッション開始
+
+            リポジトリ: ${{ github.repository }}
+            ワークフロー: concurrent-session-guard.yml
+          fields: |
+            repo
+            message
+            commit
