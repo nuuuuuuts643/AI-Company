@@ -15,7 +15,7 @@ import json
 import time
 from datetime import datetime, timezone
 
-from proc_config import MAX_API_CALLS, MIN_ARTICLES_FOR_TITLE, MIN_ARTICLES_FOR_SUMMARY
+from proc_config import MAX_API_CALLS, MIN_ARTICLES_FOR_TITLE, MIN_ARTICLES_FOR_SUMMARY, PROCESSOR_SCHEMA_VERSION
 from proc_ai import generate_title, generate_story
 from proc_storage import (
     get_pending_topics, get_topics_by_ids, get_latest_articles_for_topic,
@@ -180,6 +180,8 @@ def lambda_handler(event, context):
     skipped        = 0
     ai_updates     = {}
     articles_cache = {}
+    # T2026-0428-AO: トピックごとに incremental か full かを記録 → S3 書き込み時に渡す
+    incremental_map = {}
 
     for topic in pending:
         if api_calls >= MAX_API_CALLS:
@@ -264,7 +266,12 @@ def lambda_handler(event, context):
             except Exception as ogp_err:
                 print(f'  [OGP] {tid[:8]}... 失敗（スキップ）: {ogp_err}')
 
-        update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=ai_succeeded, image_url=ogp_url)
+        # T2026-0428-AO: 既に aiGenerated=True の topic は incremental モードで更新する。
+        # = 既存フィールドを上書きせず、不足フィールドだけ補完する (heal/schema_version保護)。
+        # 初回処理 (aiGenerated=False) は existing_meta=None で従来どおり全フィールド書き込み。
+        _is_incremental = bool(topic.get('aiGenerated'))
+        _existing_meta = topic if _is_incremental else None
+        update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=ai_succeeded, image_url=ogp_url, existing_meta=_existing_meta)
         # 予測ログを時系列保存 (Phase 3 の土台・1日早く始めるほど早く遡及検証できる)
         save_prediction_log(tid, gen_story)
         # AI が「記事の中身が乖離」と判定した場合は自動で archive (思想: 雑なクラスタを視界から消す)
@@ -274,6 +281,7 @@ def lambda_handler(event, context):
             continue
         processed += 1
         articles_cache[tid] = articles
+        incremental_map[tid] = _is_incremental
         ai_updates[tid] = {
             'generatedTitle':       gen_title,
             'generatedSummary':     gen_story['aiSummary']           if gen_story else None,
@@ -306,43 +314,61 @@ def lambda_handler(event, context):
 
     if processed > 0:
         # 個別トピックS3ファイルをAIデータで並列更新（静的HTML生成含む）
-        update_topic_s3_files_parallel(ai_updates, articles_cache=articles_cache)
+        # T2026-0428-AO: incremental_map で既存 AI フィールドを heal 時に保護する
+        update_topic_s3_files_parallel(ai_updates, articles_cache=articles_cache, incremental_map=incremental_map)
 
         try:
             topics, trending_keywords = get_all_topics_for_s3()
+            # T2026-0428-AO: incremental モードのトピックは既存値があるフィールドを上書きしない
+            def _empty(v):
+                if v is None: return True
+                if isinstance(v, str) and not v.strip(): return True
+                if isinstance(v, (list, dict)) and len(v) == 0: return True
+                return False
             for t in topics:
-                upd = ai_updates.get(t.get('topicId', ''))
+                tid_t = t.get('topicId', '')
+                upd = ai_updates.get(tid_t)
                 if upd:
-                    if upd.get('generatedTitle'):                        t['generatedTitle']          = upd['generatedTitle']
-                    if upd.get('generatedSummary'):                      t['generatedSummary']        = upd['generatedSummary']
-                    # T249 (2026-04-28): keyPoint / backgroundContext のマージ漏れ修正。
-                    # 根本原因: ai_updates dict (L260-) には入れているが、ここでの merge ロジックが
-                    # 抜けていたため topics.json で永久に 0% 充填だった (本番で 0/114 確認)。
-                    # 個別 topic JSON (proc_storage.update_topic_s3_file) では既にマージ済みのため
-                    # detail page には backgroundContext が出ているが、整合性確保のため明示的に追加。
-                    # backgroundContext は _PROC_INTERNAL で publish 時に除外され続ける (size抑制)。
-                    if upd.get('keyPoint'):                              t['keyPoint']                = upd['keyPoint']
-                    # T2026-0428-J/E: 新フィールド (statusLabel/watchPoints/predictionMadeAt/predictionResult)
-                    if upd.get('statusLabel'):                           t['statusLabel']             = upd['statusLabel']
-                    if upd.get('watchPoints'):                           t['watchPoints']             = upd['watchPoints']
-                    if upd.get('predictionMadeAt'):                      t['predictionMadeAt']        = upd['predictionMadeAt']
-                    if upd.get('predictionResult'):                      t['predictionResult']        = upd['predictionResult']
-                    if upd.get('forecast'):                              t['forecast']                = upd['forecast']
-                    if upd.get('storyTimeline') is not None:             t['storyTimeline']           = upd['storyTimeline']
-                    if upd.get('storyPhase'):                            t['storyPhase']              = upd['storyPhase']
-                    if upd.get('summaryMode'):                           t['summaryMode']             = upd['summaryMode']
-                    if upd.get('perspectives') is not None:              t['perspectives']            = upd['perspectives']
-                    if upd.get('outlook'):                               t['outlook']                 = upd['outlook']
-                    if upd.get('topicTitle'):                            t['topicTitle']              = upd['topicTitle']
-                    if upd.get('latestUpdateHeadline'):                  t['latestUpdateHeadline']    = upd['latestUpdateHeadline']
-                    if upd.get('topicCoherent') is not None:             t['topicCoherent']           = upd['topicCoherent']
-                    if upd.get('topicLevel'):                            t['topicLevel']              = upd['topicLevel']
-                    if upd.get('parentTopicTitle'):                      t['parentTopicTitle']        = upd['parentTopicTitle']
-                    if upd.get('relatedTopicTitles') is not None:        t['relatedTopicTitles']      = upd['relatedTopicTitles']
+                    is_inc = incremental_map.get(tid_t, False)
+                    def _set(field, value, t=t, is_inc=is_inc):
+                        if value is None or (isinstance(value, str) and not value):
+                            return
+                        if is_inc and not _empty(t.get(field)):
+                            return
+                        t[field] = value
+
+                    if upd.get('generatedTitle'):                        _set('generatedTitle', upd['generatedTitle'])
+                    if upd.get('generatedSummary'):                      _set('generatedSummary', upd['generatedSummary'])
+                    if upd.get('keyPoint'):                              _set('keyPoint', upd['keyPoint'])
+                    if upd.get('statusLabel'):                           _set('statusLabel', upd['statusLabel'])
+                    if upd.get('watchPoints'):                           _set('watchPoints', upd['watchPoints'])
+                    # outlook 書き込み時のみ predictionMadeAt / predictionResult もペアで反映
+                    if upd.get('outlook'):
+                        if not is_inc or _empty(t.get('outlook')):
+                            t['outlook'] = upd['outlook']
+                            if upd.get('predictionMadeAt'):
+                                t['predictionMadeAt'] = upd['predictionMadeAt']
+                            if upd.get('predictionResult'):
+                                t['predictionResult'] = upd['predictionResult']
+                    if upd.get('forecast'):                              _set('forecast', upd['forecast'])
+                    if upd.get('storyTimeline') is not None:             _set('storyTimeline', upd['storyTimeline'])
+                    if upd.get('storyPhase'):                            _set('storyPhase', upd['storyPhase'])
+                    if upd.get('summaryMode'):                           _set('summaryMode', upd['summaryMode'])
+                    if upd.get('perspectives') is not None:              _set('perspectives', upd['perspectives'])
+                    if upd.get('topicTitle'):                            _set('topicTitle', upd['topicTitle'])
+                    if upd.get('latestUpdateHeadline'):                  _set('latestUpdateHeadline', upd['latestUpdateHeadline'])
+                    if upd.get('topicCoherent') is not None:             _set('topicCoherent', upd['topicCoherent'])
+                    if upd.get('topicLevel'):                            _set('topicLevel', upd['topicLevel'])
+                    if upd.get('parentTopicTitle'):                      _set('parentTopicTitle', upd['parentTopicTitle'])
+                    if upd.get('relatedTopicTitles') is not None:        _set('relatedTopicTitles', upd['relatedTopicTitles'])
                     if upd.get('genres'):
-                        t['genres'] = upd['genres']
-                        t['genre']  = upd['genres'][0]
-                    if upd.get('aiGenerated'):                           t['aiGenerated']             = True
+                        if not is_inc or _empty(t.get('genres')):
+                            t['genres'] = upd['genres']
+                            t['genre']  = upd['genres'][0]
+                    if upd.get('aiGenerated'):
+                        t['aiGenerated']    = True
+                        # T2026-0428-AO: schemaVersion は制御フィールド (常に最新へ更新)
+                        t['schemaVersion']  = PROCESSOR_SCHEMA_VERSION
                     if upd.get('imageUrl') and not t.get('imageUrl'):    t['imageUrl']                = upd['imageUrl']
             ts_iso = datetime.now(timezone.utc).isoformat()
             # T2026-0428-J/E: generatedSummary[:120] truncate を撤廃。
