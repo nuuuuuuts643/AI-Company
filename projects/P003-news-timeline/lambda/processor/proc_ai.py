@@ -447,7 +447,11 @@ _STORY_PROMPT_RULES = (
     '【backgroundContext】構造的・社会的・経済的・政治的要因 (2文)。\n'
     '【background】直近1〜4週間の触媒。backgroundContextと別の角度で。\n'
     '【spreadReason】トリガー/時事文脈/注目層/関連ニュース観点 (2-3文)。\n'
-    '【perspectives】2〜3社の見解を並列。例: 朝日は経済への打撃を懸念、産経は安全保障上の利益を指摘。\n'
+    '【perspectives】2〜3社の見解を「[メディア名] は〜」の構文で並列列挙。各社の本文 (ある場合) を根拠にし、推測ではなく実際の論調差を抽出する。\n'
+    '  - 公平性: 特定メディアの論調に引きずられず、各社を等しく扱う。1社だけ詳しく書くのは禁止。\n'
+    '  - 各社の論調差が薄い場合は無理に違いを作らず「概ね同様の論調 (◯社の本文より)」と書く。\n'
+    '  - 例 (◎): 朝日は経済への打撃を懸念、産経は安全保障上の利益を指摘、毎日は外交プロセスの不透明性に着目。\n'
+    '  - 例 (×): 朝日が「重大な懸念」と強く批判 (1社だけ詳述は偏りに見える)。\n'
     '【outlook】1文。〜が予想される/〜の可能性があるで締める。文末に「[確信度:高/中/低]」を必ず付与する (例: 「合意成立の可能性がある [確信度:中]」)。記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低。\n'
     '【phase判定】このトピックは記事3件以上のため「発端」は選択禁止。選択肢は「拡散/ピーク/現在地/収束」のみ。'
     'デフォルトは「拡散」。タイムライン上で同じ話題が繰り返し報じられ熱量が高ければ「ピーク」、'
@@ -460,9 +464,16 @@ _STORY_PROMPT_RULES = (
 
 
 def _generate_story_standard(articles: list, cnt: int) -> dict | None:
-    """3〜5件: Tool Use で structured output 強制 (旧 JSON 構文エラー撲滅)。"""
+    """3〜5件: Tool Use で structured output 強制 (旧 JSON 構文エラー撲滅)。
+    T2026-0428-AL: 上位3記事の全文を取得し perspectives の比較根拠とする。"""
     headlines, _ = _build_headlines(articles, limit=5)
-    prompt = _STORY_PROMPT_RULES + _GENRES_PROMPT + f'\n記事情報（{cnt}件）:\n{headlines}'
+    media_block = _build_media_comparison_block(articles, max_count=3)
+    prompt = (
+        _STORY_PROMPT_RULES
+        + _GENRES_PROMPT
+        + f'\n記事情報（{cnt}件）:\n{headlines}'
+        + (f'\n{media_block}' if media_block else '')
+    )
     try:
         result = _call_claude_tool(prompt, 'emit_topic_story', _build_story_schema('standard'), max_tokens=1300)
         if not result or not str(result.get('aiSummary') or '').strip():
@@ -473,11 +484,40 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
         return None
 
 
+def _build_media_comparison_block(articles: list, max_count: int = 3) -> str:
+    """T2026-0428-AL: 上位3記事の全文を取得し『メディア各社の本文』ブロックを返す。
+    fetch_full_articles が無い (import 失敗) / 失敗時は空文字を返し、prompt は従来通り snippet ベースで動く。"""
+    if fetch_full_articles is None or not articles:
+        return ''
+    try:
+        fetched = fetch_full_articles(articles, max_count=max_count,
+                                      per_url_timeout=5.0, max_text_chars=2500)
+    except Exception as e:
+        print(f'[proc_ai] fetch_full_articles 失敗 (snippet にフォールバック): {e}')
+        return ''
+    if not fetched:
+        return ''
+    succeeded = [f for f in fetched if f.get('isFull')]
+    if not succeeded:
+        return ''
+    lines = ['', '【メディア各社の本文 (perspectives 比較用・公平に扱うこと)】']
+    for f in fetched:
+        marker = '全文' if f.get('isFull') else '概要'
+        src = f.get('source') or '不明媒体'
+        text = (f.get('fullText') or '').strip()
+        if not text:
+            continue
+        lines.append(f'[{src} {marker}] {text}')
+    return '\n'.join(lines)
+
+
 def _generate_story_full(articles: list, cnt: int) -> dict | None:
     """6件以上: フル7セクション + 因果タイムライン（最大6件）。Tool Use で structured output 強制。
     記事数が多い大型トピック向け。Sonnet 4.6 を使い keyPoint/backgroundContext/perspectives 等の
-    記述品質を底上げする (minimal/standard は Haiku 据え置き)。"""
+    記述品質を底上げする (minimal/standard は Haiku 据え置き)。
+    T2026-0428-AL: 上位3記事の全文を取得し perspectives の比較根拠とする。"""
     headlines, _ = _build_headlines(articles, limit=10)
+    media_block = _build_media_comparison_block(articles, max_count=3)
     prompt = (
         _WORD_RULES
         + _STORY_PROMPT_RULES
@@ -485,6 +525,7 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         + '【timeline】3〜6件の重要な転換点。event は体言止め40字以内、transition は因果接続 (これを受けて/その翌日/反発を受け/声明を機に/審議を経て) 25字以内。\n'
         + _GENRES_PROMPT
         + f'\n記事情報（{cnt}件・見出しと概要）:\n{headlines}'
+        + (f'\n{media_block}' if media_block else '')
     )
     try:
         result = _call_claude_tool(
