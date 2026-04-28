@@ -183,6 +183,97 @@ def _prefetch_group(tid):
     return hist, existing
 
 
+# T2026-0428-E2-3: title 重複による tid 分裂を解消するための正規化キー。
+# proc_storage.py の `_dedup_topics`/`_core_key` と整合させた最小集合。
+_TITLE_DEDUP_PUNCT_RE = re.compile(r'[「」【】・、。,!?！？\[\]()（）『』""\'\'#＃\s　]+')
+_TITLE_DEDUP_LIVE_PREFIX_RE = re.compile(r'^(中継|速報|更新|独自|詳報|続報|緊急|号外)\s*')
+
+
+def _title_dedup_key(title: str) -> str:
+    """generatedTitle / title の正規化キーを返す。空文字は ''。"""
+    if not title:
+        return ''
+    s = str(title).lower()
+    s = _TITLE_DEDUP_PUNCT_RE.sub('', s)
+    s = _TITLE_DEDUP_LIVE_PREFIX_RE.sub('', s)
+    return s[:18]
+
+
+def _resolve_tid_collisions_by_title(group_tids, existing_topics):
+    """title 完全一致で既存 tid に再バインドし、同 run 内 tid 衝突 group をマージする。
+
+    背景:
+      `topic_fingerprint(g)` はクラスタ内 top-5 単語に依存するため、RSS 記事構成が
+      変わると同一イベントでも別 tid を生成する (本番計測 2026-04-29 ナオヤ調査:
+      828 トピック中 343 件 = 41.43% が完全同一 title で別 tid に分裂)。
+      これが storyPhase「発端」率 20.17% (目標 10% 未満) の主因。
+
+    解決:
+      毎 run 頭で取得した `existing_topics` (S3 topics.json 由来 = active/cooling のみ)
+      を直近 14 日のものだけ filter し、title / generatedTitle の正規化キー →
+      tid マップを構築する。新規 group の `extractive_title(g)` がキー一致したら、
+      `topic_fingerprint` で生まれた新 tid を破棄して既存 tid を採用する。
+      AI 再生成は不要 (新 group の記事は既存 tid の SNAP に累積マージされる)。
+
+      同 run 内で複数 group が同 tid に着地した場合は、URL 重複排除で記事を
+      1 group にマージしてから main loop に渡す。
+    """
+    if not existing_topics or not group_tids:
+        return group_tids
+
+    now_ts = int(time.time())
+    cutoff_ts = now_ts - 14 * 86400
+    title_to_tid = {}
+    for t in existing_topics:
+        tid_e = t.get('topicId', '')
+        if not tid_e:
+            continue
+        if t.get('lifecycleStatus') in INACTIVE_LIFECYCLE_STATUSES:
+            continue
+        last = int(t.get('lastArticleAt', 0) or 0)
+        if not last or last < cutoff_ts:
+            continue
+        for src_title in (t.get('title'), t.get('generatedTitle')):
+            norm = _title_dedup_key(src_title)
+            if norm and norm not in title_to_tid:
+                title_to_tid[norm] = tid_e
+
+    if not title_to_tid:
+        return group_tids
+
+    rebound = 0
+    resolved = []
+    for g, tid in group_tids:
+        candidate = extractive_title(g) or (g[0].get('title', '') if g else '')
+        norm = _title_dedup_key(candidate)
+        target = title_to_tid.get(norm)
+        if target and target != tid:
+            tid = target
+            rebound += 1
+        resolved.append((g, tid))
+    if rebound:
+        print(f'[title-dedup] {rebound}/{len(group_tids)} groups rebound to existing tids')
+
+    by_tid: dict = {}
+    order: list = []
+    for g, tid in resolved:
+        if tid in by_tid:
+            existing_g = by_tid[tid]
+            seen_urls = {a.get('url') for a in existing_g if a.get('url')}
+            for a in g:
+                u = a.get('url')
+                if u and u not in seen_urls:
+                    existing_g.append(a)
+                    seen_urls.add(u)
+        else:
+            by_tid[tid] = list(g)
+            order.append(tid)
+    merged = len(resolved) - len(by_tid)
+    if merged:
+        print(f'[title-dedup] {merged} same-run groups merged into existing tids')
+    return [(by_tid[tid], tid) for tid in order]
+
+
 def _fetch_ogp_group(tid, urls):
     """複数 URL を順番に試して最初に取得できた OGP 画像を返す。"""
     for u in urls:
@@ -278,6 +369,17 @@ def lambda_handler(event, context):
 
     groups_sorted = sorted(groups, key=lambda g: len({a['source'] for a in g}) * 10, reverse=True)
     group_tids    = [(g, topic_fingerprint(g)) for g in groups_sorted]
+
+    # T2026-0428-E2-3: title 重複による tid 分裂を解消する。
+    # `topic_fingerprint` はクラスタ top-5 単語に依存するため、RSS 記事構成が
+    # 変わると同一イベントでも別 tid を生成し、META 分裂が起きていた
+    # (本番計測 2026-04-29: 343/828 = 41.43% が完全同一 title で別 tid)。
+    # 既存 topics.json (active/cooling・直近 14 日) を読み、title 完全一致なら
+    # 既存 tid に再バインドする。get_all_topics() は S3 topics.json を読むだけで
+    # DynamoDB scan しないため、後段の topics.json 構築 (line ~646) との重複読みは
+    # S3 GET 1 回分の追加コストのみ ($0.0004/月オーダー)。
+    _existing_topics_for_dedup = get_all_topics() if S3_BUCKET else []
+    group_tids = _resolve_tid_collisions_by_title(group_tids, _existing_topics_for_dedup)
 
     # Step 4: DynamoDB（hist + META）を全グループ並列プリフェッチ
     _t_pre = time.time()
