@@ -4,6 +4,45 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 06:50 JST Code T193 「毎日来る理由」 — Bluesky 朝 8 時投稿）
+
+- ✅ **T193 完了** — 「毎日来る理由」 = Bluesky 朝 8:00 (JST) に必ず動きトピックを 1 件投稿する仕組みを実装。
+  - **選定**: 3 案 (朝メール / Bluesky 朝 8 時 / 動きトピック固定) のうち、既存 `flotopic-bluesky` Lambda を再利用できる Bluesky 朝 8 時案を採用。SES + 購読 DB が不要で**追加コスト $0/月**。
+  - **実装**:
+    1. `scripts/bluesky_agent.py`: `post_morning(client, dry_run)` 関数追加。velocityScore 上位 + 過去 24h 以内更新トピックから 1 件選定し「🌅 今朝の動き」プレフィックスで投稿。`MORNING_COOLDOWN_HOURS=20h` で 1 日 1 回ガード。
+    2. `scripts/bluesky_agent.py`: `run()` の dispatch に `mode='morning'` 分岐追加・CLI argparse choices に追加。
+    3. `projects/P003-news-timeline/lambda/bluesky/handler.py`: `_resolve_mode` の許可リストに `'morning'` 追加。
+    4. `.github/workflows/deploy-lambdas.yml`: deploy ジョブに「bluesky-morning EventBridge cron 登録」ステップ追加。`cron(0 23 * * ? *)` (UTC 23:00 = JST 08:00) でルール作成 + Lambda permission 付与 + ターゲット登録 (`Input='{"mode":"morning"}'`)。すべて冪等。
+    5. `.github/workflows/bluesky-agent.yml`: 手動ディスパッチ用 mode dropdown に `morning` 追加 (緊急テスト用)。
+  - **コスト試算**: EventBridge cron ルール = 無料 (14M invocations/月 まで)、Lambda 1 回/日 = ~\$0.0000002/月、Anthropic API 呼び出し = なし → **実質 \$0/月**。
+  - **Verified** (検証):
+    - `python3 -m py_compile scripts/bluesky_agent.py` ✅
+    - `python3 -m py_compile projects/P003-news-timeline/lambda/bluesky/handler.py` ✅
+    - AST 確認: `post_morning` 定義 + `run()` morning 分岐 + CLI choices に `morning` 含む ✅
+    - YAML 構文: deploy-lambdas.yml + bluesky-agent.yml 両方 yaml.safe_load 成功 ✅
+    - 効果検証 (実投稿): 次回 deploy-lambdas.yml 実行後の翌朝 JST 08:00 で初回投稿確認 (Bluesky [@flotopic.bsky.social](https://bsky.app/profile/flotopic.bsky.social) で目視)
+  - **次のアクション**: GitHub Actions UI で `deploy-lambdas.yml` を手動 trigger するか、次回 `lambda/` 配下の変更を含む push で自動 trigger される。デプロイ後、AWS Console で `flotopic-bluesky-morning` ルール作成と `cron(0 23 * * ? *)` 設定を確認。
+
+### 完了済み（2026-04-29 06:24 JST Code T2026-0429-KP3 + T2026-0428-E landed）
+
+- ✅ **T2026-0429-KP3 完了** (commit `58f8fd6`) — proc_ai.py keyPoint 100字未満を schema 違反として 1 回 retry。
+  - `_STORY_PROMPT_RULES.keyPoint` に「100 字以上 必須・schema 違反として再生成される」を明示
+  - `_SYSTEM_PROMPT` 出力品質チェックにも同文言追加・出力前に文字数を数えるよう指示
+  - `_build_story_schema` の keyPoint property に `minLength=100` 追加（Tool Use ヒント）
+  - `_retry_short_keypoint()` 新設: 初回 keyPoint < 100字なら 1 回だけ再生成要求を送る
+  - 再生成プロンプトに「前回 N 字でした。100 字以上で書き直し」を追記
+  - cache_control 維持のため `_SYSTEM_PROMPT` は同一バイトで再利用
+  - 再生成のほうが長ければ採用、短ければ原本維持で best effort
+  - **効果検証**: 次の processor cron 実行後（2026-04-29 09:00 JST 以降）に SLI 再測で 100 字以上充填率 1.9% → 30%+ 改善見込み
+
+- ✅ **T2026-0428-E 完了** (先行実装済み確認) — AI 要約構造 4 軸化（状況解説 / 各メディアの見解 / これからの注目ポイント / 予想判定）。
+  - 4 軸の対応: keyPoint=状況解説 / perspectives=各社の見解 / watchPoints=これからの注目ポイント / outlook=AI 予想判定
+  - `proc_ai.py` の `_build_story_schema` で 4 軸 schema 定義済（line 367-)
+  - `_SYSTEM_PROMPT` で 4 軸ガイダンス済（line 563-)
+  - frontend `detail.js` 側の 2 ゾーン（注目度 / コンテンツ）表示も既存実装済
+  - 旧 `spreadReason`/`backgroundContext`/`background`/`whatChanged` 系は廃止済
+  - 本セッションでは追加変更不要 → KP3 と同時クローズ
+
 ### 完了済み（2026-04-29 00:30 JST Code T2026-0428-E2-2 keyPoint 充填率 遡及再処理加速）
 
 - ✅ **T2026-0428-E2-2 第二弾完了** — pending_ai.json と DDB pendingAI=True の同期崩壊 (24 件 vs 855 件) を即時是正 + processor 自動回復ロジック追加で構造的に再発防止。**Lambda invoke ゼロ・Anthropic API ゼロ**。
