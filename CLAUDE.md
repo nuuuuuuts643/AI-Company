@@ -47,6 +47,7 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 | **scriptタグ defer/async 禁止** | chart.js / config.js / app.js / detail.js。CI で物理ブロック |
 | **新規 formatter は boundary test 同梱** | 0/null/undefined/NaN/未来日付を全部 assert |
 | **PII / secrets コード直書き禁止** | env var か AWS Secrets Manager 必須 |
+| **実装前に全体影響マップ必須** | 新機能追加・修正前に ①影響ファイル一覧 ②依存方向 ③副作用シナリオ を箇条書きで列挙し、ナオヤに確認してから着手。「とりあえず実装」禁止。調査→報告→承認→着手の順を物理ルールとする |
 | **対症療法ではなく根本原因** | 足回りで誤魔化さない。band-aid (lenient parsing 等) より API 設計修正 |
 | **なぜなぜ分析は構造化** | 問題発生時 Why1〜Why5 + 仕組み的対策 3 つ以上を `docs/lessons-learned.md` に追記。テーブル 1 行追記は再発防止と呼ばない。仕組み的対策には「外部観測」「物理ゲート」を最低 1 つ含める |
 | **Lambda 主ループ wallclock guard 必須** | 外部 API 呼び出しを伴うループは `context.get_remaining_time_in_millis()` で残り時間を測り break。回数ベース上限と時間予算を整合させる |
