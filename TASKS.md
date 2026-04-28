@@ -40,6 +40,7 @@
 | ID | 優先 | 軸 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|---|
 | T2026-0428-E | 🔴 高 | AI品質 | **AI 要約構造 4 軸化（状況解説 / 各メディアの見解 / これからの注目ポイント / 予想判定）** — proc_ai.py プロンプトと output schema を 4 軸に。frontend detail.js は 2 ゾーン (注目度 / コンテンツ) で表示。既存 `spreadReason`/`backgroundContext`/`background`/`whatChanged` 系は廃止 | `lambda/processor/proc_ai.py`, `lambda/processor/proc_storage.py`, `frontend/detail.js`, `frontend/style.css` | 2026-04-28 |
+| T2026-0429-KP3 | 🔴 高 | AI品質 | **keyPoint 100字基準が達成しない第3層原因 — プロンプトが文字数要求を強制してない疑い** — 2026-04-29 05:10 JST 自律巡回 SLI で keyPoint 100字以上 2/101=1.9% が前回 2/104=1.9% から完全 fixed（同一 topicId）。空でないものは 93% あるが文字数分布は 21-50字に 82件 (82%) 集中。T2026-0429-KP (5e55d7d) と c8cfb07 (quality_heal 1-99字再処理) が landed しても改善せず → 第3層原因 = proc_ai.py プロンプトが「keyPoint は 100字以上で書け」を強制してない可能性大。**実装**: proc_ai.py の input_schema or プロンプトに `minLength: 100` 相当の要求を入れる + sample output で長さを示す。コスト試算は 件数×$0.0023 で事前に出す。T2026-0428-E (4軸化) と同ファイルなので **同時実施を推奨**（衝突回避）。 | `lambda/processor/proc_ai.py` | 2026-04-29 |
 | T191 | 🟠 高 | 体験 | **「ストーリーを追う」フロー設計** — トップ画面で動きが見える → 1 タップで経緯 → 「続きが来たら通知」で離脱。コード変更より先に画面遷移フロー図 | 設計フロー図 | 2026-04-27 |
 | T193 | 🟠 高 | 収益・習慣化 | **「毎日来る理由」設計** — 朝メール / Bluesky 朝 8 時 / 動きトピック固定 のいずれか | `scripts/bluesky_agent.py`, `lambda/processor/`, `frontend/` | 2026-04-27 |
 | T2026-0428-BRANCH | 🟡 中 | AI品質 | **ストーリー分岐はセマンティック関連性で判断する方針メモ** — 注目度（数字）ではなく内容（登場人物・因果関係・エンティティ重複）で。関連: T212 | `lambda/fetcher/`, `lambda/processor/proc_ai.py` | 2026-04-28 |
