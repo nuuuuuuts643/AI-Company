@@ -29,14 +29,13 @@
 | field | L1 schema | L2 normalize | L3 ai_updates | L4a topics.json | L4b topic.json | L5a card | L5b detail | 備考 |
 |---|---|---|---|---|---|---|---|---|
 | `aiSummary` | ✅ | ✅ | → `generatedSummary` | ✅ | ✅ | ✅ | ✅ | カードと詳細両方で表示 |
-| `keyPoint` | ✅ | ✅ (60字 cap) | ✅ | ✅ (T249 で merge 修正) | ✅ | ✅ ヒーロー枠 | ✅ ヒーロー枠 | **2026-04-28 本番 8.7% (RED)。T255 (skip 修正) 次 cycle 反映待ち** |
-| `background` | ✅ | ✅ | ✅ | ✅ | ✅ | — | ✅ | 直近 1〜4 週間の触媒 |
-| `backgroundContext` | ✅ (standard/full) | ✅ | ✅ | ⛔ `_PROC_INTERNAL` で除外 | ✅ | — | ✅ | 構造的・社会的・経済的・政治的要因 |
-| `spreadReason` | ✅ (standard/full) | ✅ | ✅ | ⛔ `_PROC_INTERNAL` で除外 | ✅ | — | ✅ | なぜ広がったか |
-| `outlook` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ 末尾 | ✅ | 文末に [確信度:高/中/低] 必須 |
+| `keyPoint` | ✅ | ✅ (400字 cap) | ✅ | ✅ (T249 で merge 修正) | ✅ | ✅ ヒーロー枠 | ✅ ヒーロー枠 | **T2026-0428-J/E で 200〜300 字物語形式に拡張** |
+| `statusLabel` | ✅ (standard/full) | ✅ (enum 矯正) | ✅ | ✅ | ✅ | ✅ chip | ✅ | T2026-0428-J/E: 発端 / 進行中 / 沈静化 / 決着 (読者向け 4 値) |
+| `watchPoints` | ✅ (standard/full) | ✅ (200字 cap) | ✅ | ✅ | ✅ | — | ✅ | T2026-0428-J/E: ① ② ③ 番号付きの観察視点 |
+| `outlook` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ 末尾 | ✅ | 文末に [確信度:高/中/低] 必須。T2026-0428-PRED で当否自動判定 |
 | `forecast` | ✅ (full のみ) | ✅ | ✅ | ⛔ `_PROC_INTERNAL` で除外 | ✅ | — | ✅ | 文末確信度ラベル必須 |
 | `perspectives` | ✅ (standard/full) | ✅ | ✅ | ✅ | ✅ | — | ✅ | 各社の懸念・着目点（並列列挙） |
-| `timeline` | ✅ (standard/full) | ✅ (max 6 / 3) | → `storyTimeline` | ⛔ `_PROC_INTERNAL` で除外 | ✅ | — | ✅ | 因果タイムライン |
+| `timeline` | ✅ (standard/full) | ✅ (max 6 / 3) | → `storyTimeline` | ⛔ `_PROC_INTERNAL` で除外 | ✅ | — | ✅ | 因果タイムライン (subfields: `date`/`event`/`transition`) |
 | `phase` | ✅ (enum) | ✅ ('発端' 矯正) | → `storyPhase` | ✅ | ✅ | ✅ chip | ✅ | T219 で「3件以上で発端禁止」 |
 | `topicTitle` | ✅ | ✅ (15字 cap) | ✅ | ✅ | ✅ | ✅ | ✅ | テーマ名（体言止め） |
 | `latestUpdateHeadline` | ✅ | ✅ (40字 cap) | ✅ | ✅ | ✅ | ✅ | ✅ | 最新の動き |
