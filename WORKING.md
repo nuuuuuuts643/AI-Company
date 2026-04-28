@@ -102,3 +102,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] フェーズ2完了条件 実測確認 + branch protection 確認 | 調査+実装 | docs/project-phases.md, TASKS.md, HISTORY.md, lambda/processor/proc_ai.py(必要時) | 2026-04-28 22:05 | yes |
