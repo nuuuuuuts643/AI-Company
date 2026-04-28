@@ -90,4 +90,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0428-AN 信頼スコア一次情報強化＋フロントバッジ | Code | lambda/fetcher/{config,score_utils,scoring}.py, lambda/processor/proc_sources.py, frontend/{detail.js,topic.html,style.css}, tests/ | 2026-04-28 09:30 | yes |
