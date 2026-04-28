@@ -97,3 +97,73 @@ jobs:
             exit 1
           fi
           echo "✅ next_task_id.sh OK"
+
+  lessons-landings-check:
+    name: 横展開チェックリスト landing 検証（過去対策の fossilize 検出）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: スクリプト実行
+        run: |
+          # 由来: 2026-04-28 PM T2026-0428-AX なぜなぜ — 過去対策の landing 検証ルーチン欠如。
+          # docs/lessons-learned.md 末尾の「横展開チェックリスト」表を読み、
+          # 状態 ✅ 行で「実装ファイル」列のパスが repo に存在するかを物理検査する。
+          # 「書いただけで動いていない」対策 (fossilize) を CI で検出する。
+          chmod +x scripts/check_lessons_landings.sh
+          bash scripts/check_lessons_landings.sh
+
+  rollback-runbook-check:
+    name: ロールバック runbook 物理検査
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 必須コマンドが含まれること
+        run: |
+          # 由来: 2026-04-28 PM T2026-0428-AX フェーズ 1 完了条件 §B (ロールバック)。
+          # 「壊れたら戻す手順」が空文書化しないように、最低 1 経路の操作コマンドを物理検査。
+          F="docs/runbooks/rollback.md"
+          if [ ! -s "$F" ]; then
+            echo "::error::$F が存在しないか空です"
+            exit 1
+          fi
+          if ! grep -qE "git revert|aws lambda update-function-code" "$F"; then
+            echo "::error::$F に 'git revert' または 'aws lambda update-function-code' のいずれかを含めてください"
+            exit 1
+          fi
+          echo "✅ rollback runbook 物理検査 OK"
+
+  soft-language-grep:
+    name: 形骸化検出 grep（仕組み的対策に soft language 混入）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 仕組み的対策セクションに soft language が含まれていないか
+        run: |
+          # 由来: 2026-04-28 PM T2026-0428-AX § Step 3。
+          # 「気を付ける/注意する/意識する」は仕組み的対策ではない (global-baseline §6)。
+          # docs/lessons-learned.md の「**仕組み的対策**:」直後ブロックに limit して grep。
+          # 「『気を付ける』は答えではない」のような禁止語の引用は対象外。
+          set +e
+          python3 - <<'PY'
+          import re, sys, pathlib
+          src = pathlib.Path("docs/lessons-learned.md").read_text(encoding="utf-8")
+          # **仕組み的対策**: ... 次の --- まで を抽出
+          chunks = re.findall(r"\*\*仕組み的対策.*?\n(.*?)\n---", src, flags=re.S)
+          BANNED = ("気を付ける", "気をつける", "意識する", "なるべく", "可能な限り")
+          # 「『気を付ける』」「"気を付ける"」「『気をつける』」のように引用符に挟まれているのは除外
+          QUOTED = re.compile(r"[『「\"][^『「\"』」\"]*?(?:" + "|".join(BANNED) + r")[^『「\"』」\"]*?[』」\"]")
+          hits = []
+          for ch in chunks:
+              # 引用文を除去
+              clean = QUOTED.sub("", ch)
+              for w in BANNED:
+                  if w in clean:
+                      hits.append((w, ch[:120].replace("\n", " ⏎ ")))
+                      break
+          if hits:
+              print("::error::仕組み的対策セクションに soft language 混入 (テキストルール禁止):")
+              for w, ctx in hits:
+                  print(f"  '{w}': {ctx}")
+              sys.exit(1)
+          print(f"✅ 仕組み的対策セクション {len(chunks)} 個に soft language 混入なし")
+          PY
