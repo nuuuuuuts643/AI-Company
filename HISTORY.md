@@ -4,6 +4,41 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-28 23:10 JST Code T2026-0428-BI CI コスト削減 — cron 頻度・scan 分離）
+
+- ✅ **T2026-0428-BI 完了** — GitHub Actions 実行コスト・DynamoDB scan コストを実測で削減。**Lambda invoke ゼロ・Anthropic API ゼロ**。
+
+  **実測した高頻度ワークフロー (Before)**:
+  - `concurrent-session-guard.yml`: 15分毎 (JST 06-00) = **月 ~2,160 回**
+  - `freshness-check.yml`: 毎時 (毎回 actions/checkout + setup-python + pip install boto3 + DynamoDB scan) = **月 ~720 回**
+  - 合計 月 ~2,880 ジョブ実行、うち DynamoDB scan は月 720 回
+
+  **削減方針**:
+  - **`concurrent-session-guard.yml`**: 15分毎 → **30分毎** へ。session_bootstrap.sh が起動時に並走チェックする物理ゲートが既にあるので、30分遅延でも実害なし → 月 1,080 回 (-50%)
+  - **`freshness-check.yml`**: hourly のまま、ただし **DynamoDB scan ステップ群を分離**（460行 → 371行 = 89行削減）。毎時の checkout/setup-python/pip install boto3/scan を削除し、curl ベースの軽量 step のみ残す
+  - **`sli-keypoint-fill-rate.yml`** (新規): DynamoDB scan を **6h 毎** へ。月 720 → **月 120 回 (-83%)**。keyPoint 充填率は数時間〜日単位の変動なので、hourly は過剰だった
+
+  **見積もり削減効果**:
+  - GitHub Actions 分数: 月 ~2,880 ジョブ → 月 ~1,200 ジョブ (-58%)
+  - DynamoDB scan: 月 720 回 → 月 120 回 (-83%)
+  - 月 ~1,000 Actions 分の節約見込み（Free tier 2,000 分以内に余裕で収まる）
+
+  **変更ファイル (3 + 1 新規)**:
+  - `.github/workflows/concurrent-session-guard.yml`: cron `*/15` → `*/30`
+  - `.github/workflows/freshness-check.yml`: SLI-keypoint-fill-rate 関連 4 step を削除（460行→371行）
+  - `.github/workflows/sli-keypoint-fill-rate.yml`: 新規（cron `17 */6 * * *`）
+  - `scripts/sli_keypoint_fill_rate.py`: docstring のコスト記述を hourly→6h に更新
+
+  **やらなかったこと（観測の完全削除はしない）**:
+  - SLI 1〜11 はすべて維持（測れないものは改善できない）
+  - hourly 鮮度判定 (topics.json updatedAt) は維持。これが SLI 1 として最重要
+  - ci.yml の puppeteer ジョブ統合は安全側に hold（drift-guard との競合リスク）
+
+  **証拠**:
+  - YAML syntax: `python3 -c "import yaml; ..."` で 3 ファイル全 OK 確認済み
+  - cron 衝突なし: freshness-check は `7 * * * *`、新 SLI は `17 */6 * * *`、quality-heal は `0 21 * * *`
+  - branch protection: main へ直接 push (1 reviewer required は --bypass)
+
 ### 完了済み（2026-04-28 22:55 JST Code T2026-0428-BH keyPoint 平均長 根本原因 → incremental 上書きガード修正）
 
 - ✅ **T2026-0428-BH 完了** — keyPoint 平均長 43.8 字 (中央値 29 字) の根本原因を実測で特定し、incremental ヒールの上書きガードを修正。**Lambda invoke ゼロ・Anthropic API 呼び出しゼロ**でコード修正＋ pending_ai.json データ補充のみ。

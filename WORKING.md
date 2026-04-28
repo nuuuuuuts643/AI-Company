@@ -102,4 +102,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0428-BI CI コスト削減（cron 頻度・scan 統合・paths-ignore） | infra | .github/workflows/*.yml | 2026-04-28 22:46 JST | yes |
