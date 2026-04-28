@@ -4,6 +4,31 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 07:25 JST Code T237 + T2026-0429-A + T2026-0428-Q — fetcher_trigger keyPoint backfill + velocityScore バッジ + success-but-empty 観測）
+
+- ✅ **T237 完了** — AI 生成カバレッジの第4層原因確定 + コード修正。
+  - **第4層原因 (本セッションで発見)**: scheduled cron は cron(0 23,8 * * ? *) UTC = 1 日 2 回 (08:00 + 17:00 JST) しか走らず、fetcher_trigger は新規 topic だけ処理しゴーストID率が極めて高いため MAX_API_CALLS=10 の枠が大量に余る。
+    - 実測 (CloudWatch /aws/lambda/p003-processor): 21:05 UTC=9件指定→1件処理、21:35 UTC=8件指定→0件、22:05 UTC=6件指定→0件。
+    - 結果: aiGenerated=True 92件中 90件 (97.83%) が keyPoint < 100 字のまま滞留 (mode 別: minimal 96.3% / standard 100% / full 100%)。
+  - **修正**: `lambda/processor/handler.py` の `topic_id_filter` 経路で `len(pending) < effective_max_api_calls` のとき `backfill_budget = effective_max_api_calls - len(pending)` 件を `get_pending_topics()` の優先度ソート結果から union する。コスト中立 (上限を変えず空き枠のみ活用)。fetcher は 30 分ごとに走るため、scheduled cron 1 日 2 回に頼らず既存 keyPoint < 100 字 topic を継続的に backfill 可能。
+  - **テスト**: `tests/test_handler_fetcher_backfill.py` で backfill 判定ロジック 6 ケース + handler.py grep ガード を追加。`python3 -m unittest tests.test_handler_fetcher_backfill -v` で全 PASS。
+  - **基準値**: scan_success_but_empty.py --bucket-only = aiGenerated=True 92件中 keyPoint<100字 90件 (97.83%)。**目標**: 24h 後に 50% 以下、72h 後に 30% 以下。次の scheduled cron (17:00 JST 08:00 UTC) + 30 分ごとの fetcher_trigger backfill で減少を観測。
+  - **Verified**: `Verified: https://flotopic.com/api/topics.json:200:2026-04-29T07:21+0900` / `Verified-Effect: ai_quality keyPoint=100.0%(92/92) perspectives=41.3%(38/92) thresholds=kp50/pv60 FAIL @ 2026-04-29T07:20+0900` (verify_effect の ai_quality は「keyPoint not empty」のみ判定で、本タスクの実効果は scan_success_but_empty.py で別途観測する)。
+
+- ✅ **T2026-0429-A 完了** — velocityScore バッジ追加。
+  - `frontend/app.js` の `renderCardMeta()` に velocity-badge を追加。`CONFIG.HOT_STRIP_MIN_VELOCITY=3` と同一閾値で「🔥 急上昇」 / `× 5 = 15` で「🔥 爆発」を表示。HOT ストリップの選定基準と一貫させた。
+  - `frontend/style.css` に `.velocity-badge.velocity-rising` (オレンジグラデ) と `.velocity-badge.velocity-explode` (赤オレンジグラデ + 軽い影) を新設。
+  - 実測: topics.json 100 件中 velocityScore ≥ 3 が 2 件 (54, 48.65)、それ以下は 0 中央値。閾値妥当性は本番反映後に再評価。
+  - `node -c frontend/app.js` 構文チェック ✅。
+
+- ✅ **T2026-0428-Q 部分完了** — success-but-empty 観測スキャナ新設。
+  - `scripts/scan_success_but_empty.py` を新設。aiGenerated=True かつ keyPoint < 100 字を mode 別 (minimal/standard/full) に集計し、長分布 (empty/1-19/20-49/50-99/100-199/200+) と先頭サンプルをコンソール出力。
+  - `--bucket-only` で S3 topics.json から直読み (DDB 権限省略可)、`--json` で SLI 取り込み用 JSON 出力。
+  - 実測 (今回基準値取得): aiGenerated=True 92件 / keyPoint<100字 90件 (97.83%) / mode別 minimal 52/54 (96.3%)、standard 25/25 (100%)、full 13/13 (100%)。
+  - 残タスク (fetcher articleCount=0 / processor processed=0 / bluesky 失敗 / SES bounce / CloudFront 5xx 等の横展開) は別タスクで継続。
+
+- **PR**: `claude/T237-ai-coverage-fix` (commit f4c6c3a)。pre-commit hook (Verified 行・section_sync) PASS。push 後 GitHub Actions が自動デプロイ。
+
 ### 完了済み（2026-04-29 06:50 JST Code T193 「毎日来る理由」 — Bluesky 朝 8 時投稿）
 
 - ✅ **T193 完了** — 「毎日来る理由」 = Bluesky 朝 8:00 (JST) に必ず動きトピックを 1 件投稿する仕組みを実装。
