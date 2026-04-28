@@ -4,6 +4,31 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 07:25 JST Code T237 + T2026-0429-A + T2026-0428-Q — fetcher_trigger keyPoint backfill + velocityScore バッジ + success-but-empty 観測）
+
+- ✅ **T237 完了** — AI 生成カバレッジの第4層原因確定 + コード修正。
+  - **第4層原因 (本セッションで発見)**: scheduled cron は cron(0 23,8 * * ? *) UTC = 1 日 2 回 (08:00 + 17:00 JST) しか走らず、fetcher_trigger は新規 topic だけ処理しゴーストID率が極めて高いため MAX_API_CALLS=10 の枠が大量に余る。
+    - 実測 (CloudWatch /aws/lambda/p003-processor): 21:05 UTC=9件指定→1件処理、21:35 UTC=8件指定→0件、22:05 UTC=6件指定→0件。
+    - 結果: aiGenerated=True 92件中 90件 (97.83%) が keyPoint < 100 字のまま滞留 (mode 別: minimal 96.3% / standard 100% / full 100%)。
+  - **修正**: `lambda/processor/handler.py` の `topic_id_filter` 経路で `len(pending) < effective_max_api_calls` のとき `backfill_budget = effective_max_api_calls - len(pending)` 件を `get_pending_topics()` の優先度ソート結果から union する。コスト中立 (上限を変えず空き枠のみ活用)。fetcher は 30 分ごとに走るため、scheduled cron 1 日 2 回に頼らず既存 keyPoint < 100 字 topic を継続的に backfill 可能。
+  - **テスト**: `tests/test_handler_fetcher_backfill.py` で backfill 判定ロジック 6 ケース + handler.py grep ガード を追加。`python3 -m unittest tests.test_handler_fetcher_backfill -v` で全 PASS。
+  - **基準値**: scan_success_but_empty.py --bucket-only = aiGenerated=True 92件中 keyPoint<100字 90件 (97.83%)。**目標**: 24h 後に 50% 以下、72h 後に 30% 以下。次の scheduled cron (17:00 JST 08:00 UTC) + 30 分ごとの fetcher_trigger backfill で減少を観測。
+  - **Verified**: `Verified: https://flotopic.com/api/topics.json:200:2026-04-29T07:21+0900` / `Verified-Effect: ai_quality keyPoint=100.0%(92/92) perspectives=41.3%(38/92) thresholds=kp50/pv60 FAIL @ 2026-04-29T07:20+0900` (verify_effect の ai_quality は「keyPoint not empty」のみ判定で、本タスクの実効果は scan_success_but_empty.py で別途観測する)。
+
+- ✅ **T2026-0429-A 完了** — velocityScore バッジ追加。
+  - `frontend/app.js` の `renderCardMeta()` に velocity-badge を追加。`CONFIG.HOT_STRIP_MIN_VELOCITY=3` と同一閾値で「🔥 急上昇」 / `× 5 = 15` で「🔥 爆発」を表示。HOT ストリップの選定基準と一貫させた。
+  - `frontend/style.css` に `.velocity-badge.velocity-rising` (オレンジグラデ) と `.velocity-badge.velocity-explode` (赤オレンジグラデ + 軽い影) を新設。
+  - 実測: topics.json 100 件中 velocityScore ≥ 3 が 2 件 (54, 48.65)、それ以下は 0 中央値。閾値妥当性は本番反映後に再評価。
+  - `node -c frontend/app.js` 構文チェック ✅。
+
+- ✅ **T2026-0428-Q 部分完了** — success-but-empty 観測スキャナ新設。
+  - `scripts/scan_success_but_empty.py` を新設。aiGenerated=True かつ keyPoint < 100 字を mode 別 (minimal/standard/full) に集計し、長分布 (empty/1-19/20-49/50-99/100-199/200+) と先頭サンプルをコンソール出力。
+  - `--bucket-only` で S3 topics.json から直読み (DDB 権限省略可)、`--json` で SLI 取り込み用 JSON 出力。
+  - 実測 (今回基準値取得): aiGenerated=True 92件 / keyPoint<100字 90件 (97.83%) / mode別 minimal 52/54 (96.3%)、standard 25/25 (100%)、full 13/13 (100%)。
+  - 残タスク (fetcher articleCount=0 / processor processed=0 / bluesky 失敗 / SES bounce / CloudFront 5xx 等の横展開) は別タスクで継続。
+
+- **PR**: `claude/T237-ai-coverage-fix` (commit f4c6c3a)。pre-commit hook (Verified 行・section_sync) PASS。push 後 GitHub Actions が自動デプロイ。
+
 ### 完了済み（2026-04-29 06:50 JST Code T193 「毎日来る理由」 — Bluesky 朝 8 時投稿）
 
 - ✅ **T193 完了** — 「毎日来る理由」 = Bluesky 朝 8:00 (JST) に必ず動きトピックを 1 件投稿する仕組みを実装。
@@ -1885,5 +1910,20 @@ bash projects/P003-news-timeline/deploy.sh
 <details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
 
 | ~~T2026-0428-BE~~ | 🟡 中 | フェーズ1-§A | ~~**buildFilters 系の境界値テスト** — `tests/unit/build_filters.test.js` 新設。`topics=[]` `topics=[{genre:'総合'}]` `counts={}` の 3 ケースで `visibleGenres` が空配列にならないことを assert。CLAUDE.md「新規 formatter は boundary test 同梱」を「フィルタ関数」に拡張~~ ✅ **2026-04-29 完了** — `frontend/js/build_filters.js` に `computeVisibleGenres()` を純粋抽出（app.js 配線済）+ 16 ケース PASS（境界値 + 旧ジャンル名マージ + archived 除外） | `projects/P003-news-timeline/tests/unit/build_filters.test.js` 新設 | 2026-04-28 |
+
+</details>
+
+
+### 自動 triage: 2026-04-29 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T191~~ | 🟠 高 | 体験 | ~~**「ストーリーを追う」フロー設計** — `docs/ux-flow-story.md` 制定 + `app.js renderCardMeta()` にカード単位フレッシュネスバッジ実装（🕒 N時間前 / 🔥 動き中）。詳細実装は T2026-0429-A / T154 に分割~~ | docs/ux-flow-story.md, frontend/app.js, frontend/style.css | 2026-04-27 |
+| ~~T2026-0428-BRANCH~~ | 🟡 中 | AI品質 | ~~**ストーリー分岐はセマンティック関連性で判断する方針メモ** — `docs/rules/story-branching-policy.md` 制定。判定マトリクス（主役重複×因果連続×entity Jaccard）+ AI 判定 prompt 案。実装は T2026-0429-B / T2026-0429-C に分割~~ | docs/rules/story-branching-policy.md | 2026-04-28 |
+| ~~T237~~ | ~~中~~ | ~~**AI生成カバレッジの根本原因調査**~~ — 2026-04-29 完了 (PR claude/T237-ai-coverage-fix)。第4層原因確定: scheduled cron 1日2回しか走らず、fetcher_trigger は新規 topic だけ処理しゴーストID率が高くMAX_API_CALLS=10 の枠が大量に余る。修正: handler.py の topic_id_filter 経路で空き枠を get_pending_topics() backfill で埋める (コスト中立)。テスト 6 ケース + scan_success_but_empty.py 観測ツール追加。基準値 90/92 (97.83%) → deploy 後 17:00 JST cron で減少を期待。 | ~~`lambda/processor/proc_storage.py`, `lambda/processor/handler.py`~~ | 2026-04-28 |
+| ~~T254~~ | ~~中~~ | ~~**style.css / app.js が `no-cache, must-revalidate` で CDN/ブラウザキャッシュ無効化されている** — Lighthouse スコア・帯域コスト低下。HTML は正解だが、JS/CSS は content-hash バージョニング (`app.js?v=abc123`) すれば長期キャッシュ可能。deploy-p003.yml で JS/CSS に長期キャッシュ (max-age=31536000, immutable) を設定し、`?v=${GITHUB_SHA::7}` で書き換え。~~ ✅ 2026-04-29: deploy-p003.yml に Python rewrite step + immutable max-age=31536000 追加 | `.github/workflows/deploy-p003.yml`, `frontend/*.html` の `<script src=>` / `<link href=>` | 2026-04-28 |
+| ~~T2026-0428-Q~~ | ~~中~~ | ~~**success-but-empty 抽象パターンの他コンポーネント横展開スキャン**~~ — 2026-04-29 部分完了 (PR claude/T237-ai-coverage-fix)。`scripts/scan_success_but_empty.py` 新設: aiGenerated=True かつ keyPoint < 100字 を mode 別 (minimal/standard/full) に集計、`--bucket-only` で S3 直読み・`--json` で SLI 取り込み可。実測で 90/92 件 (97.83%) を観測し T237 修正の基準値とした。残り (fetcher articleCount=0 / processor processed=0 / bluesky 失敗 等) は別タスクで横展開要。 | ~~`docs/sli-slo.md`, `.github/workflows/freshness-check.yml`, `scripts/scan_success_but_empty.py` 新設~~ | 2026-04-28 |
+| ~~T2026-0428-K~~ | ~~🟡 中~~ | ~~**環境スクリプトの dry-run CI 化** — 2026-04-28 04:15 schedule-task で session_bootstrap.sh / triage_tasks.py に session-id ハードコードと UTC を JST と誤ラベルする bug が同時露見。lessons-learned「環境スクリプトに session ID hardcode」記録。修正は同 commit で landing 済だが、再発防止として `scripts/session_bootstrap.sh --dry-run` を GH Actions 日次実行 → REPO 検出 / JST 表示 / WORKING.md 未来日付 stale 検出ロジックを物理 test。Claude が次セッションで気付くループを CI で前倒しに切り替える。~~ ✅ 2026-04-29: `--dry-run` 実装 + `env-scripts-dryrun.yml` 新規（smoke test + WORKING.md stale unit test + 負のテスト） | `.github/workflows/env-scripts-dryrun.yml` 新規, `scripts/session_bootstrap.sh` (`--dry-run` 引数追加) | 2026-04-28 |
+| ~~T2026-0428-AF~~ | ~~🟡 中~~ | ~~**`generatedTitle` に markdown `# / *` 残骸が残るレガシートピック** — 2026-04-28 05:13 JST 観測で `# 鈴木誠也が佐々木朗希から本塁打、カブス連勝中の活躍続く` (full mode topic) が title 先頭に `#` を持つ。fix commit `b5c36b0: fix(P003): generate_title で markdown 残骸 (# / *) を strip` 適用前に生成された aiGenerated=True topic は再生成 skip 条件で永続。一括 sanitize: `lambda/processor/handler.py` の admin mode `forceRegenerateAll` を一度実行する or `proc_storage.py update_topic_s3_file` 呼び出し前に title から `^\s*[#*]+\s*` を strip する band-aid を入れる (band-aid は CLAUDE.md ルールで本来禁止だが「過去データ補正」用途として一時許容、補正完了後に削除)。~~ ✅ 2026-04-29: proc_storage.py に `_strip_title_markdown()` ヘルパ追加 + `update_topic_with_ai` / `update_topic_s3_file` 両方の write path で適用（再保存時に自然に正規化、一括書き換え無し） | `lambda/processor/proc_storage.py` or admin `forceRegenerateAll` 実行 | 2026-04-28 |
 
 </details>
