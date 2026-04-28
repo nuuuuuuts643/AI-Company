@@ -12,8 +12,12 @@ dynamodb = boto3.resource('dynamodb', region_name=REGION)
 table    = dynamodb.Table(TABLE_NAME)
 s3       = boto3.client('s3', region_name=REGION)
 
-# 150→200に増量（46.1% storyPhase, 70.5% summary @ 2026-04-26、処理漏れ対策）。カバレッジ80%超えたら下げる
-MAX_API_CALLS          = 200
+# 200→30 に削減（2026-04-29 コスト削減）。
+# 4回/日 × 30 = 120 calls/day = ~$0.28/day = ~$8.4/month（Haiku 4.5 基準）。
+# 現状の 200 × 4 = 800 calls/day から約 85% 削減。
+# 上げる必要が出たら DAILY_API_BUDGET と一緒に再調整する。
+MAX_API_CALLS          = 30
+DAILY_API_BUDGET       = 120  # MAX_API_CALLS(30) × 4 回/日 = 120 が 1 日あたりの API 呼び出し上限
 MIN_ARTICLES_FOR_TITLE   = 2
 MIN_ARTICLES_FOR_SUMMARY = 2
 TOPICS_S3_CAP          = 500
