@@ -18,6 +18,14 @@ MIN_ARTICLES_FOR_TITLE   = 2
 MIN_ARTICLES_FOR_SUMMARY = 2
 TOPICS_S3_CAP          = 500
 
+# T2026-0428-AO: 自己修復基盤。processor の出力スキーマバージョン。
+# このバージョンを上げる = 全トピックを次サイクルで再処理する宣言。
+# 増やすタイミング: 新フィールド追加 / 既存フィールド意味変更 / プロンプト大改修。
+# - v1: keyPoint 追加
+# - v2: statusLabel / watchPoints / perspectives 追加
+# - v3: predictionMadeAt / predictionResult / topicTitle / latestUpdateHeadline 追加 (現行)
+PROCESSOR_SCHEMA_VERSION = 3
+
 STOP_WORDS = {
     'は', 'が', 'を', 'に', 'の', 'と', 'で', 'も', 'や', 'か', 'へ', 'より',
     'から', 'まで', 'という', 'として', 'による', 'において', 'について',

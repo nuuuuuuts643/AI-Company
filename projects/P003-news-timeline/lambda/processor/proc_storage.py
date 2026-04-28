@@ -14,7 +14,7 @@ from email.utils import formatdate
 
 from boto3.dynamodb.conditions import Key, Attr
 
-from proc_config import S3_BUCKET, SLACK_WEBHOOK, TOPICS_S3_CAP, table, s3
+from proc_config import S3_BUCKET, SLACK_WEBHOOK, TOPICS_S3_CAP, table, s3, PROCESSOR_SCHEMA_VERSION
 
 # OGP画像生成設定
 _OGP_W, _OGP_H = 1200, 630
@@ -293,6 +293,7 @@ def needs_ai_processing(item):
     - imageUrl が未設定（OGP画像未生成）
     - generatedTitle が「〇〇をめぐる最新の動き」等の曖昧パターンで終わる(2026-04-27)
     - generatedSummary が extractive_summary フォールバックの形 (見出し連結) (2026-04-27 c1bbe0fe事件)
+    - schemaVersion < PROCESSOR_SCHEMA_VERSION (T2026-0428-AO: 古いスキーマで処理されたトピックは自動再処理)
 
     Note: articleCount<2 のトピックはフロントエンドで非表示（processor もスキップ）のため
     False を返して pending_ai.json から自動クリーンアップされるようにする。
@@ -303,6 +304,13 @@ def needs_ai_processing(item):
     if item.get('pendingAI'):
         return True
     if not item.get('aiGenerated'):
+        return True
+    # T2026-0428-AO: schemaVersion チェック。processor スキーマが上がったら全再処理。
+    try:
+        sv = int(item.get('schemaVersion', 0) or 0)
+    except (ValueError, TypeError):
+        sv = 0
+    if sv < PROCESSOR_SCHEMA_VERSION:
         return True
     # T38: aiGenerated=True でも generatedSummary が extractive ならば未処理扱いで再処理させる
     if _is_extractive_summary(item.get('generatedSummary', '')):
