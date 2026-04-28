@@ -451,6 +451,51 @@ def get_pending_topics(max_topics=100):
     if visible_tids:
         print(f'[get_pending_topics] topics.json 可視トピック数: {len(visible_tids)}件')
 
+    # E2-2 (2026-04-29): pending_ai.json が閾値未満なら DDB pendingAI=True で自動 union。
+    # 過去 (2026-04-28) に pending_ai.json=24 件 vs DDB pendingAI=True=855 件 という極端な
+    # 乖離が発生し、processor が 24 件しか処理対象に取れず 855 件の遡及が滞留した。
+    # 原因: quality_heal cron は 1日1回だが、proc_ai は 5回/日 走るため pending_ai.json が
+    # 早期に枯渇しやすい。閾値未満で自動 sync すれば quality_heal 待ちなしで回復する。
+    # コストは scan 1回 (~1MB / META 1068 件) のみ。閾値超過時は scan しない。
+    PENDING_REPLENISH_THRESHOLD = max_topics  # max_topics(100)未満なら次サイクルで処理が痩せるため補充
+    if S3_BUCKET and len(pending_ids) < PENDING_REPLENISH_THRESHOLD:
+        try:
+            ddb_pending_ids: list = []
+            scan_kwargs = {
+                'FilterExpression': Attr('SK').eq('META') & Attr('pendingAI').eq(True),
+                'ProjectionExpression': 'topicId',
+            }
+            while True:
+                r = table.scan(**scan_kwargs)
+                ddb_pending_ids.extend(
+                    x['topicId'] for x in r.get('Items', []) if x.get('topicId')
+                )
+                if not r.get('LastEvaluatedKey'):
+                    break
+                scan_kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
+            if ddb_pending_ids:
+                merged = list(dict.fromkeys(pending_ids + ddb_pending_ids))
+                added = len(merged) - len(pending_ids)
+                if added > 0:
+                    print(
+                        f'[get_pending_topics] auto-replenish: pending_ai.json={len(pending_ids)}件 '
+                        f'< 閾値{PENDING_REPLENISH_THRESHOLD} → DDB pendingAI=True {len(ddb_pending_ids)}件 '
+                        f'と union → +{added}件 (合計{len(merged)}件)'
+                    )
+                    pending_ids = merged
+                    # pending_ai.json を再永続化して次回以降の起動を健全化
+                    try:
+                        s3.put_object(
+                            Bucket=S3_BUCKET, Key='api/pending_ai.json',
+                            Body=json.dumps({'topicIds': merged}).encode('utf-8'),
+                            ContentType='application/json',
+                        )
+                    except Exception as e:
+                        print(f'[get_pending_topics] auto-replenish 後の pending_ai.json 永続化失敗: {e}')
+        except Exception as e:
+            # scan 失敗は致命的でない (既存 pending_ids で続行)
+            print(f'[get_pending_topics] auto-replenish scan 失敗 (継続): {e}')
+
     if pending_ids:
         items = []
         still_pending = []
