@@ -75,7 +75,7 @@ jobs:
         if: steps.probe.outputs.status != 'fresh'
         continue-on-error: true
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
           STATUS: ${{ steps.probe.outputs.status }}
           DIFF_MIN: ${{ steps.probe.outputs.diff_min }}
           UPDATED_AT: ${{ steps.probe.outputs.updated_at }}
@@ -228,7 +228,7 @@ jobs:
         if: steps.topics_size.outputs.exceeded == 'true'
         continue-on-error: true
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
           KB: ${{ steps.topics_size.outputs.size_kb }}
         shell: bash
         run: |
@@ -252,7 +252,7 @@ jobs:
         if: steps.ai_fields.outputs.warnings != 'ok' && steps.ai_fields.outputs.warnings != ''
         continue-on-error: true
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
           WARNINGS: ${{ steps.ai_fields.outputs.warnings }}
           KP: ${{ steps.ai_fields.outputs.kp_ratio }}
           PERSP: ${{ steps.ai_fields.outputs.persp_ratio }}
@@ -344,7 +344,7 @@ jobs:
         if: steps.sitemap_reach.outputs.ng_status == 'broken'
         continue-on-error: true
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
           OK: ${{ steps.sitemap_reach.outputs.ok_count }}
           NG: ${{ steps.sitemap_reach.outputs.ng_count }}
           TOTAL: ${{ steps.sitemap_reach.outputs.total }}
