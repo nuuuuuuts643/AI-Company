@@ -15,6 +15,15 @@
 # 失敗してもセッション続行できるよう、各ステップは ` || true ` で吸収する。
 
 set -u
+
+# ---- 0. --dry-run フラグ検知（T2026-0428-K）----
+# CI で REPO 検出 / JST 表示 / WORKING.md 未来日付 stale 検出ロジックを
+# git push / commit / file mutation なしで物理 test するためのモード。
+# 副作用ある操作（lock 退避・git pull/push/commit・triage_tasks 実行）を全 skip し、
+# 読み取り専用の検査だけ走らせて exit code を返す。
+DRY_RUN=0
+case " $* " in *" --dry-run "*) DRY_RUN=1 ;; esac
+
 # REPO 検出（優先度順）:
 #   1. 環境変数 REPO （明示指定があれば最優先）
 #   2. Mac 標準 path （Code セッション）
@@ -40,29 +49,38 @@ fi
 [ -d "$REPO" ] || { echo "❌ repo not found (REPO=$REPO)"; exit 1; }
 cd "$REPO"
 
-mkdir -p .git/_garbage 2>/dev/null
+if [ "$DRY_RUN" = "0" ]; then
+  mkdir -p .git/_garbage 2>/dev/null
+fi
 
 # ---- 1. lock / rebase-merge 退避（堅牢化）----
 # FUSE 環境では rm が permission denied なので mv で _garbage に逃がす。
 # mv も失敗する場合があるため複数回トライ。
-for i in 1 2 3; do
-  found_any=0
-  for lock in .git/index.lock .git/HEAD.lock .git/objects/maintenance.lock; do
-    [ -e "$lock" ] || continue
-    found_any=1
-    mv "$lock" ".git/_garbage/$(basename $lock).$(date +%s%N)" 2>/dev/null || true
+# DRY_RUN=1 では mutation せず、ロックの存在のみ報告する。
+if [ "$DRY_RUN" = "1" ]; then
+  for lock in .git/index.lock .git/HEAD.lock .git/objects/maintenance.lock .git/rebase-merge .git/rebase-apply; do
+    [ -e "$lock" ] && echo "[DRY-RUN] would relocate: $lock"
   done
-  if [ -d .git/rebase-merge ]; then
-    found_any=1
-    mv .git/rebase-merge ".git/_garbage/rebase-merge.$(date +%s%N)" 2>/dev/null || true
-  fi
-  if [ -d .git/rebase-apply ]; then
-    found_any=1
-    mv .git/rebase-apply ".git/_garbage/rebase-apply.$(date +%s%N)" 2>/dev/null || true
-  fi
-  [ "$found_any" -eq 0 ] && break
-  sleep 1
-done
+else
+  for i in 1 2 3; do
+    found_any=0
+    for lock in .git/index.lock .git/HEAD.lock .git/objects/maintenance.lock; do
+      [ -e "$lock" ] || continue
+      found_any=1
+      mv "$lock" ".git/_garbage/$(basename $lock).$(date +%s%N)" 2>/dev/null || true
+    done
+    if [ -d .git/rebase-merge ]; then
+      found_any=1
+      mv .git/rebase-merge ".git/_garbage/rebase-merge.$(date +%s%N)" 2>/dev/null || true
+    fi
+    if [ -d .git/rebase-apply ]; then
+      found_any=1
+      mv .git/rebase-apply ".git/_garbage/rebase-apply.$(date +%s%N)" 2>/dev/null || true
+    fi
+    [ "$found_any" -eq 0 ] && break
+    sleep 1
+  done
+fi
 
 # ---- 2. sync commit & pull --no-rebase & push ----
 # rebase 系の中断を作らないため pull は merge 戦略で固定。
@@ -91,13 +109,17 @@ _strip_fuse_noise() {
     | sed -E '/^[[:space:]]*$/d; /^ \! .*unable to update local ref/d' \
     || true
 }
-git add -A 2>/dev/null
-if ! git diff --cached --quiet 2>/dev/null; then
-  git commit -m "chore: bootstrap sync $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" 2>/dev/null || true
+if [ "$DRY_RUN" = "1" ]; then
+  echo "[DRY-RUN] skip: git add/commit/pull/push"
+else
+  git add -A 2>/dev/null
+  if ! git diff --cached --quiet 2>/dev/null; then
+    git commit -m "chore: bootstrap sync $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" 2>/dev/null || true
+  fi
+  git pull --no-rebase --no-edit origin main 2>&1 | _strip_fuse_noise | tail -2 || true
+  mv .git/index.lock .git/_garbage/ 2>/dev/null
+  git push 2>&1 | _strip_fuse_noise | tail -2 || true
 fi
-git pull --no-rebase --no-edit origin main 2>&1 | _strip_fuse_noise | tail -2 || true
-mv .git/index.lock .git/_garbage/ 2>/dev/null
-git push 2>&1 | _strip_fuse_noise | tail -2 || true
 
 # ---- 3. CLAUDE.md 変更検知 ----
 LATEST_CLAUDE=$(git log --oneline -1 -- CLAUDE.md 2>/dev/null || echo "(none)")
@@ -122,20 +144,35 @@ if [ -f "docs/project-phases.md" ]; then
 fi
 
 # ---- 4. WORKING.md 8h stale 自動削除 ----
-if [ -f WORKING.md ] && [ -x scripts/triage_tasks.py ]; then
-  python3 scripts/triage_tasks.py --clean-working-md 2>/dev/null || true
+# DRY_RUN=1 では triage 実行を skip（mutation 回避）。WORKING.md の存在のみ確認。
+if [ "$DRY_RUN" = "1" ]; then
+  if [ -f WORKING.md ]; then
+    echo "[DRY-RUN] WORKING.md exists ($(wc -l < WORKING.md) lines) — would run triage_tasks.py --clean-working-md"
+  fi
+else
+  if [ -f WORKING.md ] && [ -x scripts/triage_tasks.py ]; then
+    python3 scripts/triage_tasks.py --clean-working-md 2>/dev/null || true
+  fi
 fi
 
 # ---- 5. TASKS.md 取消線→HISTORY.md ----
-if [ -f TASKS.md ] && [ -x scripts/triage_tasks.py ]; then
-  python3 scripts/triage_tasks.py --triage-tasks 2>/dev/null || true
+if [ "$DRY_RUN" = "1" ]; then
+  if [ -f TASKS.md ]; then
+    echo "[DRY-RUN] TASKS.md exists ($(wc -l < TASKS.md) lines) — would run triage_tasks.py --triage-tasks"
+  fi
+else
+  if [ -f TASKS.md ] && [ -x scripts/triage_tasks.py ]; then
+    python3 scripts/triage_tasks.py --triage-tasks 2>/dev/null || true
+  fi
 fi
 
 # ---- 5b. (HISTORY 確認要) 行を HISTORY.md と突合して自動取消線化 (T2026-0428-H) ----
 # 「実装済の可能性あり (HISTORY 確認要)」のままタスク再起票 anti-pattern を物理化対策。
 # scheduled-task の発見偏重バイアス対策の一環 (lessons-learned 2026-04-28 由来)。
-if [ -f TASKS.md ] && [ -f HISTORY.md ] && [ -x scripts/triage_implemented_likely.py ]; then
-  python3 scripts/triage_implemented_likely.py 2>/dev/null || true
+if [ "$DRY_RUN" = "0" ]; then
+  if [ -f TASKS.md ] && [ -f HISTORY.md ] && [ -x scripts/triage_implemented_likely.py ]; then
+    python3 scripts/triage_implemented_likely.py 2>/dev/null || true
+  fi
 fi
 
 # ---- 6. needs-push 警告 ----
@@ -211,7 +248,12 @@ bash "$(dirname "$0")/check_decisions.sh" || true
 
 # ---- 7. サマリ出力 ----
 echo "─────────────────────────────────────────"
-echo "✅ 起動チェック完了 ($(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST'))"
+if [ "$DRY_RUN" = "1" ]; then
+  echo "✅ [DRY-RUN] 起動チェック完了 ($(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST'))"
+  echo "  REPO=$REPO"
+else
+  echo "✅ 起動チェック完了 ($(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST'))"
+fi
 echo "  CLAUDE.md latest: $LATEST_CLAUDE"
 if [ -n "$NEEDS_PUSH" ]; then
   echo "  ⚠️ needs-push 滞留:"
