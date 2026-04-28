@@ -246,6 +246,14 @@ fi
 # 確定済み決定の期限チェック
 bash "$(dirname "$0")/check_decisions.sh" || true
 
+# ---- 6.6 繰り返し失敗パターン検出 (T2026-0429-D) ----
+# 目的: 「ナオヤがたまたま git 見たら同じエラーが繰り返されてた」を物理検出。
+# 仕様: gh CLI で workflow run 連続失敗、HISTORY.md でカテゴリ偏り。
+# 制約: 各 script は内部で gh 不在 / HISTORY.md 不在を吸収し exit 0 で抜ける。
+#       時間予算は両方合計 ~3 秒以内 (gh は TIMEOUT_SEC=4 で打ち切り)。
+REPEAT_FAIL=$(bash "$(dirname "$0")/detect_repeated_failures.sh" 2>/dev/null || true)
+TASK_PATTERN=$(bash "$(dirname "$0")/analyze_task_patterns.sh" 2>/dev/null || true)
+
 # ---- 7. サマリ出力 ----
 echo "─────────────────────────────────────────"
 if [ "$DRY_RUN" = "1" ]; then
@@ -292,6 +300,13 @@ if [ "$SCHED" = "1" ]; then
     echo "  🎯 最優先 unblocked タスク (このセッションで実装候補):"
     echo "$TOP_TASK" | sed 's/^/    /'
   fi
+fi
+# T2026-0429-D: 繰り返し失敗の自動可視化 (gh / HISTORY.md ベース)
+if [ -n "${REPEAT_FAIL:-}" ]; then
+  echo "$REPEAT_FAIL" | sed 's/^/  /'
+fi
+if [ -n "${TASK_PATTERN:-}" ]; then
+  echo "$TASK_PATTERN" | sed 's/^/  /'
 fi
 echo "  次の TASKS.md 着手: cat TASKS.md で未着手を確認"
 echo "─────────────────────────────────────────"

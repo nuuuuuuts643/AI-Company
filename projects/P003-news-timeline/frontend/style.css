@@ -568,7 +568,7 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
 }
 .new-articles-delta { font-size: .68rem; font-weight: 700; color: #22c55e; margin-left: 4px; }
 .phase-change-badge { font-size: .64rem; font-weight: 600; background: #f59e0b; color: #fff; border-radius: 4px; padding: 1px 5px; }
-/* T2026-0429-A: velocityScore による「急上昇」バッジ */
+/* T2026-0429-A: velocityScore による「急上昇」バッジ。HOT ストリップの選定閾値と揃える */
 .velocity-badge {
   font-size: .64rem;
   font-weight: 700;
@@ -586,7 +586,7 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   color: #fff;
   box-shadow: 0 0 4px rgba(220, 38, 38, 0.4);
 }
-/* T191: カード単位フレッシュネスバッジ */
+/* T191: カード単位フレッシュネスバッジ — 「今動いているか」を即時可視化 */
 .freshness-badge { font-size: .64rem; font-weight: 600; color: var(--text-muted); background: rgba(148,163,184,.12); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
 .freshness-badge.freshness-active { color: #ef4444; background: rgba(239,68,68,.12); font-weight: 700; }
 /* ═══════════════════════════════════

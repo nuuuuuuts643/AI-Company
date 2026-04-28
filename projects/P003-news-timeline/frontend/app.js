@@ -364,6 +364,8 @@ function renderCardMeta(t) {
     ? `<span class="phase-change-badge">🔄 展開</span>` : '';
 
   // T2026-0429-A: velocityScore でカード単位「急上昇」バッジ。
+  // 閾値は CONFIG.HOT_STRIP_MIN_VELOCITY (=3) と揃え HOT ストリップの選定基準と一貫させる。
+  // 5×閾値以上は「爆発」表示にして注目度の段差を可視化する。
   const velocity = Number(t.velocityScore || 0);
   let velocityBadge = '';
   if (velocity >= CONFIG.HOT_STRIP_MIN_VELOCITY * 5) {
@@ -372,7 +374,7 @@ function renderCardMeta(t) {
     velocityBadge = `<span class="velocity-badge velocity-rising" title="急上昇度 ${velocity.toFixed(1)}">🔥 急上昇</span>`;
   }
 
-  // T191: カード単位の相対更新時刻バッジ。
+  // T191: カード単位の相対更新時刻バッジ。動き中（過去24h増加あり）は強調する。
   const rel = fmtRelativeTime(t.lastUpdated);
   const isActive = (t.articleCountDelta || 0) > 0;
   const freshnessLabel = rel
