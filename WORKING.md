@@ -13,8 +13,8 @@
 
 **現在のフェーズ**: **フェーズ2（AI品質改善）進行中** — PR #10 マージ済 + T2026-0429-KP 根本対策 landed
 **直近のPO指示** (2026-04-29): 「p003巡回を自律的に動かせ」「完成度上げてくれ」
-**次のアクション**: cron 結果検証待ち — (1) PR #10 (commit 69a6505) マージ済で pending_ai.json 24→942 補充 + 自動回復ロジック稼働中、(2) T2026-0429-KP (commit 5e55d7d) で aiGenerated=True/keyPoint 空 536 件の 2 層原因 (Layer A: title-only ゲート / Layer B: handler-storage 判定統一) に根本対策 landed。06:00 JST quality_heal cron + 5 回/日 processor cron 実行後に DDB scan で keyPoint 充填率 (200〜300字 schema 要件) を再測定。改善確認後の次候補: T2026-0428-E (AI 4 軸化・proc_ai.py schema 改修) 🔴 高 / T2026-0428-AH/O は完了済。
-**最終更新**: 2026-04-29 02:12 JST（自律巡回観測・WORKING.md 並走 0 件確認 / git log で T2026-0428-AH/O 完了確認）
+**次のアクション**: cron 結果検証待ち継続 — (1) PR #10 (69a6505) pending_ai.json 補充ロジック稼働中、(2) T2026-0429-KP (5e55d7d) keyPoint 2 層対策 landed。**2026-04-29 自律巡回 SLI 実測** (https://flotopic.com/api/topics.json updatedAt=2026-04-28T19:05Z): keyPoint充填率 **2/104=1.9%**（100字以上）、storyPhase発端率(articleCount≥3) **3/49=6.1%**（目標 10% 未満は **既に達成**）、verdict 0 件継続。topics.json 更新は 06:00 JST quality_heal cron + 5 回/日 processor cron 後に再測定。**新規 Code セッション保留理由**: T2026-0428-E (proc_ai.py 4 軸化) は KP 改修と同ファイル衝突リスク → 効果検証で再修正発生可能性あり、cron 結果出るまで並走を避ける。
+**最終更新**: 2026-04-29 自律巡回（SLI 実測・WORKING.md 並走 0 件継続 / Code セッション起動保留＝KP 効果検証待ち）
 
 ---
 
