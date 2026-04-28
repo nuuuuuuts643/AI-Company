@@ -4,6 +4,31 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 00:05 JST Code T2026-0428-E2-3 title 重複による tid 分裂 dedup 実装）
+
+- ✅ **T2026-0428-E2-3 完了** — `topic_fingerprint` の cluster top-5 単語依存で同一イベントが別 tid に分裂していた問題を、fetcher の main loop 入口で title 一致 → 既存 tid 再バインドする物理ガードで解消。**Lambda invoke ゼロ・Anthropic API ゼロ**。
+
+  **背景 (前セッション調査結果)**:
+  - 828 トピック中 343 件 (41.43%) が完全同一 title で別 tid に分裂
+  - 根本原因: `topic_fingerprint(g)` がクラスタ内 top-5 単語に依存 → RSS 記事構成変動で fingerprint が変わり別 tid が生成
+  - 既存 META の title lookup なし / lifecycle 側にも title dedup なし → DynamoDB に重複 META が累積
+  - storyPhase 発端率 20.17% (目標 10% 未満) の主因 (新 tid = `aiGenerated=False` で新規 AI 生成 → 「発端」になりやすい)
+
+  **修正内容**:
+  - `lambda/fetcher/handler.py`: `_title_dedup_key()` と `_resolve_tid_collisions_by_title()` を新設
+    - 既存 topics.json (active/cooling のみ・直近 14 日) を読み、`title` / `generatedTitle` 双方を正規化キー化 (punct/whitespace/速報プレフィックス除去後の先頭 18 文字)
+    - 新 group の `extractive_title(g)` が一致したら、`topic_fingerprint` の新 tid を破棄して既存 tid に再バインド
+    - 同 run 内で 2 group が同 tid に着地したら URL 重複排除付きで記事マージ
+    - main loop の `group_tids` 構築直後・prefetch 前に呼ぶ → prefetch が正しい既存 META を引ける
+  - `tests/test_title_dedup_guard.py` 新設: 15 ケース boundary test (helper 存在 / 呼び出し位置 / 空入力 / archived skip / 14日 cutoff / 同 run マージ / 343 分裂シナリオ再現 等)
+  - 既存 topics.json の S3 GET は run 頭に 1 回だけ追加 ($0.0004/月オーダー)。DynamoDB scan は増えない
+  - 既存 `_topic_cluster_dedup` (proc_storage.py L741) は表示層 dedup なので残す。本修正は DDB レイヤの分裂を未然に防ぐ
+
+  **Verified (実測ベース)**:
+  - `tests.test_title_dedup_guard`: 15/15 pass (`python3 -m unittest tests.test_title_dedup_guard -v`)
+  - 全テスト: 96/97 pass (1 failure は test_proc_ai_retry の Python 3.9 PEP604 syntax 不対応で本変更と無関係)
+  - 効果検証: 次の fetcher run (~5 min interval) 後に DynamoDB META 件数が減少 + storyPhase 発端率が低下する見込み。観測は SLI freshness-check と handler ログ `[title-dedup]` で行う
+
 ### 完了済み（2026-04-28 23:25 JST Code T2026-0428-E2-4 judge_prediction verdict 0 件 根本原因 3 層特定・修正）
 
 - ✅ **T2026-0428-E2-4 完了** — `predictionResult=verdict (matched/partial/missed)` 0 件の根本原因を実測ベースで 3 層特定し物理修正。**Lambda invoke ゼロ・Anthropic API ゼロ**。
