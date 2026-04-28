@@ -14,7 +14,7 @@ from email.utils import formatdate
 
 from boto3.dynamodb.conditions import Key, Attr
 
-from proc_config import S3_BUCKET, SLACK_WEBHOOK, TOPICS_S3_CAP, table, s3
+from proc_config import S3_BUCKET, SLACK_WEBHOOK, TOPICS_S3_CAP, table, s3, PROCESSOR_SCHEMA_VERSION
 
 # OGP画像生成設定
 _OGP_W, _OGP_H = 1200, 630
@@ -293,6 +293,7 @@ def needs_ai_processing(item):
     - imageUrl が未設定（OGP画像未生成）
     - generatedTitle が「〇〇をめぐる最新の動き」等の曖昧パターンで終わる(2026-04-27)
     - generatedSummary が extractive_summary フォールバックの形 (見出し連結) (2026-04-27 c1bbe0fe事件)
+    - schemaVersion < PROCESSOR_SCHEMA_VERSION (T2026-0428-AO: 古いスキーマで処理されたトピックは自動再処理)
 
     Note: articleCount<2 のトピックはフロントエンドで非表示（processor もスキップ）のため
     False を返して pending_ai.json から自動クリーンアップされるようにする。
@@ -303,6 +304,13 @@ def needs_ai_processing(item):
     if item.get('pendingAI'):
         return True
     if not item.get('aiGenerated'):
+        return True
+    # T2026-0428-AO: schemaVersion チェック。processor スキーマが上がったら全再処理。
+    try:
+        sv = int(item.get('schemaVersion', 0) or 0)
+    except (ValueError, TypeError):
+        sv = 0
+    if sv < PROCESSOR_SCHEMA_VERSION:
         return True
     # T38: aiGenerated=True でも generatedSummary が extractive ならば未処理扱いで再処理させる
     if _is_extractive_summary(item.get('generatedSummary', '')):
@@ -497,14 +505,16 @@ def get_pending_topics(max_topics=100):
     # フォールバック: DynamoDBスキャン
     # pending_ai.json が空 or 未作成のとき、処理必要なトピックを全スキャンして pending_ai.json を再生成
     print('get_pending_topics: pending_ai.json空のためDynamoDBフルスキャン（storyTimeline欠如含む）')
-    proj = 'topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres'
+    proj = 'topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres,keyPoint,statusLabel,watchPoints,schemaVersion'
     filt = (
         Attr('SK').eq('META') & (
             Attr('pendingAI').eq(True) |
             Attr('aiGenerated').ne(True) |
             ~Attr('storyTimeline').exists() |
             ~Attr('storyPhase').exists() |
-            ~Attr('imageUrl').exists()
+            ~Attr('imageUrl').exists() |
+            ~Attr('schemaVersion').exists() |
+            Attr('schemaVersion').lt(PROCESSOR_SCHEMA_VERSION)
         )
     )
     items, kwargs = [], {
@@ -605,7 +615,20 @@ def get_latest_articles_for_topic(tid):
     return []
 
 
-def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_url=None):
+def _is_field_empty(v):
+    """T2026-0428-AO: 既存フィールドが「空」かどうかを判定する。
+    None / 空文字 / whitespace のみ / 空 list / 空 dict を空として扱う。
+    incremental ヒール時に「既に値があるフィールドは上書きしない」判定で使う。"""
+    if v is None:
+        return True
+    if isinstance(v, str) and not v.strip():
+        return True
+    if isinstance(v, (list, dict)) and len(v) == 0:
+        return True
+    return False
+
+
+def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_url=None, existing_meta=None):
     """Claude 生成タイトル・ストーリーで DynamoDB META を更新。
 
     Args:
@@ -614,7 +637,22 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
         gen_story:    dict | None — {aiSummary, spreadReason, forecast, timeline, phase}
         ai_succeeded: bool — Claude が実際に成功したか（False なら aiGenerated は立てない）
         image_url:    str | None — 生成したOGP画像URL（既にimageUrlがあれば上書きしない）
+        existing_meta: dict | None — DynamoDB から読んだ既存 META (incremental モード判定用)。
+                       T2026-0428-AO: 既に値が入っているフィールドは上書きしない (heal/再処理時保護)。
+                       None のときは「初回処理」扱いで全フィールドを書き込む。
+
+    T2026-0428-AO 重要原則:
+        ヒール・schema_version 上昇による再処理では、既存 AI フィールドを絶対に上書きしない。
+        incremental モード = existing_meta が渡され、既存フィールドが空でない場合は SKIP する。
+        → 過去に蓄積した良い要約が消える事故を防ぐ物理ゲート。
     """
+    incremental = existing_meta is not None
+    def _can_write(field):
+        """incremental モードでは既存値が空のときだけ書ける。full モードでは常に書ける。"""
+        if not incremental:
+            return True
+        return _is_field_empty(existing_meta.get(field))
+
     try:
         # aiGenerated は Claude が実際に成功した時だけ True にする
         # 失敗時に True にしてしまうと次回実行でスキップされてしまう（再発防止）
@@ -623,89 +661,101 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
         if ai_succeeded:
             update_expr += ', aiGenerated = :t'
             expr_values[':t'] = True
-        if gen_title:
+            # T2026-0428-AO: AI成功時のみ schemaVersion を最新版で記録。
+            # 失敗時に書くと再処理対象から外れるため、ai_succeeded ガードと同じ条件にする。
+            # schemaVersion は制御フィールドなので incremental モードでも常に更新する。
+            update_expr += ', schemaVersion = :sv'
+            expr_values[':sv'] = PROCESSOR_SCHEMA_VERSION
+        if gen_title and _can_write('generatedTitle'):
             update_expr += ', generatedTitle = :title'
             expr_values[':title'] = gen_title
         if gen_story:
-            if gen_story.get('aiSummary'):
+            if gen_story.get('aiSummary') and _can_write('generatedSummary'):
                 update_expr += ', generatedSummary = :summary'
                 expr_values[':summary'] = gen_story['aiSummary']
-            if gen_story.get('keyPoint'):
+            if gen_story.get('keyPoint') and _can_write('keyPoint'):
                 update_expr += ', keyPoint = :kp'
                 expr_values[':kp'] = gen_story['keyPoint']
             # T2026-0428-J/E: 新フィールド statusLabel / watchPoints を永続化
-            if gen_story.get('statusLabel'):
+            if gen_story.get('statusLabel') and _can_write('statusLabel'):
                 update_expr += ', statusLabel = :sl'
                 expr_values[':sl'] = gen_story['statusLabel']
-            if gen_story.get('watchPoints'):
+            if gen_story.get('watchPoints') and _can_write('watchPoints'):
                 update_expr += ', watchPoints = :wp'
                 expr_values[':wp'] = gen_story['watchPoints']
-            if gen_story.get('forecast'):
+            if gen_story.get('forecast') and _can_write('forecast'):
                 update_expr += ', forecast = :fc'
                 expr_values[':fc'] = gen_story['forecast']
-            if gen_story.get('timeline') is not None:
+            if gen_story.get('timeline') is not None and _can_write('storyTimeline'):
                 update_expr += ', storyTimeline = :timeline'
                 expr_values[':timeline'] = gen_story['timeline']
-            if gen_story.get('phase'):
+            if gen_story.get('phase') and _can_write('storyPhase'):
                 update_expr += ', storyPhase = :phase'
                 expr_values[':phase'] = gen_story['phase']
-            if gen_story.get('summaryMode'):
+            if gen_story.get('summaryMode') and _can_write('summaryMode'):
                 update_expr += ', summaryMode = :smode'
                 expr_values[':smode'] = gen_story['summaryMode']
-            if gen_story.get('backgroundContext'):
+            if gen_story.get('backgroundContext') and _can_write('backgroundContext'):
                 update_expr += ', backgroundContext = :bgctx'
                 expr_values[':bgctx'] = gen_story['backgroundContext']
             if gen_story.get('background'):
-                update_expr += ', background = :bg'
-                expr_values[':bg'] = gen_story['background']
+                if _can_write('background'):
+                    update_expr += ', background = :bg'
+                    expr_values[':bg'] = gen_story['background']
             else:
                 # 空フィールド検出を CloudWatch で観測可能にする (T35 prompt 改善の効果計測)
                 print(f"[AI_FIELD_GAP] background empty topic={tid}")
             if gen_story.get('perspectives') is not None and str(gen_story.get('perspectives', '')).strip():
-                update_expr += ', perspectives = :persp'
-                expr_values[':persp'] = gen_story['perspectives']
+                if _can_write('perspectives'):
+                    update_expr += ', perspectives = :persp'
+                    expr_values[':persp'] = gen_story['perspectives']
             else:
                 print(f"[AI_FIELD_GAP] perspectives null/empty topic={tid}")
             if gen_story.get('outlook'):
-                update_expr += ', outlook = :otlk'
-                expr_values[':otlk'] = gen_story['outlook']
-                # T2026-0428-J/E: outlook を AI 予想として記録した時刻 (後で当否判定する基準)。
-                # 新記事追加で再 AI 処理されるたびに更新される (= 直近の予想)。
-                # T2026-0428-PRED でこの時刻以降に追加された記事と照合し predictionResult を更新する。
-                update_expr += ', predictionMadeAt = :pma'
-                expr_values[':pma'] = datetime.now(timezone.utc).isoformat()
-                # 新しい予想が立つ度に判定状態をリセット (前回の判定結果は predictionHistory として別 SK に積む想定)。
-                update_expr += ', predictionResult = :prs'
-                expr_values[':prs'] = 'pending'
+                # outlook の書き込み可否で predictionMadeAt/predictionResult もまとめて判定。
+                # outlook が新規に書かれる場合のみ予測タイムスタンプを更新する。
+                if _can_write('outlook'):
+                    update_expr += ', outlook = :otlk'
+                    expr_values[':otlk'] = gen_story['outlook']
+                    # T2026-0428-J/E: outlook を AI 予想として記録した時刻 (後で当否判定する基準)。
+                    update_expr += ', predictionMadeAt = :pma'
+                    expr_values[':pma'] = datetime.now(timezone.utc).isoformat()
+                    # 新しい予想が立つ度に判定状態をリセット (前回の判定結果は predictionHistory として別 SK に積む想定)。
+                    update_expr += ', predictionResult = :prs'
+                    expr_values[':prs'] = 'pending'
             else:
                 print(f"[AI_FIELD_GAP] outlook empty topic={tid}")
-            if gen_story.get('topicTitle'):
+            if gen_story.get('topicTitle') and _can_write('topicTitle'):
                 update_expr += ', topicTitle = :ttitle'
                 expr_values[':ttitle'] = gen_story['topicTitle']
-            if gen_story.get('latestUpdateHeadline'):
+            if gen_story.get('latestUpdateHeadline') and _can_write('latestUpdateHeadline'):
                 update_expr += ', latestUpdateHeadline = :luh'
                 expr_values[':luh'] = gen_story['latestUpdateHeadline']
-            if 'isCoherent' in gen_story:
+            if 'isCoherent' in gen_story and _can_write('topicCoherent'):
                 update_expr += ', topicCoherent = :coherent'
                 expr_values[':coherent'] = bool(gen_story['isCoherent'])
-            if gen_story.get('topicLevel'):
+            if gen_story.get('topicLevel') and _can_write('topicLevel'):
                 update_expr += ', topicLevel = :tlevel'
                 expr_values[':tlevel'] = gen_story['topicLevel']
-            if gen_story.get('parentTopicTitle'):
+            if gen_story.get('parentTopicTitle') and _can_write('parentTopicTitle'):
                 update_expr += ', parentTopicTitle = :ptt'
                 expr_values[':ptt'] = gen_story['parentTopicTitle']
-            if 'relatedTopicTitles' in gen_story:
+            if 'relatedTopicTitles' in gen_story and _can_write('relatedTopicTitles'):
                 update_expr += ', relatedTopicTitles = :rtt'
                 expr_values[':rtt'] = gen_story.get('relatedTopicTitles') or []
         if gen_story and gen_story.get('genres'):
-            ai_genres = gen_story['genres']
-            update_expr += ', genres = :genres, genre = :genre'
-            expr_values[':genres'] = ai_genres
-            expr_values[':genre']  = ai_genres[0]
+            # genre/genres は incremental モードで保護 (誤分類しても既存を尊重)
+            if _can_write('genres') and _can_write('genre'):
+                ai_genres = gen_story['genres']
+                update_expr += ', genres = :genres, genre = :genre'
+                expr_values[':genres'] = ai_genres
+                expr_values[':genre']  = ai_genres[0]
         if image_url:
             # if_not_exists: 既にRSS由来画像があれば上書きしない
             update_expr += ', imageUrl = if_not_exists(imageUrl, :img)'
             expr_values[':img'] = image_url
+        if incremental:
+            print(f'[update_topic_with_ai] tid={tid[:8]}... incremental mode (既存フィールド保持)')
         table.update_item(
             Key={'topicId': tid, 'SK': 'META'},
             UpdateExpression=update_expr,
@@ -795,10 +845,15 @@ def write_s3(key, data):
     )
 
 
-def update_topic_s3_file(tid, upd, articles=None):
+def update_topic_s3_file(tid, upd, articles=None, incremental=False):
     """個別トピックS3ファイルのmetaにAIフィールドをマージ（pendingAI解除含む）。
     articles が渡された場合は静的SEO用HTMLも生成する。
     ETag(MD5)比較で内容変更がない場合はPUTをスキップしてコスト削減。
+
+    Args:
+        incremental: True のとき、既存 meta にすでに値がある AI フィールドは上書きしない
+                     (T2026-0428-AO: ヒール/再処理で蓄積した良いデータを保護)。
+                     False (初回処理) のときは従来どおり全フィールドを上書きする。
     """
     if not S3_BUCKET:
         return
@@ -835,50 +890,60 @@ def update_topic_s3_file(tid, upd, articles=None):
 
         meta = data.get('meta', {})
         meta.pop('pendingAI', None)
-        if upd.get('generatedTitle'):
+        # T2026-0428-AO: incremental モードでは既存値があるフィールドを上書きしない (heal保護)
+        def _can_set(field):
+            if not incremental:
+                return True
+            return _is_field_empty(meta.get(field))
+
+        if upd.get('generatedTitle') and _can_set('generatedTitle'):
             meta['generatedTitle'] = upd['generatedTitle']
-        if upd.get('generatedSummary'):
+        if upd.get('generatedSummary') and _can_set('generatedSummary'):
             meta['generatedSummary'] = upd['generatedSummary']
-        if upd.get('keyPoint'):
+        if upd.get('keyPoint') and _can_set('keyPoint'):
             meta['keyPoint'] = upd['keyPoint']
         # T2026-0428-J/E: 新フィールド statusLabel / watchPoints / predictionMadeAt / predictionResult を merge
-        if upd.get('statusLabel'):
+        if upd.get('statusLabel') and _can_set('statusLabel'):
             meta['statusLabel'] = upd['statusLabel']
-        if upd.get('watchPoints'):
+        if upd.get('watchPoints') and _can_set('watchPoints'):
             meta['watchPoints'] = upd['watchPoints']
-        if upd.get('predictionMadeAt'):
-            meta['predictionMadeAt'] = upd['predictionMadeAt']
-        if upd.get('predictionResult'):
-            meta['predictionResult'] = upd['predictionResult']
-        if upd.get('storyTimeline') is not None:
-            meta['storyTimeline'] = upd['storyTimeline']
-        if upd.get('storyPhase'):
-            meta['storyPhase'] = upd['storyPhase']
-        if upd.get('forecast'):
-            meta['forecast'] = upd['forecast']
-        if upd.get('summaryMode'):
-            meta['summaryMode'] = upd['summaryMode']
-        if upd.get('perspectives') is not None:
-            meta['perspectives'] = upd['perspectives']
-        if upd.get('outlook'):
+        # predictionMadeAt/predictionResult は outlook の書き込みに紐付ける
+        # (incremental で outlook 既存なら timing も更新しない)
+        if upd.get('outlook') and _can_set('outlook'):
             meta['outlook'] = upd['outlook']
+            if upd.get('predictionMadeAt'):
+                meta['predictionMadeAt'] = upd['predictionMadeAt']
+            if upd.get('predictionResult'):
+                meta['predictionResult'] = upd['predictionResult']
+        if upd.get('storyTimeline') is not None and _can_set('storyTimeline'):
+            meta['storyTimeline'] = upd['storyTimeline']
+        if upd.get('storyPhase') and _can_set('storyPhase'):
+            meta['storyPhase'] = upd['storyPhase']
+        if upd.get('forecast') and _can_set('forecast'):
+            meta['forecast'] = upd['forecast']
+        if upd.get('summaryMode') and _can_set('summaryMode'):
+            meta['summaryMode'] = upd['summaryMode']
+        if upd.get('perspectives') is not None and _can_set('perspectives'):
+            meta['perspectives'] = upd['perspectives']
         # T220+1811e4b 統合(2026-04-27): topicTitle 系メタを S3 にも反映
-        if upd.get('topicTitle'):
+        if upd.get('topicTitle') and _can_set('topicTitle'):
             meta['topicTitle'] = upd['topicTitle']
-        if upd.get('latestUpdateHeadline'):
+        if upd.get('latestUpdateHeadline') and _can_set('latestUpdateHeadline'):
             meta['latestUpdateHeadline'] = upd['latestUpdateHeadline']
-        if upd.get('topicCoherent') is not None:
+        if upd.get('topicCoherent') is not None and _can_set('topicCoherent'):
             meta['topicCoherent'] = upd['topicCoherent']
-        if upd.get('topicLevel'):
+        if upd.get('topicLevel') and _can_set('topicLevel'):
             meta['topicLevel'] = upd['topicLevel']
-        if upd.get('parentTopicTitle'):
+        if upd.get('parentTopicTitle') and _can_set('parentTopicTitle'):
             meta['parentTopicTitle'] = upd['parentTopicTitle']
-        if upd.get('relatedTopicTitles') is not None:
+        if upd.get('relatedTopicTitles') is not None and _can_set('relatedTopicTitles'):
             meta['relatedTopicTitles'] = upd['relatedTopicTitles']
         if upd.get('aiGenerated'):
             meta['aiGenerated'] = True
+            # schemaVersion も AI 成功フラグと一緒に最新版へ (制御フィールドなので常に上書き)
+            meta['schemaVersion'] = PROCESSOR_SCHEMA_VERSION
         # T41: Tool Use 後に genres が AI で更新される (例: スポーツ→国際) → S3 にも反映
-        if upd.get('genres'):
+        if upd.get('genres') and _can_set('genres'):
             meta['genres'] = upd['genres']
             meta['genre'] = upd['genres'][0] if upd['genres'] else meta.get('genre')
         if upd.get('imageUrl') and not meta.get('imageUrl'):
@@ -912,16 +977,22 @@ def update_topic_s3_file(tid, upd, articles=None):
         print(f'[TOPIC_STATIC_FAIL] tid={tid} error={type(e).__name__}: {e}')
 
 
-def update_topic_s3_files_parallel(ai_updates, max_workers=5, articles_cache=None):
+def update_topic_s3_files_parallel(ai_updates, max_workers=5, articles_cache=None, incremental_map=None):
     """ai_updatesの全トピックの個別S3ファイルをAIデータで並列更新。
     articles_cache が渡された場合は静的SEO用HTMLも同時生成。
+
+    Args:
+        incremental_map: dict[tid -> bool] | None — 各トピックを incremental モードで書くか。
+                         T2026-0428-AO: heal/再処理ループで既存 AI フィールドを保護する。
+                         None のときは全トピック full モード (初回処理扱い)。
     """
     if not ai_updates or not S3_BUCKET:
         return
     _arts = articles_cache or {}
+    _inc  = incremental_map or {}
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
         futures = {
-            ex.submit(update_topic_s3_file, tid, upd, _arts.get(tid)): tid
+            ex.submit(update_topic_s3_file, tid, upd, _arts.get(tid), _inc.get(tid, False)): tid
             for tid, upd in ai_updates.items()
         }
         for _ in as_completed(futures):

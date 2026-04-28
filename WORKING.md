@@ -80,7 +80,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T244 needs-push カラム検証 | Cowork | WORKING.md | 2026-04-28 03:00 | no |
 
 > code 編集を含むセッションは必ず `needs-push: yes`。push 後は `no` に切り替える or 行を削除する。
 
