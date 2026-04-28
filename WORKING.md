@@ -102,3 +102,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T193 毎日来る理由 + TASKS.md cleanup + SLI実測 | 実装 | `TASKS.md`, `HISTORY.md`, `scripts/bluesky_agent.py` (新規想定), `.github/workflows/`, `frontend/index.html` (候補) | 2026-04-29 06:35 | yes |
