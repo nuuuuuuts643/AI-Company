@@ -14,7 +14,7 @@ from email.utils import formatdate
 
 from boto3.dynamodb.conditions import Key, Attr
 
-from proc_config import S3_BUCKET, SLACK_WEBHOOK, TOPICS_S3_CAP, table, s3, PROCESSOR_SCHEMA_VERSION
+from proc_config import S3_BUCKET, SLACK_WEBHOOK, TOPICS_S3_CAP, dynamodb, table, s3, PROCESSOR_SCHEMA_VERSION
 
 # OGP画像生成設定
 _OGP_W, _OGP_H = 1200, 630
@@ -791,15 +791,82 @@ def _cap_topics(items):
     return filtered[:TOPICS_S3_CAP]
 
 
+_BACKFILL_AI_FIELDS = (
+    'keyPoint', 'statusLabel', 'watchPoints', 'outlook', 'topicTitle',
+    'latestUpdateHeadline', 'topicLevel', 'parentTopicTitle', 'relatedTopicTitles',
+    'topicCoherent', 'perspectives', 'storyPhase', 'summaryMode',
+)
+
+
+def _backfill_ai_fields_from_ddb(items):
+    """T2026-0428-J/M: 既存 topics.json に欠落している AI フィールドを DynamoDB から補填する。
+
+    背景: get_all_topics_for_s3 は S3 の topics.json を source of truth にしていた。
+          後から DDB へ書かれた keyPoint/statusLabel/watchPoints 等は永久に
+          published JSON へ反映されず、新規処理サイクルでも上書きされなかった
+          (本番 keyPoint 充填率 26% の根本原因)。
+
+    対策: S3 から読んだ items を返す前に、AI フィールドのうち空のものを
+          DDB BatchGetItem で取得して overlay する。AI 再生成は不要。
+          DDB が source of truth なので、過去に蓄積した値が即座に publish される。
+
+    観測: BatchGetItem 100件/req、トピック ~100 件で 1 リクエスト ($0.0001) 程度。
+          コストは無視できる (T2026-0428-AO の S3 コスト最適化を損なわない)。
+    """
+    if not items:
+        return items
+    needs_backfill = []
+    for t in items:
+        if any(_is_field_empty(t.get(f)) for f in _BACKFILL_AI_FIELDS):
+            tid = t.get('topicId')
+            if tid:
+                needs_backfill.append(tid)
+    if not needs_backfill:
+        return items
+    fetched = {}
+    for i in range(0, len(needs_backfill), 100):
+        chunk = needs_backfill[i:i + 100]
+        keys = [{'topicId': tid, 'SK': 'META'} for tid in chunk]
+        try:
+            resp = dynamodb.batch_get_item(
+                RequestItems={
+                    table.name: {
+                        'Keys': keys,
+                        'ProjectionExpression': 'topicId,' + ','.join(_BACKFILL_AI_FIELDS),
+                    }
+                }
+            )
+            for it in resp.get('Responses', {}).get(table.name, []):
+                tid = it.get('topicId')
+                if tid:
+                    fetched[tid] = it
+        except Exception as e:
+            print(f'[backfill_ai] batch_get_item 失敗: {e}')
+    backfilled = 0
+    for t in items:
+        ddb_item = fetched.get(t.get('topicId'))
+        if not ddb_item:
+            continue
+        for f in _BACKFILL_AI_FIELDS:
+            if _is_field_empty(t.get(f)) and not _is_field_empty(ddb_item.get(f)):
+                t[f] = ddb_item[f]
+                if f == 'keyPoint':
+                    backfilled += 1
+    if backfilled:
+        print(f'[backfill_ai] DDB→topics.json keyPoint 補填: {backfilled}件')
+    return items
+
+
 def get_all_topics_for_s3():
-    """S3のtopics.jsonから読む（DynamoDBフルスキャン不要）。TOPICS_S3_CAP件にキャップ。
-    trendingKeywordsはトピックタイトルから毎回新規生成する（staleデータを保持しない）。"""
+    """S3のtopics.jsonから読み、欠落 AI フィールドを DynamoDB から backfill する。
+    TOPICS_S3_CAP件にキャップ。trendingKeywordsはトピックタイトルから毎回新規生成する。"""
     if S3_BUCKET:
         try:
             resp = s3.get_object(Bucket=S3_BUCKET, Key='api/topics.json')
             data = json.loads(resp['Body'].read())
             items = data.get('topics', [])
             if items:
+                items = _backfill_ai_fields_from_ddb(items)
                 capped = _cap_topics(items)
                 return capped, _extract_trending_keywords(capped)
         except Exception as e:
