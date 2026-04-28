@@ -693,9 +693,23 @@ def get_pending_topics(max_topics=100):
 
 
 def get_topics_by_ids(topic_ids):
-    """指定IDのトピックをDynamoDBから直接取得し、AI処理が必要なものを返す。fetcher_trigger専用。"""
-    proj = 'topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres'
+    """指定IDのトピックをDynamoDBから直接取得し、AI処理が必要なものを返す。fetcher_trigger専用。
+
+    2026-04-29: keyPoint/schemaVersion/statusLabel/watchPoints を Projection に追加。
+    needs_ai_processing が参照する全フィールドを取得しないと、Projection 欠落で None 扱いに
+    なり判定がブレる。get_pending_topics 経路と挙動を揃える。
+
+    2026-04-29: ゴーストID（DDB に存在しない topic_id）の件数をログに出す。
+    fetcher_trigger 経路で「N件指定 → 0件処理対象」となる主因がゴーストID であることを
+    実測で特定するため（pending_ai.json 経路は line 538 で自動クリーンアップ済みだが、
+    fetcher_trigger 経路は fetcher が直接 IDs を渡すため別途観測が必要）。
+    """
+    proj = ('topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,'
+            'generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,'
+            'imageUrl,genre,genres,keyPoint,schemaVersion,statusLabel,watchPoints,summaryMode')
     items = []
+    ghost_ids = []
+    skipped_ids = []  # 存在するが needs_ai_processing が False
     for tid in topic_ids:
         try:
             r = table.get_item(
@@ -703,10 +717,21 @@ def get_topics_by_ids(topic_ids):
                 ProjectionExpression=proj,
             )
             item = r.get('Item')
-            if item and needs_ai_processing(item):
+            if not item:
+                ghost_ids.append(tid)
+                continue
+            if needs_ai_processing(item):
                 items.append(item)
+            else:
+                skipped_ids.append(tid)
         except Exception as e:
             print(f'get_topics_by_ids error [{tid}]: {e}')
+    if ghost_ids:
+        print(f'[get_topics_by_ids] ゴーストID検知: {len(ghost_ids)}件 / 全{len(topic_ids)}件 '
+              f'(DDB に存在しない). サンプル: {ghost_ids[:5]}')
+    if skipped_ids:
+        print(f'[get_topics_by_ids] needs_ai_processing=False で skip: {len(skipped_ids)}件 '
+              f'(処理済 or articleCount<2). サンプル: {skipped_ids[:5]}')
     items.sort(key=lambda x: (
         0 if x.get('pendingAI') else (1 if not x.get('aiGenerated') else 2),
         -float(x.get('velocityScore', 0) or 0),
