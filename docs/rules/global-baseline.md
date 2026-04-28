@@ -21,6 +21,7 @@
 | PII / secret 直書き禁止 | env var か AWS Secrets Manager 必須 |
 | なぜなぜ分析 | 問題発生時 Why1〜Why5 + 仕組み的対策 3 つ以上を `docs/lessons-learned.md` に追記。テーブル 1 行は再発防止と呼ばない |
 | 仕組み的対策の質 | 「外部観測（SLI / metric / 警告）」または「物理ゲート（CI / hook / scripts）」を最低 1 つ含む |
+| 仕組み的対策の landing 検証 | 新規対策を書いたら `docs/lessons-learned.md` 末尾の「横展開チェックリスト」表に 1 行追加（実装ファイルパス必須）。CI `check_lessons_landings.sh` で repo に該当ファイルが存在するか物理検査。**「書いただけで動いていない」対策の fossilize を物理的に防ぐ** |
 
 ---
 
