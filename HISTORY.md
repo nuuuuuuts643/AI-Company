@@ -1550,3 +1550,13 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T265~~ | ✅ 完了 (2026-04-28) | パフォーマンス | ~~**topics.json が 207KB と肥大化 — モバイル初回表示帯域コスト** — `proc_storage.generate_topics_card_json()` を新設し card 表示の最小フィールド (topicId/各タイトル/score/articleCount/keyPoint/statusLabel/lastArticleAt/category/imageUrl 等) を抽出。重い AI long-text (generatedSummary/perspectives/watchPoints/outlook 等) を除外。app.js loadTopics() を topics.json → topics-card.json に切替。trendingKeywords は topics.json から非同期 fetch (一覧表示の主動線をブロックしない)。日付別 shard は将来別タスク。~~ | `lambda/processor/proc_storage.py`, `lambda/processor/handler.py`, `frontend/app.js` | 2026-04-28 |
 
 </details>
+
+
+### 自動 triage: 2026-04-28 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T2026-0428-J~~ | ~~🔴 高~~ | ~~AI品質~~ | ~~**keyPoint/perspectives 充填率が success-but-empty (11.5% / 26.9%)** — T2026-0428-M と統合修正 (commit 03906f6)。get_all_topics_for_s3 が S3 topics.json を source of truth にしていたため DDB に保存済の keyPoint が永久に publish されない構造バグ。`_backfill_ai_fields_from_ddb()` を追加し DDB→topics.json 補填を実装。次サイクル (13:00 JST 以降) に SLI 8 達成を観測予定。~~ | ~~`lambda/processor/proc_storage.py`~~ | ~~2026-04-28~~ |
+| ~~T2026-0428-M~~ | ~~🟠 高~~ | ~~**本番 topics.json の keyPoint 充填率 0/114**~~ — **完了 2026-04-28 11:50** (commit 03906f6 + 9ac0571)。原因確定: `proc_storage.get_all_topics_for_s3()` が S3 topics.json を source of truth にしていたため、DDB に書かれた keyPoint/statusLabel/watchPoints が published JSON へ流れない経路欠落。仮説①②③は全て外れ、原因は④ S3→S3 上書きフィードバックループだった。修正: `_backfill_ai_fields_from_ddb()` を追加 (BatchGetItem で 13 種の AI フィールド overlay)。検証: 次サイクル (13:00 JST) 後に keyPoint 充填率 73%+ を観測。 | ~~`lambda/processor/proc_storage.py`~~ | ~~2026-04-28~~ |
+
+</details>

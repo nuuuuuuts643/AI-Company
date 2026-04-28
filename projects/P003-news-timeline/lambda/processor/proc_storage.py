@@ -1107,6 +1107,28 @@ def generate_topics_card_json(topics_pub: list, updated_at: str) -> dict:
     }
 
 
+def generate_health_json(topics: list, updated_at: str) -> dict:
+    """本番監視用ヘルスJSON生成。
+
+    aiGenerated 件数に対する keyPoint 充填率と空トピック件数を算出し、
+    閾値を下回れば status='degraded' を返す。check_health.sh が curl で取得して可視化する。
+    """
+    total = len(topics)
+    ai_gen = sum(1 for t in topics if t.get('aiGenerated'))
+    key_point = sum(1 for t in topics if t.get('keyPoint'))
+    zero_articles = sum(1 for t in topics if t.get('articleCount', 0) == 0)
+
+    return {
+        'generatedAt':       updated_at,
+        'topicCount':        total,
+        'aiGeneratedCount':  ai_gen,
+        'keyPointCount':     key_point,
+        'keyPointRate':      round(key_point / ai_gen * 100, 1) if ai_gen > 0 else 0,
+        'zeroArticleCount':  zero_articles,
+        'status':            'ok' if zero_articles == 0 and (key_point / ai_gen > 0.5 if ai_gen > 0 else True) else 'degraded',
+    }
+
+
 def update_topic_s3_file(tid, upd, articles=None, incremental=False):
     """個別トピックS3ファイルのmetaにAIフィールドをマージ（pendingAI解除含む）。
     articles が渡された場合は静的SEO用HTMLも生成する。

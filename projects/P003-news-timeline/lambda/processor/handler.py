@@ -27,6 +27,7 @@ from proc_storage import (
     auto_archive_incoherent, save_prediction_log,
     update_prediction_result, get_topics_for_prediction_judging,
     get_articles_added_after, generate_topics_card_json,
+    generate_health_json,
 )
 
 _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext', 'background'}
@@ -426,7 +427,10 @@ def lambda_handler(event, context):
             # T265: card 用 minimal payload 生成は proc_storage.generate_topics_card_json() に集約。
             card_payload = generate_topics_card_json(topics_pub, ts_iso)
             write_s3('api/topics-card.json', card_payload)
-            print(f'[Processor] S3 topics.json + topics-full.json + topics-card.json 再生成完了 ({len(topics)}件 / card={len(card_payload["topics"])}件)')
+            # T2026-0428-AQ: 本番監視用 health.json (keyPoint 充填率・空トピック件数・status)
+            health_payload = generate_health_json(topics_pub, ts_iso)
+            write_s3('api/health.json', health_payload)
+            print(f'[Processor] S3 topics.json + topics-full.json + topics-card.json + health.json 再生成完了 ({len(topics)}件 / card={len(card_payload["topics"])}件 / health={health_payload["status"]})')
             generate_and_upload_sitemap(topics)
             generate_and_upload_rss(topics)
             generate_and_upload_news_sitemap(topics)
