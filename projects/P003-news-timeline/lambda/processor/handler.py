@@ -16,7 +16,7 @@ import time
 from datetime import datetime, timezone
 
 from proc_config import MAX_API_CALLS, MIN_ARTICLES_FOR_TITLE, MIN_ARTICLES_FOR_SUMMARY, PROCESSOR_SCHEMA_VERSION
-from proc_ai import generate_title, generate_story
+from proc_ai import generate_title, generate_story, judge_prediction
 from proc_storage import (
     get_pending_topics, get_topics_by_ids, get_latest_articles_for_topic,
     update_topic_with_ai, get_all_topics_for_s3,
@@ -25,6 +25,8 @@ from proc_storage import (
     generate_and_upload_rss, generate_and_upload_news_sitemap,
     batch_generate_static_html, backfill_missing_detail_json,
     auto_archive_incoherent, save_prediction_log,
+    update_prediction_result, get_topics_for_prediction_judging,
+    get_articles_added_after, generate_topics_card_json,
 )
 
 _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext', 'background'}
@@ -178,19 +180,47 @@ def lambda_handler(event, context):
     api_calls      = 0
     processed      = 0
     skipped        = 0
+    deferred_tier0 = 0  # T2026-0428-O: Tier-0 予約により後回しにした非 Tier-0 件数
     ai_updates     = {}
     articles_cache = {}
     # T2026-0428-AO: トピックごとに incremental か full かを記録 → S3 書き込み時に渡す
     incremental_map = {}
 
+    # T2026-0428-O: 残り wallclock の 50% を Tier-0 (articles>=10 × aiGenerated=False)
+    # 専用に予約する。Phase A (前半 50%) は Tier-0 が pending に残る限り非 Tier-0 を
+    # 後回し → 次回スケジュールで処理。proc_storage._apply_tier0_budget でソート済の
+    # ため通常は Tier-0 が先に消化されるが、本ガードは「Tier-0 を取り切る前に時間切れ」
+    # を構造的に防ぐ物理ゲート (count budget=3 の補完)。
+    def _is_tier0(t):
+        try:
+            ac = int(t.get('articleCount', 0) or 0)
+        except (ValueError, TypeError):
+            ac = 0
+        return ac >= 10 and not t.get('aiGenerated')
+    tier0_total = sum(1 for t in pending if _is_tier0(t))
+    _initial_runtime_ms = max(0, _wallclock_remaining_ms() - WALLCLOCK_GUARD_MS)
+    # phase A 終了時点での「残り時間」(ここを下回ったら Phase B = 全 topic 解放)
+    TIER0_PHASE_END_REMAINING_MS = _wallclock_remaining_ms() - (_initial_runtime_ms // 2)
+    tier0_processed = 0
+    if tier0_total > 0:
+        print(f'[Processor] Tier-0 (articles>=10 × aiGenerated=False) {tier0_total}件 / Phase A wallclock={(_initial_runtime_ms//2)/1000:.0f}s 予約')
+
     for topic in pending:
         if api_calls >= MAX_API_CALLS:
-            print(f'[Processor] API呼び出し上限 ({MAX_API_CALLS}) 到達。残り {len(pending) - processed - skipped} 件は次回。')
+            print(f'[Processor] API呼び出し上限 ({MAX_API_CALLS}) 到達。残り {len(pending) - processed - skipped - deferred_tier0} 件は次回。')
             break
         if not _wallclock_ok():
             remaining_s = _wallclock_remaining_ms() / 1000
-            print(f'[Processor] Wallclock guard 到達 (残り {remaining_s:.1f}s < {WALLCLOCK_GUARD_MS/1000:.0f}s)。残り {len(pending) - processed - skipped} 件は次回スケジュールで継続')
+            print(f'[Processor] Wallclock guard 到達 (残り {remaining_s:.1f}s < {WALLCLOCK_GUARD_MS/1000:.0f}s)。残り {len(pending) - processed - skipped - deferred_tier0} 件は次回スケジュールで継続')
             break
+
+        # T2026-0428-O: Tier-0 予約 — Phase A 中 (残り > TIER0_PHASE_END_REMAINING_MS)
+        # かつ Tier-0 が未消化の間は、非 Tier-0 を skip して次回 invoke へ回す。
+        _is_t0 = _is_tier0(topic)
+        in_phase_a = _wallclock_remaining_ms() > TIER0_PHASE_END_REMAINING_MS
+        if (not _is_t0) and in_phase_a and (tier0_total - tier0_processed) > 0:
+            deferred_tier0 += 1
+            continue
 
         tid = topic['topicId']
         cnt = int(topic.get('articleCount', 0) or 0)
@@ -280,6 +310,8 @@ def lambda_handler(event, context):
             skipped += 1
             continue
         processed += 1
+        if _is_t0:
+            tier0_processed += 1
         articles_cache[tid] = articles
         incremental_map[tid] = _is_incremental
         ai_updates[tid] = {
@@ -310,7 +342,7 @@ def lambda_handler(event, context):
         }
 
     elapsed = time.time() - start_time
-    print(f'[Processor] 完了: 処理={processed}件 / API呼び出し={api_calls}回 / スキップ={skipped}件 / {elapsed:.1f}s')
+    print(f'[Processor] 完了: 処理={processed}件 (Tier-0 消化={tier0_processed}/{tier0_total}) / API呼び出し={api_calls}回 / スキップ={skipped}件 / Tier-0予約deferred={deferred_tier0}件 / {elapsed:.1f}s')
 
     if processed > 0:
         # 個別トピックS3ファイルをAIデータで並列更新（静的HTML生成含む）
@@ -391,16 +423,10 @@ def lambda_handler(event, context):
             # genres/keyPoint/storyPhase/imageUrl/aiGenerated/score)。
             # frontend は当面 topics.json を使い続ける (Step2 で切替)。
             write_s3('api/topics-full.json', full_payload)
-            _CARD_KEYS = ('topicId', 'topicTitle', 'generatedTitle', 'articleCount',
-                          'genres', 'genre', 'keyPoint', 'storyPhase', 'statusLabel',
-                          'imageUrl', 'aiGenerated', 'score', 'updatedAt', 'lifecycleStatus')
-            card_topics = [{k: t[k] for k in _CARD_KEYS if k in t} for t in topics_pub]
-            write_s3('api/topics-card.json', {
-                'topics':    card_topics,
-                'updatedAt': ts_iso,
-                'count':     len(card_topics),
-            })
-            print(f'[Processor] S3 topics.json + topics-full.json + topics-card.json 再生成完了 ({len(topics)}件 / card 簡易版同梱)')
+            # T265: card 用 minimal payload 生成は proc_storage.generate_topics_card_json() に集約。
+            card_payload = generate_topics_card_json(topics_pub, ts_iso)
+            write_s3('api/topics-card.json', card_payload)
+            print(f'[Processor] S3 topics.json + topics-full.json + topics-card.json 再生成完了 ({len(topics)}件 / card={len(card_payload["topics"])}件)')
             generate_and_upload_sitemap(topics)
             generate_and_upload_rss(topics)
             generate_and_upload_news_sitemap(topics)
@@ -415,6 +441,49 @@ def lambda_handler(event, context):
     except Exception as e:
         print(f'[Processor] backfill error: {e}')
 
+    # T2026-0428-PRED: AI 予想 (outlook) の自動当否判定
+    # 7 日経過 かつ articleCount>=5 かつ predictionResult=='pending' を対象に
+    # judge_prediction() で matched / partial / missed / pending を再評価する。
+    # 対象数を JUDGE_MAX で抑制し、wallclock guard も尊重する。
+    pred_judged = 0
+    pred_skipped = 0
+    JUDGE_MAX = 10
+    try:
+        candidates = get_topics_for_prediction_judging(min_age_days=7, min_articles=5,
+                                                       max_topics=JUDGE_MAX)
+        if candidates:
+            print(f'[Processor] 予想判定対象: {len(candidates)} 件')
+        for cand in candidates:
+            if not _wallclock_ok():
+                print('[Processor] 予想判定: wallclock guard 到達。残りは次回。')
+                break
+            tid = cand['topicId']
+            outlook = cand['outlook']
+            since = cand['predictionMadeAt']
+            if not outlook or not since:
+                pred_skipped += 1
+                continue
+            new_articles = get_articles_added_after(tid, since, max_articles=20)
+            new_titles = [a.get('title', '') for a in new_articles if a.get('title')]
+            if len(new_titles) < 5:
+                # 5 件未満は judge_prediction 内部で pending を返すが、書き戻しは行わない
+                # (predictionMadeAt は更新せず継続観測)
+                pred_skipped += 1
+                continue
+            verdict = judge_prediction(outlook, new_titles, min_titles=5)
+            if not verdict:
+                pred_skipped += 1
+                continue
+            ok = update_prediction_result(tid, verdict['result'], verdict.get('evidence', ''))
+            if ok:
+                pred_judged += 1
+                print(f'  [予想判定] {tid[:8]}... → {verdict["result"]} (新記事 {len(new_titles)} 件)')
+            time.sleep(1.0)
+        if pred_judged or pred_skipped:
+            print(f'[Processor] 予想判定: 判定 {pred_judged} 件 / スキップ {pred_skipped} 件')
+    except Exception as e:
+        print(f'[Processor] judge_prediction error: {e}')
+
     return {
         'statusCode': 200,
         'body': json.dumps({
@@ -422,5 +491,12 @@ def lambda_handler(event, context):
             'processed': processed,
             'api_calls': api_calls,
             'skipped':   skipped,
+            # T2026-0428-O: Tier-0 (articles>=10 × aiGenerated=False) 消化状況
+            'tier0_total':     tier0_total,
+            'tier0_processed': tier0_processed,
+            'tier0_deferred':  deferred_tier0,
+            # T2026-0428-PRED: 予想自動判定の実績
+            'pred_judged':     pred_judged,
+            'pred_skipped':    pred_skipped,
         }),
     }
