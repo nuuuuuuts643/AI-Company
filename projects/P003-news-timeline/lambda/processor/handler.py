@@ -461,14 +461,18 @@ def lambda_handler(event, context):
         print(f'[Processor] backfill error: {e}')
 
     # T2026-0428-PRED: AI 予想 (outlook) の自動当否判定
-    # 7 日経過 かつ articleCount>=5 かつ predictionResult=='pending' を対象に
+    # 1 日経過 かつ articleCount>=3 かつ predictionResult=='pending' を対象に
     # judge_prediction() で matched / partial / missed / pending を再評価する。
+    # T2026-0428-E2-4 (2026-04-28): 閾値を 7d/5art → 1d/3art に緩和。
+    # 根本原因 (実測): pending tracking が当日追加で、システム内 outlook の最大経過 2.12 日。
+    # 7d では永遠に verdict 0 件。1d/3art なら backfill 後 6 件が即時 eligible になる。
+    # データが熟したら段階的に 3d/5art へ戻すこと。
     # 対象数を JUDGE_MAX で抑制し、wallclock guard も尊重する。
     pred_judged = 0
     pred_skipped = 0
     JUDGE_MAX = 10
     try:
-        candidates = get_topics_for_prediction_judging(min_age_days=7, min_articles=5,
+        candidates = get_topics_for_prediction_judging(min_age_days=1, min_articles=3,
                                                        max_topics=JUDGE_MAX)
         if candidates:
             print(f'[Processor] 予想判定対象: {len(candidates)} 件')
@@ -484,12 +488,12 @@ def lambda_handler(event, context):
                 continue
             new_articles = get_articles_added_after(tid, since, max_articles=20)
             new_titles = [a.get('title', '') for a in new_articles if a.get('title')]
-            if len(new_titles) < 5:
-                # 5 件未満は judge_prediction 内部で pending を返すが、書き戻しは行わない
+            if len(new_titles) < 3:
+                # 3 件未満は judge_prediction 内部で pending を返すが、書き戻しは行わない
                 # (predictionMadeAt は更新せず継続観測)
                 pred_skipped += 1
                 continue
-            verdict = judge_prediction(outlook, new_titles, min_titles=5)
+            verdict = judge_prediction(outlook, new_titles, min_titles=3)
             if not verdict:
                 pred_skipped += 1
                 continue
