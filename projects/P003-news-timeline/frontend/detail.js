@@ -596,17 +596,29 @@ function renderDetail(data) {
           return Number(s.articleCount || 0);
         };
 
-        let labels, scores, mediaCnts, engagements;
+        // T2026-0428-GRAPH: スパイク（前ポイント比 +3以上 or +50%以上）を検出して
+        // 各ポイントの「きっかけ記事」タイトル候補を保持する（aggregate/non-aggregate 両対応）
+        const firstArticleTitle = (snap) => {
+          const arts = snap && snap.articles;
+          if (Array.isArray(arts) && arts.length) {
+            const t = (arts[0].title || '').toString().trim();
+            return t || null;
+          }
+          return null;
+        };
+
+        let labels, scores, mediaCnts, engagements, triggerTitles;
         if (aggregate) {
           const byDay = {};
           src.forEach(s => {
             const d = new Date(s.timestamp);
             const day     = d.toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'});
             const dateKey = d.toISOString().slice(0, 10).replace(/-/g, '');
-            if (!byDay[day]) byDay[day] = {scores:[], media:[], hatenas:[], dateKey};
+            if (!byDay[day]) byDay[day] = {scores:[], media:[], hatenas:[], dateKey, snaps:[]};
             byDay[day].scores.push(Number(s.score||0));
             byDay[day].media.push(snapArtCount(s));
             byDay[day].hatenas.push(Number(s.hatenaCount||0));
+            byDay[day].snaps.push(s);
           });
           labels      = Object.keys(byDay);
           scores      = labels.map(d => Math.max(...byDay[d].scores));
@@ -616,12 +628,35 @@ function renderDetail(data) {
             const dailyViews = viewsByDate[byDay[d].dateKey] || 0;
             return maxHatena + dailyViews + commentCnt * 3 + favoriteCnt * 5;
           });
+          // 各日について articleCount が最大の SNAP の articles[0].title を候補に
+          triggerTitles = labels.map(d => {
+            const snaps = byDay[d].snaps || [];
+            let best = null, bestN = -1;
+            for (const s of snaps) {
+              const n = snapArtCount(s);
+              if (n > bestN) { bestN = n; best = s; }
+            }
+            return firstArticleTitle(best);
+          });
         } else {
           labels      = src.map(s => fmtDate(s.timestamp));
           scores      = src.map(s => Number(s.score||0));
           mediaCnts   = src.map(s => snapArtCount(s));
           engagements = src.map(s => Number(s.hatenaCount||0) + totalViews + commentCnt * 3 + favoriteCnt * 5);
+          triggerTitles = src.map(s => firstArticleTitle(s));
         }
+
+        // スパイク判定: 前ポイント比 diff >= 3 or 50% 以上の増加
+        const spikeFlags = mediaCnts.map((cur, i) => {
+          if (i === 0) return false;
+          const prev = mediaCnts[i - 1];
+          const diff = cur - prev;
+          if (diff >= 3) return true;
+          if (prev > 0 && diff / prev >= 0.5 && diff >= 1) return true;
+          return false;
+        });
+        // スパイクでないポイントの triggerTitle は表示しない
+        const spikeTitles = triggerTitles.map((t, i) => spikeFlags[i] ? t : null);
 
         const hasEngagement = engagements.some(v => v > 0);
 
@@ -698,6 +733,12 @@ function renderDetail(data) {
           fill: false,
           spanGaps: true,
         } : null;
+        // T2026-0428-GRAPH: スパイク点はオレンジで大きく表示
+        const SPIKE_COLOR = '#f59e0b';
+        const pointBgColors  = spikeFlags.map(f => f ? SPIKE_COLOR : '#4EC9C0');
+        const pointRadii     = spikeFlags.map(f => f ? 6 : (onePoint ? 6 : 3));
+        const pointHoverRadii= spikeFlags.map(f => f ? 9 : 7);
+
         const _datasets = [
           { label: artLabel, data: mediaCnts,
             yAxisID: 'y',
@@ -709,7 +750,12 @@ function renderDetail(data) {
               g.addColorStop(0, 'rgba(78,201,192,.35)'); g.addColorStop(1, 'rgba(78,201,192,.02)');
               return g;
             },
-            borderWidth: 2, pointRadius: onePoint ? 6 : 3, pointHoverRadius: 7, tension: 0.4, fill: true },
+            borderWidth: 2,
+            pointBackgroundColor: pointBgColors,
+            pointBorderColor: pointBgColors,
+            pointRadius: pointRadii,
+            pointHoverRadius: pointHoverRadii,
+            tension: 0.4, fill: true },
           ...(trendsDataset ? [trendsDataset] : []),
         ];
         chartInstance = new Chart(canvas.getContext('2d'), {
@@ -718,7 +764,23 @@ function renderDetail(data) {
           options: {
             responsive: true, maintainAspectRatio: false,
             interaction: { mode:'index', intersect:false },
-            plugins: { legend: { display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}, color: cc.tick} }, zoom: zoomOpts },
+            plugins: {
+              legend: { display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}, color: cc.tick} },
+              zoom: zoomOpts,
+              tooltip: {
+                callbacks: {
+                  // T2026-0428-GRAPH: スパイクポイントに「📌 きっかけ記事タイトル」を追記
+                  afterBody: (items) => {
+                    if (!items || !items.length) return '';
+                    const idx = items[0].dataIndex;
+                    const title = spikeTitles[idx];
+                    if (!title) return '';
+                    const t = title.length > 40 ? title.slice(0, 40) + '…' : title;
+                    return `📌 きっかけ: ${t}`;
+                  },
+                },
+              },
+            },
             scales: {
               y: { ...makeScaleY0(mediaCnts), position: 'left' },
               ...(trendsValues ? { yTrends: {
