@@ -62,7 +62,7 @@ async function fetchAndShowViews30m(topicId) {
 function updateOGP(meta) {
   const title   = meta.generatedTitle || meta.title || 'Flotopic';
   const rawDesc = cleanSummary(meta.generatedSummary) || '';
-  const PHASE_LABEL_OGP = {'発端':'始まり','拡散':'広まってる','ピーク':'急上昇','現在地':'進行中','収束':'ひと段落'};
+  const PHASE_LABEL_OGP = {'発端':'始まり','拡散':'広まってる','ピーク':'急上昇','現在地':'今ここ','収束':'ひと段落'};
   const phaseText = meta.storyPhase ? (PHASE_LABEL_OGP[meta.storyPhase] || meta.storyPhase) : '';
   const phasePrefix = phaseText ? `【${phaseText}】` : '';
   const summaryPart = rawDesc.length > 0 ? rawDesc.slice(0, 90) : '';
@@ -348,16 +348,18 @@ function renderDetail(data) {
     // 発端→発端 / 拡散・ピーク→進行中 / 現在地→進行中 / 収束→決着 (沈静化はAI判定でのみ得られる)。
     const STATUS_FALLBACK = { '発端':'発端','拡散':'進行中','ピーク':'進行中','現在地':'進行中','収束':'決着' };
     const statusLabel = statusLabelRaw || STATUS_FALLBACK[phase] || '';
+    // T2026-0428-AU: 表示ラベル(label)と AI 内部値(キー)を分離。
+    // 「進行中」だけだと"何が進行中か"が伝わらないため、読者向けに具体的な動詞句に置換。
     const STATUS_BADGE = {
-      '発端':   { icon:'🌱', cls:'sl-onset',     hint:'注目され始めた直後' },
-      '進行中': { icon:'🔥', cls:'sl-active',    hint:'報道が続き熱量がある' },
-      '沈静化': { icon:'📉', cls:'sl-cooling',   hint:'報道頻度が落ちてきた' },
-      '決着':   { icon:'✅', cls:'sl-resolved',  hint:'結論や合意が出て話題が閉じた' },
+      '発端':   { icon:'🌱', cls:'sl-onset',     label:'起き始め',     hint:'注目され始めた直後' },
+      '進行中': { icon:'🔥', cls:'sl-active',    label:'報道継続中',   hint:'報道が続き熱量がある' },
+      '沈静化': { icon:'📉', cls:'sl-cooling',   label:'落ち着いてきた', hint:'報道頻度が落ちてきた' },
+      '決着':   { icon:'✅', cls:'sl-resolved',  label:'ひと段落',     hint:'結論や合意が出て話題が閉じた' },
     };
 
     const PHASE_COLOR = { '発端':'rgba(78,201,192,0.55)','拡散':'rgba(78,201,192,0.7)','ピーク':'#4EC9C0','現在地':'#3BB5AC','収束':'#64748b' };
     const PHASE_ICON  = { '発端':'🌱','拡散':'📡','ピーク':'🔥','現在地':'📍','収束':'✅' };
-    const PHASE_TEXT  = { '発端':'始まり','拡散':'広まってる','ピーク':'急上昇','現在地':'進行中','収束':'ひと段落' };
+    const PHASE_TEXT  = { '発端':'始まり','拡散':'広まってる','ピーク':'急上昇','現在地':'今ここ','収束':'ひと段落' };
     const ALL_PHASES  = ['発端','拡散','ピーク','現在地','収束'];
     const currentIdx  = phase ? ALL_PHASES.indexOf(phase) : -1;
     const phaseBarHtml = phase ? `<div class="ai-phase-bar">${ALL_PHASES.map((p,i)=>{
@@ -398,10 +400,12 @@ function renderDetail(data) {
       // 「両軸が同一ページで満たされる」設計目標を満たすため、ゾーン間に区切り線を入れる。
 
       // ─── 注目度ゾーン: statusLabel バッジ ───
+      // T2026-0428-AU: バッジ表示は b.label (読者向け) を使い、AI 内部値 (statusLabel) は使わない。
       const statusBadgeHtml = (statusLabel && STATUS_BADGE[statusLabel]) ? (() => {
         const b = STATUS_BADGE[statusLabel];
+        const display = b.label || statusLabel;
         return `<div class="ai-status-zone">
-          <span class="ai-status-badge ${b.cls}" title="${esc(b.hint)}">${b.icon} ${esc(statusLabel)}</span>
+          <span class="ai-status-badge ${b.cls}" title="${esc(b.hint)}">${b.icon} ${esc(display)}</span>
           <span class="ai-status-hint">${esc(b.hint)}</span>
         </div>`;
       })() : '';
@@ -970,7 +974,6 @@ function renderDetail(data) {
                     ${shown.map(a => {
                       const _artMs = a.publishedAt ? a.publishedAt * 1000 : (a.pubDate ? new Date(a.pubDate).getTime() : 0);
                       const isNew = _artMs && (Date.now() - _artMs) < 6 * 3600 * 1000;
-                      const wayback = `https://web.archive.org/web/*/${encodeURIComponent(a.url || '')}`;
                       // T2026-0428-AN: 一次情報バッジ（バックエンドの isPrimary フラグを信頼）
                       // 著作権法32条「引用」として利用、出典明示必須（source 名+リンクで遵守）
                       const primaryBadge = a.isPrimary
@@ -978,17 +981,16 @@ function renderDetail(data) {
                         : '';
                       return `<div class="timeline-article${a.isPrimary ? ' is-primary' : ''}">
                         ${primaryBadge}<a href="${esc(a.url)}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}${isNew ? '<span class="new-badge">NEW</span>' : ''}</a>
-                        <div class="timeline-source">${srcFaviconImg(a.source)}${esc(a.source)}${a.isPrimary ? ' より引用' : ''}<a href="${esc(wayback)}" class="article-archive-link" target="_blank" rel="noopener noreferrer" title="リンク切れ時は Internet Archive で記事を遡れます">📦 アーカイブ</a></div>
+                        <div class="timeline-source">${srcFaviconImg(a.source)}${esc(a.source)}${a.isPrimary ? ' より引用' : ''}</div>
                       </div>`;
                     }).join('')}
                     ${rest.length ? `<details class="day-more-details"><summary class="day-more-btn">他${rest.length}件を表示</summary>${rest.map(a => {
-                      const wayback = `https://web.archive.org/web/*/${encodeURIComponent(a.url || '')}`;
                       const primaryBadge = a.isPrimary
                         ? '<span class="primary-source-badge" title="この記事は一次情報源（公式機関・主要通信社）からの報道です">🔵 一次情報</span>'
                         : '';
                       return `<div class="timeline-article${a.isPrimary ? ' is-primary' : ''}">
                         ${primaryBadge}<a href="${esc(a.url)}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
-                        <div class="timeline-source">${srcFaviconImg(a.source)}${esc(a.source)}${a.isPrimary ? ' より引用' : ''}<a href="${esc(wayback)}" class="article-archive-link" target="_blank" rel="noopener noreferrer" title="リンク切れ時は Internet Archive で記事を遡れます">📦</a></div>
+                        <div class="timeline-source">${srcFaviconImg(a.source)}${esc(a.source)}${a.isPrimary ? ' より引用' : ''}</div>
                       </div>`;
                     }).join('')}</details>` : ''}
                   </div>
@@ -1068,7 +1070,6 @@ function renderDetail(data) {
           if (!picked.some(p => p.url === a.url)) picked.push(a);
         }
         relatedEl.innerHTML = picked.map(a => {
-          const wayback = `https://web.archive.org/web/*/${encodeURIComponent(a.url || '')}`;
           // T2026-0428-AN: 一次情報バッジ（バックエンドの isPrimary フラグを信頼）
           const primaryBadge = a.isPrimary
             ? '<span class="primary-source-badge" title="この記事は一次情報源（公式機関・主要通信社）からの報道です">🔵 一次情報</span>'
@@ -1079,7 +1080,6 @@ function renderDetail(data) {
             <div class="article-meta">
               ${srcFaviconImg(a.source)}
               ${esc(a.source)}${a.isPrimary ? ' より引用' : ''} · ${fmtTl(a._snapTs)}
-              <a href="${esc(wayback)}" class="article-archive-link" target="_blank" rel="noopener noreferrer" title="リンク切れ時は Internet Archive で記事を遡れます">📦 アーカイブ</a>
             </div>
           </div>
         `;

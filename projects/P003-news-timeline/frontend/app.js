@@ -75,8 +75,8 @@ function showErrorBanner(message) {
   }
 }
 
-const STATUS_LABEL = { rising:'🔥 急上昇', peak:'⚡ 注目中', declining:'📉 落ち着き', cooling:'📉 落ち着き' };
-const PHASE_BADGE  = { '発端':'🌱 始まり', '拡散':'📡 広まってる', 'ピーク':'🔥 急上昇', '現在地':'📍 進行中', '収束':'✅ ひと段落' };
+const STATUS_LABEL = { rising:'🔥 注目度急上昇', peak:'⚡ いま注目度ピーク', declining:'📉 落ち着き始め', cooling:'📉 沈静化中' };
+const PHASE_BADGE  = { '発端':'🌱 始まり', '拡散':'📡 広まってる', 'ピーク':'🔥 急上昇', '現在地':'📍 今ここ', '収束':'✅ ひと段落' };
 const PHASE_CLASS  = { '発端':'phase-start', '拡散':'phase-spread', 'ピーク':'phase-peak', '現在地':'phase-now', '収束':'phase-end' };
 
 function cleanSummary(s) {
