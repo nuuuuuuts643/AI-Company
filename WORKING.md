@@ -102,4 +102,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] フェーズ2 SLI計測+次タスク実行 | 観測+実装 | lambda/proc_storage.py または proc_ai.py | 2026-04-29 01:18 | yes |
