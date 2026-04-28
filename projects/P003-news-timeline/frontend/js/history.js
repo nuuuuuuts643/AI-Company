@@ -2,7 +2,7 @@
 // 依存: config.js (FAVORITES_URL), auth.js (currentUser)
 
 const HIST_LS_KEY = 'flotopic_history';
-const HIST_MAX    = 20;
+const HIST_MAX    = 200;
 
 function histApiUrl() {
   if (typeof FAVORITES_URL === 'undefined' || !FAVORITES_URL) return null;
