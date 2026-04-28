@@ -41,7 +41,7 @@ if [ -z "$FIX_TYPE" ]; then
 usage: $0 <fix_type> [args]
 
 fix_type:
-  ai_quality      [topics_url]   keyPoint/perspectives 充填率 (>=60% で PASS)
+  ai_quality      [topics_url]   aiGenerated=True 母集団の keyPoint>=50% / perspectives>=60% で PASS
   mobile_layout   [pages_csv]    375px 幅で横スクロール無し (PASS) — puppeteer 必要
   mobile                         mobile_layout の別名
   freshness       [topics_url]   topics.json updatedAt が 90 分以内 (PASS)
@@ -56,7 +56,9 @@ fi
 case "$FIX_TYPE" in
   ai_quality)
     URL="${1:-https://flotopic.com/api/topics.json}"
-    THRESHOLD="${AI_QUALITY_THRESHOLD:-60}"  # %
+    # aiGenerated=True 母集団に対する充填率。閾値: keyPoint>=50%, perspectives>=60% (T2026-0428-Y)
+    KP_THRESHOLD="${AI_QUALITY_KP_THRESHOLD:-50}"
+    PV_THRESHOLD="${AI_QUALITY_PV_THRESHOLD:-60}"
     if ! command -v jq >/dev/null 2>&1; then
       echo "[verify_effect] jq 必要 (brew install jq)" >&2
       exit 2
@@ -67,20 +69,25 @@ case "$FIX_TYPE" in
       echo "[verify_effect] curl 失敗: $URL" >&2
       exit 2
     fi
-    # topics.json は { "topics": [...], ... } 形式 / 配列形式どちらにも対応
-    TOTAL=$(jq '(.topics // .) | length' "$TMP" 2>/dev/null)
-    if [ -z "$TOTAL" ] || [ "$TOTAL" = "0" ] || [ "$TOTAL" = "null" ]; then
-      echo "[verify_effect] topics 配列が空または取得不能" >&2
+    # topics.json は { "topics": [...], ... } 形式 / 配列形式どちらにも対応。
+    # 母集団は aiGenerated=True のみ — 「AI 要約は走ったが必須フィールドが空 (success-but-empty)」を検出する設計。
+    TOTAL=$(jq '[(.topics // .)[] | select(.aiGenerated == true)] | length' "$TMP" 2>/dev/null)
+    if [ -z "$TOTAL" ] || [ "$TOTAL" = "null" ]; then
+      echo "[verify_effect] topics 取得不能" >&2
       exit 2
     fi
-    KP_FILLED=$(jq '[(.topics // .)[] | select(.keyPoint != null and (.keyPoint | tostring | length) > 0)] | length' "$TMP")
-    PV_FILLED=$(jq '[(.topics // .)[] | select(.perspectives != null and (.perspectives | length // 0) > 0)] | length' "$TMP")
+    if [ "$TOTAL" = "0" ]; then
+      echo "Verified-Effect: ai_quality aiGenerated=0 keyPoint=N/A perspectives=N/A SKIP @ ${JST_TS}"
+      exit 0
+    fi
+    KP_FILLED=$(jq '[(.topics // .)[] | select(.aiGenerated == true) | select(.keyPoint != null and (.keyPoint | tostring | length) > 0)] | length' "$TMP")
+    PV_FILLED=$(jq '[(.topics // .)[] | select(.aiGenerated == true) | select(.perspectives != null and (.perspectives | length // 0) > 0)] | length' "$TMP")
     KP_PCT=$(awk -v a="$KP_FILLED" -v b="$TOTAL" 'BEGIN{ if(b>0) printf "%.1f", a/b*100; else print "0.0" }')
     PV_PCT=$(awk -v a="$PV_FILLED" -v b="$TOTAL" 'BEGIN{ if(b>0) printf "%.1f", a/b*100; else print "0.0" }')
-    # 両方の min を判定値にする
-    MIN_PCT=$(awk -v k="$KP_PCT" -v p="$PV_PCT" 'BEGIN{ if(k<p) print k; else print p }')
-    PASS=$(awk -v m="$MIN_PCT" -v t="$THRESHOLD" 'BEGIN{ if(m+0 >= t+0) print "PASS"; else print "FAIL" }')
-    echo "Verified-Effect: ai_quality keyPoint=${KP_PCT}%(${KP_FILLED}/${TOTAL}) perspectives=${PV_PCT}%(${PV_FILLED}/${TOTAL}) threshold=${THRESHOLD}% ${PASS} @ ${JST_TS}"
+    KP_PASS=$(awk -v p="$KP_PCT" -v t="$KP_THRESHOLD" 'BEGIN{ if(p+0 >= t+0) print "PASS"; else print "FAIL" }')
+    PV_PASS=$(awk -v p="$PV_PCT" -v t="$PV_THRESHOLD" 'BEGIN{ if(p+0 >= t+0) print "PASS"; else print "FAIL" }')
+    if [ "$KP_PASS" = "PASS" ] && [ "$PV_PASS" = "PASS" ]; then PASS="PASS"; else PASS="FAIL"; fi
+    echo "Verified-Effect: ai_quality keyPoint=${KP_PCT}%(${KP_FILLED}/${TOTAL}) perspectives=${PV_PCT}%(${PV_FILLED}/${TOTAL}) thresholds=kp${KP_THRESHOLD}/pv${PV_THRESHOLD} ${PASS} @ ${JST_TS}"
     [ "$PASS" = "PASS" ] || exit 1
     exit 0
     ;;
