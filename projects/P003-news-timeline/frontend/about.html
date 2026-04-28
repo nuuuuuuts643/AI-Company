@@ -128,7 +128,7 @@
     <div class="feature-card">
       <div class="icon"><i data-lucide="bot" aria-hidden="true"></i></div>
       <h3>AI自動分析</h3>
-      <p><i data-lucide="newspaper" aria-hidden="true"></i> 状況解説（時系列ストーリー）→ <i data-lucide="library" aria-hidden="true"></i> 各社の見解（メディアごとの違い）→ <i data-lucide="eye" aria-hidden="true"></i> これからの注目ポイント（観察視点）→ <i data-lucide="sparkles" aria-hidden="true"></i> AI予想（仮説としての見通し）の4軸で整理します。「背景・課題・目的」が抜け落ちがちなニュースを、初見でも文脈ごと理解できる形に再構成します。</p>
+      <p><i data-lucide="newspaper" aria-hidden="true"></i> 状況解説（時系列ストーリー）→ <i data-lucide="library" aria-hidden="true"></i> 各メディアの見解（メディアごとの違い）→ <i data-lucide="eye" aria-hidden="true"></i> これからの注目ポイント（観察視点）→ <i data-lucide="sparkles" aria-hidden="true"></i> AI予想（仮説としての見通し）の4軸で整理します。「背景・課題・目的」が抜け落ちがちなニュースを、初見でも文脈ごと理解できる形に再構成します。</p>
     </div>
     <div class="feature-card">
       <div class="icon"><i data-lucide="trending-up" aria-hidden="true"></i></div>
@@ -164,7 +164,7 @@
 
   <h2>他のニュースサービスとの違い</h2>
   <p>GoogleニュースやYahoo!ニュースが「最新の記事を届ける」ことに特化しているのに対し、Flotopicは「同じ話題の記事を束ねて、流れとして見せる」ことに特化しています。</p>
-  <p>Twitterのようなリアルタイム情報収集ツールは速いですが、文脈が断片的になりがちです。Flotopicでは、複数のメディアが同じトピックについて報じた記事を自動集約し、AIが「状況解説」「各社の見解」「これからの注目ポイント」「AI予想」の4軸で分析します。既存ニュースは『手段以降（実装・結果）』しか書きませんが、その前段の『背景・課題・目的』を補うことで、途中から読み始めた人でも文脈ごと理解できる設計です。</p>
+  <p>Twitterのようなリアルタイム情報収集ツールは速いですが、文脈が断片的になりがちです。Flotopicでは、複数のメディアが同じトピックについて報じた記事を自動集約し、AIが「状況解説」「各メディアの見解」「これからの注目ポイント」「AI予想」の4軸で分析します。既存ニュースは『手段以降（実装・結果）』しか書きませんが、その前段の『背景・課題・目的』を補うことで、途中から読み始めた人でも文脈ごと理解できる設計です。</p>
   <p>また、話題が落ち着いた後も「アーカイブ」として参照できる設計になっており、「あの時のあの話題、どうなったんだっけ」という振り返り需要にも応えられます。数日離れていた場合の「振り返る」も、そのために作られた機能です。</p>
 
   <h2>「ストーリーで見せる」ことの意義</h2>
@@ -176,7 +176,7 @@
   <p>Flotopicが使うAIは、Anthropic社が開発した大規模言語モデル「Claude」です。各記事のタイトルと概要文をまとめてClaudeに渡し、以下の4軸構成で分析させています（思想フレーム: 状況→視点→観察→見通し）。</p>
   <ul style="margin:0.6rem 0 0.8rem 1.2rem;line-height:1.9;">
     <li><strong><i data-lucide="newspaper" aria-hidden="true"></i> 状況解説（keyPoint）</strong>——200〜300字の時系列ストーリー。何がいつ・どう動いたかを地続きに整理</li>
-    <li><strong><i data-lucide="library" aria-hidden="true"></i> 各社の見解（perspectives）</strong>——同じ事象でも社ごとに主語・着地点が違う場合の対比</li>
+    <li><strong><i data-lucide="library" aria-hidden="true"></i> 各メディアの見解（perspectives）</strong>——同じ事象でも社ごとに主語・着地点が違う場合の対比</li>
     <li><strong><i data-lucide="eye" aria-hidden="true"></i> これからの注目ポイント（watchPoints）</strong>——次に何を見れば話の続きが追えるか、観察の視点</li>
     <li><strong><i data-lucide="sparkles" aria-hidden="true"></i> AI予想（outlook）</strong>——記事内容を根拠にした見通し（断定せず仮説として）</li>
   </ul>

@@ -353,7 +353,7 @@ def _build_story_schema(mode: str) -> dict:
     """
     # T2026-0428-J/E (2026-04-28): フィールド再設計（最終確定版）。
     # 「なぜ今か」はグラフ(記事数スパイク)が示すべきであり AI に語らせない。
-    # AI 要約は「状況解説 / 各社の見解 / 注目ポイント / AI予想」の 4 軸に集中。
+    # AI 要約は「状況解説 / 各メディアの見解 / 注目ポイント / AI予想」の 4 軸に集中。
     # 削除: spreadReason, backgroundContext, background, whatChanged
     # 追加: statusLabel (粗粒度フェーズ), watchPoints (今後の観察軸)
     base_props = {
