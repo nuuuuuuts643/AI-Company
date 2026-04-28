@@ -1,4 +1,6 @@
 """Claude Haiku を使ったタイトル・ストーリー生成とフォールバック (抽出的生成)。"""
+from __future__ import annotations  # PEP 563 — Python 3.9 でも `str | None` annotation を許容
+
 import json
 import re
 import time
@@ -582,6 +584,7 @@ _STORY_PROMPT_RULES = (
     '  発端=注目され始めた直後。進行中=報道が続き熱量がある。沈静化=報道頻度が落ちている。決着=結論や合意が出て話題が閉じた。\n'
     '【watchPoints】これからの注目ポイントを複数軸で簡潔に案内 (80〜150字 / **80 字以上 必須**)。断言や予測ではなく「ここを見ておくといい」という観察視点。\n'
     '  形式: ①〇〇の進捗 ②△△の対応 ③□□の動向 のように 2〜3 項目を ① ② ③ 番号付きで列挙し、各項目に 40 字程度の説明を加える。outlook (AI予想) とは役割が異なる。\n'
+    '  ★ 観点 1 件は **次回のブランチ判定材料となる注目点**を必ず含める (例: ①新たな主役エンティティが登場するか / 別事案への波及があるか等)。後続記事が来た際の merge/branch 判断を AI が再判定する際の手がかりになる。\n'
     '【perspectives】2〜3社の見解を「[メディア名] は〜」の構文で並列列挙 (**60 字以上 必須**)。各社の本文 (ある場合) を根拠にし、推測ではなく実際の論調差を抽出する。\n'
     '  - 公平性: 特定メディアの論調に引きずられず、各社を等しく扱う。1社だけ詳しく書くのは禁止。\n'
     '  - 各社の論調差が薄い場合は無理に違いを作らず「概ね同様の論調 (◯社の本文より)」と書く。\n'
@@ -595,6 +598,10 @@ _STORY_PROMPT_RULES = (
     '【topicTitle】15字以内、体言止め、具体的固有名詞を含む。\n'
     '【topicLevel】major=国家間・産業横断/sub=majorの一側面/detail=個別発表。\n'
     '【parentTopicTitle】明確に上位テーマの一部の場合のみ。独立は null。\n'
+    '【ストーリー分岐の指針 (T2026-0429-B)】\n'
+    '  ★ 同一事件の新展開 (逮捕→起訴→判決 / 申請→受理→可決 / 発表→発売→不具合報告 等) は**ブランチではなく同トピック継続**として扱う (timeline に追加)。\n'
+    '  ★ 主役 (主要 PERSON / ORG) が変わる、もしくは因果的に独立した別事案が始まった場合のみブランチ (新トピック起点) を起こす。\n'
+    '  ★ 数字 (velocityScore / 記事数) は分岐の動機にしない。内容軸 (主役・因果・登場人物重複) のみで判断する。\n'
 )
 
 
@@ -751,6 +758,161 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
 # Tool Use API + JSON Schema (`_build_story_schema`) で structured output を物理的に強制。
 # malformed JSON の発生確率は 0 になり、`generate_story (full) error: Expecting ',' delimiter`
 # 系の警告が消える (T39 の続き、JSON parse error なぜなぜ分析の対策実装)。
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T2026-0429-B: ストーリー分岐判定 (semantic should_branch)
+# 仕様: docs/rules/story-branching-policy.md §3.3 判定マトリクス
+#   - 主役エンティティ (PERSON / ORG 上位2件) 重複あり × 因果連続あり → 継続 (False)
+#   - 主役エンティティ重複なし → 分岐 (True)
+#   - 主役重複あり × 因果連続なし × Jaccard < 0.25 → 分岐 (True)
+#   - それ以外 → 現行ロジック (Jaccard 0.35 以上で継続)
+# 数字 (velocityScore / 記事数) は判定に使わない。内容軸のみで判断。
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 因果連続キーワード (順序ペア)。両方が両 story の title/keyPoint に含まれていれば
+# 因果シーケンスありとみなす (例: 逮捕 → 起訴, 起訴 → 判決)。
+_CAUSAL_SEQUENCES = (
+    ('逮捕', '起訴'),
+    ('起訴', '判決'),
+    ('逮捕', '判決'),
+    ('容疑', '起訴'),
+    ('容疑', '逮捕'),
+    ('申請', '受理'),
+    ('受理', '可決'),
+    ('提案', '可決'),
+    ('発表', '発売'),
+    ('発売', '不具合'),
+    ('発売', 'リコール'),
+    ('発表', '提供開始'),
+    ('発表', '上場'),
+    ('合意', '締結'),
+    ('交渉', '合意'),
+    ('交渉', '決裂'),
+    ('提携', '統合'),
+    ('発足', '解散'),
+    ('辞任', '後任'),
+    ('就任', '辞任'),
+    ('提訴', '判決'),
+    ('提訴', '和解'),
+    ('告訴', '不起訴'),
+    ('指名', '承認'),
+    ('開始', '完了'),
+    ('開始', '中止'),
+    ('発令', '解除'),
+)
+
+
+def _extract_primary_entities(entities: list) -> set:
+    """entities フィールド (proc_ai 側で保持しないため呼出側で渡す) から
+    type=PERSON|ORG の上位2件を主役エンティティとして返す。
+
+    Args:
+        entities: [{'name': '〜', 'type': 'PERSON'|'ORG'|'EVENT'|'PRODUCT'|...}, ...]
+                  または ['〜', '〜'] (旧形式・全部主役扱い・上位2件)
+
+    Returns:
+        主役名の set (大文字小文字・全半角は区別する。呼出側で正規化)。
+    """
+    if not entities:
+        return set()
+    primary: list = []
+    for e in entities:
+        if isinstance(e, dict):
+            name = str(e.get('name') or '').strip()
+            etype = str(e.get('type') or '').upper()
+            if name and etype in ('PERSON', 'ORG', 'ORGANIZATION'):
+                primary.append(name)
+        elif isinstance(e, str):
+            name = e.strip()
+            if name:
+                primary.append(name)
+        if len(primary) >= 2:
+            break
+    return set(primary)
+
+
+def _has_causal_sequence(text_a: str, text_b: str) -> bool:
+    """2 つのテキスト (title + keyPoint 連結を想定) の間に因果シーケンスがあるか。
+    どちらに前段キーワード, どちらに後段キーワードがあるかは問わない (順序対称で判定)。
+    どちらかに両方の単語が含まれていてもよい (時系列ストーリー内の連続展開)。"""
+    if not text_a and not text_b:
+        return False
+    a = str(text_a or '')
+    b = str(text_b or '')
+    for first, second in _CAUSAL_SEQUENCES:
+        in_a = (first in a, second in a)
+        in_b = (first in b, second in b)
+        # どちらか片側に両単語 (例: 「容疑で逮捕→今後の起訴可否が焦点」が a 側に)
+        if all(in_a) or all(in_b):
+            return True
+        # 片側に first, もう片側に second (典型的な「逮捕→起訴」連続)
+        if in_a[0] and in_b[1]:
+            return True
+        if in_b[0] and in_a[1]:
+            return True
+    return False
+
+
+def _jaccard_set(a: set, b: set) -> float:
+    if not a or not b:
+        return 0.0
+    union = len(a | b)
+    if union == 0:
+        return 0.0
+    return len(a & b) / union
+
+
+def should_branch(parent: dict, candidate: dict) -> bool:
+    """セマンティック分岐判定。
+
+    Args:
+        parent:     既存トピック側 dict。{'title': str, 'keyPoint': str,
+                    'entities': [...], 'tokens': set or list (任意)}
+        candidate:  新候補トピック側 dict。同上。
+
+    Returns:
+        True  = 別ストーリーとして分岐 (新トピック起点)
+        False = 同ストーリー継続 (既存トピックにマージ / timeline 追加)
+
+    判定マトリクス (story-branching-policy.md §3.3):
+      ① 主役重複あり × 因果連続あり          → False (継続: 逮捕→起訴 等の同事件展開)
+      ② 主役重複なし                          → True  (分岐: 別主役 = 別ストーリー)
+      ③ 主役重複あり × 因果連続なし × Jacc<.25 → True  (分岐: 同人物の別事案)
+      ④ その他                                → 現行ロジック (Jaccard >= 0.35 で継続)
+    """
+    if not parent or not candidate:
+        return True  # 比較不能 → 安全側で別扱い
+
+    p_primary = _extract_primary_entities(parent.get('entities') or [])
+    c_primary = _extract_primary_entities(candidate.get('entities') or [])
+
+    p_text = f"{parent.get('title', '')}\n{parent.get('keyPoint', '')}"
+    c_text = f"{candidate.get('title', '')}\n{candidate.get('keyPoint', '')}"
+
+    primary_overlap = bool(p_primary & c_primary) if (p_primary and c_primary) else False
+    has_causal = _has_causal_sequence(p_text, c_text)
+
+    # tokens がなければ呼出側用に簡易トークン化 (空白・記号で split)。
+    p_tokens = set(parent.get('tokens') or [])
+    c_tokens = set(candidate.get('tokens') or [])
+    if not p_tokens:
+        p_tokens = set(re.findall(r'[A-Za-z0-9]+|[぀-ゟ゠-ヿ一-鿿]+', p_text))
+    if not c_tokens:
+        c_tokens = set(re.findall(r'[A-Za-z0-9]+|[぀-ゟ゠-ヿ一-鿿]+', c_text))
+    jacc = _jaccard_set(p_tokens, c_tokens)
+
+    # ① 主役重複 + 因果連続 → 継続 (同事件の新展開)
+    if primary_overlap and has_causal:
+        return False
+    # ② 主役重複なし → 分岐 (別主役 = 別ストーリー)
+    if (p_primary or c_primary) and not primary_overlap:
+        return True
+    # ③ 主役重複あり / 因果連続なし / Jaccard 低 → 分岐 (同人物の別事案)
+    if primary_overlap and (not has_causal) and jacc < 0.25:
+        return True
+    # ④ その他 → 現行ロジック (Jaccard 0.35 以上で継続)
+    return jacc < 0.35
 
 
 # ─────────────────────────────────────────────────────────────────────────────
