@@ -79,6 +79,7 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 | `docs/rules/design-mistakes.md` | 設計ミスパターン集 |
 | `docs/rules/quality-process.md` | 品質改善の進め方（finder/implementer 共通） |
 | `docs/rules/user-context-check.md` | 実装前ユーザー文脈チェック（4つの問い） |
+| `docs/rules/legal-policy.md` | 法的・規約方針（引用・クロール・一次情報バッジ） |
 | `docs/flotopic-vision-roadmap.md` | プロダクトビジョン |
 
 タスク開始時に CLAUDE.md → global-baseline.md → system-status.md の 3 つを確認し、必要に応じて他を参照する。
