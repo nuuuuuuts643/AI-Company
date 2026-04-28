@@ -34,7 +34,7 @@ function fmtCommentDate(iso) {
     if (diffMin < 60) return `${diffMin}分前`;
     const diffH = Math.floor(diffMin / 60);
     if (diffH < 24)   return `${diffH}時間前`;
-    return d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+    return d.toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' });
   } catch { return ''; }
 }
 
