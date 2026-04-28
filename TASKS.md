@@ -28,7 +28,7 @@
 
 | ID | 優先 | 軸 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|---|
-| T2026-0428-BE | 🟡 中 | フェーズ1-§A | **buildFilters 系の境界値テスト** — `tests/unit/build_filters.test.js` 新設。`topics=[]` `topics=[{genre:'総合'}]` `counts={}` の 3 ケースで `visibleGenres` が空配列にならないことを assert。CLAUDE.md「新規 formatter は boundary test 同梱」を「フィルタ関数」に拡張 | `projects/P003-news-timeline/tests/unit/build_filters.test.js` 新設 | 2026-04-28 |
+| ~~T2026-0428-BE~~ | 🟡 中 | フェーズ1-§A | ~~**buildFilters 系の境界値テスト** — `tests/unit/build_filters.test.js` 新設。`topics=[]` `topics=[{genre:'総合'}]` `counts={}` の 3 ケースで `visibleGenres` が空配列にならないことを assert。CLAUDE.md「新規 formatter は boundary test 同梱」を「フィルタ関数」に拡張~~ ✅ **2026-04-29 完了** — `frontend/js/build_filters.js` に `computeVisibleGenres()` を純粋抽出（app.js 配線済）+ 16 ケース PASS（境界値 + 旧ジャンル名マージ + archived 除外） | `projects/P003-news-timeline/tests/unit/build_filters.test.js` 新設 | 2026-04-28 |
 
 ### AI 品質・体験（フェーズ2/3）
 
@@ -148,10 +148,8 @@
 <!--   閾値: keyPoint 70% / perspectives 60% / outlook 70%。Slack 通知も実装済 -->
 <!--   外部 cron は freshness-check.yml の schedule で代替 (06:10 JST 等)。本タスクは完了扱い -->
 | T2026-0428-AG | 🟢 低 | **個別 topic JSON で backgroundContext / spreadReason の充填率検証** — T2026-0428-N (上記 landing 済) は topics.json (L4a) の SLI。個別 topic JSON (L4b) の `backgroundContext` 等は別観測が必要。任意 5 topic を curl サンプリングして空でないことを確認する手順を追加 | (T2026-0428-Q success-but-empty 横展開 に統合) | 2026-04-28 |
-| ~~T2026-0428-O~~ | ✅ 完了 | **大規模クラスタ (articles>=10) で aiGenerated=False が放置される** — 修正: ① `proc_storage._apply_tier0_budget` (commits `894dd1d` / `4d62cbc`) で Tier-0 (articles>=10 × aiGenerated=False) を先頭固定、② `handler.py` で Phase A wallclock 50% を Tier-0 専用に予約 ([handler.py:184-224](projects/P003-news-timeline/lambda/processor/handler.py:184-224))。ともに main 反映済 / 2026-04-29 検証完了。回帰防止テスト: [tests/test_tier0_budget.py](projects/P003-news-timeline/tests/test_tier0_budget.py) (9 ケース全 PASS — 境界値 ac=10/9・budget cap・空入力・不正値耐性)。 | `lambda/processor/proc_storage.py`, `lambda/processor/handler.py` | 2026-04-28 |
 | T2026-0428-AF | 🟡 中 | **`generatedTitle` に markdown `# / *` 残骸が残るレガシートピック** — 2026-04-28 05:13 JST 観測で `# 鈴木誠也が佐々木朗希から本塁打、カブス連勝中の活躍続く` (full mode topic) が title 先頭に `#` を持つ。fix commit `b5c36b0: fix(P003): generate_title で markdown 残骸 (# / *) を strip` 適用前に生成された aiGenerated=True topic は再生成 skip 条件で永続。一括 sanitize: `lambda/processor/handler.py` の admin mode `forceRegenerateAll` を一度実行する or `proc_storage.py update_topic_s3_file` 呼び出し前に title から `^\s*[#*]+\s*` を strip する band-aid を入れる (band-aid は CLAUDE.md ルールで本来禁止だが「過去データ補正」用途として一時許容、補正完了後に削除)。 | `lambda/processor/proc_storage.py` or admin `forceRegenerateAll` 実行 | 2026-04-28 |
 <!-- T2026-0428-AG 旧行は SLI 9 統合済のため削除 (T2026-0428-Q 横展開へ移管) -->
-| ~~T2026-0428-AH~~ | ✅ 完了 | **storyPhase 「発端」が aiGenerated=True 中 58% (54/93) — T219 修正後も改善せず** — 修正: `proc_storage.needs_ai_processing` に AH ガード追加 (commit `6f39b55c`, 2026-04-28 09:43 JST 実装済 / 2026-04-29 検証完了)。`storyPhase=='発端' かつ articleCount>=3` を再生成対象に含めるロジックは [lambda/processor/proc_storage.py:387-391](projects/P003-news-timeline/lambda/processor/proc_storage.py:387-391) で稼働中。回帰防止テスト: [tests/test_needs_ai_processing.py](projects/P003-news-timeline/tests/test_needs_ai_processing.py) (8 ケース全 PASS)。 | `lambda/processor/proc_storage.py` get_pending_topics または handler skip ロジック | 2026-04-28 |
 
 ### SLI/SLO 設計
 
