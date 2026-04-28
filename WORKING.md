@@ -92,3 +92,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 |---|---|---|---|---|
 | [Code] T2026-0428-AJ グラフUI修正＋記事ローディング修正 | Code | frontend/detail.js, frontend/topic.html, frontend/style.css | 2026-04-28 10:30 | yes |
 | [Code] T2026-0428-AK 空トピック量産バグ根本修正 | Code | lambda/fetcher/handler.py, lambda/lifecycle/handler.py, scripts/verify_effect.sh | 2026-04-28 10:34 | yes |
+| [Code] T2026-0428-AO 全トピック棚卸し＆一括クリーンアップ | Code | scripts/cleanup_all_topics.py, S3 topics*.json | 2026-04-28 10:40 | yes |
