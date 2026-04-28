@@ -123,6 +123,23 @@ def _is_low_quality_title(title: str) -> bool:
     return False
 
 
+_TITLE_MARKDOWN_LEAD_RE = re.compile(r'^\s*[#*]+\s*')
+_TITLE_MARKDOWN_TRAIL_RE = re.compile(r'\s*[#*]+\s*$')
+
+
+def _strip_title_markdown(title):
+    """T2026-0428-AF: generatedTitle に残った markdown 装飾文字 (#, *, **) を除去。
+    レガシー AI 生成では `# 米中対立` `**強調タイトル**` 等が title に混入していた。
+    update_topic_with_ai / update_topic_s3_file 経由で再保存されるたびにここでクリーンアップする。
+    既存データの一括書き換えは行わない（書き戻し時に自然に正規化される）。
+    """
+    if not isinstance(title, str):
+        return title
+    t = _TITLE_MARKDOWN_LEAD_RE.sub('', title)
+    t = _TITLE_MARKDOWN_TRAIL_RE.sub('', t)
+    return t.strip()
+
+
 def save_prediction_log(tid: str, gen_story: dict | None) -> bool:
     """proc_ai が出した forecast/outlook を時系列で永続保存する。
     SK='PRED#YYYYMMDDTHHMMSS' で p003-topics テーブルに記録。
@@ -983,7 +1000,7 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
             expr_values[':agat'] = datetime.now(timezone.utc).isoformat()
         if gen_title and _can_write('generatedTitle'):
             update_expr += ', generatedTitle = :title'
-            expr_values[':title'] = gen_title
+            expr_values[':title'] = _strip_title_markdown(gen_title)
         if gen_story:
             if gen_story.get('aiSummary') and _can_write('generatedSummary'):
                 update_expr += ', generatedSummary = :summary'
@@ -1353,7 +1370,7 @@ def update_topic_s3_file(tid, upd, articles=None, incremental=False):
             return _is_field_empty(meta.get(field))
 
         if upd.get('generatedTitle') and _can_set('generatedTitle'):
-            meta['generatedTitle'] = upd['generatedTitle']
+            meta['generatedTitle'] = _strip_title_markdown(upd['generatedTitle'])
         if upd.get('generatedSummary') and _can_set('generatedSummary'):
             meta['generatedSummary'] = upd['generatedSummary']
         if upd.get('keyPoint') and _can_set('keyPoint'):
