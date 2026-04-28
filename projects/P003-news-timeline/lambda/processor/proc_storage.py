@@ -348,14 +348,17 @@ def needs_ai_processing(item):
     return False
 
 
-def _apply_tier0_budget(items: list, budget: int = 3) -> list:
+def _apply_tier0_budget(items: list, budget: int = 100) -> list:
     """T2026-0428-O: 大規模クラスタ (articles>=10) で aiGenerated=False の topic を
     必ず先頭に固定 budget 件まで配置する。残りは元の順序を保ったまま続ける。
 
     背景: T213 の 4段階優先度ソート後でも、可視 × 未生成の 0 番手の中で
     articleCount の重みが弱く、小規模クラスタが先に処理されて大規模が放置される
-    事象が観測された (本番 2026-04-28 05:13 JST)。Lambda 1 サイクルあたり
-    Tier-0 = 3 件を上限に「必ず処理する」枠を確保する。
+    事象が観測された (本番 2026-04-28 05:13 JST)。
+
+    2026-04-28 改訂: count 上限を 3→100 (=実質 max_topics) に拡大し、Tier-0 を
+    全件最前列に配置する。1 サイクルでの取りこぼしは handler.py 側の
+    「残り wallclock の 50% を Tier-0 専用に予約」する物理ゲートで防ぐ。
     """
     if not items:
         return items
@@ -481,8 +484,9 @@ def get_pending_topics(max_topics=100):
                 priority = 3
             return (priority, -int(x.get('score', 0) or 0), -_ts(x.get('lastUpdated', '')))
         items.sort(key=_sort_key)
-        # T2026-0428-O: 大規模クラスタ (articles>=10 × aiGenerated=False) を最大 3 件、必ず先頭で取り切る
-        items = _apply_tier0_budget(items, budget=3)
+        # T2026-0428-O: 大規模クラスタ (articles>=10 × aiGenerated=False) を全件先頭固定。
+        # 1 サイクルでの取りこぼしは handler.py の wallclock 50% Tier-0 予約で防ぐ。
+        items = _apply_tier0_budget(items)
         visible_pending = sum(1 for x in items if x.get('topicId', '') in visible_tids and not x.get('aiGenerated'))
         print(f'[get_pending_topics] ソート完了: 可視未生成={visible_pending}件が先頭')
 
@@ -549,8 +553,8 @@ def get_pending_topics(max_topics=100):
         return (priority, -int(x.get('score', 0) or 0), -_ts(x.get('lastUpdated', '')))
 
     items.sort(key=_scan_sort_key)
-    # T2026-0428-O: フルスキャン経路でも Tier-0 (articles>=10 × aiGenerated=False) を最大 3 件先頭固定
-    items = _apply_tier0_budget(items, budget=3)
+    # T2026-0428-O: フルスキャン経路でも Tier-0 (articles>=10 × aiGenerated=False) を全件先頭固定
+    items = _apply_tier0_budget(items)
 
     # 発見したIDをpending_ai.jsonに保存して次回スキャンを省略
     if S3_BUCKET and items:
@@ -589,6 +593,148 @@ def get_topics_by_ids(topic_ids):
         -int(x.get('score', 0) or 0),
     ))
     return items
+
+
+def update_prediction_result(tid: str, result: str, evidence: str = '') -> bool:
+    """T2026-0428-PRED: AI 予想 (outlook) の自動当否判定結果を DynamoDB META に書き戻す。
+
+    Args:
+        tid:      トピック ID
+        result:   'matched' | 'partial' | 'missed' | 'pending'
+        evidence: 判定根拠 (200 字以内)
+
+    書き込みフィールド:
+        - predictionResult:    判定結果 (matched/partial/missed/pending)
+        - predictionVerifiedAt: 判定実行時刻 (ISO8601 UTC)
+        - predictionEvidence:  判定根拠 (短文)
+
+    判定後も outlook / predictionMadeAt は維持する (どの予想がいつ立ったかは履歴として保持)。
+    新しい outlook が立つと proc_storage.update_topic_with_ai 側で predictionResult が
+    'pending' に再リセットされる (既存実装)。
+    """
+    if result not in ('matched', 'partial', 'missed', 'pending'):
+        print(f'[update_prediction_result] invalid result={result} for {tid[:8]}...')
+        return False
+    try:
+        ts_iso = datetime.now(timezone.utc).isoformat()
+        update_expr = 'SET predictionResult = :r, predictionVerifiedAt = :v'
+        expr_values = {':r': result, ':v': ts_iso}
+        if evidence:
+            update_expr += ', predictionEvidence = :e'
+            expr_values[':e'] = str(evidence)[:200]
+        table.update_item(
+            Key={'topicId': tid, 'SK': 'META'},
+            UpdateExpression=update_expr,
+            ExpressionAttributeValues=expr_values,
+        )
+        return True
+    except Exception as e:
+        print(f'[update_prediction_result] {tid[:8]}... 失敗: {e}')
+        return False
+
+
+def get_topics_for_prediction_judging(min_age_days: int = 7, min_articles: int = 5,
+                                      max_topics: int = 20) -> list:
+    """T2026-0428-PRED: 当否判定対象のトピックを抽出する。
+
+    条件:
+        - SK == 'META'
+        - outlook が非空
+        - predictionMadeAt が min_age_days 日以上前
+        - articleCount >= min_articles
+        - predictionResult == 'pending' (まだ判定済みでない)
+
+    判定済み (matched/partial/missed) は再判定しない。新 outlook が立つと
+    update_topic_with_ai 側で predictionResult が 'pending' に再リセットされ、
+    再度この query で拾われる (履歴的には predictionVerifiedAt も上書きされるため
+    同一 outlook の判定揺らぎは観測できないが、当否ログを別 SK に積む拡張は将来検討)。
+
+    Returns: [{'topicId', 'outlook', 'predictionMadeAt', 'articleCount', ...}, ...]
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=min_age_days)
+    cutoff_iso = cutoff.isoformat()
+    candidates = []
+    try:
+        scan_kwargs = {
+            'FilterExpression': (
+                Attr('SK').eq('META')
+                & Attr('outlook').exists()
+                & Attr('predictionMadeAt').lt(cutoff_iso)
+                & Attr('articleCount').gte(min_articles)
+                & Attr('predictionResult').eq('pending')
+            ),
+            'ProjectionExpression': 'topicId, outlook, predictionMadeAt, articleCount, generatedTitle',
+        }
+        while True:
+            r = table.scan(**scan_kwargs)
+            for item in r.get('Items', []):
+                candidates.append({
+                    'topicId':          item.get('topicId'),
+                    'outlook':          str(item.get('outlook') or ''),
+                    'predictionMadeAt': str(item.get('predictionMadeAt') or ''),
+                    'articleCount':     int(item.get('articleCount', 0) or 0),
+                    'generatedTitle':   str(item.get('generatedTitle') or ''),
+                })
+                if len(candidates) >= max_topics:
+                    return candidates
+            if not r.get('LastEvaluatedKey'):
+                break
+            scan_kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
+    except Exception as e:
+        print(f'[get_topics_for_prediction_judging] scan 失敗: {e}')
+    return candidates
+
+
+def get_articles_added_after(tid: str, since_iso: str, max_articles: int = 30) -> list:
+    """T2026-0428-PRED: 指定時刻以降にトピックに追加された記事 (タイトルのみ) を返す。
+
+    SNAP に含まれる pubDate を since_iso と比較する。pubDate パースに失敗した記事は除外。
+    新しい順に最大 max_articles 件返す。
+    """
+    try:
+        since_dt = datetime.fromisoformat(since_iso.replace('Z', '+00:00'))
+    except Exception:
+        # parse 失敗時は全 SNAP 対象 (= since=過去) として扱う
+        since_dt = datetime.fromtimestamp(0, tz=timezone.utc)
+    try:
+        r = table.query(
+            KeyConditionExpression=Key('topicId').eq(tid) & Key('SK').begins_with('SNAP#'),
+            ScanIndexForward=False,
+            Limit=10,
+        )
+        seen_urls = set()
+        out = []
+        for item in r.get('Items', []):
+            for a in item.get('articles', []):
+                url = a.get('url', '')
+                if url in seen_urls:
+                    continue
+                # pubDate 比較
+                raw = a.get('pubDate', '') or a.get('publishedAt', '')
+                a_dt = None
+                if raw:
+                    try:
+                        a_dt = datetime.fromisoformat(str(raw).replace('Z', '+00:00'))
+                    except Exception:
+                        try:
+                            ts = int(raw)
+                            a_dt = datetime.fromtimestamp(ts if ts < 1e11 else ts / 1000, tz=timezone.utc)
+                        except Exception:
+                            a_dt = None
+                if a_dt is None:
+                    continue
+                if a_dt.tzinfo is None:
+                    a_dt = a_dt.replace(tzinfo=timezone.utc)
+                if a_dt < since_dt:
+                    continue
+                seen_urls.add(url)
+                out.append({'title': a.get('title', ''), 'pubDate': raw, 'url': url})
+                if len(out) >= max_articles:
+                    return out
+        return out
+    except Exception as e:
+        print(f'[get_articles_added_after] {tid[:8]}... 失敗: {e}')
+        return []
 
 
 def get_latest_articles_for_topic(tid):
@@ -843,6 +989,55 @@ def write_s3(key, data):
         ContentType='application/json',
         CacheControl=cache_control,
     )
+
+
+# T265: 一覧ページ用に topics.json から最小フィールドだけ抽出した payload を返す。
+# topics.json は AI 生成 long-text (perspectives / watchPoints / outlook 等) を含み 200KB+ に
+# 肥大化していた → モバイル初回表示の帯域コストが高い。card 表示で実際に参照する短いフィールド
+# だけ残すことで payload を半分以下に圧縮する (Step2: frontend は topics-card.json を一覧用に使う)。
+#
+# 含めるフィールドの基準:
+#   - topic card で表示・分岐に使う ID, タイトル, ジャンル, スコア, 日時, 状態, badge 系
+#   - keyPoint / latestUpdateHeadline は短く card 上で読まれるので含む
+# 除外するフィールド (api/topic/{tid}.json 側で参照する):
+#   - generatedSummary, perspectives, watchPoints, outlook,
+#     predictionMadeAt, predictionResult, parentTopicTitle, relatedTopicTitles, trendsData
+_CARD_INCLUDE_KEYS = (
+    # 基本識別
+    'topicId', 'topicTitle', 'generatedTitle', 'title',
+    # 分類・サムネ
+    'genres', 'genre', 'imageUrl',
+    # スコア・カウント (card meta 行)
+    'score', 'articleCount', 'articleCountDelta', 'hatenaCount', 'velocityScore',
+    # 日時 (NEW badge / cooling-age / 並び替え)
+    'lastArticleAt', 'lastUpdated', 'firstSeenAt', 'updatedAt',
+    # ステータス (badge / フィルター)
+    'status', 'lifecycleStatus', 'storyPhase', 'statusLabel', 'summaryMode',
+    # card 上で読まれる短い AI テキスト
+    'keyPoint', 'latestUpdateHeadline',
+    # 制御フラグ
+    'aiGenerated', 'topicCoherent', 'topicLevel', 'reliability',
+    # 親子トピック (分岐 bar)
+    'parentTopicId', 'childTopics',
+)
+
+
+def generate_topics_card_json(topics_pub: list, updated_at: str) -> dict:
+    """topics_pub (= _trim 済みの公開用 topics) から card 表示に必要な最小フィールドのみを
+    抽出した payload dict を返す (api/topics-card.json の中身)。
+
+    Args:
+        topics_pub: handler.py で _PROC_INTERNAL を除外した公開用 topics の list
+        updated_at: ISO8601 タイムスタンプ
+    Returns:
+        {'topics': [...], 'updatedAt': str, 'count': int}
+    """
+    cards = [{k: t[k] for k in _CARD_INCLUDE_KEYS if k in t} for t in topics_pub]
+    return {
+        'topics':    cards,
+        'updatedAt': updated_at,
+        'count':     len(cards),
+    }
 
 
 def update_topic_s3_file(tid, upd, articles=None, incremental=False):

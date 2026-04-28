@@ -188,14 +188,23 @@ function apiUrl(path) { return API_BASE + path + '.json'; }
 // ===== 一覧ページ =====
 
 /**
- * topics.json をフェッチし、キーワードストリップを描画してトピック配列を返す
+ * トップページ一覧用の最小 payload (topics-card.json) をフェッチしトピック配列を返す。
+ * T265: topics.json (200KB+) は AI 長文を含み肥大化していたため、card 表示に必要な
+ * フィールドだけ含む topics-card.json (約半分) に切り替えてモバイル初回表示帯域を削減する。
+ * trendingKeywords は card 側にも updatedAt 同梱で持たせるが、無い場合は topics.json に
+ * 1 度だけフォールバック。
  * @returns {Promise<Array>} トピックの配列
  */
 async function loadTopics() {
-  const r = await fetch(apiUrl('topics'));
-  if (!r.ok) throw new Error(`topics fetch failed: HTTP ${r.status}`);
+  const r = await fetch(apiUrl('topics-card'));
+  if (!r.ok) throw new Error(`topics-card fetch failed: HTTP ${r.status}`);
   const data = await r.json();
-  renderKeywordStrip(data.trendingKeywords || []);
+  // trendingKeywords は card payload に含めない設計 → topics.json から軽くフェッチ。
+  // 失敗してもキーワードストリップが消えるだけで一覧表示は影響しない。
+  fetch(apiUrl('topics'))
+    .then(rr => rr.ok ? rr.json() : null)
+    .then(full => { if (full) renderKeywordStrip(full.trendingKeywords || []); })
+    .catch(() => {});
   return data.topics || [];
 }
 
