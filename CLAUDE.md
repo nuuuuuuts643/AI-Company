@@ -39,24 +39,35 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 
 ## ⚡ 絶対ルール（最低限・全プロジェクト共通）
 
-| ルール | 内容 |
+> 物理 = CI / hook / scripts で物理ガードあり / 観測 = SLI・cron で外部観測あり / 思想 = テキストルールのみ（運用判断に依存）。
+> 思想ルールは「気を付ける」と同じ強度しかない。物理化できる対策は物理化する（global-baseline §6）。
+
+| ルール | 内容 | 強度 |
+|---|---|---|
+| **完了 = 動作確認済み + 効果検証済み** | `done.sh <task_id> <verify_target>` + `verify_effect.sh <fix_type>` (`ai_quality` / `mobile_layout` / `freshness` / `empty_topics`) で改善を数値で確認。閾値未達は未完了 | 物理 |
+| **Verified 行 commit 必須** | `feat:` `fix:` `perf:` には `Verified:` 行（commit-msg hook で reject）。効果検証時は `Verified-Effect:` も。helper: `verified_line.sh` / `verify_effect.sh` | 物理 |
+| **同名ファイル並行編集禁止** | WORKING.md 宣言なしで触らない。8h TTL 自動削除＋needs-push 滞留警告は session_bootstrap.sh | 物理 |
+| **scriptタグ defer/async 禁止** | chart.js / config.js / app.js / detail.js。CI で物理ブロック | 物理 |
+| **PII / secrets コード直書き禁止** | env var か AWS Secrets Manager 必須。CI で `sk-ant-` / `AKIA` grep 検出 | 物理 |
+| **CLAUDE.md は 250 行以内** | CI で物理ガード。超えたら `lessons-learned.md` / `rules/` / `system-status.md` に外出し | 物理 |
+| **タスクID 採番** | `bash scripts/next_task_id.sh`。CI で重複検出 (`triage_tasks.py --check-duplicate-task-ids`) | 物理 |
+| **schedule-task は [Schedule-KPI] 必須** | commit-msg hook で `implemented=N created=M closed=K queue_delta=±X` 行を必須化 | 物理 |
+| **AI 4 軸キーワード保持** | about.html に「状況解説」「各社の見解」「これからの注目ポイント」が残ること。CI content-drift-guard で物理ブロック | 物理 |
+| **freshness / 充填率の SLI** | freshness-check.yml SLI 1〜11 (updatedAt / keyPoint / perspectives / outlook / sitemap_reach 等)。閾値割れで Slack | 観測 |
+| **Lambda 主ループ wallclock guard** | 外部 API 呼び出しループは `context.get_remaining_time_in_millis()` で break | 思想 |
+| **新規 formatter は boundary test 同梱** | 0/null/undefined/NaN/未来日付を全部 assert | 思想 |
+| **新規外部システム統合の3ステップ** | ①公式ドキュメント通読 ②外部が独立に読みに来る全ファイルをリスト化 ③外部管理画面で「Verified」確認 | 思想 |
+| **対症療法ではなく根本原因** | band-aid より API 設計修正 | 思想 |
+| **なぜなぜは構造化 + 横展開チェックリスト追記** | Why1〜Why5 + 仕組み的対策 3 つ以上 + `docs/lessons-learned.md` の「横展開チェックリスト」表に 1 行追加（実装ファイルパスを書く）。CI `check_lessons_landings.sh` で landing 物理検証 | 物理 |
+| **deploy.sh は直接実行しない** | デプロイは GitHub Actions 任せ。インフラ新規作成のみ例外でナオヤ確認 | 思想 |
+
+### 中断ルール（2026-04-28 PM 制定）
+
+| 規則 | 内容 |
 |---|---|
-| **完了 = 動作確認済み + 効果検証済み** | push しただけは未完了。①フロント=本番URL目視 / Lambda=CloudWatchエラーなし。`done.sh <task_id> <verify_target>` で自動検証。②**修正の効果検証** — 「URL が開ける」だけでは不十分。修正種別に応じて `bash scripts/verify_effect.sh <fix_type>` を実行し、改善が数値で出ていることを確認。fix_type: `ai_quality` (keyPoint/perspectives 充填率)、`mobile_layout` (375px 横スクロール)、`freshness` (topics.json 鮮度)。閾値未達は未完了。 |
-| **Verified 行 commit 必須** | `feat:` `fix:` `perf:` の commit には `Verified: <url>:<status>:<JST_timestamp>` 行に加え、効果検証を行った場合は `Verified-Effect: <fix_type> <metric>=<value> PASS @ <JST>` 行も含める。pre-commit hook で物理ゲート (`scripts/git-hooks/pre-commit`)。ヘルパ: `scripts/verified_line.sh <url>` (URL 到達)、`scripts/verify_effect.sh <fix_type>` (効果計測)。**「修正した」と「改善した」を区別する物理ゲート。** |
-| **変更前に副作用確認** | 「このファイルが何に依存されているか」を声に出す。言えなければ変更しない |
-| **同名ファイル並行編集禁止** | WORKING.md 宣言なしで触らない |
-| **scriptタグ defer/async 禁止** | chart.js / config.js / app.js / detail.js。CI で物理ブロック |
-| **新規 formatter は boundary test 同梱** | 0/null/undefined/NaN/未来日付を全部 assert |
-| **PII / secrets コード直書き禁止** | env var か AWS Secrets Manager 必須 |
-| **実装前に全体影響マップ必須** | 新機能追加・修正前に ①影響ファイル一覧 ②依存方向 ③副作用シナリオ を箇条書きで列挙し、ナオヤに確認してから着手。「とりあえず実装」禁止。調査→報告→承認→着手の順を物理ルールとする |
-| **リーガル観点は都度チェック** | 外部データソース追加・コンテンツ表示変更・新機能実装のたびに `docs/rules/legal-policy.md` のチェックリストを確認する。一度良しとしても次の変更で再確認。 |
-| **対症療法ではなく根本原因** | 足回りで誤魔化さない。band-aid (lenient parsing 等) より API 設計修正 |
-| **なぜなぜ分析は構造化** | 問題発生時 Why1〜Why5 + 仕組み的対策 3 つ以上を `docs/lessons-learned.md` に追記。テーブル 1 行追記は再発防止と呼ばない。仕組み的対策には「外部観測」「物理ゲート」を最低 1 つ含める |
-| **Lambda 主ループ wallclock guard 必須** | 外部 API 呼び出しを伴うループは `context.get_remaining_time_in_millis()` で残り時間を測り break。回数ベース上限と時間予算を整合させる |
-| **新規外部システム統合の3ステップ** | ①公式ドキュメント通読 ②外部が独立に読みに来る全ファイルをリスト化 ③全部実装→外部管理画面で「Verified」確認 してから完了宣言 |
-| **CLAUDE.md は 250 行以内** | CI で物理ガード。超えたら `docs/lessons-learned.md` / `docs/rules/` / `docs/system-status.md` に外出しする |
-| **タスクID 採番** | `bash scripts/next_task_id.sh` で取得。日付ベース ID で衝突防止。CI で重複検出 |
-| **deploy.sh は直接実行しない** | デプロイは GitHub Actions 任せ。インフラ新規作成のみ例外でナオヤ確認 |
+| **完了まで走る** | コードセッションは完了まで走り切る。「止める？再開する？」をナオヤに聞かない |
+| **中断条件** | 中断してナオヤに確認するのは「**実装の前提が根本的に変わった場合**」のみ。文言の好み・デザインの揺らぎは中断理由にしない |
+| **金がかかる場合** | 例外: 新規 AWS リソース作成 / API 課金 / 不可逆操作（DB drop 等）は事前確認 |
 
 ---
 
@@ -91,6 +102,8 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 
 ## ⚡ Cowork ↔ Code 連携ルール
 
+**Dispatch（Cowork スマホ/デスクトップ）= ナオヤから指示を受け取り、コードセッションをキューで管理し、完了を報告する。判断は最小化する。**
+
 両方が同一リポジトリに git push する。役割分担:
 
 **Code（Claude Code/CLI）**:
@@ -98,14 +111,24 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 - テスト実行・Lambda 手動 invoke・デプロイ確認
 - TASKS.md ステータス更新（実装完了後）
 
-**Cowork（スマホ/デスクトップアプリ）**:
+**Cowork / Dispatch（スマホ・デスクトップ）**:
 - `CLAUDE.md` `WORKING.md` `TASKS.md` `HISTORY.md` のドキュメント更新
 - CloudWatch 確認・S3 データ参照・ステータス報告
 - ナオヤとの会話・分析・計画立案
 - コードファイル編集も可（WORKING.md 明記してから）
 - git 操作も可（push 前に lock 退避: `mv .git/*.lock .git/_garbage/`）
 
-> Cowork が実装〜push まで完結できる構造。lock 退避で競合を回避する。
+### セッション並走ルール（2026-04-28 PM 制定・物理ルール）
+
+| 規則 | 内容 |
+|---|---|
+| **同時起動上限** | Dispatch から起動するコードセッション = **同時 1 件まで**（Dispatch 自身含め 2 件以内）。新規タスクは前セッション完了までキューに積む |
+| **完了まで走る** | コードセッションは完了まで走り切ってから報告する。「止める？再開する？」を Dispatch がナオヤに聞かない |
+| **中断条件** | 中断してナオヤに確認するのは「**実装の前提が根本的に変わった場合**」のみ。それ以外は判断コストゼロで完走 |
+| **セッション名規則** | コードセッション名は「**何を commit するか**」が一目で分かる名前。✅「CI 構文チェック fix」 ❌「調査」「作業」 |
+| **物理担保** | `session_bootstrap.sh` が `[Code]` 行 2 件以上を ERROR で出す（既存 WARN を ERROR 化）。WORKING.md の並走 ≥2 件常態化はフェーズ 1 完了の阻害要因 |
+
+> Cowork が実装〜push まで完結できる構造。lock 退避で競合を回避する。Dispatch 運用安定はフェーズ 1 完了条件 §C（`docs/project-phases.md`）。
 
 ---
 
