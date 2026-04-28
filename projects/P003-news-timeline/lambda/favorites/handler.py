@@ -175,7 +175,7 @@ def get_history(user_id: str) -> list:
         KeyConditionExpression=Key('userId').eq(user_id) & Key('topicId').begins_with(HISTORY_SK_PREFIX),
         ProjectionExpression='topicId, title, viewedAt',
         ScanIndexForward=False,
-        Limit=20,
+        Limit=200,
     )
     items = r.get('Items', [])
     for item in items:

@@ -1258,7 +1258,7 @@
     if (typeof loadCloudHistory === 'function') loadCloudHistory();
 
     const favIds  = readLocalFavIds();
-    const history = readHistory().slice(0, 15);
+    const history = readHistory().slice(0, 200);
     const user    = getUser();
 
     let favTopics = [];

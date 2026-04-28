@@ -101,7 +101,7 @@ function recordTopicView(topic) {
     let history = JSON.parse(localStorage.getItem(LS_KEYS.HISTORY) || '[]');
     history = history.filter(h => h.topicId !== topic.topicId);
     history.unshift({ topicId: topic.topicId, title: topic.generatedTitle || topic.title || '', viewedAt: Date.now() });
-    if (history.length > 20) history = history.slice(0, 20);
+    if (history.length > 200) history = history.slice(0, 200);
     localStorage.setItem(LS_KEYS.HISTORY, JSON.stringify(history));
   } catch {}
   if (typeof syncHistoryItemToCloud === 'function') syncHistoryItemToCloud(topic);
