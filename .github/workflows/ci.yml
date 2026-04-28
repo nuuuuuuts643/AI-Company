@@ -351,3 +351,29 @@ jobs:
             exit 1
           fi
           echo "✅ ads.txt と pub-id 整合"
+
+      - name: ロールバック runbook 整備 (T2026-0428-BA)
+        run: |
+          # runbook が空でないこと + git revert または aws lambda update-function-code が含まれていることを物理検査
+          RUNBOOK="docs/runbooks/rollback.md"
+          if [ ! -f "$RUNBOOK" ]; then
+            echo "::error::$RUNBOOK が見つかりません"
+            exit 1
+          fi
+          FILE_SIZE=$(stat -f%z "$RUNBOOK" 2>/dev/null || stat -c%s "$RUNBOOK" 2>/dev/null || echo 0)
+          if [ "$FILE_SIZE" -lt 100 ]; then
+            echo "::error::$RUNBOOK が空またはほぼ空です（サイズ: $FILE_SIZE bytes）"
+            exit 1
+          fi
+          if ! grep -q 'git revert\|aws lambda update-function-code' "$RUNBOOK"; then
+            echo "::error::$RUNBOOK に 'git revert' または 'aws lambda update-function-code' が含まれていません"
+            exit 1
+          fi
+          echo "✅ ロールバック runbook 整備 OK (ファイル存在・内容妥当)"
+
+      - name: 横展開チェックリスト landing 検証 (T2026-0428-BC)
+        run: |
+          # lessons-learned.md の「横展開チェックリスト」で追跡中の全対策について、
+          # 実装ファイルが repo に実在するかを物理検査。
+          # ✅/⚠ 状態の対策は landing していなければ CI ブロック。
+          bash scripts/check_lessons_landings.sh
