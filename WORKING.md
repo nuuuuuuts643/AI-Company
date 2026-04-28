@@ -102,3 +102,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0428-BE buildFilters境界値テスト | テスト追加 | tests/unit/build_filters.test.js | 2026-04-29 00:42 | yes |
