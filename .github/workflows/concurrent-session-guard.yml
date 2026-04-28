@@ -2,9 +2,10 @@ name: Concurrent Session Guard
 
 on:
   schedule:
-    # 15分ごとに実行 (UTC)
-    # 日本時間 06:00-23:45 のみ実行
-    - cron: '*/15 21-23,0-14 * * *'  # UTC 21:00-15:00 = JST 06:00-00:00
+    # 30分ごとに実行 (UTC) — T2026-0428-BI で 15分毎 → 30分毎へ削減 (CI コスト削減)
+    # 日本時間 06:00-23:30 のみ実行。session_bootstrap.sh が起動時に並走チェックも行うため、
+    # 30分遅延でも実害なし（30分以内に着手宣言のpushは間に合う）
+    - cron: '*/30 21-23,0-14 * * *'  # UTC 21:00-15:00 = JST 06:00-00:00
 
 jobs:
   check-concurrent-sessions:

@@ -24,7 +24,8 @@
 
 コスト:
     DynamoDB on-demand: scan 1 回あたり ~1000 RCU 程度想定 (META 件数依存)。
-    hourly 実行で月 ~720 scan = 数十円規模。Lambda/Anthropic は呼ばない。
+    6h 実行で月 ~120 scan = 数円規模。Lambda/Anthropic は呼ばない。
+    (T2026-0428-BI で hourly→6h に削減: 720→120 = -83%)
 """
 from __future__ import annotations
 
