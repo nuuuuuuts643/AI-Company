@@ -180,7 +180,7 @@ function srcFaviconImg(source) {
 function genreEmoji(genre) { return GENRE_EMOJI[genre] || '📰'; }
 function fmtDate(s) {
   if (!s) return '';
-  try { return new Date(s).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+  try { return new Date(s).toLocaleString('ja-JP',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
   catch { return s; }
 }
 function apiUrl(path) { return API_BASE + path + '.json'; }

@@ -73,19 +73,19 @@ describe('formatDate()', () => {
   });
   it('Unix 秒（10 桁）を整形できる', () => {
     const s = F.formatDate(1735689600); // 2025-01-01 09:00 JST
-    assert.match(s, /\d+\/\d+ \d{2}:\d{2}/);
+    assert.match(s, /\d{4}\/\d+\/\d+ \d{2}:\d{2}/);
   });
   it('Unix ミリ秒（13 桁）を整形できる', () => {
     const s = F.formatDate(1735689600000);
-    assert.match(s, /\d+\/\d+ \d{2}:\d{2}/);
+    assert.match(s, /\d{4}\/\d+\/\d+ \d{2}:\d{2}/);
   });
   it('ISO 文字列を整形できる', () => {
     const s = F.formatDate('2025-01-01T00:00:00Z');
-    assert.match(s, /\d+\/\d+ \d{2}:\d{2}/);
+    assert.match(s, /\d{4}\/\d+\/\d+ \d{2}:\d{2}/);
   });
   it('Date オブジェクトを受け付ける', () => {
     const s = F.formatDate(new Date('2025-06-01T00:00:00Z'));
-    assert.match(s, /\d+\/\d+ \d{2}:\d{2}/);
+    assert.match(s, /\d{4}\/\d+\/\d+ \d{2}:\d{2}/);
   });
   it('例外時に throw しない（{} を渡しても落ちない）', () => {
     assert.doesNotThrow(() => F.formatDate({}));

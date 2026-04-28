@@ -444,7 +444,7 @@ function renderDetail(data) {
       const predBadge = predictionResult && PREDICTION_BADGE[predictionResult]
         ? `<span class="ai-prediction-badge ${PREDICTION_BADGE[predictionResult].cls}">${PREDICTION_BADGE[predictionResult].icon} ${PREDICTION_BADGE[predictionResult].text}</span>`
         : '';
-      const predTimeHint = predictionMadeAt ? `<span class="ai-prediction-time">${esc(new Date(predictionMadeAt).toLocaleString('ja-JP', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}))} 時点</span>` : '';
+      const predTimeHint = predictionMadeAt ? `<span class="ai-prediction-time">${esc(new Date(predictionMadeAt).toLocaleString('ja-JP', {year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}))} 時点</span>` : '';
       // forecast (full mode 2文) があればそれを優先、無ければ outlook (1文)
       const predictionText = forecast || outlook;
       const sectOl = predictionText ? `
@@ -612,7 +612,7 @@ function renderDetail(data) {
           const byDay = {};
           src.forEach(s => {
             const d = new Date(s.timestamp);
-            const day     = d.toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'});
+            const day     = `${String(d.getFullYear()).slice(2)}/${d.getMonth()+1}/${d.getDate()}`;
             const dateKey = d.toISOString().slice(0, 10).replace(/-/g, '');
             if (!byDay[day]) byDay[day] = {scores:[], media:[], hatenas:[], dateKey, snaps:[]};
             byDay[day].scores.push(Number(s.score||0));
@@ -661,7 +661,7 @@ function renderDetail(data) {
         const hasEngagement = engagements.some(v => v > 0);
 
         const viewsSorted = [...(views||[])].sort((a,b) => a.date.localeCompare(b.date));
-        const vLabels   = viewsSorted.map(v => `${parseInt(v.date.slice(4,6))}/${parseInt(v.date.slice(6,8))}`);
+        const vLabels   = viewsSorted.map(v => `${v.date.slice(2,4)}/${parseInt(v.date.slice(4,6))}/${parseInt(v.date.slice(6,8))}`);
         const vAbsolute = viewsSorted.map(v => v.count);
         const vDelta    = viewsSorted.map((v, i) => i === 0 ? 0 : v.count - viewsSorted[i-1].count);
 
@@ -707,7 +707,7 @@ function renderDetail(data) {
           const trendsByLabel = {};
           for (const [dateStr, val] of Object.entries(meta.trendsData)) {
             const d = new Date(dateStr + 'T00:00:00Z');
-            const lbl = d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+            const lbl = `${String(d.getFullYear()).slice(2)}/${d.getMonth()+1}/${d.getDate()}`;
             trendsByLabel[lbl] = val;
           }
           const mapped = labels.map(l => (trendsByLabel[l] !== undefined ? trendsByLabel[l] : null));
@@ -923,14 +923,14 @@ function renderDetail(data) {
     let timelineOrder = 'desc';
     const fmtTl = (ts) => {
       const d = new Date(ts);
-      return `${d.getMonth()+1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     };
     const ARTICLES_PER_DAY = 5;
     const DAYS_INITIAL     = 14;
     const WDAY = ['日','月','火','水','木','金','土'];
     const fmtDay = (ts) => {
       const d = new Date(typeof ts === 'number' && ts < 1e11 ? ts * 1000 : ts);
-      return `${d.getMonth()+1}月${d.getDate()}日（${WDAY[d.getDay()]}）`;
+      return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${WDAY[d.getDay()]}）`;
     };
 
     const renderTimeline = () => {
@@ -1132,7 +1132,7 @@ function fmtElapsed(isoOrTs) {
     if (diff < 3600)   return `${Math.floor(diff / 60)}分前`;
     if (diff < 86400)  return `${Math.floor(diff / 3600)}時間前`;
     if (diff < 604800) return `${Math.floor(diff / 86400)}日前`;
-    return `${d.getMonth()+1}/${d.getDate()}`;
+    return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
   } catch { return ''; }
 }
 
