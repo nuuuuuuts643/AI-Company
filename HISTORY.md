@@ -1560,3 +1560,15 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T2026-0428-M~~ | ~~🟠 高~~ | ~~**本番 topics.json の keyPoint 充填率 0/114**~~ — **完了 2026-04-28 11:50** (commit 03906f6 + 9ac0571)。原因確定: `proc_storage.get_all_topics_for_s3()` が S3 topics.json を source of truth にしていたため、DDB に書かれた keyPoint/statusLabel/watchPoints が published JSON へ流れない経路欠落。仮説①②③は全て外れ、原因は④ S3→S3 上書きフィードバックループだった。修正: `_backfill_ai_fields_from_ddb()` を追加 (BatchGetItem で 13 種の AI フィールド overlay)。検証: 次サイクル (13:00 JST) 後に keyPoint 充填率 73%+ を観測。 | ~~`lambda/processor/proc_storage.py`~~ | ~~2026-04-28~~ |
 
 </details>
+
+
+### 自動 triage: 2026-04-28 (T2026-0428-AR PJ階層導入時) に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来・✅完了 サフィックス付き形式）</summary>
+
+| ~~T2026-0428-PRED~~ ✅完了 | 🟠 高 | AI品質 | ~~**AI 予想 (outlook) の自動当否判定ロジック実装**~~ — 2026-04-28 11:50 JST 完了。`proc_ai.judge_prediction` (Tool Use schema, min_titles=5 でノイズ抑制) + `proc_storage.update_prediction_result` / `get_topics_for_prediction_judging` / `get_articles_added_after` を追加し、handler.py の S3 書き戻し後に最大 10 件まで判定 (wallclock guard 尊重)。 | `lambda/processor/proc_ai.py`, `lambda/processor/proc_storage.py`, `lambda/processor/handler.py` | 2026-04-28 |
+| ~~T2026-0428-AC~~ ✅準備完了 (Step1) | 🟡 中 | ~~**[仕組み] system-status.md 数値の自動更新化**~~ — 2026-04-28 11:50 JST: `docs/system-status.md` の P003 技術状態スナップショット表に `[AUTO]` 接頭辞 6 行追加 + 表上部に「[AUTO] 行は freshness-check.yml の実測値で自動更新する対象」を明記。**残作業 (T2026-0428-R)**: freshness-check.yml に sed 置換 + auto-commit step を追加して機械観測値だけが正本になる構造へ。 | `docs/system-status.md` (済) / `scripts/_governance_check.py` or `scripts/update_system_status_live.py` (T2026-0428-R で実装) | 2026-04-28 |
+| ~~T2026-0428-AD~~ ✅完了 | 🟢 低 | ~~**[仕組み] 新機能 PR テンプレに「対応 SLI 追記」必須化**~~ — 2026-04-28 11:50 JST 完了。`.github/PULL_REQUEST_TEMPLATE.md` を新規作成し「□ 対応 SLI を `docs/sli-slo.md` に追記したか」を含むチェック欄 + Verified 行 / Verified-Effect 行 / なぜなぜ分析欄を整備。CI 自動 grep は次フェーズ (warning から開始)。 | `.github/PULL_REQUEST_TEMPLATE.md` (済) / `.github/workflows/ci.yml` (CI grep は次フェーズ) | 2026-04-28 |
+| ~~T2026-0428-T~~ ✅完了 | 🟢 低 | ~~**AI フィールドカタログと proc_ai.py schema の CI 突合**~~ — 2026-04-28 11:50 JST 完了。`scripts/check_ai_fields_catalog.py` 新規 (proc_ai import + AST フォールバック / nested key 除外 / `summaryMode` computed 例外)、`.github/workflows/ci.yml` lint-lambda に main push 時 step 追加、`docs/ai-fields-catalog.md` を T2026-0428-J/E の現行 schema (statusLabel/watchPoints 追加・background系削除) に更新。ローカル検証で OK 確認済。 | `scripts/check_ai_fields_catalog.py` (済), `.github/workflows/ci.yml` (済), `docs/ai-fields-catalog.md` (済) | 2026-04-28 |
+
+</details>
