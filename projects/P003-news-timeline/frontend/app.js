@@ -119,6 +119,11 @@ const _urlFilter = new URLSearchParams(location.search).get('filter');
 const _urlGenre  = new URLSearchParams(location.search).get('genre');
 // ジャンル: URLパラメータ → localStorage → '総合' の優先順で復元
 let allTopics = [], currentStatus = _urlFilter || _prefs.status || 'all', currentGenre = _urlGenre || _prefs.genre || '総合', currentSearch = '';
+// T2026-0428-AU: 旧 genre (経済/教育/文化/環境) でブックマーク or localStorage に保存された場合、新 genre に正規化する。
+{
+  const _LEGACY_GENRE_MAP = { '経済': 'ビジネス', '教育': 'くらし', '文化': 'くらし', '環境': 'くらし' };
+  if (_LEGACY_GENRE_MAP[currentGenre]) currentGenre = _LEGACY_GENRE_MAP[currentGenre];
+}
 let currentPage = 1;
 let lastFetchTime = null;
 let _pendingHeroHighlight = false;
@@ -552,11 +557,21 @@ function renderTopics(topics) {
     list = list.filter(t => t.lifecycleStatus !== 'archived');
   }
   if (currentGenre !== '総合') {
-    const _GENRE_ALIAS = { 'ファッション': 'ファッション・美容' };
-    const _alt = _GENRE_ALIAS[currentGenre];
+    // T2026-0428-AU: 旧 genre (経済/教育/文化/環境) を新 genre にマッピングして救済する。
+    // 既存トピックの genres 配列にこれらが残っていてもユーザーには新カテゴリで見せる。
+    const _GENRE_LEGACY_MAP = { '経済': 'ビジネス', '教育': 'くらし', '文化': 'くらし', '環境': 'くらし' };
+    const _GENRE_ALT = { 'ファッション': 'ファッション・美容' };
+    const _alt = _GENRE_ALT[currentGenre];
+    // 現在ジャンルに対応する旧 genre 群（複数あり得る: くらし← 教育/文化/環境）
+    const _legacyAliases = Object.entries(_GENRE_LEGACY_MAP)
+      .filter(([_, modern]) => modern === currentGenre).map(([legacy]) => legacy);
     list = list.filter(t => {
-      const gs = t.genres || [t.genre];
-      return gs.includes(currentGenre) || (_alt && gs.includes(_alt));
+      const rawGs = t.genres || [t.genre];
+      // 旧 genre は表示時点で新 genre に正規化して判定する
+      const gs = rawGs.map(g => _GENRE_LEGACY_MAP[g] || g);
+      return gs.includes(currentGenre)
+          || (_alt && rawGs.includes(_alt))
+          || _legacyAliases.some(lg => rawGs.includes(lg));
     });
   }
   if (showFavsOnly) list = list.filter(t => userFavorites.has(t.topicId));
@@ -716,7 +731,22 @@ function buildFilters() {
   if (sbar) sbar.innerHTML = '';
   const gbar = document.getElementById('genre-filter');
   if (gbar) {
-    gbar.innerHTML = GENRES.map(g=>`<button class="filter-btn genre-btn ${currentGenre===g?'active':''}" data-genre="${g}">${g}</button>`).join('');
+    // T2026-0428-AU: 件数 0 のジャンルボタンは表示しない（空タブを押させない）。
+    // ただし「総合」は常時表示、現在選択中のジャンルも空でも残す（クリック直後に消えると体験が壊れる）。
+    // 旧 genre (経済/教育/文化/環境) は新 genre にマージしてカウントする。
+    const _LEGACY = { '経済': 'ビジネス', '教育': 'くらし', '文化': 'くらし', '環境': 'くらし' };
+    const counts = {};
+    for (const t of allTopics) {
+      if (t.lifecycleStatus === 'archived') continue;
+      const gs = t.genres || (t.genre ? [t.genre] : []);
+      const seen = new Set();
+      for (const raw of gs) {
+        const g = _LEGACY[raw] || raw;
+        if (!seen.has(g)) { counts[g] = (counts[g] || 0) + 1; seen.add(g); }
+      }
+    }
+    const visibleGenres = GENRES.filter(g => g === '総合' || g === currentGenre || (counts[g] || 0) > 0);
+    gbar.innerHTML = visibleGenres.map(g=>`<button class="filter-btn genre-btn ${currentGenre===g?'active':''}" data-genre="${g}">${g}</button>`).join('');
     gbar.querySelectorAll('.genre-btn').forEach(btn => btn.addEventListener('click', () => {
       gbar.querySelectorAll('.genre-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active'); currentGenre = btn.dataset.genre;
