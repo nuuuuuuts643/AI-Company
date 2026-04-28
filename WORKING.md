@@ -102,3 +102,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] 横断スキャン 根本原因全適用 | fix | 複数ファイル (proc_ai.py / proc_storage.py / .github/workflows/ / scripts/done.sh / scripts/verify_effect.sh / scripts/session_bootstrap.sh) | 2026-04-29T07:43 JST | yes |
