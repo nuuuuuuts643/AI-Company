@@ -35,6 +35,7 @@ from text_utils import (
     extract_trending_keywords,
     extract_entities, find_related_topics, detect_topic_hierarchy,
     extractive_title, extractive_summary, is_extractive_summary,
+    strip_title_markdown,
 )
 from storage import (
     write_s3, get_all_topics, get_topic_detail,
@@ -571,7 +572,7 @@ def lambda_handler(event, context):
             'topicId':         tid,
             'SK':              'META',
             'title':           g[0]['title'],
-            'generatedTitle':  gen_title or g[0]['title'],
+            'generatedTitle':  strip_title_markdown(gen_title or g[0]['title']),
             'status':          st,
             'genre':           genre,
             'genres':          genres,

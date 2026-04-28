@@ -207,6 +207,21 @@ def dominant_lang(articles):
     return Counter(a.get('lang', 'ja') for a in articles).most_common(1)[0][0]
 
 
+_TITLE_MARKDOWN_LEAD_RE = re.compile(r'^\s*[#*]+\s*')
+_TITLE_MARKDOWN_TRAIL_RE = re.compile(r'\s*[#*]+\s*$')
+
+
+def strip_title_markdown(title):
+    """generatedTitle に残った markdown 装飾文字 (#, *, **) を除去。
+    processor 側 _strip_title_markdown と同じ振る舞いを fetcher でも提供する
+    (パターン1 横断適用: title 書き込みパスは全て strip するルール)。"""
+    if not isinstance(title, str):
+        return title
+    t = _TITLE_MARKDOWN_LEAD_RE.sub('', title)
+    t = _TITLE_MARKDOWN_TRAIL_RE.sub('', t)
+    return t.strip()
+
+
 def clean_title(title):
     t = re.sub(r'\s*[-－–|｜]\s*[^\s].{1,25}$', '', title).strip()
     t = re.sub(r'^\[.{1,20}\]\s*', '', t).strip()
