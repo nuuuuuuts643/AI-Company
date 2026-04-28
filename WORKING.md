@@ -102,4 +102,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0429-KP3+T2026-0428-E proc_ai.py keyPoint 100字+4軸化 | 実装 | projects/P003-news-timeline/lambda/processor/proc_ai.py, frontend/detail.js, tests/ | 2026-04-29 06:14 | yes |

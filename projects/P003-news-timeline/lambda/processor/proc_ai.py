@@ -341,6 +341,17 @@ def generate_story(articles, article_count: int | None = None):
 
 _VALID_PHASES = ['発端', '拡散', 'ピーク', '現在地', '収束']
 _VALID_LEVELS = ['major', 'sub', 'detail']
+# T2026-0429-KP3 (2026-04-29): keyPoint ハード最小文字数。これを下回ったら 1 回だけ再生成を要求する。
+# 旧スキーマ「200〜300 字」が prompt 上の推奨値でしかなく、実測 1.9% しか満たしていなかったため
+# サーバ側で物理ガードを追加。proc_storage.KEYPOINT_MIN_LENGTH = 100 と完全一致させる。
+_KEYPOINT_MIN_CHARS = 100
+
+
+def _keypoint_too_short(s) -> bool:
+    """keyPoint が 100 字未満かどうかを判定。空・None も True (=不十分) として扱う。"""
+    if not isinstance(s, str):
+        return True
+    return len(s.strip()) < _KEYPOINT_MIN_CHARS
 # T2026-0428-J/E: 「トピックの状況」をユーザー視点で明確に区分する 4 値ラベル。
 # 既存 phase (発端/拡散/ピーク/現在地/収束) は AI 内部判定の細粒度ラベル、
 # statusLabel は detail page で読者に直接見せる粗粒度ラベル。
@@ -358,7 +369,7 @@ def _build_story_schema(mode: str) -> dict:
     # 追加: statusLabel (粗粒度フェーズ), watchPoints (今後の観察軸)
     base_props = {
         'aiSummary': {'type': 'string', 'description': '150字以内・2文構成。「何が起きたか」+「何を意味するか」。事実羅列禁止、読んだ人が結論を理解できる内容にする。'},
-        'keyPoint': {'type': 'string', 'description': 'トピックの状況解説 (200〜300字の連続した文章)。★想定読者: このトピックを1週間後に初めて読む人。背景・経緯・現在の状況を一気に理解できる時系列ストーリーとして書く。「もともと〇〇という状況があり、△△をきっかけに□□が起き、現在〇〇の段階にある」のように物語的に語る。箇条書き・事実の羅列・「〇〇が△△した」の繰り返しは禁止。言葉を選び、簡潔でキレのある日本語で書く。情報を並べるのではなくニュースを語る。専門用語は初出時に括弧で平易化 (例: FOMC（米国の金融政策を決める会議）)。グラフの鮮度に依存しない、構造の明快さが命のフィールド。'},
+        'keyPoint': {'type': 'string', 'minLength': _KEYPOINT_MIN_CHARS, 'description': 'トピックの状況解説。**必ず 100 字以上 必須** (推奨 200〜300 字)。100 字未満は schema 違反として扱われ再生成される。短い箇条書き・タイトル風の一行は禁止。★想定読者: このトピックを1週間後に初めて読む人。背景・経緯・現在の状況を一気に理解できる時系列ストーリーとして書く。「もともと〇〇という状況があり、△△をきっかけに□□が起き、現在〇〇の段階にある」のように物語的に語る。箇条書き・事実の羅列・「〇〇が△△した」の繰り返しは禁止。言葉を選び、簡潔でキレのある日本語で書く。情報を並べるのではなくニュースを語る。専門用語は初出時に括弧で平易化 (例: FOMC（米国の金融政策を決める会議）)。グラフの鮮度に依存しない、構造の明快さが命のフィールド。'},
         'outlook': {'type': 'string', 'description': 'AI予想として「この先どうなるか」を1文で。〜が予想される/〜の可能性があるで締める。文末に [確信度:高] [確信度:中] [確信度:低] のいずれかを必ず付与 (例: 「合意成立の可能性がある [確信度:中]」)。記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低。後で新記事と照合して当否判定するため、検証可能な仮説として書くこと。'},
         'topicTitle': {'type': 'string', 'description': '15文字以内のテーマ名(体言止め)。具体的な固有名詞を含む。例: 岸田政権の解散戦略。'},
         'latestUpdateHeadline': {'type': 'string', 'description': '最新の動きを40文字以内の1文(〜が〜した形式)。'},
@@ -467,6 +478,46 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
     return out
 
 
+def _retry_short_keypoint(
+    base_prompt: str,
+    schema: dict,
+    mode: str,
+    short_keypoint: str,
+    *,
+    max_tokens: int,
+    timeout: int,
+    model: str,
+) -> dict | None:
+    """T2026-0429-KP3: keyPoint が 100 字未満で返ってきたとき 1 回だけ再生成を要求する。
+
+    - prompt に「前回の keyPoint は N 字でしたが 100 字以上 必須です。書き直して下さい」を追記。
+    - cache_control を活かすため _SYSTEM_PROMPT は同一バイトのまま再利用する。
+    - 再生成も短ければ best effort で結果を返す (None ではなく短い結果でも上位に渡す)。
+    Returns: tool_use.input (dict) / API 失敗時 None。
+    """
+    actual_len = len(short_keypoint or '')
+    follow_up_prompt = (
+        base_prompt
+        + '\n\n'
+        '【再生成要求 - T2026-0429-KP3】\n'
+        f'前回の keyPoint は {actual_len} 字でした (要件: 100 字以上 / 推奨 200〜300 字)。\n'
+        '★ 100 字未満は schema 違反として扱われます。\n'
+        '★ 短い箇条書き・タイトル風の一行は禁止。背景 → 経緯 → 現在の状況の物語形式で書き直してください。\n'
+        '★ 出力直前に文字数を数え、100 字以上であることを確認してください。\n'
+        '同じ schema (emit_topic_story) で全フィールドを書き直して出力してください。\n'
+    )
+    print(f'[METRIC] keypoint_retry mode={mode} prev_len={actual_len}')
+    try:
+        return _call_claude_tool(
+            follow_up_prompt, 'emit_topic_story', schema,
+            max_tokens=max_tokens, timeout=timeout, model=model,
+            system=_SYSTEM_PROMPT,
+        )
+    except Exception as e:
+        print(f'[METRIC] keypoint_retry_failed mode={mode} err={type(e).__name__}')
+        return None
+
+
 def _generate_story_minimal(articles: list) -> dict | None:
     """1〜2件: シンプルな1段落要約のみ生成（APIコスト最小）。Tool Use で structured output 強制。
     T2026-0428-AJ: 共通プロンプトは _SYSTEM_PROMPT に集約 (cache_control 対象)。
@@ -479,12 +530,26 @@ def _generate_story_minimal(articles: list) -> dict | None:
         f'記事情報（{cnt}件）:\n{headlines}'
     )
     try:
+        schema = _build_story_schema('minimal')
         result = _call_claude_tool(
-            prompt, 'emit_topic_story', _build_story_schema('minimal'),
+            prompt, 'emit_topic_story', schema,
             max_tokens=600, system=_SYSTEM_PROMPT,
         )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
+        # T2026-0429-KP3: keyPoint が 100 字未満なら 1 回だけ再生成を要求
+        if _keypoint_too_short(result.get('keyPoint')):
+            retry = _retry_short_keypoint(
+                prompt, schema, 'minimal',
+                str(result.get('keyPoint') or ''),
+                max_tokens=600, timeout=25, model='claude-haiku-4-5-20251001',
+            )
+            if retry and str(retry.get('aiSummary') or '').strip():
+                # 再生成 keyPoint が前回より長ければ採用 (短くなったら原本を維持)
+                new_kp = str(retry.get('keyPoint') or '')
+                old_kp = str(result.get('keyPoint') or '')
+                if len(new_kp.strip()) > len(old_kp.strip()):
+                    result = retry
         return _normalize_story_result(result, 'minimal')
     except Exception as e:
         print(f'generate_story (minimal) error: {e}')
@@ -495,12 +560,16 @@ _STORY_PROMPT_RULES = (
     '【トピック分析】事実は「〜した/〜と述べた」で記述。断定・感情語・メディア名禁止。主語を具体的に。\n'
     '固有名詞は初出時に括弧で1語説明 (例: スターリンク（SpaceXの衛星インターネット）)。\n'
     '【aiSummary】150字以内の1段落。「何が起きたか（1文）」+「なぜ重要か・何を意味するか（1文）」の2文構成を基本とする。事実羅列禁止。読んだ人が「つまりこういうことか」と理解できる結論を必ず含める。\n'
-    '【keyPoint】★最重要フィールド。トピックの状況解説を 200〜300 字の連続した文章で書く。読者がこのトピックを初めて知っても理解できる物語形式で構成する。\n'
+    '【keyPoint】★最重要フィールド。トピックの状況解説。\n'
+    '  ★★★ 文字数のハード要件: **必ず 100 字以上** (推奨 200〜300 字)。**100 字未満は schema 違反**として扱われ再生成される。\n'
+    '  ★★★ 短い箇条書き・単語のみ・タイトル風の一行 (例「ロシア撤退と過激派攻勢の同時進行が新段階へ」) は禁止。\n'
+    '  ★★★ 想定読者: このトピックを 1 週間後に初めて読む人。背景・経緯・現在の状況を一気に理解できる時系列ストーリーとして書く。\n'
     '  ◎ 構成: ① 背景（この問題がなぜ存在するか）から始める → ② 時系列（何がいつ起きたか）を自然な流れで織り込む → ③ 現在の状況で締める。\n'
     '  ◎ トーン: 言葉を選び、簡潔でキレのある日本語で書く。情報を並べるのではなくニュースを語る。\n'
     '  × 箇条書き禁止。事実の羅列禁止。「〇〇が△△した」の繰り返し禁止。\n'
     '  ◎ 「もともと〇〇という状況があり、△△をきっかけに□□が起き、現在〇〇の段階にある」のように物語的に語る。\n'
     '  ◎ 専門用語は初出時に括弧で平易化 (例: FOMC（米国の金融政策を決める会議）)。\n'
+    '  ◎ 出力前に self-check: keyPoint の文字数を数え、100 字未満なら**書き直してから出力する**。\n'
     '【statusLabel】読者向け 4 値ラベル: 発端 / 進行中 / 沈静化 / 決着。\n'
     '  発端=注目され始めた直後。進行中=報道が続き熱量がある。沈静化=報道頻度が落ちている。決着=結論や合意が出て話題が閉じた。\n'
     '【watchPoints】これからの注目ポイントを複数軸で簡潔に案内 (150字以内)。断言や予測ではなく「ここを見ておくといい」という観察視点。\n'
@@ -541,8 +610,10 @@ _SYSTEM_PROMPT = (
     'standard は最大3件、full は最大6件。最後の項目に transition は付けない。\n'
     '【出力品質チェック (送信前に内部で確認すること)】\n'
     '- aiSummary は 150 字以内・2文構成。1文目=何が起きたか、2文目=なぜ重要か/何を意味するか。\n'
-    '- keyPoint は 200〜300 字の連続した文章。箇条書き・「〇〇が△△した」の繰り返し・事実羅列は禁止。\n'
-    '  もともと〇〇 → △△を機に □□ → 現在〇〇 の物語形式で構成する。\n'
+    '- keyPoint は **100 字以上 必須** (推奨 200〜300 字)。**100 字未満は schema 違反として扱われ再生成される**。\n'
+    '  → 出力直前に必ず文字数を数え、100 字未満なら書き直してから出力する。短い箇条書き・タイトル風の一行は禁止。\n'
+    '  → 箇条書き・「〇〇が△△した」の繰り返し・事実羅列は禁止。\n'
+    '  → もともと〇〇 → △△を機に □□ → 現在〇〇 の物語形式で構成する。\n'
     '- perspectives は 2〜3 社を等しい分量で扱う。1 社だけ詳述しない。論調差が薄ければ「概ね同様」と書く。\n'
     '- outlook / forecast の文末に必ず [確信度:高] / [確信度:中] / [確信度:低] のいずれかを付与する。\n'
     '- topicTitle は 15 字以内・体言止め・固有名詞を含む。「〜の最新動向」「〜まとめ」のような曖昧表現は禁止。\n'
@@ -571,12 +642,25 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
         + (f'\n{media_block}' if media_block else '')
     )
     try:
+        schema = _build_story_schema('standard')
         result = _call_claude_tool(
-            prompt, 'emit_topic_story', _build_story_schema('standard'),
+            prompt, 'emit_topic_story', schema,
             max_tokens=1300, system=_SYSTEM_PROMPT,
         )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
+        # T2026-0429-KP3: keyPoint が 100 字未満なら 1 回だけ再生成を要求
+        if _keypoint_too_short(result.get('keyPoint')):
+            retry = _retry_short_keypoint(
+                prompt, schema, 'standard',
+                str(result.get('keyPoint') or ''),
+                max_tokens=1300, timeout=25, model='claude-haiku-4-5-20251001',
+            )
+            if retry and str(retry.get('aiSummary') or '').strip():
+                new_kp = str(retry.get('keyPoint') or '')
+                old_kp = str(result.get('keyPoint') or '')
+                if len(new_kp.strip()) > len(old_kp.strip()):
+                    result = retry
         return _normalize_story_result(result, 'standard')
     except Exception as e:
         print(f'generate_story (standard) error: {e}')
@@ -629,13 +713,26 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         # T2026-0428-AL: 全文ブロック注入で prompt が ~6000 字伸びるため timeout を 60s に拡張
         # (旧 25s では Sonnet 4.6 + 1700 max_tokens の生成が間に合わず full mode が
         # まるごと失敗 → fallback で None になり aiGenerated=False のまま放置されていた)
+        schema = _build_story_schema('full')
         result = _call_claude_tool(
-            prompt, 'emit_topic_story', _build_story_schema('full'),
+            prompt, 'emit_topic_story', schema,
             max_tokens=1700, timeout=60, model='claude-sonnet-4-6',
             system=_SYSTEM_PROMPT,
         )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
+        # T2026-0429-KP3: keyPoint が 100 字未満なら 1 回だけ再生成を要求 (Sonnet)
+        if _keypoint_too_short(result.get('keyPoint')):
+            retry = _retry_short_keypoint(
+                prompt, schema, 'full',
+                str(result.get('keyPoint') or ''),
+                max_tokens=1700, timeout=60, model='claude-sonnet-4-6',
+            )
+            if retry and str(retry.get('aiSummary') or '').strip():
+                new_kp = str(retry.get('keyPoint') or '')
+                old_kp = str(result.get('keyPoint') or '')
+                if len(new_kp.strip()) > len(old_kp.strip()):
+                    result = retry
         return _normalize_story_result(result, 'full')
     except Exception as e:
         print(f'generate_story (full) error: {e}')
