@@ -112,6 +112,15 @@ if [ -f "docs/product-direction.md" ]; then
   echo "======================================================="
 fi
 
+# ---- 3c. project-phases.md 表示 (現在フェーズ・完了条件の確認) ----
+# タスク単位の管理に加え、案件・機能要件 (Epic) の階層を毎回確認する。
+if [ -f "docs/project-phases.md" ]; then
+  echo ""
+  echo "=== プロジェクト・フェーズ階層 (docs/project-phases.md 先頭30行) ==="
+  head -30 docs/project-phases.md
+  echo "==================================================================="
+fi
+
 # ---- 4. WORKING.md 8h stale 自動削除 ----
 if [ -f WORKING.md ] && [ -x scripts/triage_tasks.py ]; then
   python3 scripts/triage_tasks.py --clean-working-md 2>/dev/null || true

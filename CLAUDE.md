@@ -9,10 +9,11 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 1. git lock / rebase-merge 退避（FUSE rm 不可対応）
 2. sync commit + pull (`--no-rebase`) + push
 3. `CLAUDE.md` の最近の commit を表示（変更があれば本ファイルを再読してから続行）
-4. `WORKING.md` 8h 超 stale 自動削除
-5. `TASKS.md` の取消線済み行を `HISTORY.md` に集約移動
-6. `needs-push: yes` 滞留警告
-7. 1 行サマリ出力
+4. `docs/product-direction.md` 全文 + `docs/project-phases.md` 先頭30行（**現在フェーズと完了条件**）を表示
+5. `WORKING.md` 8h 超 stale 自動削除
+6. `TASKS.md` の取消線済み行を `HISTORY.md` に集約移動
+7. `needs-push: yes` 滞留警告
+8. 1 行サマリ出力
 
 スクリプトが完了サマリを出したら「✅ 起動チェック完了」と報告して着手に進む。
 
@@ -20,7 +21,7 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 
 ## ⚡ 起動後の自動タスク実行
 
-`cat /Users/murakaminaoya/ai-company/TASKS.md` → 状態が「未着手」のタスクを優先度順で実行する。
+**実行前に必ず**: `docs/project-phases.md` で現在フェーズと完了条件を確認 → `cat /Users/murakaminaoya/ai-company/TASKS.md` で未着手を取得 → **現在フェーズに紐付くタスクを優先**して実行する。各セクション直下の `<!-- フェーズN -->` コメントが帰属判断の根拠。フェーズ1 完了条件未達のうちは、フェーズ2/3 のタスクは原則着手しない（ナオヤ明示指示があれば例外）。
 
 各タスクで以下を順守:
 
@@ -82,8 +83,9 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 | `docs/rules/legal-policy.md` | 法的・規約方針（引用・クロール・一次情報バッジ） |
 | `docs/flotopic-vision-roadmap.md` | プロダクトビジョン |
 | `docs/product-direction.md` | 現在のプロダクト方針（毎セッション必読・session_bootstrap.sh が起動時に全文表示） |
+| `docs/project-phases.md` | フェーズ定義・機能要件 (Epic) マップ・現在地（毎セッション必読・session_bootstrap.sh が起動時に先頭30行表示） |
 
-タスク開始時に CLAUDE.md → global-baseline.md → system-status.md → product-direction.md の 4 つを確認し、必要に応じて他を参照する。
+タスク開始時に CLAUDE.md → global-baseline.md → system-status.md → product-direction.md → project-phases.md の 5 つを確認し、必要に応じて他を参照する。
 
 ---
 
