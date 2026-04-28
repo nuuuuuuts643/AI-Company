@@ -102,4 +102,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] aiGenerated=True なのに keyPoint 空の536件 根本原因調査と修正 | Code | lambda/, docs/lessons-learned.md | 2026-04-29 01:30 | yes |
