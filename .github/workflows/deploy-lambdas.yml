@@ -332,10 +332,23 @@ jobs:
           fi
 
           # 3) ターゲット登録 (Input='{"mode":"morning"}')
+          # AWS CLI shorthand 構文は Input 値の JSON 内コンマで parse error を起こすため、
+          # --targets には JSON ファイル (file://) を渡す。
+          TARGETS_JSON=$(mktemp --suffix=.json)
+          cat > "$TARGETS_JSON" <<EOF
+          [
+            {
+              "Id": "1",
+              "Arn": "$LAMBDA_ARN",
+              "Input": "{\"mode\":\"morning\"}"
+            }
+          ]
+          EOF
           aws events put-targets \
             --rule "$RULE_NAME" \
-            --targets "Id=1,Arn=$LAMBDA_ARN,Input={\"mode\":\"morning\"}" \
+            --targets "file://$TARGETS_JSON" \
             --region "$REGION" > /dev/null
+          rm -f "$TARGETS_JSON"
           echo "[OK] EventBridge ターゲット (morning mode → $LAMBDA_NAME) 登録"
 
       # Slack通知は slack-notify.yml が push 時に一元管理するため不要
