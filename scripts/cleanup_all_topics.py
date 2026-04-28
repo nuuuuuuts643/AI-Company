@@ -125,6 +125,7 @@ def categorize(metas, topics_json_tids, table):
 
     now = datetime.now(timezone.utc)
 
+    forward_orphan_candidates = []  # SNAP 確認をスキップした候補 (削除対象)
     for tid, m in meta_by_tid.items():
         ac_raw = m.get('articleCount')
         try:
@@ -133,8 +134,11 @@ def categorize(metas, topics_json_tids, table):
             ac = 0
         title = m.get('title') or m.get('generatedTitle') or ''
         last_article_at = _parse_iso(m.get('lastArticleAt'))
+        last_updated = _parse_iso(m.get('lastUpdated'))
+        # 「最後に何かが起きた時刻」: lastArticleAt or lastUpdated のうち新しい方
+        last_signal = max([d for d in (last_article_at, last_updated) if d], default=None)
 
-        # 2) BROKEN_META: 必須フィールド欠落
+        # 1) BROKEN_META: 必須フィールド欠落
         if not title:
             cats['ZOMBIE_BROKEN_META'].append({'topicId': tid, 'reason': 'title なし'})
             continue
@@ -142,41 +146,51 @@ def categorize(metas, topics_json_tids, table):
             cats['EMPTY'].append({'topicId': tid, 'reason': 'articleCount フィールド欠如', 'title': title[:40]})
             continue
 
-        # 3) EMPTY: articleCount = 0
+        # 2) EMPTY: articleCount = 0
         if ac == 0:
             cats['EMPTY'].append({'topicId': tid, 'reason': 'articleCount=0', 'title': title[:40]})
             continue
 
-        # 4) ZOMBIE_STALE: 古くて articleCount <= 1
+        # 3) ZOMBIE_STALE: 古くて articleCount <= 1
         if ac <= 1 and last_article_at and (now - last_article_at) > timedelta(days=STALE_DAYS):
             age_d = (now - last_article_at).days
             cats['ZOMBIE_STALE'].append({'topicId': tid, 'reason': f'articleCount<=1 & lastArticleAt {age_d}日前', 'title': title[:40]})
             continue
 
-        # 5) ZOMBIE_NO_ARTICLES: articleCount > 0 だが SNAP に articles なし
-        # (重い: SNAP query が 1 トピックあたり発生するので articleCount>0 のものだけチェック)
-        # 注: 軽量化のため、 articleCount>=2 で aiGenerated=False かつ keyPoint なしのトピックのみチェック
-        # (実際に「中身の壊れたゾンビ」候補に絞る)
-        if ac >= 1:
-            has_articles = get_topic_articles_signal(table, tid)
-            if not has_articles:
-                cats['ZOMBIE_NO_ARTICLES'].append({'topicId': tid, 'reason': f'articleCount={ac} だが SNAP に articles なし', 'title': title[:40]})
-                continue
-
-        # 6) FORWARD_ORPHAN: META あるが topics.json にない
-        # (lifecycleStatus archived は除外。意図的非表示)
+        # 4) FORWARD_ORPHAN: META あるが topics.json にない & N 日以上更新なし
+        # 早期判定で expensive SNAP query をスキップ。
+        # 新規 topic (まだ topics.json に入っていない) は last_signal が新しいので除外され、
+        # 次の processor 走行で正常に拾われる。
         lifecycle = m.get('lifecycleStatus', '')
-        if tid not in topics_json_tids and lifecycle not in ('archived', 'legacy', 'deleted'):
-            # archived 以外で非可視 = ゾンビ (古い・低スコア・未昇格 etc)
+        if (tid not in topics_json_tids
+                and lifecycle not in ('archived', 'legacy', 'deleted')
+                and (last_signal is None or (now - last_signal) > timedelta(days=FORWARD_ORPHAN_GRACE_DAYS))):
             score = m.get('score', 0)
+            age = f'{(now - last_signal).days}d' if last_signal else 'unknown'
             cats['ZOMBIE_FORWARD_ORPHAN'].append({
                 'topicId': tid,
-                'reason': f'DynamoDB META あるが topics.json 不在 (score={score}, ac={ac}, lifecycle={lifecycle or "未設定"})',
+                'reason': f'topics.json不在 (score={score}, ac={ac}, lifecycle={lifecycle or "未設定"}, age={age})',
                 'title': title[:40],
             })
             continue
 
-        # 7) AI 充填度を判定
+        # 5) ZOMBIE_NO_ARTICLES: articleCount > 0 だが SNAP に articles なし
+        # 1 日以上前に最後の signal で SNAP がカラ → ゾンビ確定。
+        # 1 日未満は fetcher が SNAP を書き終えていない可能性があるので除外。
+        if ac >= 1:
+            recent = last_signal and (now - last_signal) < timedelta(days=1)
+            if not recent:
+                has_articles = get_topic_articles_signal(table, tid)
+                if not has_articles:
+                    age_d = (now - last_signal).days if last_signal else 'unknown'
+                    cats['ZOMBIE_NO_ARTICLES'].append({
+                        'topicId': tid,
+                        'reason': f'articleCount={ac} だが SNAP に articles なし (age={age_d}d)',
+                        'title': title[:40],
+                    })
+                    continue
+
+        # 6) AI 充填度を判定
         is_minimal = ac <= 2
         ai_gen = bool(m.get('aiGenerated'))
         sv = 0
@@ -185,7 +199,6 @@ def categorize(metas, topics_json_tids, table):
         except (ValueError, TypeError):
             sv = 0
 
-        # 必須フィールドの埋まり度
         required = AI_REQUIRED_FIELDS_MINIMAL if is_minimal else AI_REQUIRED_FIELDS_FULL
         filled = [f for f in required if not _is_empty(m.get(f))]
         empty = [f for f in required if _is_empty(m.get(f))]
