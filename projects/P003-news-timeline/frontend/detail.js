@@ -331,17 +331,29 @@ function renderDetail(data) {
   if (aiAnalysisEl) {
     const summary           = cleanSummary(meta.generatedSummary);
     const keyPoint          = cleanSummary(meta.keyPoint || '');
-    const backgroundContext = cleanSummary(meta.backgroundContext || '');
-    const spreadReason      = cleanSummary(meta.spreadReason || '');
     const forecast          = cleanSummary(meta.forecast     || '');
-    const background        = cleanSummary(meta.background   || '');
     const perspectives      = cleanSummary(meta.perspectives || '');
     const outlook           = cleanSummary(meta.outlook      || '');
+    // T2026-0428-J/E: 新フィールド (statusLabel / watchPoints / predictionResult)
+    const watchPoints       = cleanSummary(meta.watchPoints  || '');
+    const statusLabelRaw    = (meta.statusLabel || '').trim();
+    const predictionResult  = (meta.predictionResult || '').trim();
+    const predictionMadeAt  = meta.predictionMadeAt || '';
     const beats        = Array.isArray(meta.storyTimeline) ? meta.storyTimeline : [];
     const phase        = meta.storyPhase   || '';
-    const summaryMode  = meta.summaryMode  || (beats.length > 0 || spreadReason || forecast ? 'full' : 'minimal');
+    const summaryMode  = meta.summaryMode  || (beats.length > 0 || forecast || watchPoints ? 'full' : 'minimal');
     const hasSummary   = !!summary && !!meta.aiGenerated;
     const isFullAI     = summary && meta.aiGenerated;
+    // T2026-0428-J/E: statusLabel が AI から来てない旧 topic 用に storyPhase からの fallback マッピング。
+    // 発端→発端 / 拡散・ピーク→進行中 / 現在地→進行中 / 収束→決着 (沈静化はAI判定でのみ得られる)。
+    const STATUS_FALLBACK = { '発端':'発端','拡散':'進行中','ピーク':'進行中','現在地':'進行中','収束':'決着' };
+    const statusLabel = statusLabelRaw || STATUS_FALLBACK[phase] || '';
+    const STATUS_BADGE = {
+      '発端':   { icon:'🌱', cls:'sl-onset',     hint:'注目され始めた直後' },
+      '進行中': { icon:'🔥', cls:'sl-active',    hint:'報道が続き熱量がある' },
+      '沈静化': { icon:'📉', cls:'sl-cooling',   hint:'報道頻度が落ちてきた' },
+      '決着':   { icon:'✅', cls:'sl-resolved',  hint:'結論や合意が出て話題が閉じた' },
+    };
 
     const PHASE_COLOR = { '発端':'rgba(78,201,192,0.55)','拡散':'rgba(78,201,192,0.7)','ピーク':'#4EC9C0','現在地':'#3BB5AC','収束':'#64748b' };
     const PHASE_ICON  = { '発端':'🌱','拡散':'📡','ピーク':'🔥','現在地':'📍','収束':'✅' };
@@ -378,124 +390,111 @@ function renderDetail(data) {
         ? `<a class="ai-story-nav" href="#story-timeline">📅 記事の全タイムラインを見る</a>`
         : '';
 
-      // 「ひとことで言うと」hero box — 全 mode 共通で先頭に配置 (T30)
-      const keyPointHero = keyPoint
-        ? `<div class="ai-keypoint-hero"><span class="ai-keypoint-label">💡 ひとことで言うと</span><div class="ai-keypoint-text">${esc(keyPoint)}</div></div>`
+      // ─── T2026-0428-J/E: 2 ゾーン設計に再編成 ────────────────────────────
+      // 注目度ゾーン: グラフ・記事数スパイクは別 DOM (#score-chart) に既存。
+      //   ここでは statusLabel バッジのみを「現在の状況」として可視化する。
+      // コンテンツゾーン: keyPoint (時系列ストーリー) → perspectives (各社の見解)
+      //   → watchPoints (注目ポイント) → outlook (AI予想 + 判定バッジ)。
+      // 「両軸が同一ページで満たされる」設計目標を満たすため、ゾーン間に区切り線を入れる。
+
+      // ─── 注目度ゾーン: statusLabel バッジ ───
+      const statusBadgeHtml = (statusLabel && STATUS_BADGE[statusLabel]) ? (() => {
+        const b = STATUS_BADGE[statusLabel];
+        return `<div class="ai-status-zone">
+          <span class="ai-status-badge ${b.cls}" title="${esc(b.hint)}">${b.icon} ${esc(statusLabel)}</span>
+          <span class="ai-status-hint">${esc(b.hint)}</span>
+        </div>`;
+      })() : '';
+
+      // ─── コンテンツゾーン: 状況解説 (keyPoint, 200-300 字の時系列ストーリー) ───
+      // 旧「💡 ひとことで言うと」hero box は廃止。状況解説をメイン本文として扱う。
+      const sectKeyPoint = keyPoint ? `
+        <div class="ai-section ai-section-story">
+          <div class="ai-section-label">📰 状況解説</div>
+          <p class="ai-section-body ai-section-story-body">${esc(keyPoint)}</p>
+        </div>` : (summary ? `
+        <div class="ai-section">
+          <div class="ai-section-label">📍 現状（要約）</div>
+          <p class="ai-section-body">${esc(summary)}</p>
+        </div>` : '');
+
+      // ─── コンテンツゾーン: 各社の見解 ───
+      const sectPersp = perspectives ? `
+        <div class="ai-section">
+          <div class="ai-section-label">🗞️ 各社の見解</div>
+          <p class="ai-section-body">${esc(perspectives)}</p>
+        </div>` : '';
+
+      // ─── コンテンツゾーン: これからの注目ポイント ───
+      // outlook (AI予想) とは役割が異なる「観察視点」のガイド。
+      const sectWatch = watchPoints ? `
+        <div class="ai-section">
+          <div class="ai-section-label">👁️ これからの注目ポイント</div>
+          <p class="ai-section-body">${esc(watchPoints)}</p>
+        </div>` : '';
+
+      // ─── コンテンツゾーン: AI予想 + 判定バッジ ───
+      // T2026-0428-PRED で predictionResult を後付けで判定する想定。今は pending のみ表示。
+      const PREDICTION_BADGE = {
+        matched: { cls:'pr-matched', icon:'🎯', text:'当たった' },
+        partial: { cls:'pr-partial', icon:'🟡', text:'一部当たり' },
+        missed:  { cls:'pr-missed',  icon:'❌', text:'外れた' },
+        pending: { cls:'pr-pending', icon:'⏳', text:'判定待ち' },
+      };
+      const predBadge = predictionResult && PREDICTION_BADGE[predictionResult]
+        ? `<span class="ai-prediction-badge ${PREDICTION_BADGE[predictionResult].cls}">${PREDICTION_BADGE[predictionResult].icon} ${PREDICTION_BADGE[predictionResult].text}</span>`
         : '';
+      const predTimeHint = predictionMadeAt ? `<span class="ai-prediction-time">${esc(new Date(predictionMadeAt).toLocaleString('ja-JP', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}))} 時点</span>` : '';
+      // forecast (full mode 2文) があればそれを優先、無ければ outlook (1文)
+      const predictionText = forecast || outlook;
+      const sectOl = predictionText ? `
+        <div class="ai-section ai-section-forecast">
+          <div class="ai-section-label">🔮 AI予想 <span class="ai-hypothesis-badge">仮説</span> ${predBadge} ${predTimeHint}</div>
+          <p class="ai-section-body">${decorateConfidence(predictionText)}</p>
+        </div>` : '';
 
-      // ── minimal: 1〜2件記事 → 思想フレーム順 (背景→なぜ今→現状→今後) で短く
+      // ─── 経緯セクション (storyTimeline beats) ───
+      // 注目度の細粒度フェーズ表示は phase バー + beats で残す。
+      // (storyPhase は AI 内部判定の 5 値、statusLabel は読者向け 4 値で別軸)
+      const beatsHtml = beats.length ? buildBeatsHtml(beats) : '';
+      const sectTimeline = (phaseBarHtml || beatsHtml) ? `
+        <div class="ai-section ai-section-timeline">
+          <div class="ai-section-label">⏱ 経緯</div>
+          ${phaseBarHtml}
+          ${originHtml}
+          ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
+        </div>` : '';
+
+      // ─── 最終レイアウト ───
+      // [注目度ゾーン: statusLabel] (グラフは別 DOM)
+      //   ─── divider ───
+      // [コンテンツゾーン: keyPoint → perspectives → watchPoints → outlook]
+      //   ─── divider ───
+      // [経緯 (timeline)]
+      // [trust footer]
+      const dividerHtml = '<hr class="ai-zone-divider" aria-hidden="true">';
       if (summaryMode === 'minimal') {
-        const sectBgM = background ? `<p class="ai-summary-bg">📚 <strong>なぜ今:</strong> ${esc(background)}</p>` : '';
-        const sectCurM = `<p class="ai-summary-simple"><strong>📍 現状:</strong> ${esc(summary)}</p>`;
-        const sectOlM = outlook ? `<p class="ai-summary-outlook">🔮 <strong>見通し:</strong> ${decorateConfidence(outlook)}</p>` : '';
-        aiAnalysisEl.innerHTML = `
-          <div class="ai-analysis-inner ai-analysis-minimal">
-            ${keyPointHero}
-            ${sectBgM}
-            ${sectCurM}
-            ${sectOlM}
-            ${trustFooterHtml}
-          </div>`;
-
-      // ── standard: 3〜5件記事 → 思想フレーム順 (背景→なぜ今→なぜ広がった→経緯→現状→メディアズレ→今後)
-      } else if (summaryMode === 'standard') {
-        const sectBg = backgroundContext ? `
-          <div class="ai-section">
-            <div class="ai-section-label">📐 なぜ起きたか（構造的背景）</div>
-            <p class="ai-section-body">${esc(backgroundContext)}</p>
-          </div>` : '';
-        const sectBgNow = background ? `
-          <div class="ai-section">
-            <div class="ai-section-label">📚 なぜ今この話題か</div>
-            <p class="ai-section-body">${esc(background)}</p>
-          </div>` : '';
-        const sect2 = spreadReason ? `
-          <div class="ai-section">
-            <div class="ai-section-label">📡 なぜ広がったか</div>
-            <p class="ai-section-body">${esc(spreadReason)}</p>
-          </div>` : '';
-        const beatsHtml = beats.length ? buildBeatsHtml(beats) : '';
-        const sect3 = (phaseBarHtml || beatsHtml) ? `
-          <div class="ai-section">
-            <div class="ai-section-label">⏱ 経緯と今どの段階か</div>
-            ${phaseBarHtml}
-            ${originHtml}
-            ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
-          </div>` : '';
-        const sect1 = `
-          <div class="ai-section">
-            <div class="ai-section-label">📍 現状（何が起きているか）</div>
-            <p class="ai-section-body">${esc(summary)}</p>
-          </div>`;
-        const sectPersp = perspectives ? `
-          <div class="ai-section">
-            <div class="ai-section-label">📰 メディアの見方のズレ</div>
-            <p class="ai-section-body">${esc(perspectives)}</p>
-          </div>` : '';
-        const sectOl = outlook ? `
-          <div class="ai-section ai-section-forecast">
-            <div class="ai-section-label">🔮 今後どうなるか <span class="ai-hypothesis-badge">仮説</span></div>
-            <p class="ai-section-body">${decorateConfidence(outlook)}</p>
-          </div>` : '';
-        // 思想フレーム順: 背景 → なぜ今 → なぜ広がった → 経緯 → 現状 → メディアズレ → 今後 (full と同じ)
-        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${keyPointHero}${sectBg}${sectBgNow}${sect2}${sect3}${sect1}${sectPersp}${sectOl}${trustFooterHtml}${storyNavHtml}</div>`;
-
-      // ── full: 6件以上 → フル4セクション（従来通り）
+        // minimal は perspectives/watchPoints が無いため簡略
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner ai-analysis-minimal">
+          ${statusBadgeHtml}
+          ${statusBadgeHtml ? dividerHtml : ''}
+          ${sectKeyPoint}
+          ${sectOl}
+          ${trustFooterHtml}
+        </div>`;
       } else {
-        // ① 何が起きたか
-        // 思想に沿った順序: 背景 → なぜ今 → 経緯 → 現在 → メディア間ズレ → 今後 (2026-04-27)
-        // ① なぜ起きたか (構造的背景)
-        const sect2bg = backgroundContext ? `
-          <div class="ai-section">
-            <div class="ai-section-label">📐 なぜ起きたか（構造的背景）</div>
-            <p class="ai-section-body">${esc(backgroundContext)}</p>
-          </div>` : '';
-        // ② なぜ今この話題か (時事文脈)
-        const sectBgNowF = background ? `
-          <div class="ai-section">
-            <div class="ai-section-label">📚 なぜ今この話題か</div>
-            <p class="ai-section-body">${esc(background)}</p>
-          </div>` : '';
-        // ③ なぜ広がったか
-        const sect2 = spreadReason ? `
-          <div class="ai-section">
-            <div class="ai-section-label">📡 なぜ広がったか</div>
-            <p class="ai-section-body">${esc(spreadReason)}</p>
-          </div>` : '';
-        // ④ 経緯 (タイムライン+フェーズ)
-        const beatsHtml = beats.length ? buildBeatsHtml(beats) : '';
-        const sect3 = (phaseBarHtml || beatsHtml) ? `
-          <div class="ai-section">
-            <div class="ai-section-label">⏱ 経緯と今どの段階か</div>
-            ${phaseBarHtml}
-            ${originHtml}
-            ${beatsHtml ? `<div class="ai-beats">${beatsHtml}</div>` : ''}
-          </div>` : '';
-        // ⑤ 何が起きたか (現状サマリー) — 背景・経緯を踏まえた現在の状態
-        const sect1 = `
-          <div class="ai-section">
-            <div class="ai-section-label">📍 現状（何が起きているか）</div>
-            <p class="ai-section-body">${esc(summary)}</p>
-          </div>`;
-        // ⑥ メディア間のズレ (Flotopic 独自価値)
-        const sectPerspF = perspectives ? `
-          <div class="ai-section">
-            <div class="ai-section-label">📰 メディアの見方のズレ</div>
-            <p class="ai-section-body">${esc(perspectives)}</p>
-          </div>` : '';
-        // ⑦ 今後どうなるか
-        const sect4 = forecast ? `
-          <div class="ai-section ai-section-forecast">
-            <div class="ai-section-label">🔮 今後どうなるか <span class="ai-hypothesis-badge">仮説</span></div>
-            <p class="ai-section-body">${decorateConfidence(forecast)}</p>
-          </div>` : '';
-        // ⑧ 短い見通し (forecast の代わり)
-        const sectOlF = (outlook && !forecast) ? `
-          <div class="ai-section ai-section-forecast">
-            <div class="ai-section-label">🔮 見通し <span class="ai-hypothesis-badge">仮説</span></div>
-            <p class="ai-section-body">${decorateConfidence(outlook)}</p>
-          </div>` : '';
-        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">${keyPointHero}${sect2bg}${sectBgNowF}${sect2}${sect3}${sect1}${sectPerspF}${sect4}${sectOlF}${trustFooterHtml}${storyNavHtml}</div>`;
+        aiAnalysisEl.innerHTML = `<div class="ai-analysis-inner">
+          ${statusBadgeHtml}
+          ${statusBadgeHtml ? dividerHtml : ''}
+          ${sectKeyPoint}
+          ${sectPersp}
+          ${sectWatch}
+          ${sectOl}
+          ${sectTimeline ? dividerHtml : ''}
+          ${sectTimeline}
+          ${trustFooterHtml}
+          ${storyNavHtml}
+        </div>`;
       }
 
       aiAnalysisEl.style.display = 'block';

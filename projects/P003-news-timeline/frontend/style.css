@@ -1141,6 +1141,27 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .ai-section-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--primary, #4EC9C0); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .ai-section-forecast .ai-section-label { color: #4EC9C0; }
 .ai-section-body { font-size: .88rem; line-height: 1.75; color: var(--text-secondary); margin: 0; }
+/* T2026-0428-J/E: 状況解説 (keyPoint) は時系列ストーリーとして本文サイズで読ませる。 */
+.ai-section-story { background: var(--surface2, rgba(255,255,255,.06)); border-left-width: 4px; }
+.ai-section-story-body { font-size: .94rem; line-height: 1.85; color: var(--text-primary, var(--text-secondary)); }
+/* 注目度ゾーンと コンテンツゾーンの区切り線 */
+.ai-zone-divider { border: 0; border-top: 1px dashed var(--border, rgba(255,255,255,.12)); margin: 14px 0; }
+/* 状況ラベル (statusLabel) — 注目度ゾーンの単独バッジ */
+.ai-status-zone { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 0 4px 0; }
+.ai-status-badge { display: inline-flex; align-items: center; gap: 5px; font-size: .8rem; font-weight: 700; padding: 5px 12px; border-radius: 999px; color: #fff; letter-spacing: .04em; }
+.ai-status-badge.sl-onset    { background: linear-gradient(135deg, #4EC9C0, #36a89e); }
+.ai-status-badge.sl-active   { background: linear-gradient(135deg, #f97316, #ea580c); }
+.ai-status-badge.sl-cooling  { background: linear-gradient(135deg, #64748b, #475569); }
+.ai-status-badge.sl-resolved { background: linear-gradient(135deg, #22c55e, #15803d); }
+.ai-status-hint { font-size: .76rem; color: var(--text-secondary); }
+/* AI 予想判定バッジ (T2026-0428-PRED で更新される) */
+.ai-prediction-badge { display: inline-flex; align-items: center; gap: 3px; font-size: .68rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
+.ai-prediction-badge.pr-pending  { background: rgba(100,116,139,.18); color: #94a3b8; }
+.ai-prediction-badge.pr-matched  { background: rgba(34,197,94,.22);  color: #22c55e; }
+.ai-prediction-badge.pr-partial  { background: rgba(234,179,8,.22);  color: #eab308; }
+.ai-prediction-badge.pr-missed   { background: rgba(239,68,68,.22);  color: #ef4444; }
+.ai-prediction-time { font-size: .7rem; color: var(--text-secondary); margin-left: 6px; font-weight: 400; }
+.ai-section-timeline { margin-top: 6px; }
 .ai-phase-chip { display: inline-block; font-size: .72rem; font-weight: 700; color: #fff; padding: 3px 10px; border-radius: 999px; margin-bottom: 10px; }
 /* Phase progress bar */
 .ai-phase-bar { display: flex; margin-bottom: 12px; border-radius: 8px; overflow: hidden; gap: 2px; }

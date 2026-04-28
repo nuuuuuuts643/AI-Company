@@ -307,17 +307,25 @@ def generate_story(articles, article_count: int | None = None):
 
 _VALID_PHASES = ['発端', '拡散', 'ピーク', '現在地', '収束']
 _VALID_LEVELS = ['major', 'sub', 'detail']
+# T2026-0428-J/E: 「トピックの状況」をユーザー視点で明確に区分する 4 値ラベル。
+# 既存 phase (発端/拡散/ピーク/現在地/収束) は AI 内部判定の細粒度ラベル、
+# statusLabel は detail page で読者に直接見せる粗粒度ラベル。
+_VALID_STATUS_LABELS = ['発端', '進行中', '沈静化', '決着']
 
 
 def _build_story_schema(mode: str) -> dict:
     """Tool Use 用 JSON Schema を mode 別に構築。
     mode: 'minimal' | 'standard' | 'full'
     """
+    # T2026-0428-J/E (2026-04-28): フィールド再設計（最終確定版）。
+    # 「なぜ今か」はグラフ(記事数スパイク)が示すべきであり AI に語らせない。
+    # AI 要約は「状況解説 / 各社の見解 / 注目ポイント / AI予想」の 4 軸に集中。
+    # 削除: spreadReason, backgroundContext, background, whatChanged
+    # 追加: statusLabel (粗粒度フェーズ), watchPoints (今後の観察軸)
     base_props = {
-        'aiSummary': {'type': 'string', 'description': '150字以内・2文構成。「何が起きたか」+「なぜ重要か/何を意味するか」。事実羅列禁止、読んだ人が結論を理解できる内容にする。'},
-        'keyPoint': {'type': 'string', 'description': 'この話のポイント1文(40字以内・体言止め)。「なぜこれが普通と違うのか」「これが意味すること」を体言止めで抽出。例: 単なる外交儀礼ではなく米中対立の代理戦/赤字脱却よりブランド再建が本丸。'},
-        'background': {'type': 'string', 'description': 'なぜ今このトピックが浮上しているか。直近1〜4週間の触媒(法案審議入り/決算/選挙日程/裁判期日/季節要因等)。'},
-        'outlook': {'type': 'string', 'description': 'この先どうなるか。1文。〜が予想される/〜の可能性があるで締める。文末に [確信度:高] [確信度:中] [確信度:低] のいずれかを必ず付与 (例: 「合意成立の可能性がある [確信度:中]」)。記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低。'},
+        'aiSummary': {'type': 'string', 'description': '150字以内・2文構成。「何が起きたか」+「何を意味するか」。事実羅列禁止、読んだ人が結論を理解できる内容にする。'},
+        'keyPoint': {'type': 'string', 'description': 'トピックの状況解説 (200〜300字の連続した文章)。★想定読者: このトピックを1週間後に初めて読む人。背景・経緯・現在の状況を一気に理解できる時系列ストーリーとして書く。「もともと〇〇という状況があり、△△をきっかけに□□が起き、現在〇〇の段階にある」のように物語的に語る。箇条書き・事実の羅列・「〇〇が△△した」の繰り返しは禁止。言葉を選び、簡潔でキレのある日本語で書く。情報を並べるのではなくニュースを語る。専門用語は初出時に括弧で平易化 (例: FOMC（米国の金融政策を決める会議）)。グラフの鮮度に依存しない、構造の明快さが命のフィールド。'},
+        'outlook': {'type': 'string', 'description': 'AI予想として「この先どうなるか」を1文で。〜が予想される/〜の可能性があるで締める。文末に [確信度:高] [確信度:中] [確信度:低] のいずれかを必ず付与 (例: 「合意成立の可能性がある [確信度:中]」)。記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低。後で新記事と照合して当否判定するため、検証可能な仮説として書くこと。'},
         'topicTitle': {'type': 'string', 'description': '15文字以内のテーマ名(体言止め)。具体的な固有名詞を含む。例: 岸田政権の解散戦略。'},
         'latestUpdateHeadline': {'type': 'string', 'description': '最新の動きを40文字以内の1文(〜が〜した形式)。'},
         'isCoherent': {'type': 'boolean', 'description': 'true=全記事が同一主語・同一流れ。false=異主語/異論点混在。'},
@@ -326,14 +334,21 @@ def _build_story_schema(mode: str) -> dict:
         'relatedTopicTitles': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 3, 'description': '因果・波及関係にある別テーマ。'},
         'genres': {'type': 'array', 'items': {'type': 'string', 'enum': list(_VALID_GENRE_SET)}, 'minItems': 1, 'maxItems': 2},
     }
-    required = ['aiSummary', 'keyPoint', 'background', 'outlook', 'topicTitle', 'latestUpdateHeadline', 'isCoherent', 'topicLevel', 'genres']
+    required = ['aiSummary', 'keyPoint', 'outlook', 'topicTitle', 'latestUpdateHeadline', 'isCoherent', 'topicLevel', 'genres']
 
     if mode == 'minimal':
-        # minimal は backgroundContext/spreadReason/forecast/perspectives/timeline は無し
+        # minimal は perspectives/timeline/watchPoints/statusLabel は無し (記事1〜2件では差分が出ない)
         pass
     else:
-        base_props['backgroundContext'] = {'type': 'string', 'description': 'なぜ起きたか。背景にある構造的・社会的・経済的・政治的要因(2文)。'}
-        base_props['spreadReason'] = {'type': 'string', 'description': 'なぜ広がったか。トリガー/時事文脈/注目層/関連ニュースの観点(2-3文)。'}
+        base_props['statusLabel'] = {
+            'type': 'string',
+            'enum': _VALID_STATUS_LABELS,
+            'description': 'トピックの現在状況を読者向け 4 値で示す。発端=注目され始めた直後/進行中=報道が続き熱量がある/沈静化=報道頻度が落ちている/決着=結論や合意が出て話題が閉じた。phase の細粒度ラベルとは別に、ユーザー向け粗粒度として独立に判定する。',
+        }
+        base_props['watchPoints'] = {
+            'type': 'string',
+            'description': 'これからの注目ポイントを複数軸で簡潔に案内する(150字以内)。断言や予測は避け「ここを見ておくといい」という観察視点を提示する。形式: ①〇〇の進捗 ②△△の対応 ③□□の動向 のように 2〜3 項目を ① ② ③ 番号付きで列挙。outlook (AI予想) とは役割が異なり、こちらは「どこを見るべきか」のガイドに徹する。',
+        }
         base_props['perspectives'] = {'type': 'string', 'description': '各社の懸念・可能性・着目点を並列列挙(2〜3社)。例: 朝日は経済への打撃を懸念、産経は安全保障上の利益を指摘、毎日は外交プロセスの不透明性に着目。'}
         base_props['phase'] = {'type': 'string', 'enum': _VALID_PHASES}
         base_props['timeline'] = {
@@ -349,7 +364,7 @@ def _build_story_schema(mode: str) -> dict:
             },
             'maxItems': 6 if mode == 'full' else 3,
         }
-        required += ['backgroundContext', 'spreadReason', 'perspectives', 'phase', 'timeline']
+        required += ['statusLabel', 'watchPoints', 'perspectives', 'phase', 'timeline']
         if mode == 'full':
             base_props['forecast'] = {'type': 'string', 'description': '今後どうなるか。記事内容を根拠にした仮説(2文)。〜が見込まれる/〜の可能性があるで締める。文末に [確信度:高] [確信度:中] [確信度:低] のいずれかを必ず付与 (例: 「..今後数ヶ月で進展が見込まれる [確信度:中]」)。記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低。'}
             required += ['forecast']
@@ -371,11 +386,11 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
         # phase=None で返し、frontend 側の存在チェックで非表示にさせる
         return {
             'aiSummary':              str(result.get('aiSummary') or '').strip(),
-            'keyPoint':               str(result.get('keyPoint') or '').strip()[:60],
-            'background':             str(result.get('background') or '').strip(),
+            'keyPoint':               str(result.get('keyPoint') or '').strip()[:400],
+            'statusLabel':            None,
+            'watchPoints':            '',
             'perspectives':           None,
             'outlook':                str(result.get('outlook') or '').strip(),
-            'spreadReason':           '',
             'forecast':               '',
             'timeline':               [],
             'phase':                  None,
@@ -394,12 +409,13 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
     raw_phase = result.get('phase')
     if raw_phase == '発端' and mode in ('standard', 'full'):
         raw_phase = '拡散'
+    raw_status = result.get('statusLabel')
     out = {
         'aiSummary':              str(result.get('aiSummary') or '').strip(),
-        'keyPoint':               str(result.get('keyPoint') or '').strip()[:60],
-        'backgroundContext':      str(result.get('backgroundContext') or '').strip(),
-        'spreadReason':           str(result.get('spreadReason') or '').strip(),
-        'background':             str(result.get('background') or '').strip(),
+        # T2026-0428-J/E: keyPoint は 200〜300 字の物語形式に拡張。truncate は 400 字で安全側に。
+        'keyPoint':               str(result.get('keyPoint') or '').strip()[:400],
+        'statusLabel':            raw_status if raw_status in _VALID_STATUS_LABELS else None,
+        'watchPoints':            str(result.get('watchPoints') or '').strip()[:200],
         'perspectives':           result.get('perspectives') if isinstance(result.get('perspectives'), str) else None,
         'outlook':                str(result.get('outlook') or '').strip(),
         'forecast':               str(result.get('forecast') or '').strip() if mode == 'full' else '',
@@ -424,6 +440,8 @@ def _generate_story_minimal(articles: list) -> dict | None:
         '以下はニューストピックに関する記事です。事実のみで簡潔にまとめてください。\n'
         '断定・感情語・メディア名禁止。固有名詞は初出時に括弧で1語説明 (例: スターリンク（SpaceXの衛星インターネット）)。\n\n'
         '【aiSummary】150字以内の1段落。「何が起きたか（1文）」+「なぜ重要か・何を意味するか（1文）」の2文構成。読んだ人が「つまりこういうことか」と理解できる結論を必ず含める。\n'
+        '【keyPoint】★最重要フィールド。状況解説を 200〜300 字の連続した文章で書く。背景→時系列→現状の流れで物語的に語る。箇条書き・事実羅列禁止。言葉を選びキレのある日本語で。\n'
+        '【outlook】AI予想として「この先どうなるか」を1文で。〜が予想される/〜の可能性があるで締める。文末に「[確信度:高/中/低]」を必ず付与。検証可能な仮説として書く (曖昧な「動向次第」禁止)。\n'
         '【isCoherent判定】true=全記事が同一主語・同一流れ。false=異主語/異論点混在。\n'
         '【topicLevel判定】major=国家間・産業横断/sub=majorの一側面/detail=個別発表。\n'
         + _GENRES_PROMPT
@@ -442,17 +460,23 @@ def _generate_story_minimal(articles: list) -> dict | None:
 _STORY_PROMPT_RULES = (
     '【トピック分析】事実は「〜した/〜と述べた」で記述。断定・感情語・メディア名禁止。主語を具体的に。\n'
     '固有名詞は初出時に括弧で1語説明 (例: スターリンク（SpaceXの衛星インターネット）)。\n'
-    '【aiSummary】150字以内の1段落。「何が起きたか（1文）」+「なぜ重要か・何を意味するか（1文）」の2文構成を基本とする。思考フレーム『背景→課題→目的→手段→結果』で内部整理してから書く。事実羅列禁止。読んだ人が「つまりこういうことか」と理解できる結論を必ず含める。物語的接続詞 (実は/ところが/にもかかわらず) で温度差を出す。\n'
-    '【keyPoint】40字以内、体言止め。普通と違う角度を抽出。\n'
-    '【backgroundContext】構造的・社会的・経済的・政治的要因 (2文)。\n'
-    '【background】直近1〜4週間の触媒。backgroundContextと別の角度で。\n'
-    '【spreadReason】トリガー/時事文脈/注目層/関連ニュース観点 (2-3文)。\n'
+    '【aiSummary】150字以内の1段落。「何が起きたか（1文）」+「なぜ重要か・何を意味するか（1文）」の2文構成を基本とする。事実羅列禁止。読んだ人が「つまりこういうことか」と理解できる結論を必ず含める。\n'
+    '【keyPoint】★最重要フィールド。トピックの状況解説を 200〜300 字の連続した文章で書く。読者がこのトピックを初めて知っても理解できる物語形式で構成する。\n'
+    '  ◎ 構成: ① 背景（この問題がなぜ存在するか）から始める → ② 時系列（何がいつ起きたか）を自然な流れで織り込む → ③ 現在の状況で締める。\n'
+    '  ◎ トーン: 言葉を選び、簡潔でキレのある日本語で書く。情報を並べるのではなくニュースを語る。\n'
+    '  × 箇条書き禁止。事実の羅列禁止。「〇〇が△△した」の繰り返し禁止。\n'
+    '  ◎ 「もともと〇〇という状況があり、△△をきっかけに□□が起き、現在〇〇の段階にある」のように物語的に語る。\n'
+    '  ◎ 専門用語は初出時に括弧で平易化 (例: FOMC（米国の金融政策を決める会議）)。\n'
+    '【statusLabel】読者向け 4 値ラベル: 発端 / 進行中 / 沈静化 / 決着。\n'
+    '  発端=注目され始めた直後。進行中=報道が続き熱量がある。沈静化=報道頻度が落ちている。決着=結論や合意が出て話題が閉じた。\n'
+    '【watchPoints】これからの注目ポイントを複数軸で簡潔に案内 (150字以内)。断言や予測ではなく「ここを見ておくといい」という観察視点。\n'
+    '  形式: ①〇〇の進捗 ②△△の対応 ③□□の動向 のように 2〜3 項目を ① ② ③ 番号付きで列挙。outlook (AI予想) とは役割が異なる。\n'
     '【perspectives】2〜3社の見解を「[メディア名] は〜」の構文で並列列挙。各社の本文 (ある場合) を根拠にし、推測ではなく実際の論調差を抽出する。\n'
     '  - 公平性: 特定メディアの論調に引きずられず、各社を等しく扱う。1社だけ詳しく書くのは禁止。\n'
     '  - 各社の論調差が薄い場合は無理に違いを作らず「概ね同様の論調 (◯社の本文より)」と書く。\n'
     '  - 例 (◎): 朝日は経済への打撃を懸念、産経は安全保障上の利益を指摘、毎日は外交プロセスの不透明性に着目。\n'
     '  - 例 (×): 朝日が「重大な懸念」と強く批判 (1社だけ詳述は偏りに見える)。\n'
-    '【outlook】1文。〜が予想される/〜の可能性があるで締める。文末に「[確信度:高/中/低]」を必ず付与する (例: 「合意成立の可能性がある [確信度:中]」)。記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低。\n'
+    '【outlook】★ AI予想として記述。1文。〜が予想される/〜の可能性があるで締める。文末に「[確信度:高/中/低]」を必ず付与する (例: 「合意成立の可能性がある [確信度:中]」)。記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低。後で新記事と照合し当否判定するため、検証可能な仮説として書くこと (曖昧な「動向次第」「状況による」は禁止)。\n'
     '【phase判定】このトピックは記事3件以上のため「発端」は選択禁止。選択肢は「拡散/ピーク/現在地/収束」のみ。'
     'デフォルトは「拡散」。タイムライン上で同じ話題が繰り返し報じられ熱量が高ければ「ピーク」、'
     '報道が落ち着き同じ局面で続いていれば「現在地」、明確に下火・解決しているなら「収束」。\n'

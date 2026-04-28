@@ -324,6 +324,14 @@ def needs_ai_processing(item):
     # handler.py _required_full_fields の _is_minimal 免除削除（T256 fix）と対で機能する。
     if not str(item.get('keyPoint') or '').strip():
         return True
+    # T2026-0428-J/E: standard/full mode (記事3件以上) では statusLabel / watchPoints も必須。
+    # 新フィールドが空の旧 aiGenerated=True topic を再処理対象に取り込み、滞留を解消する。
+    _ac = int(item.get('articleCount', 0) or 0)
+    if _ac >= 3:
+        if not str(item.get('statusLabel') or '').strip():
+            return True
+        if not str(item.get('watchPoints') or '').strip():
+            return True
     # T2026-0428-AH: storyPhase=='発端' かつ articleCount>=3 は再生成対象に含める。
     # T219 で「記事3件以上で発端禁止」をプロンプト強化済だが、aiGenerated=True 旧 topic は
     # ここで skip されるため誤判定の発端が永続化していた（本番 54/93 = 58% で確認）。
@@ -398,7 +406,7 @@ def get_pending_topics(max_topics=100):
             try:
                 r = table.get_item(
                     Key={'topicId': tid, 'SK': 'META'},
-                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode',
+                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints',
                 )
                 item = r.get('Item')
                 if item and needs_ai_processing(item):
@@ -443,7 +451,7 @@ def get_pending_topics(max_topics=100):
                     try:
                         r = table.get_item(
                             Key={'topicId': tid, 'SK': 'META'},
-                            ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode',
+                            ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints',
                         )
                         item = r.get('Item')
                         if item and needs_ai_processing(item):
@@ -625,9 +633,13 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
             if gen_story.get('keyPoint'):
                 update_expr += ', keyPoint = :kp'
                 expr_values[':kp'] = gen_story['keyPoint']
-            if gen_story.get('spreadReason'):
-                update_expr += ', spreadReason = :sr'
-                expr_values[':sr'] = gen_story['spreadReason']
+            # T2026-0428-J/E: 新フィールド statusLabel / watchPoints を永続化
+            if gen_story.get('statusLabel'):
+                update_expr += ', statusLabel = :sl'
+                expr_values[':sl'] = gen_story['statusLabel']
+            if gen_story.get('watchPoints'):
+                update_expr += ', watchPoints = :wp'
+                expr_values[':wp'] = gen_story['watchPoints']
             if gen_story.get('forecast'):
                 update_expr += ', forecast = :fc'
                 expr_values[':fc'] = gen_story['forecast']
@@ -657,6 +669,14 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
             if gen_story.get('outlook'):
                 update_expr += ', outlook = :otlk'
                 expr_values[':otlk'] = gen_story['outlook']
+                # T2026-0428-J/E: outlook を AI 予想として記録した時刻 (後で当否判定する基準)。
+                # 新記事追加で再 AI 処理されるたびに更新される (= 直近の予想)。
+                # T2026-0428-PRED でこの時刻以降に追加された記事と照合し predictionResult を更新する。
+                update_expr += ', predictionMadeAt = :pma'
+                expr_values[':pma'] = datetime.now(timezone.utc).isoformat()
+                # 新しい予想が立つ度に判定状態をリセット (前回の判定結果は predictionHistory として別 SK に積む想定)。
+                update_expr += ', predictionResult = :prs'
+                expr_values[':prs'] = 'pending'
             else:
                 print(f"[AI_FIELD_GAP] outlook empty topic={tid}")
             if gen_story.get('topicTitle'):
@@ -821,20 +841,23 @@ def update_topic_s3_file(tid, upd, articles=None):
             meta['generatedSummary'] = upd['generatedSummary']
         if upd.get('keyPoint'):
             meta['keyPoint'] = upd['keyPoint']
+        # T2026-0428-J/E: 新フィールド statusLabel / watchPoints / predictionMadeAt / predictionResult を merge
+        if upd.get('statusLabel'):
+            meta['statusLabel'] = upd['statusLabel']
+        if upd.get('watchPoints'):
+            meta['watchPoints'] = upd['watchPoints']
+        if upd.get('predictionMadeAt'):
+            meta['predictionMadeAt'] = upd['predictionMadeAt']
+        if upd.get('predictionResult'):
+            meta['predictionResult'] = upd['predictionResult']
         if upd.get('storyTimeline') is not None:
             meta['storyTimeline'] = upd['storyTimeline']
         if upd.get('storyPhase'):
             meta['storyPhase'] = upd['storyPhase']
-        if upd.get('spreadReason'):
-            meta['spreadReason'] = upd['spreadReason']
         if upd.get('forecast'):
             meta['forecast'] = upd['forecast']
         if upd.get('summaryMode'):
             meta['summaryMode'] = upd['summaryMode']
-        if upd.get('backgroundContext'):
-            meta['backgroundContext'] = upd['backgroundContext']
-        if upd.get('background'):
-            meta['background'] = upd['background']
         if upd.get('perspectives') is not None:
             meta['perspectives'] = upd['perspectives']
         if upd.get('outlook'):
