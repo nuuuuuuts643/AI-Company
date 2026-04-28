@@ -95,3 +95,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | [Code] T2026-0428-AJ グラフUI修正＋記事ローディング修正 | Code | frontend/detail.js, frontend/topic.html, frontend/style.css | 2026-04-28 10:30 | yes |
 | [Code] T2026-0428-E AI要約4軸追加 (personalImpact/stakeholders) | Code | projects/P003-news-timeline/lambda/processor/proc_ai.py, projects/P003-news-timeline/frontend/detail.js | 2026-04-28 11:25 | yes |
 | [Code] T2026-0428-J/M keyPoint充填バグ調査・修正 | Code | projects/P003-news-timeline/lambda/processor/proc_storage.py, projects/P003-news-timeline/lambda/processor/handler.py | 2026-04-28 11:27 | yes |
+| [Code] T2026-0428-GRAPH スパイクきっかけ記事アノテーション | Code | projects/P003-news-timeline/frontend/detail.js | 2026-04-28 11:28 | yes |
+| [Code] T265 topics-card.json 分割 | Code | projects/P003-news-timeline/lambda/processor/proc_storage.py, projects/P003-news-timeline/frontend/app.js | 2026-04-28 11:28 | yes |
