@@ -101,6 +101,15 @@ jobs:
           [ $ERRORS -eq 0 ] || exit 1
           echo "✅ Lambda 構文チェック完了"
 
+      - name: AI フィールドカタログと proc_ai schema 突合 (T2026-0428-T)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          # proc_ai.py の _build_story_schema(mode='full') と
+          # docs/ai-fields-catalog.md 先頭フィールド表に乖離がないか物理ガード。
+          # 新フィールド追加時の「実装したがカタログ更新を忘れた」を CI で検知する。
+          echo "=== AI フィールドカタログ vs schema 突合 ==="
+          python3 scripts/check_ai_fields_catalog.py
+
       - name: 危険パターン検出
         run: |
           echo "=== 危険パターン検出 ==="
