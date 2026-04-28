@@ -16,18 +16,17 @@ _ENTITY_MERGE_MAX_WORDS  = 5    # 対象は短い記事のみ
 # chunk-based similarity（スペースなし日本語タイトル向けフォールバック）
 _KATAKANA_RUN = re.compile(r'[ァ-ヴーｦ-ﾟ]{3,}')
 _KANJI_RUN    = re.compile(r'[一-鿿々〆〇]{2,}')
-_CHUNK_THRESHOLD = 0.25  # 2026-04-28: 0.30 → 0.25 に緩和（T212対策。チャンク1語以上で統合可能に）
+_CHUNK_THRESHOLD = 0.30  # 2語以上の固有語共有を要件にしているため誤クラスタはほぼ起きない
 # 高頻度すぎて識別力のない一般語を除外
 _CHUNK_COMMON = {'大統領', '首相', '大臣', '政府', '国会', '議員', '社長', '会長',
                  '委員会', '知事', '市長', '内閣', '官房', '大使', '長官',
                  '日本', '米国', '中国', '東京', '大阪', '会社', '企業', '事件', '事故',
                  '発表', '開始', '実施', '決定', '対応', '影響', '問題', '検討', '対策'}
 
-# エンティティ重複ボーナス: 2+エンティティ共有 + 72h以内 → Jaccard+0.35
-# 2026-04-28: 時間窓を 48h → 72h に拡張（クラスタ過分割緩和）、ボーナス 0.30 → 0.35 に上げる
+# エンティティ重複ボーナス: 2+エンティティ共有 + 48h以内 → Jaccard+0.30
 _ENTITY_BONUS_MIN_OVERLAP  = 2
-_ENTITY_BONUS_TIME_WINDOW  = 72 * 3600  # seconds
-_ENTITY_BONUS_SCORE        = 0.35
+_ENTITY_BONUS_TIME_WINDOW  = 48 * 3600  # seconds
+_ENTITY_BONUS_SCORE        = 0.30
 
 
 def _clean_for_entity(text: str) -> str:
