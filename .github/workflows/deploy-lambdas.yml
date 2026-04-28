@@ -265,6 +265,10 @@ jobs:
               --zip-file fileb://function.zip \
               --timeout 120 --memory-size 256 \
               --region ap-northeast-1 > /dev/null
+            # 新規作成は Pending 状態で返るので Active になるのを待つ
+            aws lambda wait function-active \
+              --function-name flotopic-bluesky \
+              --region ap-northeast-1
             echo "[OK] flotopic-bluesky 新規作成"
           else
             aws lambda update-function-code \
