@@ -45,6 +45,7 @@ fix_type:
   mobile_layout   [pages_csv]    375px 幅で横スクロール無し (PASS) — puppeteer 必要
   mobile                         mobile_layout の別名
   freshness       [topics_url]   topics.json updatedAt が 90 分以内 (PASS)
+  empty_topics    [base_url]     topics.json の detail JSON 欠損率 0% / articleCount<2 率 0%
   all                            ai_quality + freshness をまとめて実行 (mobile は除く)
 
 Verified-Effect 行を stdout に出力。閾値未達は exit 1。
@@ -138,6 +139,50 @@ case "$FIX_TYPE" in
     OVERFLOW_COUNT=$(echo "$OUT" | grep -cE '^❌ ' || true)
     echo "Verified-Effect: mobile_layout viewport=375px pages=${PAGE_COUNT} overflow=${OVERFLOW_COUNT} ${RESULT} @ ${JST_TS}"
     [ "$RESULT" = "PASS" ] || exit 1
+    exit 0
+    ;;
+
+  empty_topics)
+    # T2026-0428-AK: topics.json の各トピックに対して
+    #   1. detail JSON (api/topic/{tid}.json) が S3 に存在する
+    #   2. articleCount >= 2
+    # を物理確認。両方 0% 違反で PASS。
+    BASE="${1:-https://flotopic.com}"
+    EMPTY_THRESHOLD_PCT="${EMPTY_TOPICS_THRESHOLD_PCT:-0}"
+    if ! command -v jq >/dev/null 2>&1; then
+      echo "[verify_effect] jq 必要" >&2
+      exit 2
+    fi
+    TMP=$(mktemp)
+    trap 'rm -f "$TMP"' EXIT
+    if ! curl -fsSL -m 30 "$BASE/api/topics.json" -o "$TMP"; then
+      echo "[verify_effect] curl 失敗: $BASE/api/topics.json" >&2
+      exit 2
+    fi
+    TOTAL=$(jq '[(.topics // .)[]] | length' "$TMP" 2>/dev/null)
+    if [ -z "$TOTAL" ] || [ "$TOTAL" = "null" ] || [ "$TOTAL" = "0" ]; then
+      echo "Verified-Effect: empty_topics topics=0 SKIP @ ${JST_TS}"
+      exit 0
+    fi
+    LOW_COUNT=$(jq '[(.topics // .)[] | select((.articleCount // 0) < 2)] | length' "$TMP")
+    # detail JSON 欠損数: 各 topicId に対して HEAD リクエスト
+    TIDS=$(jq -r '(.topics // .)[] | .topicId' "$TMP")
+    MISSING=0
+    CHECKED=0
+    for TID in $TIDS; do
+      CHECKED=$((CHECKED+1))
+      STATUS=$(curl -s -o /dev/null -w '%{http_code}' -m 10 -I "$BASE/api/topic/${TID}.json")
+      if [ "$STATUS" != "200" ]; then
+        MISSING=$((MISSING+1))
+      fi
+    done
+    LOW_PCT=$(awk -v a="$LOW_COUNT" -v b="$TOTAL" 'BEGIN{ if(b>0) printf "%.1f", a/b*100; else print "0.0" }')
+    MISS_PCT=$(awk -v a="$MISSING" -v b="$CHECKED" 'BEGIN{ if(b>0) printf "%.1f", a/b*100; else print "0.0" }')
+    LOW_PASS=$(awk -v p="$LOW_PCT" -v t="$EMPTY_THRESHOLD_PCT" 'BEGIN{ if(p+0 <= t+0) print "PASS"; else print "FAIL" }')
+    MISS_PASS=$(awk -v p="$MISS_PCT" -v t="$EMPTY_THRESHOLD_PCT" 'BEGIN{ if(p+0 <= t+0) print "PASS"; else print "FAIL" }')
+    if [ "$LOW_PASS" = "PASS" ] && [ "$MISS_PASS" = "PASS" ]; then PASS="PASS"; else PASS="FAIL"; fi
+    echo "Verified-Effect: empty_topics articleCount<2=${LOW_PCT}%(${LOW_COUNT}/${TOTAL}) detail_missing=${MISS_PCT}%(${MISSING}/${CHECKED}) threshold=${EMPTY_THRESHOLD_PCT}% ${PASS} @ ${JST_TS}"
+    [ "$PASS" = "PASS" ] || exit 1
     exit 0
     ;;
 

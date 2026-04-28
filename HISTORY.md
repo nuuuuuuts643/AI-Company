@@ -1496,3 +1496,31 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T2026-0428-F~~ | 🟡 中 | 安定性・拡張性 | **topics.json 日付分割 Step1 インフラ準備** — 現状 207KB の topics.json がモバイル初回表示の最大 payload。115件で207KBなので、件数増加で線形増加する設計上の天井がある。**Step1 (本タスク)**: ① `/api/topics-card.json` (一覧用 minimal: tid/title/articleCount/genres/keyPoint/storyPhase/updatedAt) と `/api/topics-full.json` (現状互換) の2系統を proc_storage.py で生成する仕組みを作る。② frontend は当面 topics-full.json を使い続ける (互換維持)。③ governance worker に「topics.json size > 250KB」アラート追加。④ Brotli 圧縮を S3+CloudFront で確認。Step2 (別タスク化): card 表示を topics-card.json に切り替え + 日付別 shard。T265 を発展。 | `lambda/processor/proc_storage.py`, `.github/workflows/governance.yml`, CloudFront 設定 | 2026-04-28 |
 
 </details>
+
+
+### 2026-04-28 完了: T2026-0428-AK 空トピック量産バグ根本修正
+
+**問題**: 本番 flotopic.com の topics.json 109件中 12件 (11%) が detail JSON 欠損 = クリックすると 404 / 何も表示されない。DynamoDB p003-topics に articleCount<2 の META が 9680 件 (全体の 81%) 累積していた。
+
+**根本原因 (Why1〜Why5)**:
+1. Why1: 空トピックがユーザーに見えるのは? → topics.json に detail JSON が無いトピックが含まれていたから。
+2. Why2: なぜ detail 無しが含まれた? → fetcher が topics.json を生成→processor が後から detail JSON を作る非同期設計で、processor 起動前にユーザーが見ると 404。
+3. Why3: なぜ非同期設計? → AI 処理 (Claude API) は重いので別 Lambda にした。fetcher は一覧 (META) を、processor は詳細 (AI フィールド + detail JSON) を担当。
+4. Why4: なぜ「META = detail JSON」の不変条件を守らなかった? → fetcher は META put のみで detail JSON は処理しない設計。整合性は backfill_missing_detail_json で「事後補完」する仕組みだったが、META の元データが消えていると補完不可。
+5. Why5: なぜ articleCount<2 の META が累積した? → cluster_utils.cluster() が singleton(=1記事) クラスタも返し、handler.py がそれを META に書いていた。UI 層 (topics.json filter L693-694) で隠していたが、DynamoDB には残り続け lifecycle の `score<20 AND lastArticleAt=0` 条件も満たさず永遠にゾンビ化。
+
+**修正 (3層の物理ゲート)**:
+1. **fetcher**: ① unique URL 数<2 のクラスタは META/SNAP を書かない (cluster_utils 改修不要、handler.py L334 直後に gate)。② saved_ids の各トピックに対して detail JSON 雛形を即座に S3 に生成 (META と同期保証)。③ topics.json 公開直前に detail JSON が無いトピックを除外する二重防御。
+2. **lifecycle**: ① articleCount<2 のメタは無条件削除 (is_truly_inactive 判定の前に gate)。② topics.json から「DynamoDB META が無い」トピック + 「detail JSON が無い」トピックを毎サイクル除去。
+3. **検証**: scripts/verify_effect.sh に empty_topics 追加。articleCount<2 率 + detail_missing 率の両方が閾値以下で PASS。
+
+**仕組み的対策 (3つ以上)**:
+- 物理ゲート①: fetcher 側で「unique URL 2件未満のクラスタは META 書かない」
+- 物理ゲート②: fetcher 側で「detail JSON 雛形を META と同時生成」 (META = detail JSON 不変条件)
+- 物理ゲート③: topics.json 公開直前に detail 存在を head_object で確認する二重防御
+- 物理ゲート④: lifecycle が articleCount<2 + DynamoDB META 欠損 + detail JSON 欠損を毎サイクル掃除
+- 外部観測: scripts/verify_effect.sh empty_topics で本番 URL を直接叩いて 0% を計測
+
+**即時対処の結果**: scripts/oneoff/cleanup_empty_topics.py で DynamoDB から 9680 件のゾンビ META + 1134 件の追加メタ + 全関連 SNAP を削除 (合計約 770K 行)。topics.json/topics-full.json/topics-card.json から欠損 tid を除去。
+
+**検証**: `Verified-Effect: empty_topics articleCount<2=0.0%(0/96) detail_missing=0.0%(0/96) threshold=0% PASS @ 2026-04-28T11:17+0900`

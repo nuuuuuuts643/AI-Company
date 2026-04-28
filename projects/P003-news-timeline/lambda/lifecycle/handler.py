@@ -166,6 +166,9 @@ def lambda_handler(event, context):
     # (Google News に SEO 信頼度を毀損する状態が継続)。
     deleted_tids = set()
 
+    # T2026-0428-AK: 空トピック (articleCount<2) を物理削除する集計用カウンタ。
+    empty_deleted_count = 0
+
     for item in items:
         topic_id  = item.get('topicId', '')
         score     = int(item.get('score', 0))
@@ -174,6 +177,47 @@ def lambda_handler(event, context):
         # すでに legacy → lifecycle Lambda では触らない（fetcher も上書きしない設計）
         if lifecycle == 'legacy':
             legacy_count += 1
+            continue
+
+        # T2026-0428-AK: articleCount<2 のトピックを即削除する。
+        # 背景:
+        #   - cluster_utils.cluster() が singleton(=1記事) クラスタを返していたため、
+        #     fetcher は articleCount=1 の META を DynamoDB に書いていた。
+        #   - 既存 UI フィルタ (fetcher handler.py L693-694) では articleCount>=2 のみ
+        #     topics.json に出すが、DynamoDB には残り続けるため累積ゾンビが発生
+        #     (本番計測で 9680件 / 11882件 = 81% がゾンビ)。
+        #   - lifecycle の従来ロジック (is_truly_inactive) は lastArticleAt>0 のうちは
+        #     ARCHIVE_DAYS 経過まで掃除しないため、articleCount<2 ゾンビが永続化していた。
+        # 物理ゲート: メタ・SNAP・S3 detail JSON を一括削除し、topics.json からも除去する。
+        # 並行して fetcher 側で articleCount<2 を新規生成しないガードを入れている。
+        article_count = int(item.get('articleCount', 0) or 0)
+        if article_count < 2:
+            if deleted_count + empty_deleted_count >= DELETION_CAP:
+                skipped_count += 1
+                continue
+            del_keys = []
+            del_kwargs = {'KeyConditionExpression': DKey('topicId').eq(topic_id),
+                          'ProjectionExpression': 'topicId, SK'}
+            while True:
+                r = table.query(**del_kwargs)
+                del_keys.extend({'topicId': ti['topicId'], 'SK': ti['SK']} for ti in r.get('Items', []))
+                if not r.get('LastEvaluatedKey'):
+                    break
+                del_kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
+            with table.batch_writer() as bw:
+                for k in del_keys:
+                    bw.delete_item(Key=k)
+            try:
+                s3.delete_object(Bucket=S3_BUCKET, Key=f'api/topic/{topic_id}.json')
+            except Exception:
+                pass
+            try:
+                s3.delete_object(Bucket=S3_BUCKET, Key=f'topics/{topic_id}.html')
+            except Exception:
+                pass
+            empty_deleted_count += 1
+            deleted_tids.add(topic_id)
+            print(f"[empty-deleted] topicId={topic_id} articleCount={article_count} items={len(del_keys)}")
             continue
 
         # 活動停止していないトピックは7日超SNAPだけ削除してスキップ
@@ -310,33 +354,87 @@ def lambda_handler(event, context):
     # processor の sitemap 生成は topics.json を読むため orphan tid を sitemap に書き出す。
     # 結果: news-sitemap.xml の URL が本番で 404 → Google News の SEO 信頼度低下。
     # 物理ゲート: 削除 tid を topics.json/topics-full.json/topics-card.json から同時に削除する。
+    #
+    # T2026-0428-AK 拡張: detail JSON が S3 に存在しないトピックも除外する。
+    # 背景: fetcher が topics.json を生成 → processor が AI 結果を上書き保存する流れだが、
+    # processor が backfill_missing_detail_json で補完しても META が消えているトピックは
+    # 補完できず topics.json に残り続ける。本番で 12/109 件 (11%) が detail 欠損で 404。
+    # 物理ゲート: 毎サイクル detail JSON 存在チェック + DynamoDB META 存在チェックで両側除去。
     topics_json_cleaned = 0
-    if deleted_tids:
-        for key in ('api/topics.json', 'api/topics-full.json', 'api/topics-card.json'):
+
+    # detail JSON の存在を判定するヘルパ
+    def _detail_json_exists(tid: str) -> bool:
+        try:
+            s3.head_object(Bucket=S3_BUCKET, Key=f'api/topic/{tid}.json')
+            return True
+        except Exception:
+            return False
+
+    # DynamoDB META の存在を一括判定（batch_get_item）
+    def _meta_exists_set(tids: list) -> set:
+        existing = set()
+        for i in range(0, len(tids), 100):
+            chunk = tids[i:i+100]
+            keys = [{'topicId': t, 'SK': 'META'} for t in chunk]
             try:
-                resp = s3.get_object(Bucket=S3_BUCKET, Key=key)
-                data = json.loads(resp['Body'].read())
-                topics = data.get('topics', []) if isinstance(data, dict) else data
-                before = len(topics)
-                topics = [t for t in topics if t.get('topicId') not in deleted_tids]
-                after = len(topics)
-                if before != after:
-                    if isinstance(data, dict):
-                        data['topics'] = topics
-                        if 'count' in data:
-                            data['count'] = after
-                        body = json.dumps(data, ensure_ascii=False).encode('utf-8')
-                    else:
-                        body = json.dumps(topics, ensure_ascii=False).encode('utf-8')
-                    s3.put_object(
-                        Bucket=S3_BUCKET, Key=key, Body=body,
-                        ContentType='application/json',
-                        CacheControl='max-age=60, must-revalidate',
-                    )
-                    topics_json_cleaned += (before - after)
-                    print(f"[topics-json-sync] {key}: {before} -> {after} (-{before-after})")
-            except Exception as e:
-                print(f"[topics-json-sync] {key} error: {e}")
+                resp = dynamodb.batch_get_item(
+                    RequestItems={TABLE: {'Keys': keys, 'ProjectionExpression': 'topicId'}}
+                )
+                for it in resp.get('Responses', {}).get(TABLE, []):
+                    existing.add(it['topicId'])
+            except Exception:
+                # エラー時は安全側に倒して全件 existing 扱い（誤削除防止）
+                for t in chunk:
+                    existing.add(t)
+        return existing
+
+    for key in ('api/topics.json', 'api/topics-full.json', 'api/topics-card.json'):
+        try:
+            resp = s3.get_object(Bucket=S3_BUCKET, Key=key)
+            data = json.loads(resp['Body'].read())
+            topics = data.get('topics', []) if isinstance(data, dict) else data
+            before = len(topics)
+
+            # 削除済み tid を除去
+            removal_ids = set(deleted_tids)
+
+            # DynamoDB META が無いトピックを検出
+            all_tids = [t.get('topicId') for t in topics if t.get('topicId')]
+            existing_metas = _meta_exists_set(all_tids)
+            for tid in all_tids:
+                if tid not in existing_metas:
+                    removal_ids.add(tid)
+
+            # detail JSON が無いトピックを検出（topics.json と topics-full.json のみ。
+            # topics-card.json は同じ tid 集合で判定するため重複呼び出しを避ける）
+            if key == 'api/topics.json':
+                for tid in all_tids:
+                    if tid in removal_ids:
+                        continue
+                    if not _detail_json_exists(tid):
+                        removal_ids.add(tid)
+                        # detail 欠損 tid は他 JSON からも除外させるため deleted_tids に追記
+                        deleted_tids.add(tid)
+
+            topics = [t for t in topics if t.get('topicId') not in removal_ids]
+            after = len(topics)
+            if before != after:
+                if isinstance(data, dict):
+                    data['topics'] = topics
+                    if 'count' in data:
+                        data['count'] = after
+                    body = json.dumps(data, ensure_ascii=False).encode('utf-8')
+                else:
+                    body = json.dumps(topics, ensure_ascii=False).encode('utf-8')
+                s3.put_object(
+                    Bucket=S3_BUCKET, Key=key, Body=body,
+                    ContentType='application/json',
+                    CacheControl='max-age=60, must-revalidate',
+                )
+                topics_json_cleaned += (before - after)
+                print(f"[topics-json-sync] {key}: {before} -> {after} (-{before-after})")
+        except Exception as e:
+            print(f"[topics-json-sync] {key} error: {e}")
 
     # ---- filter-feedback S3 クリーンアップ ----
     try:
@@ -349,6 +447,8 @@ def lambda_handler(event, context):
     summary = (
         f"Lifecycle sweep: {legacy_count} legacy, "
         f"{archived_count} archived, {deleted_count} deleted, "
+        f"{empty_deleted_count} empty(articleCount<2) deleted, "
+        f"{topics_json_cleaned} topics.json entries cleaned, "
         f"{skipped_count} skipped (active/cooling, {old_snap_deleted} old SNAPs cleaned) | "
         f"feedback-cleanup: {fb_deleted} files"
     )
