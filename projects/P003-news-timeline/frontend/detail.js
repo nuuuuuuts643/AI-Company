@@ -499,13 +499,27 @@ function renderDetail(data) {
 
       aiAnalysisEl.style.display = 'block';
     } else {
-      // AI処理待ち
-      const cnt = displayArticleCount || 1;
+      // T2026-0428-AJ: AI 未処理 / 初回トピックでも「要約セクションの形」を必ず見せる。
+      // 要約エリア自体を消さず、要点プレースホルダー＋次回更新時刻＋追跡中ソース。
+      const cnt = displayArticleCount || (Number(meta.articleCount) || 1);
       const sources = (meta.sources || []).slice(0, 3).join('・');
+      const titleFallback = esc(meta.topicTitle || meta.generatedTitle || meta.title || '');
       aiAnalysisEl.innerHTML = `
         <div class="ai-analysis-inner ai-pending">
-          <span class="ai-pending-icon">⏳</span>
-          <span>AI分析を準備中です。次の更新: ${getNextUpdateTime()}。${cnt}件の記事を追跡中${sources ? `（${sources} ほか）` : ''}。</span>
+          <div class="ai-section ai-section-keypoint">
+            <div class="ai-section-label">📌 要点</div>
+            <div class="ai-section-body" style="color:var(--text-muted);font-style:italic;line-height:1.7;">
+              ${titleFallback ? `「${titleFallback}」について` : ''}AIが要点を分析中です。
+              <br>初回スナップショット完了後、次の更新（${getNextUpdateTime()}）で要約が生成されます。
+            </div>
+          </div>
+          <hr class="ai-zone-divider" aria-hidden="true">
+          <div class="ai-section">
+            <div class="ai-section-label">📊 追跡状況</div>
+            <div class="ai-section-body" style="font-size:.85rem;color:var(--text-muted);">
+              <span class="ai-pending-icon">⏳</span> ${cnt}件の記事を追跡中${sources ? `（${sources} ほか）` : ''}。
+            </div>
+          </div>
         </div>`;
       aiAnalysisEl.style.display = 'block';
     }
@@ -520,27 +534,19 @@ function renderDetail(data) {
   const noData = document.getElementById('no-data');
   if (canvas) {
     const chartCard = canvas.closest('.card');
-    if (timeline.length < 2) {
-      // データ不足時: 隠さず「正直に表示」(2026-04-27 思想に沿った変更)
+    // T2026-0428-AJ: グラフは「必ず表示」する。データが 0 件の場合のみ
+    // プレースホルダー、それ以外（1 点でも）は描画して点を出す。
+    if (timeline.length === 0) {
       if (chartCard) {
-        // 既存の chart-header / canvas を非表示にしてプレースホルダーに置換
         chartCard.querySelectorAll('canvas').forEach(c => c.style.display = 'none');
         const header = chartCard.querySelector('.chart-header');
         if (header) header.style.display = 'none';
-        if (noData) noData.style.display = 'none';  // 重複防止
-        // 既にプレースホルダーがあれば再生成しない
+        if (noData) noData.style.display = 'none';
         if (!chartCard.querySelector('.chart-placeholder')) {
           const ph = document.createElement('div');
           ph.className = 'chart-placeholder';
           ph.style.cssText = 'padding:24px 16px;text-align:center;color:var(--text-muted);font-size:.85rem;line-height:1.7;';
-          const totalViews = (views || []).reduce((s, v) => s + Number(v.count || 0), 0);
-          const viewsLine = totalViews > 0
-            ? `📊 直近の閲覧 ${totalViews} 回`
-            : '👁 まだ誰も見ていません';
-          const dataLine = timeline.length === 0
-            ? 'まだスナップショットが取られていません。'
-            : 'スナップショットが2件以上たまるとグラフが描画されます (約30分後〜)。';
-          ph.innerHTML = `<div style="font-size:1rem;margin-bottom:6px;">推移グラフ</div><div>${viewsLine}</div><div style="margin-top:6px;">${dataLine}</div>`;
+          ph.innerHTML = `<div style="font-size:1rem;margin-bottom:6px;">推移グラフ</div><div>📊 データ蓄積中（初回）</div><div style="margin-top:6px;">最初のスナップショットが取られるとグラフが描画されます（約30分後〜）。</div>`;
           chartCard.appendChild(ph);
         }
       }
@@ -568,7 +574,8 @@ function renderDetail(data) {
         const now = Date.now();
         const cutoff = rangeHours ? now - rangeHours * 3600 * 1000 : 0;
         const filtered = rangeHours ? timeline.filter(s => new Date(s.timestamp).getTime() >= cutoff) : timeline;
-        const src = filtered.length >= 2 ? filtered : timeline;
+        // T2026-0428-AJ: 1 点でも描画する。range フィルタで 0 件になったら全期間にフォールバック。
+        const src = filtered.length >= 1 ? filtered : timeline;
 
         const aggregate = rangeHours === null || rangeHours >= 72;
 
@@ -672,21 +679,11 @@ function renderDetail(data) {
           if (mapped.some(v => v !== null)) trendsValues = mapped;
         }
 
+        // T2026-0428-AJ: 「記事数の推移」は単軸（関心度の右Y軸 y2 を廃止）。
+        // 関心度は別スコアと混乱させないため Google Trends overlay のみ残す。
+        // 1 点しかないとき折れ線が引けないので pointRadius を太く。
+        const onePoint = src.length <= 1;
         if (chartInstance) chartInstance.destroy();
-        const engagementDataset = hasEngagement ? {
-          label: '関心度',
-          data: engagements,
-          yAxisID: 'y2',
-          borderColor: '#f59e0b',
-          backgroundColor: (ctx) => {
-            const {ctx: c, chartArea} = ctx.chart;
-            if (!chartArea) return 'rgba(245,158,11,0.06)';
-            const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-            g.addColorStop(0, 'rgba(245,158,11,0.18)'); g.addColorStop(1, 'rgba(245,158,11,0.01)');
-            return g;
-          },
-          borderWidth: 2, pointRadius: 2, pointHoverRadius: 5, tension: 0.4, fill: true,
-        } : null;
         const trendsDataset = trendsValues ? {
           label: '検索関心度',
           data: trendsValues,
@@ -712,8 +709,7 @@ function renderDetail(data) {
               g.addColorStop(0, 'rgba(78,201,192,.35)'); g.addColorStop(1, 'rgba(78,201,192,.02)');
               return g;
             },
-            borderWidth: 2, pointRadius: 3, pointHoverRadius: 6, tension: 0.4, fill: true },
-          ...(engagementDataset ? [engagementDataset] : []),
+            borderWidth: 2, pointRadius: onePoint ? 6 : 3, pointHoverRadius: 7, tension: 0.4, fill: true },
           ...(trendsDataset ? [trendsDataset] : []),
         ];
         chartInstance = new Chart(canvas.getContext('2d'), {
@@ -725,7 +721,6 @@ function renderDetail(data) {
             plugins: { legend: { display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}, color: cc.tick} }, zoom: zoomOpts },
             scales: {
               y: { ...makeScaleY0(mediaCnts), position: 'left' },
-              ...(hasEngagement ? { y2: makeScaleY0Right(engagements) } : {}),
               ...(trendsValues ? { yTrends: {
                 position: 'right', min: 0, max: 100,
                 ticks: { precision: 0, maxTicksLimit: 5, color: cc.tick },
@@ -736,7 +731,8 @@ function renderDetail(data) {
         });
 
         if (vCanvas) {
-          // スコアの推移（トピックの「熱量」が上がって落ち着く様子を可視化）
+          // T2026-0428-AJ: 注目スコア = velocityScore ベース。1 点しかない場合も
+          // 点は出す（pointRadius 大）。データ蓄積中の注記を canvas 親要素に追加。
           const scoreLabel = aggregate ? '注目スコア（日次最大）' : '注目スコア';
           if (viewsChartInstance) viewsChartInstance.destroy();
           viewsChartInstance = new Chart(vCanvas.getContext('2d'), {
@@ -750,7 +746,7 @@ function renderDetail(data) {
                 g.addColorStop(0, 'rgba(59,181,172,.4)'); g.addColorStop(1, 'rgba(59,181,172,.02)');
                 return g;
               },
-              borderWidth:2, pointRadius:3, pointHoverRadius:6, tension:0.4, fill:true }]},
+              borderWidth:2, pointRadius: onePoint ? 6 : 3, pointHoverRadius:7, tension:0.4, fill:true }]},
             options: {
               responsive: true, maintainAspectRatio: false,
               interaction: { mode:'index', intersect:false },
@@ -758,6 +754,20 @@ function renderDetail(data) {
               scales: { y: makeScaleY0(scores) },
             },
           });
+
+          // 1 点しかない場合「データ蓄積中」の注記をグラフ下に追加（重複生成しない）
+          const vCol = vCanvas.closest('.chart-col');
+          if (vCol) {
+            const NOTE_CLS = 'chart-data-note';
+            vCol.querySelectorAll('.' + NOTE_CLS).forEach(el => el.remove());
+            if (onePoint) {
+              const note = document.createElement('p');
+              note.className = NOTE_CLS;
+              note.style.cssText = 'margin:6px 0 0;font-size:.72rem;color:var(--text-muted);text-align:center;';
+              note.textContent = '📊 データ蓄積中（30分ごとに更新）';
+              vCol.appendChild(note);
+            }
+          }
         }
       };
 
@@ -812,9 +822,14 @@ function renderDetail(data) {
 
   const storyEl = document.getElementById('story-timeline');
   try {
-  if (!timeline.length) {
-    const storyCard = storyEl && storyEl.closest('.card');
-    if (storyCard) storyCard.style.display = 'none';
+  // T2026-0428-AJ: timeline=0 でも「記事の流れ」カードは消さない。
+  // 取得中プレースホルダーで利用者に状態を見せる。
+  if (!timeline.length && storyEl) {
+    storyEl.innerHTML = `
+      <div class="topic-empty-placeholder" style="padding:18px 12px;text-align:center;color:var(--text-muted);font-size:.85rem;line-height:1.6;">
+        📥 記事データを取得中です。<br>
+        最新のスナップショットがまだ届いていません（30分ごとに更新）。
+      </div>`;
   }
   if (storyEl && timeline.length) {
     const seenUrls = new Set();
@@ -832,11 +847,14 @@ function renderDetail(data) {
     });
     allArticles.sort((a, b) => new Date(b._snapTs) - new Date(a._snapTs));
 
-    // 全スナップのarticlesが空の場合（旧形式SNAPまたはSNAP期限切れ）はタイムラインカードを非表示
+    // 全スナップのarticlesが空の場合（旧形式SNAPまたはSNAP期限切れ）はプレースホルダー表示
+    // T2026-0428-AJ: カード自体は消さない（「常にグラフ／要約／流れを見せる」要件）
     if (!allArticles.length) {
-      const storyCard = storyEl && storyEl.closest('.card');
-      if (storyCard) storyCard.style.display = 'none';
-      // related-articlesは後続ロジック(candidates=[])で自動的に非表示になる
+      storyEl.innerHTML = `
+        <div class="topic-empty-placeholder" style="padding:18px 12px;text-align:center;color:var(--text-muted);font-size:.85rem;line-height:1.6;">
+          🗂 記事の中身を再取得中です。<br>
+          スナップショットの再構築をお待ちください。
+        </div>`;
     }
 
     const totalCount = allArticles.length;
@@ -963,7 +981,11 @@ function renderDetail(data) {
         }
       }
       if (!candidates.length) {
-        if (relatedCard) relatedCard.style.display = 'none';
+        // T2026-0428-AJ: 関連記事カードも消さずに状態を見せる
+        relatedEl.innerHTML = `
+          <div class="topic-empty-placeholder" style="padding:14px 12px;text-align:center;color:var(--text-muted);font-size:.82rem;">
+            関連記事は記事の流れに統合表示しています。
+          </div>`;
       } else {
         // ソース多様性を優先してピック（最大3件）
         const picked = [];
@@ -1005,12 +1027,14 @@ function renderDetail(data) {
 
   }
 
-  // timeline=0 の場合は関連記事枠ごと非表示
+  // T2026-0428-AJ: timeline=0 でも関連記事カードは残し、プレースホルダー表示。
   if (!timeline.length) {
     const relatedFallback = document.getElementById('related-articles');
-    if (relatedFallback) {
-      const card = relatedFallback.closest('.card');
-      if (card) card.style.display = 'none';
+    if (relatedFallback && !relatedFallback.innerHTML.trim()) {
+      relatedFallback.innerHTML = `
+        <div class="topic-empty-placeholder" style="padding:14px 12px;text-align:center;color:var(--text-muted);font-size:.82rem;">
+          関連記事は記事データ取得後に表示されます。
+        </div>`;
     }
   }
   } catch(e) { console.error('storyEl/related rendering error:', e); }
