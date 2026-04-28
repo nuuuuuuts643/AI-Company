@@ -191,6 +191,28 @@ def lambda_handler(event, context):
     if effective_max_api_calls != MAX_API_CALLS:
         print(f'[Processor] MAX_API_CALLS オーバーライド: {MAX_API_CALLS} → {effective_max_api_calls} (source={source})')
 
+    # T237 (2026-04-29): fetcher_trigger 経路で空き API budget を keyPoint backfill に使う。
+    # 背景: scheduled cron は 1日2回 (08:00 + 17:00 JST) しか走らず、keyPoint < 100字 の
+    # 既存 topic 補完が 1日 60件 (=2cron×30) しか進まない。fetcher は 30分ごとに走るが、
+    # ゴーストID率が高く実処理対象が極めて少ない (実測 0〜1件/run)。
+    # 結果: 92件の短い keyPoint topic が滞留し、本番 keyPoint 充填率 1.9% で停滞。
+    # 修正: fetcher_trigger 経路で「指定 IDs 数 < effective_max_api_calls」のとき、
+    # 空き枠を get_pending_topics() の優先度順 backfill で埋める。
+    # コスト中立: effective_max_api_calls (=fetcher_trigger なら 10) が上限なので、
+    # 全体の API 呼び出し回数は増えない (ゴーストID で空いた枠の活用)。
+    if topic_id_filter and len(pending) < effective_max_api_calls:
+        backfill_budget = effective_max_api_calls - len(pending)
+        try:
+            backfill = get_pending_topics(max_topics=backfill_budget)
+            existing_ids = {p.get('topicId') for p in pending}
+            backfill_added = [b for b in backfill if b.get('topicId') not in existing_ids][:backfill_budget]
+            if backfill_added:
+                pending.extend(backfill_added)
+                print(f'[Processor] fetcher_trigger backfill: 空き枠 {backfill_budget}件 → '
+                      f'{len(backfill_added)}件追加 (合計 {len(pending)}件処理対象)')
+        except Exception as e:
+            print(f'[Processor] fetcher_trigger backfill 失敗 (継続): {e}')
+
     api_calls      = 0
     processed      = 0
     skipped        = 0
