@@ -83,8 +83,16 @@ BSKY_MAX_CHARS = 300
 
 # 日次投稿クールタイム時間（30分間隔発火に対する実投稿レート制御）
 # ワークフローを */30 * * * * で発火させてcron遅延を吸収するが、
-# 実投稿は4時間に最大1回 ＝ 1日6回までに抑える（過剰投稿防止）。
-DAILY_COOLDOWN_HOURS = 4
+# 実投稿は 2.5時間に最大1回 ＝ 1日9〜10回までに抑える（スパム認定回避の上限目安）。
+DAILY_COOLDOWN_HOURS = 2.5
+
+# T2026-0428-AS: 初回 AI 要約完了 → 即時投稿 (debut) 用の S3 pending マーカープレフィックス。
+# processor Lambda が初回 AI 要約成功時に bluesky/pending/{topicId}.json を書き込み、
+# bluesky_agent が次の cron tick (≤30分後) で消費して投稿する。
+# 注目度ベースの定期投稿 (post_daily) とは完全に独立した別トリガー。
+BLUESKY_PENDING_PREFIX  = 'bluesky/pending/'
+DEBUT_MARKER_TTL_HOURS  = 24    # これより古いマーカーは破棄 (リトライ無限ループ防止)
+DEBUT_MAX_PER_RUN       = 1     # 1 cron tick で投稿する debut 件数の上限 (スパム回避)
 
 # ── AWS クライアント ───────────────────────────────────────────────────────────
 dynamodb = boto3.resource('dynamodb', region_name=REGION)
@@ -668,6 +676,174 @@ def post_monthly(client, dry_run=False):
     print('[bluesky_agent] 月次投稿 完了')
 
 
+# ── 初回投稿 (debut): 新規トピック AI 要約完了の即時通知 ──────────────────────
+
+def list_debut_pending() -> list:
+    """
+    S3 bluesky/pending/*.json の pending マーカーを古い順に取得する。
+
+    Returns:
+      [{'key': S3 key, 'topicId': str, 'createdAt': iso str}, ...]  古い→新しい順
+      取得失敗時は空配列。
+    """
+    items = []
+    try:
+        paginator = s3.get_paginator('list_objects_v2')
+        for page in paginator.paginate(Bucket=S3_BUCKET, Prefix=BLUESKY_PENDING_PREFIX):
+            for obj in page.get('Contents', []):
+                key = obj['Key']
+                try:
+                    body = s3.get_object(Bucket=S3_BUCKET, Key=key)['Body'].read()
+                    data = json.loads(body)
+                    if data.get('topicId'):
+                        items.append({
+                            'key':       key,
+                            'topicId':   data['topicId'],
+                            'createdAt': data.get('createdAt', ''),
+                        })
+                except Exception as e:
+                    print(f'[bluesky_agent] pending マーカー読込失敗 ({key}): {e}')
+    except Exception as e:
+        print(f'[bluesky_agent] pending マーカー一覧取得失敗: {e}')
+        return []
+
+    items.sort(key=lambda x: x['createdAt'])
+    return items
+
+
+def delete_debut_marker(key: str):
+    """投稿済 or 期限切れマーカーを削除する。"""
+    try:
+        s3.delete_object(Bucket=S3_BUCKET, Key=key)
+    except Exception as e:
+        print(f'[bluesky_agent] マーカー削除失敗 ({key}): {e}')
+
+
+def post_debut(client, dry_run: bool = False) -> bool:
+    """
+    新規トピックの初回 AI 要約完了マーカー (bluesky/pending/) を 1 件投稿する。
+
+    定期投稿 (post_daily) と完全に独立したトリガー:
+      - 注目度フィルタなし (新トピック登場の通知が目的)
+      - DAILY_COOLDOWN_HOURS の影響を受けない (mode='debut' で別系統管理)
+      - 1 cron tick につき 1 件まで (DEBUT_MAX_PER_RUN)
+      - DEBUT_MARKER_TTL_HOURS を超えた古いマーカーは投稿せず破棄
+
+    Returns:
+      True  = 投稿（または dry-run 出力）した。同 tick の定期投稿はスキップ推奨。
+      False = 対象なし。呼び出し側は通常の mode 別投稿に進んでよい。
+    """
+    print('[bluesky_agent] 初回投稿 (debut) チェック 開始')
+
+    pending = list_debut_pending()
+    if not pending:
+        print('[bluesky_agent] 初回投稿対象なし (pending マーカー 0 件)')
+        return False
+
+    # 期限切れマーカーを物理削除 (リトライ無限ループ防止)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=DEBUT_MARKER_TTL_HOURS)
+    fresh = []
+    for m in pending:
+        try:
+            ca = datetime.fromisoformat(m['createdAt'].replace('Z', '+00:00'))
+        except Exception:
+            print(f'[bluesky_agent] 不正な createdAt のため破棄: {m["topicId"][:8]}...')
+            delete_debut_marker(m['key'])
+            continue
+        if ca < cutoff:
+            print(f'[bluesky_agent] 期限切れマーカー破棄 ({DEBUT_MARKER_TTL_HOURS}h超): {m["topicId"][:8]}...')
+            delete_debut_marker(m['key'])
+            continue
+        fresh.append(m)
+
+    if not fresh:
+        print('[bluesky_agent] 初回投稿対象なし (期限内マーカー 0 件)')
+        return False
+
+    # 既に debut 投稿済みの topicId を除外 (重複投稿防止)
+    posted_debut_ids = get_recent_posted_ids('debut', limit=50)
+
+    # topics.json から最新メタを取得 (limit を大きめに: pending は順不同でランクが低くても拾う)
+    topics_index = {t.get('topicId'): t for t in get_topics_from_s3(limit=500, sort_by='velocity')}
+
+    posted_count = 0
+    for m in fresh:
+        if posted_count >= DEBUT_MAX_PER_RUN:
+            break
+
+        tid = m['topicId']
+
+        # 投稿済みなら無条件にマーカー削除
+        if tid in posted_debut_ids:
+            print(f'[bluesky_agent] 既投稿につきマーカー削除: {tid[:8]}...')
+            delete_debut_marker(m['key'])
+            continue
+
+        topic = topics_index.get(tid)
+        if not topic:
+            # topics.json に居ない (アーカイブ等) → マーカー削除
+            print(f'[bluesky_agent] topics.json 不在につきマーカー削除: {tid[:8]}...')
+            delete_debut_marker(m['key'])
+            continue
+
+        # 投稿可否のミニマム条件
+        if int(topic.get('articleCount', 0) or 0) < 3:
+            print(f'[bluesky_agent] 記事数不足 (<3) でリトライ保留: {tid[:8]}...')
+            continue
+        if not topic.get('generatedSummary'):
+            print(f'[bluesky_agent] 要約欠落でリトライ保留: {tid[:8]}...')
+            continue
+        if topic.get('lifecycleStatus', 'active') not in ('active', 'cooling', ''):
+            print(f'[bluesky_agent] lifecycle 対象外につきマーカー削除: {tid[:8]}...')
+            delete_debut_marker(m['key'])
+            continue
+
+        # 静的 HTML が無いとリンクカードが死ぬ → 生成待ち (マーカー残してリトライ)
+        try:
+            s3.head_object(Bucket=S3_BUCKET, Key=f'topics/{tid}.html')
+        except Exception:
+            print(f'[bluesky_agent] 静的HTML未生成でリトライ保留: {tid[:8]}...')
+            continue
+
+        title     = topic.get('generatedTitle') or topic.get('title', '')
+        summary   = topic.get('generatedSummary') or topic.get('extractiveSummary', '')
+        cnt       = int(topic.get('articleCount', 0) or 0)
+        image_url = topic.get('imageUrl') or ''
+        tag       = genre_tag(topic)
+        url       = f'{SITE_URL}/topic.html?id={tid}'
+
+        _t = truncate(title, 36)
+        hook = f'🆕 新トピック登場: {_t}\n初回スナップショットができました'
+        summary_line = f'{truncate(summary, 95)}\n\n' if summary else ''
+        post_text = (
+            f'{hook}\n\n'
+            f'{summary_line}'
+            f'📄 {cnt}件の記事 {tag} #Flotopic'
+        )
+        post_text = post_text[:BSKY_MAX_CHARS]
+
+        embed = make_link_embed(
+            client=client,
+            uri=url,
+            title=truncate(title, 80),
+            description=truncate(summary, 150),
+            image_url=image_url,
+        )
+
+        if dry_run:
+            print(f'[DRY-RUN debut] ({len(post_text)}文字):\n{post_text}\n  → リンクカード: {url}\n')
+        else:
+            resp = send_post(client, post_text, embed=embed)
+            mark_as_posted(tid, 'debut')
+            print(f'[bluesky_agent] 初回投稿完了: {resp.uri}')
+
+        delete_debut_marker(m['key'])
+        posted_count += 1
+
+    print(f'[bluesky_agent] 初回投稿 (debut) 完了: {posted_count}件投稿')
+    return posted_count > 0
+
+
 # ── メイン ───────────────────────────────────────────────────────────────────
 
 def main():
@@ -697,7 +873,12 @@ def main():
         sys.exit(1)
 
     try:
-        if args.mode == 'daily':
+        # T2026-0428-AS: 初回投稿 (debut) チェックを mode 問わず先に実行する。
+        # 同一 cron tick で 2 件投稿しないため、debut が走ったら定期投稿はスキップ。
+        debut_posted = post_debut(client, dry_run=args.dry_run)
+        if debut_posted:
+            print(f'[bluesky_agent] debut 投稿実行のため mode={args.mode} の定期投稿は次回 tick へ繰り越し')
+        elif args.mode == 'daily':
             post_daily(client, dry_run=args.dry_run)
         elif args.mode == 'weekly':
             post_weekly(client, dry_run=args.dry_run)
