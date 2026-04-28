@@ -102,3 +102,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T254 JS/CSS content-hash キャッシュ最適化 | infra | .github/workflows/deploy-p003.yml, frontend/*.html | 2026-04-29 06:55 | yes |
+| [Code] T2026-0428-K session_bootstrap.sh --dry-run CI化 | infra | scripts/session_bootstrap.sh, .github/workflows/env-scripts-dryrun.yml | 2026-04-29 06:55 | yes |
+| [Code] T2026-0428-AF タイトルmarkdown残骸strip | bug | lambda/processor/proc_storage.py | 2026-04-29 06:55 | yes |
