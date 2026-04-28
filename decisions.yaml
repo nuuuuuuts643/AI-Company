@@ -37,3 +37,24 @@ decisions:
     context: "実装した≠動いている。Verified行必須"
     recheck_after_days: 365
     doc: "CLAUDE.md"
+
+  - id: D006
+    title: "トピック詳細ページは注目度ゾーンとコンテンツゾーンを分離"
+    decided_at: "2026-04-28"
+    context: "注目度（グラフ）とコンテンツ（状況解説・見解・予想）を別ゾーンで表示。なぜ今かはAIではなくデータが示す。2026-04-28ナオヤとの設計議論で確定"
+    recheck_after_days: 180
+    doc: "docs/flotopic-vision-roadmap.md"
+
+  - id: D007
+    title: "ストーリー分岐はセマンティック関連性で判断"
+    decided_at: "2026-04-28"
+    context: "関連トピックの決定は注目度スコアではなくコンテンツのセマンティック関連性（エンティティ・因果・テーマ重複）で行う。注目度と内容は別軸"
+    recheck_after_days: 180
+    doc: "docs/flotopic-vision-roadmap.md"
+
+  - id: D008
+    title: "Bluesky投稿は注目度スコアで選定（重複防止4件）"
+    decided_at: "2026-04-28"
+    context: "velocityScoreの高いトピックを優先。直近4件重複スキップ。Google Trends不安定時はhybridスコア。記事数だけでは注目度を正確に測れない"
+    recheck_after_days: 90
+    doc: "docs/flotopic-vision-roadmap.md"
