@@ -11,10 +11,10 @@
 > 現在進行中フェーズ・直近のナオヤ指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**現在のフェーズ**: **フェーズ2（AI品質改善）着手可能** — フェーズ1 完了 (2026-04-28 PM branch protection 設定済み確認)
+**現在のフェーズ**: **フェーズ2（AI品質改善）進行中** — PR #10 マージ済 + T2026-0429-KP 根本対策 landed
 **直近のナオヤ指示** (2026-04-29): 「p003巡回を自律的に動かせ」「完成度上げてくれ」
-**次のアクション**: PR #10 マージ待ち（E2-2 pending_ai.json 24→942件修正 + proc_storage.py 自動回復ロジック）。マージ後 Lambda 自動デプロイ → 翌朝 cron 結果で keyPoint 充填率を再測定（目標 70%）。次タスク: T2026-0428-AH (storyPhase発端 skip条件追加) または T2026-0428-O (Tier-0 大規模クラスタ予算確保)
-**最終更新**: 2026-04-29 JST（E2-2 完了・PR #10 作成・dispatch-schedule-prompt.md 5ステップ構造に改版）
+**次のアクション**: cron 結果検証待ち — (1) PR #10 (commit 69a6505) マージ済で pending_ai.json 24→942 補充 + 自動回復ロジック稼働中、(2) T2026-0429-KP (commit 5e55d7d) で aiGenerated=True/keyPoint 空 536 件の 2 層原因 (Layer A: title-only ゲート / Layer B: handler-storage 判定統一) に根本対策 landed。06:00 JST quality_heal cron + 5 回/日 processor cron 実行後に DDB scan で keyPoint 充填率 (200〜300字 schema 要件) を再測定。改善確認後の次候補: T2026-0428-E (AI 4 軸化・proc_ai.py schema 改修) 🔴 高 / T2026-0428-AH/O は完了済。
+**最終更新**: 2026-04-29 02:12 JST（自律巡回観測・WORKING.md 並走 0 件確認 / git log で T2026-0428-AH/O 完了確認）
 
 ---
 
