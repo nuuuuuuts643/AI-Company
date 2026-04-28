@@ -15,16 +15,16 @@
 > **選定基準**: ユーザー体験に直結・安定性・AI品質・収益に近い順。
 > **整理日**: 2026-04-28 PM (T2026-0428-AX で実装済タスク除去 + フェーズ1 新規完了条件タスク追加)
 
-### フェーズ1 完了条件タスク（最優先・docs/project-phases.md §B/§C/§D）
+### フェーズ1 完了条件タスク（2026-04-28 PM 完了）
 
-> **状態**: コード側は全 landing 済 (BA/BB/BC/BD/BF + AY 文書化部分)。残るは GitHub UI でのナオヤ手動操作 2 件のみ。
+> **状態**: 全項目 landing 完了。フェーズ1 完了 → フェーズ2 着手可能。
 
-#### 🚨 ナオヤ手動対応待ち（GitHub UI でのみ実施可能）
+#### ✅ 完了済（ナオヤ GitHub UI 設定 2026-04-28 PM 実施 + 本セッションで gh API 実測確認済）
 
-| ID | 優先 | 内容 | 操作場所 | 追加日 |
-|---|---|---|---|---|
-| T2026-0428-AY | 🔴 高 | **develop / main ブランチ分離 + branch protection** — main へ直接 push 禁止 / PR 経由のみ。GitHub Settings → Branches → main の rule で「Require a pull request before merging」を ON | https://github.com/nuuuuuuts643/AI-Company/settings/branches | 2026-04-28 |
-| T2026-0428-AY-2 | 🔴 高 | **CI 全パス必須化** — branch protection の required status checks に CI の全 job を登録。「Require status checks to pass before merging」を ON + 各 job 名選択 | 同上 | 2026-04-28 |
+| ID | 内容 | 確認方法 |
+|---|---|---|
+| ~~T2026-0428-AY~~ | **develop / main ブランチ分離 + branch protection** | `gh api repos/nuuuuuuts643/AI-Company/branches/main/protection` → `required_pull_request_reviews.required_approving_review_count=1` 確認済 |
+| ~~T2026-0428-AY-2~~ | **CI 全パス必須化** | required_status_checks に 5 件 (`lint-frontend` / `lint-lambda` / `lint-scripts` / `CLAUDE.md 250 行ガード` / `check`) + `strict=true` 確認済 |
 
 #### 残りのフェーズ1 補強タスク（コード対応）
 
@@ -34,7 +34,11 @@
 
 ### AI 品質・体験（フェーズ2/3）
 
-> **着手条件**: フェーズ1 の branch protection (ナオヤ手動 2 件) が landing してから着手。
+> **着手条件**: フェーズ1 完了済 (2026-04-28 PM)。フェーズ2 着手可能。
+> **2026-04-28 PM 実測スナップショット** (`docs/project-phases.md` 参照):
+> - keyPoint 充填率 **10.02%** (107/1068) — 目標 70% 超に対し 60pt 不足
+> - storyPhase 発端 articleCount≥3 **18.75%** (33/176) — 目標 10% 未満に対し 8.75pt 超過
+> - PRED# 823 件あるが verdict 0 件 — judge_prediction 運用効果未発生
 
 | ID | 優先 | 軸 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|---|

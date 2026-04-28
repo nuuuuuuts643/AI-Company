@@ -4,6 +4,32 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-28 22:30 JST Code フェーズ1 完了確認 + フェーズ2 完了条件 実測スナップショット）
+
+- ✅ **T2026-0428-AY / AY-2 完了確認** — ナオヤが GitHub UI で設定した branch protection を `gh api repos/nuuuuuuts643/AI-Company/branches/main/protection` で実測確認。①PR レビュー必須 (`required_pull_request_reviews.required_approving_review_count=1`)、②required status checks 5 件登録 (`lint-frontend` / `lint-lambda` / `lint-scripts` / `CLAUDE.md 250 行ガード` / `check`) + `strict=true`、③force_push / deletions 禁止。**フェーズ1 完了**。`docs/project-phases.md` §B の ❌ を ✅ に更新。
+- ✅ **フェーズ2 完了条件 実測スナップショット (2026-04-28 22:15 JST DynamoDB scan)** — 「実測なしでの仮説での改善はやめろ」原則に基づき p003-topics 全件 (35,736 items / META=1068 トピック) を scan。結果:
+
+  | 項目 | 実測値 | 目標 | 達成 |
+  |---|---|---|---|
+  | keyPoint 充填率 | **10.02%** (107/1068) | 70% 超 | ❌ |
+  | perspectives 充填率 | 4.31% (46/1068) | — | — |
+  | outlook 充填率 | 10.39% (111/1068) | — | — |
+  | 確信度ラベル付与率 (outlook 内) | 46% (51/111) | 100% プロンプト必須 | ❌ |
+  | storyPhase 発端 articleCount≥3 | **18.75%** (33/176) | 10% 未満 | ❌ |
+  | storyPhase 付与率 | 36.0% (385/1068) | — | — |
+  | PRED# 履歴総数 | 823 件 | — | — |
+  | predictionResult=pending | 45 件 | — | — |
+  | predictionResult=matched/partial/missed | **0 件** | (運用効果) | ⚠️ judge_prediction 呼ばれてない |
+  | keyPoint 平均長 | 43.8 字 | 200〜300 字 | ❌ 短すぎ |
+
+  **発見した改善ポイント (根拠ベース)**:
+  1. keyPoint 充填率 10% は古いトピックの遡及未処理が主因。E2-2 (skip 条件見直し / Tier-0 優先処理) が最大ギャップ。
+  2. keyPoint 平均長 43.8 字でプロンプト要求 (200〜300 字) と乖離。生成失敗時のフォールバックで切り詰められている疑い。
+  3. 確信度ラベル付与率 46% — プロンプトで必須化されているが半数以上で欠落。schema validation 追加 or プロンプト再強化が必要。
+  4. judge_prediction verdict 0 件 — 7日経過+5記事閾値が厳しい、または predictionMadeAt 取り回し不具合の可能性。
+
+  E2-1 (4 構造プロンプト) は `proc_ai.py:361 keyPoint / :362 outlook / :386 perspectives / :678 judge_prediction` で実装済 = ✅ コード landing。フェーズ2 実質的にやることは E2-2 (充填率改善) と E2-4 (judge_prediction 運用化)。
+
 ### 完了済み（2026-04-28 22:00 JST Code フェーズ1 残タスク仕上げ + Dispatch 継続性改善）
 
 - ✅ **T2026-0428-BA ロールバック runbook 整備** — `docs/runbooks/rollback.md` 新設 + `.github/workflows/ci.yml:355-372` で「ファイル存在 / `aws lambda update-function-code` または `git revert` を含む」を物理検査。Lambda / Frontend / DB の 3 経路を言語化。commit: 2f45555 (2026-04-28)

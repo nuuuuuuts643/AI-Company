@@ -25,10 +25,10 @@
 - ✅ freshness-check SLI 1〜11（updatedAt / sitemap_reach 等）外部観測
 
 ### B. リリース管理・ロールバック（新規・進行中）
-- ❌ **develop / main ブランチ分離** — main は常に動く / 開発は develop でマージ → main へは「ロールバック可能な単位の commit」のみ。実装: GitHub branch protection rules で main へ直接 push 禁止 + PR 経由のみ。※ GitHub Settings で設定要・ナオヤ手動
+- ✅ **develop / main ブランチ分離** — main は常に動く / 開発は develop でマージ → main へは「ロールバック可能な単位の commit」のみ。実装: GitHub branch protection rules で main へ直接 push 禁止 + PR 経由のみ。**2026-04-28 PM ナオヤ設定完了**（`gh api repos/nuuuuuuts643/AI-Company/branches/main/protection` で `required_pull_request_reviews.required_approving_review_count=1` 確認済）
 - ✅ **git tag v1.x.x によるリリース管理** — `vYYYY.MMDD.N` 形式で push 時点の releases を tag。実装: `.github/workflows/release-tag.yml` + `scripts/tag_release.sh` で自動 tag（deploy 成功時 or 手動実行）。T2026-0428-AZ で実装済
 - ✅ **ロールバック手順の文書化** — `docs/runbooks/rollback.md` (T2026-0428-AX で新設済)。「main が壊れたら何をすれば戻るか」を Lambda（`aws lambda update-function-code` で前 tag に戻す）/ Frontend（`aws s3 sync` で前 tag に戻す）/ DB（quality_heal で再処理）の 3 経路で言語化済
-- ❌ **CI 全パス必須化** — main マージ前に CI 全 job 通過が必須（branch protection の required status checks）。※ GitHub Settings で設定要・ナオヤ手動
+- ✅ **CI 全パス必須化** — main マージ前に CI 全 job 通過が必須（branch protection の required status checks）。**2026-04-28 PM ナオヤ設定完了**（required_status_checks に `lint-frontend` / `lint-lambda` / `lint-scripts` / `CLAUDE.md 250 行ガード` / `check` の 5 件登録 + `strict=true`）
 
 ### C. Dispatch 運用安定（新規・進行中 — 2026-04-28 PM 追加）
 - ✅ **Dispatch から起動できるコードセッション = 同時 1 件まで**（Dispatch 自身を含めて 2 件以内）。新規タスクは前のコードセッション完了までキューに積む。WORKING.md の `[Code]` 行が 2 件以上ある瞬間は session_bootstrap.sh が物理 ERROR + exit 1 を出す。T2026-0428-BB で実装済（`scripts/session_bootstrap.sh:204-214`）
@@ -46,27 +46,50 @@
 - E1-2: タスク管理階層化（本ドキュメント整備・TASKS.md 整理）— ✅
 - E1-3: 観測可能性（health.json / freshness-check / SLI 整備）— ✅ SLI 1〜11
 - E1-4: 並行タスク事故防止（WORKING.md TTL / needs-push ゲート / Code 並走 ERROR 化）— ✅ T2026-0428-BB 済
-- **E1-5（新設）**: リリース管理・ロールバック（develop/main 分離・tag・runbook）— ⚠ tag/runbook 済 / branch protection ナオヤ手動待ち
+- **E1-5（新設）**: リリース管理・ロールバック（develop/main 分離・tag・runbook）— ✅ 完了（branch protection 設定済 2026-04-28 PM）
 - **E1-6（新設）**: Dispatch 運用安定（同時 1 件・並走 0 件・名前規則）— ✅ T2026-0428-BB/BF 済（判断介入ゼロのみ思想）
 - **E1-7（新設）**: 形骸化検出（横展開チェックリスト CI / soft-language grep）— ✅ T2026-0428-BC/BD 済
 
-**現在地**: A 完了。B は branch protection (ナオヤ GitHub UI 手動) のみ残。C/D はコード側全て landing 済。フェーズ 2 着手は B のナオヤ手動 2 件 (develop/main 分離・CI 必須化) が終わり次第。
+**現在地**: **フェーズ1 完了** (2026-04-28 PM)。A/B/C/D 全項目 ✅。フェーズ2 着手可能。
 
 ## フェーズ2: AI品質改善
 
-**完了条件**:
-- topics.json の keyPoint 充填率 70% 超（現在 11.5% — SLI 9 で観測中）
-- AI 生成物の 4 構造（状況解説 / 各社見解 / 注目ポイント / 予想判定）が proc_ai.py に実装済
-- 個別 topic JSON で「背景カード」相当のフィールドが設計・実装済
-- storyPhase 分布の正規化（「発端」が articleCount≥3 で 10% 未満）
+**完了条件 (2026-04-28 PM 実測値で更新)**:
+- ❌ topics.json の keyPoint 充填率 70% 超（**実測 10.02%** — 1068 META トピック中 107 件のみ）
+- ✅ AI 生成物の 4 構造（状況解説 / 各社見解 / 注目ポイント / 予想判定）が proc_ai.py に実装済 — **コードは landing**（`proc_ai.py:361` keyPoint, `:362` outlook, `:386` perspectives, `:678` judge_prediction）
+- ⚠️ 個別 topic JSON で「背景カード」相当のフィールドが設計・実装済 — proc_ai.py のスキーマには存在 (keyPoint=状況解説 200〜300字)。ただし frontend detail.js 側の表示確認が未実施
+- ❌ storyPhase 分布の正規化（「発端」が articleCount≥3 で 10% 未満） — **実測 18.75%**（storyPhase 付与済の 発端 176 件のうち articleCount≥3 が 33 件）
 
-**担当 Epic 一覧（暫定）**:
-- E2-1: AI プロンプト 4 構造化（whyNow 廃止 / 状況解説プロンプト整備）
-- E2-2: keyPoint / perspectives 充填率改善（Tier-0 優先処理 / skip 条件見直し）
-- E2-3: クラスタリング品質（同一事象の分裂解消 T212）
-- E2-4: 予想判定ロジック完成（judge_prediction の精度・運用化）
+**実測スナップショット (2026-04-28 22:15 JST 取得)**:
 
-**現在地**: フェーズ1 完了後に着手（早くても来週以降）。
+| 項目 | 実測値 | 目標 | 達成 |
+|---|---|---|---|
+| keyPoint 充填率 | 10.02% (107/1068) | 70% 超 | ❌ |
+| perspectives 充填率 | 4.31% (46/1068) | (未設定) | — |
+| outlook 充填率 | 10.39% (111/1068) | (未設定) | — |
+| 確信度ラベル付与率 (outlook 内) | 46% (51/111) | 100% (プロンプトで必須) | ❌ |
+| storyPhase 発端 articleCount≥3 | 18.75% (33/176) | 10% 未満 | ❌ |
+| storyPhase 付与トピック | 36.0% (385/1068) | (未設定) | — |
+| PRED# レコード総数 | 823 件 | — | — |
+| predictionResult=pending | 45 件 | — | — |
+| predictionResult=matched/partial/missed | **0 件** | (運用効果) | ⚠️ judge_prediction 未稼働 |
+| keyPoint 平均長 | 43.8 字 | 200〜300 字 | ❌ 短すぎ |
+| keyPoint 最大長 | 293 字 | 〜300 字 | ✅ 一部は仕様通り |
+
+**担当 Epic 一覧**:
+- E2-1: AI プロンプト 4 構造化（whyNow 廃止 / 状況解説プロンプト整備）— ✅ コード landing (proc_ai.py)
+- E2-2: keyPoint / perspectives 充填率改善（Tier-0 優先処理 / skip 条件見直し / 古いトピック再処理）— ❌ 充填率 10% で目標 70% から大きく未達
+- E2-3: クラスタリング品質（同一事象の分裂解消 T212）— 進行中
+- E2-4: 予想判定ロジック運用化（judge_prediction の精度・運用化）— ⚠️ コード実装済だが verdict 0 件 = 7日経過+5記事閾値を満たすトピックがまだ無い、または条件緩和要
+
+**実測から見える次の改善ポイント (根拠ベース)**:
+1. **keyPoint 充填率改善 (E2-2)** — 1068 件中 961 件 (90%) が空。proc_ai.py の skip 条件、または 古いトピックへの遡及適用が必要。Tier-0 優先処理は `quality_heal` 系で実装済か要確認。
+2. **keyPoint 平均長 43.8 字** — プロンプトは 200〜300 字を要求するが、平均が短すぎる。生成失敗時のフォールバックで切り詰められている可能性。
+3. **確信度ラベル付与率 46%** — プロンプトで必須化されているが、実際は半数以上で欠落。schema validation を追加するか、プロンプトを再強化する必要。
+4. **storyPhase 発端 18.75%** — クラスタリングや phase 判定で「発端」過多。E2-3 の T212 と関連。
+5. **judge_prediction 運用化 (E2-4)** — verdict が 0 件。7日経過+5記事閾値が厳しすぎるか、predictionMadeAt の取り回しに不具合の可能性。
+
+**現在地**: フェーズ1 完了。フェーズ2 着手可能。実測ベースで E2-2 (充填率改善) が最大ギャップ。
 
 ## フェーズ3: UX 改善・成長
 
