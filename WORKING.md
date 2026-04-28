@@ -90,3 +90,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0428-DOC 設計原則・ビジョン永続化 | Code | docs/flotopic-vision-roadmap.md, decisions.yaml | 2026-04-28 10:30 | no |
