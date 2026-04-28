@@ -36,7 +36,7 @@
 > **2026-04-28 PM 実測スナップショット** (`docs/project-phases.md` 参照):
 > - keyPoint 充填率 **10.02%** (107/1068) — 目標 70% 超に対し 60pt 不足
 > - storyPhase 発端 articleCount≥3 **18.75%** (33/176) — 目標 10% 未満に対し 8.75pt 超過
-> - PRED# 823 件あるが verdict 0 件 — judge_prediction 運用効果未発生
+> - PRED# 823 件あるが verdict 0 件 — judge_prediction 運用効果未発生 → ~~T2026-0428-E2-4 で根本原因 3 層特定 + 修正 (RFC2822 parser / 閾値 1d/3art / 旧 META backfill)。次回 processor run で 3 件 verdict 出る見込み~~
 
 | ID | 優先 | 軸 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|---|

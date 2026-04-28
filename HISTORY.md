@@ -4,6 +4,34 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-28 23:25 JST Code T2026-0428-E2-4 judge_prediction verdict 0 件 根本原因 3 層特定・修正）
+
+- ✅ **T2026-0428-E2-4 完了** — `predictionResult=verdict (matched/partial/missed)` 0 件の根本原因を実測ベースで 3 層特定し物理修正。**Lambda invoke ゼロ・Anthropic API ゼロ**。
+
+  **実測スナップショット (修正前)**:
+  - DynamoDB `p003-topics` META=1068 / PRED#=823 / SNAP#=33845
+  - META.predictionResult: pending=45, matched/partial/missed=**0**, 未設定=1023
+  - 全 outlook 最古経過時間 = **2.12 日** (システム自体が新しい)
+
+  **3 層原因 (各層が独立に verdict 0 件を生成)**:
+  1. **閾値 7d/5art** が data freshness 上届かない (最古 2.12d) → filter 通過 0 件
+  2. **旧 META 66 件に `predictionResult` flag 不在** (T2026-0428-J/E flag 追加前の record) → filter (`==pending`) 素通り
+  3. **`get_articles_added_after` の pubDate parser が ISO/epoch のみ対応**。RSS 由来 RFC 2822 (`'Mon, 23 Mar 2026 07:00:00'`) を silently drop → 仮に filter 通過しても `len(new_titles)=0` で skip → verdict 永遠に 0
+
+  **修正内容**:
+  - `lambda/processor/proc_storage.py`: `_parse_pubdate` ヘルパー新設 (RFC2822 / ISO 8601 / epoch 対応, `email.utils.parsedate_to_datetime` 採用)。`get_articles_added_after` を共通化
+  - `lambda/processor/proc_storage.py`: `get_topics_for_prediction_judging` default を `7d/5art → 1d/3art`
+  - `lambda/processor/handler.py:471-492`: 呼び出し側の閾値も `7d/5art → 1d/3art`、`new_titles < 5 → < 3`、`min_titles=5 → 3`
+  - `scripts/backfill_prediction_pending.py` 新設: outlook あり predictionResult 未設定 / 過去 backfill (predictionMadeAt=lastUpdated) を対象に `predictionResult='pending'`, `predictionMadeAt = firstArticleAt - 1s` を書き込む。idempotent。**実行済 66 件 update**
+  - `tests/test_parse_pubdate.py` 新設: 15 ケース boundary test (None / 空文字 / garbage / ISO Z / ISO offset / ISO naive / epoch 秒/ms/int / 0 / 負値 / RFC2822 GMT / RFC2822 no-tz / RFC2822 +0900 / 全パスで tz-aware) 全 pass
+  - `docs/lessons-learned.md`: なぜなぜ分析 (Why1〜Why5) + 仕組み的対策 6 項目 + 横展開チェックリストに `_parse_pubdate` 行追加
+
+  **Verified (実測ベース end-to-end)**:
+  - `get_topics_for_prediction_judging(min_age_days=1, min_articles=3)` 戻り値: 6 件
+  - うち `len(new_titles) >= 3` で **judge_prediction まで到達: 3 件** (e4aad92f67c5 art=14 new=5 / e8c00a66cc61 art=5 new=4 / 0c0cb5c996e8 art=3 new=3)
+  - 次回 processor run で 3 件分の Anthropic API call → verdict (matched/partial/missed) が DynamoDB 反映予定
+  - **Pre-fix=0 verdicts → Post-fix=3 verdicts/run** の差分を実測で確認
+
 ### 完了済み（2026-04-28 23:10 JST Code T2026-0428-BI CI コスト削減 — cron 頻度・scan 分離）
 
 - ✅ **T2026-0428-BI 完了** — GitHub Actions 実行コスト・DynamoDB scan コストを実測で削減。**Lambda invoke ゼロ・Anthropic API ゼロ**。
