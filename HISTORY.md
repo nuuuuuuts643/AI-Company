@@ -1829,3 +1829,13 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T2026-0428-AY-2~~ | **CI 全パス必須化** | required_status_checks に 5 件 (`lint-frontend` / `lint-lambda` / `lint-scripts` / `CLAUDE.md 250 行ガード` / `check`) + `strict=true` 確認済 |
 
 </details>
+
+
+### 自動 triage: 2026-04-29 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T2026-0428-O~~ | ✅ 完了 | **大規模クラスタ (articles>=10) で aiGenerated=False が放置される** — 修正: ① `proc_storage._apply_tier0_budget` (commits `894dd1d` / `4d62cbc`) で Tier-0 (articles>=10 × aiGenerated=False) を先頭固定、② `handler.py` で Phase A wallclock 50% を Tier-0 専用に予約 ([handler.py:184-224](projects/P003-news-timeline/lambda/processor/handler.py:184-224))。ともに main 反映済 / 2026-04-29 検証完了。回帰防止テスト: [tests/test_tier0_budget.py](projects/P003-news-timeline/tests/test_tier0_budget.py) (9 ケース全 PASS — 境界値 ac=10/9・budget cap・空入力・不正値耐性)。 | `lambda/processor/proc_storage.py`, `lambda/processor/handler.py` | 2026-04-28 |
+| ~~T2026-0428-AH~~ | ✅ 完了 | **storyPhase 「発端」が aiGenerated=True 中 58% (54/93) — T219 修正後も改善せず** — 修正: `proc_storage.needs_ai_processing` に AH ガード追加 (commit `6f39b55c`, 2026-04-28 09:43 JST 実装済 / 2026-04-29 検証完了)。`storyPhase=='発端' かつ articleCount>=3` を再生成対象に含めるロジックは [lambda/processor/proc_storage.py:387-391](projects/P003-news-timeline/lambda/processor/proc_storage.py:387-391) で稼働中。回帰防止テスト: [tests/test_needs_ai_processing.py](projects/P003-news-timeline/tests/test_needs_ai_processing.py) (8 ケース全 PASS)。 | `lambda/processor/proc_storage.py` get_pending_topics または handler skip ロジック | 2026-04-28 |
+
+</details>
