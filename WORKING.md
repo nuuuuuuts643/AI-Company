@@ -89,4 +89,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| T212 + T2026-0428-BA/BC/BD: クラスタリング品質改善＋CI検査 | Code | lambda/fetcher/, lambda/processor/, scripts/, .github/workflows/ | 2026-04-28 21:40 | yes |
+| T212: クラスタリング パラメータrevert + 実測分布分析 | Code | lambda/fetcher/config.py, cluster_utils.py, /tmp/topics.json分析 | 2026-04-28 21:51 | yes |
