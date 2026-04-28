@@ -90,3 +90,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0428-AM 単一SNAPトピックのグラフ復活 | Code | projects/P003-news-timeline/frontend/detail.js | 2026-04-28 09:18 | yes |
