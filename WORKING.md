@@ -90,5 +90,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0428-AB topics/{tid}.html 404 復旧 | bugfix | lambda/processor/, lambda/lifecycle/ | 2026-04-28 09:55 | yes |
 | [Code] T2026-0428-J 要約・グラフ欠落の根本調査と修正 | bugfix | projects/P003-news-timeline/lambda/processor/ | 2026-04-28 10:03 | yes |
