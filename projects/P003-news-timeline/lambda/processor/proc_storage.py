@@ -324,6 +324,11 @@ def needs_ai_processing(item):
     # handler.py _required_full_fields の _is_minimal 免除削除（T256 fix）と対で機能する。
     if not str(item.get('keyPoint') or '').strip():
         return True
+    # T2026-0428-AH: storyPhase=='発端' かつ articleCount>=3 は再生成対象に含める。
+    # T219 で「記事3件以上で発端禁止」をプロンプト強化済だが、aiGenerated=True 旧 topic は
+    # ここで skip されるため誤判定の発端が永続化していた（本番 54/93 = 58% で確認）。
+    if item.get('storyPhase') == '発端' and int(item.get('articleCount', 0) or 0) >= 3:
+        return True
     return False
 
 
