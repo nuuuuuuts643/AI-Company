@@ -28,7 +28,6 @@
 
 | ID | 優先 | 軸 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|---|
-| ~~T2026-0428-BE~~ | 🟡 中 | フェーズ1-§A | ~~**buildFilters 系の境界値テスト** — `tests/unit/build_filters.test.js` 新設。`topics=[]` `topics=[{genre:'総合'}]` `counts={}` の 3 ケースで `visibleGenres` が空配列にならないことを assert。CLAUDE.md「新規 formatter は boundary test 同梱」を「フィルタ関数」に拡張~~ ✅ **2026-04-29 完了** — `frontend/js/build_filters.js` に `computeVisibleGenres()` を純粋抽出（app.js 配線済）+ 16 ケース PASS（境界値 + 旧ジャンル名マージ + archived 除外） | `projects/P003-news-timeline/tests/unit/build_filters.test.js` 新設 | 2026-04-28 |
 
 ### AI 品質・体験（フェーズ2/3）
 
