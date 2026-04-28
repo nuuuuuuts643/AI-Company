@@ -27,6 +27,7 @@ from score_utils import (
     calc_score, calc_velocity_score, apply_time_decay, apply_velocity_decay,
     source_diversity_score, compute_lifecycle_status,
     sort_by_pubdate, _parse_pubdate_ts,
+    is_primary_source,
 )
 from text_utils import (
     dominant_genres, dominant_lang, override_genre_by_title,
@@ -96,6 +97,8 @@ def fetch_rss(feed):
                     continue
                 source_name   = extract_source_name(item, link, url)
                 resolved_tier = SOURCE_TIER_MAP.get(source_name, feed_tier)
+                # T2026-0428-AN: 一次情報源は URL ドメインで物理判定（source 名偽装対策）
+                is_primary = is_primary_source(link)
                 a = {
                     'title':        title, 'url': link,
                     'pubDate':      pubdate, 'genre': genre,
@@ -104,6 +107,7 @@ def fetch_rss(feed):
                     'imageUrl':     img,
                     'published_ts': _parse_pubdate_ts(pubdate),
                     'tier':         resolved_tier,
+                    'isPrimary':    is_primary,
                 }
                 if desc:
                     a['description'] = desc

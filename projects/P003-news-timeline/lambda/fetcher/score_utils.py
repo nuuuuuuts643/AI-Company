@@ -47,6 +47,41 @@ _MEDIA_CAT_C = frozenset([
     'impress.co.jp',
 ])
 
+# ──────────────────────────────────────────────────────────
+# 一次情報ソースドメイン（eTLD+1 ホワイトリスト）
+# T2026-0428-AN: 信頼スコアで一次情報を優遇するための物理判定。
+# - URL のドメインで照合（source 名文字列での偽装を防ぐ）
+# - サブドメイン許容（例: www3.nhk.or.jp）
+# - 偽装ドメイン（例: nhk.or.jp.evil.com）は弾く（_domain_in_cat suffix チェック）
+# 著作権法32条「引用」として利用、出典明示必須（フロント側で必ず source 名を表示）。
+# ──────────────────────────────────────────────────────────
+PRIMARY_SOURCE_DOMAINS = frozenset([
+    # 公共放送・通信社（最高信頼）
+    'nhk.or.jp',
+    'kyodo.jp',
+    'nordot.app',       # 共同通信配信
+    'jiji.com',
+    # 全国紙
+    'asahi.com',
+    'yomiuri.co.jp',
+    'mainichi.jp',
+    'nikkei.com',
+    'sankei.com',
+    # 海外主要通信社・報道
+    'reuters.com',
+    'apnews.com',
+    'bbc.com',
+    'bbc.co.uk',
+    'bloomberg.com',
+    'bloomberg.co.jp',
+    'afp.com',
+    'wsj.com',
+    'ft.com',
+])
+
+# 政府・公式機関ドメインの suffix（go.jp = 日本政府専用 TLD、.gov = 米国政府）
+_PRIMARY_GOV_SUFFIXES = ('.go.jp', '.gov')
+
 
 def _get_domain(url: str) -> str:
     if not url:
@@ -59,6 +94,41 @@ def _get_domain(url: str) -> str:
 
 def _domain_in_cat(netloc: str, cat: frozenset) -> bool:
     return any(netloc == d or netloc.endswith('.' + d) for d in cat)
+
+
+def is_primary_source(url) -> bool:
+    """
+    記事 URL のドメインが一次情報ソースかどうかを判定する。
+
+    判定方針:
+      - eTLD+1 ホワイトリスト（PRIMARY_SOURCE_DOMAINS）に完全一致 or サブドメイン
+      - 政府ドメイン（.go.jp / .gov）の suffix
+      - URL が None / 空 / パース失敗 → False（安全側）
+      - source 名文字列（"NHK" 等）は使わない（偽装防止）
+
+    Args:
+      url: 記事 URL（http(s)://...）
+
+    Returns:
+      True なら一次情報源、False なら一次情報源ではない or 判定不能。
+    """
+    if not url or not isinstance(url, str):
+        return False
+    try:
+        netloc = urlparse(url).netloc.lower()
+    except Exception:
+        return False
+    if not netloc:
+        return False
+    # ポート除去
+    if ':' in netloc:
+        netloc = netloc.split(':', 1)[0]
+    if _domain_in_cat(netloc, PRIMARY_SOURCE_DOMAINS):
+        return True
+    for suf in _PRIMARY_GOV_SUFFIXES:
+        if netloc.endswith(suf):
+            return True
+    return False
 
 
 def hatena_count(url):

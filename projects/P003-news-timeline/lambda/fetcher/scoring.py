@@ -14,7 +14,11 @@ from config import (
     TECH_NICHE_KEYWORDS, TECH_GENERAL_KEYWORDS,
     S3_BUCKET, s3,
 )
-from score_utils import _get_domain, _domain_in_cat, _MEDIA_CAT_A, _MEDIA_CAT_B, _MEDIA_CAT_C
+from score_utils import (
+    _get_domain, _domain_in_cat,
+    _MEDIA_CAT_A, _MEDIA_CAT_B, _MEDIA_CAT_C,
+    is_primary_source,
+)
 
 
 def detect_uncertainty(text: str) -> str:
@@ -81,6 +85,8 @@ def apply_tier_and_diversity_scoring(articles: list, velocity_score: float) -> f
       - カテゴリB(全国紙)2社以上 → ×1.3
       - A+B 3媒体以上 → ×1.1 追加
       - テックメディアのみ → ×0.6
+      - 一次情報URL(政府・主要通信社等)を含む → ×1.2（T2026-0428-AN）
+        ※ source 名文字列ではなく URL ドメインで判定（偽装防止）
     """
     if not articles:
         return velocity_score
@@ -115,6 +121,11 @@ def apply_tier_and_diversity_scoring(articles: list, velocity_score: float) -> f
         ab_count = (1 if cat_a else 0) + len(cat_b_domains)
         if ab_count >= 3:
             velocity_score = round(velocity_score * 1.1, 4)
+
+    # T2026-0428-AN: 一次情報源(URL ドメイン判定)が1記事でも含まれていれば追加ボーナス
+    # is_primary_source は URL 不正/None で False を返すため安全（偽装は弾く）
+    if any(is_primary_source(a.get('url')) for a in articles):
+        velocity_score = round(velocity_score * 1.2, 4)
 
     return velocity_score
 
