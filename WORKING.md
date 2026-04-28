@@ -90,3 +90,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0428-AH handler.py 発端再生成例外 | Code | projects/P003-news-timeline/lambda/processor/handler.py | 2026-04-28 09:51 | yes |
