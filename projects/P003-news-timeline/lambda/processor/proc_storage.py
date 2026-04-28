@@ -474,7 +474,13 @@ def get_pending_topics(max_topics=100):
         def _sort_key(x):
             tid = x.get('topicId', '')
             is_visible = tid in visible_tids
-            if is_visible and not x.get('aiGenerated'):
+            kp_missing = not str(x.get('keyPoint') or '').strip()
+            # T2026-0428-AW: 可視 × keyPoint 欠落 を priority 0 に昇格。
+            # 旧来は aiGenerated=True で keyPoint 欠落の topic は priority 1 に沈み、
+            # 新規未生成 topic に押されて永続的に補完されない事象が確認された
+            # (本番 keyPoint 充填率 10.02%・961/1068 件未充填)。ユーザーが見ている
+            # トピックで keyPoint が空なのは新規未生成と同等のユーザー影響なので priority 0。
+            if is_visible and (not x.get('aiGenerated') or kp_missing):
                 priority = 0
             elif x.get('pendingAI'):
                 priority = 1

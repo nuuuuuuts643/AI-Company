@@ -23,8 +23,6 @@
 
 | ID | 内容 | 確認方法 |
 |---|---|---|
-| ~~T2026-0428-AY~~ | **develop / main ブランチ分離 + branch protection** | `gh api repos/nuuuuuuts643/AI-Company/branches/main/protection` → `required_pull_request_reviews.required_approving_review_count=1` 確認済 |
-| ~~T2026-0428-AY-2~~ | **CI 全パス必須化** | required_status_checks に 5 件 (`lint-frontend` / `lint-lambda` / `lint-scripts` / `CLAUDE.md 250 行ガード` / `check`) + `strict=true` 確認済 |
 
 #### 残りのフェーズ1 補強タスク（コード対応）
 
