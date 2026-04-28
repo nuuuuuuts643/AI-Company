@@ -102,4 +102,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] E2-4検証+T2026-0428-AH storyPhase発端skip修正 | code | projects/P003-news-timeline/lambda/processor/proc_storage.py | 2026-04-29 00:28 | yes |
+| [Code] T2026-0428-O Tier-0 大規模クラスタ固定 budget | code | projects/P003-news-timeline/lambda/processor/proc_storage.py, handler.py | 2026-04-29 00:38 | yes |
