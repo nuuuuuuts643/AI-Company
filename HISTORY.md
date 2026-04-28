@@ -4,7 +4,28 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
-### 完了済み（2026-04-28 22:45 JST Code T2026-0428-AW keyPoint 充填率 改善: quality_heal 改修 + 遡及キュー投入）
+### 完了済み（2026-04-28 22:35 JST Code T2026-0428-BG SLI-keypoint-fill-rate 追加: 検証粒度向上）
+
+- ✅ **T2026-0428-BG 完了** — pending_ai.json 40→950 件 遡及処理 (T2026-0428-AW) の効果を観測する SLI を新設。**Lambda invoke ゼロ・Anthropic API 呼び出しゼロ**で DynamoDB scan READ-ONLY のみ。
+
+  **背景**: 既存 SLI 8 (freshness-check.yml AI フィールド充填率) は `topics.json` (articleCount>=3 の公開対象) しか見ないため、DB 全体の遡及処理状況が観測不可能だった。「実測なしでの仮説での改善はやめろ」原則 (ナオヤ 2026-04-28 PM) に対し、観測基盤の穴を埋める。
+
+  **実装した改善 (2 ファイル新規・1 ファイル拡張)**:
+  1. `scripts/sli_keypoint_fill_rate.py` — 新設。DynamoDB p003-topics META scan → articleCount>=2 で archived/legacy/deleted を除いた eligible トピックに対する keyPoint 充填率を計算。stdout/$GITHUB_OUTPUT に key=value 形式で出力。
+  2. `.github/workflows/freshness-check.yml` — 末尾に SLI-keypoint-fill-rate ステップ群を追加 (checkout / setup-python / pip install boto3 / scan / Slack 通知)。hourly 実行 (既存 cron そのまま使用)。
+  3. 閾値: rate>10% ok / rate<=10% warn / rate<=5% error (ジョブ赤化)。「現在 10.02% を底値として上昇傾向を追跡する」設計。
+
+  **動作確認 (実測 2026-04-28 22:31 JST 1 回 scan)**:
+  - eligible (articleCount>=2, not archived/legacy/deleted) = **937 件**
+  - filled (keyPoint 非空) = **82 件**
+  - rate = **8.75%** (status=warn)
+  - 既存 SLI 8 の topics.json 系 10.02% (articleCount>=3 公開対象) との乖離 = SLI が捕捉していなかった「ac=2 の 426 件」がここに見える化された。
+
+  **コスト影響**: DynamoDB on-demand scan (READ-ONLY) hourly ≈ 月 720 scan。Lambda/Anthropic invoke なし。月数十円規模。
+
+  **Verified**: scripts/sli_keypoint_fill_rate.py 直接実行で eligible=937 / filled=82 / rate=8.75% / status=warn を取得済 (2026-04-28 22:31 JST)。次の hourly 走行 (毎時 07 分 UTC = 16 分後) で GitHub Actions UI 上での確認を行う。
+
+### 完了済み（2026-04-28 22:25 JST Code T2026-0428-AW keyPoint 充填率 改善: quality_heal 改修 + 遡及キュー投入）
 
 - ✅ **T2026-0428-AW 完了** — keyPoint 充填率 10.02% (961/1068 件未充填) の根本原因 = quality_heal.py が今日 (2026-04-28 11:05 JST) 配備されたばかりで cron 初回実行未到達 (06:00 JST 翌朝開始)。**Lambda invoke ゼロ・Anthropic API 呼び出しゼロ**でキュー投入のみ実施 (コスト管理ナオヤ指示順守)。
 

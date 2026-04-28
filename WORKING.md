@@ -102,4 +102,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0428-BG keyPoint充填率 SLI追加 | Code | .github/workflows/freshness-check.yml scripts/ | 2026-04-28 22:25 JST | yes |
