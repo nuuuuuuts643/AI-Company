@@ -61,7 +61,12 @@ def scan_meta_with_quality_issues(table):
 
 
 def find_unhealthy(metas):
-    """品質劣化トピックを抽出。"""
+    """品質劣化トピックを抽出。重要度 (articleCount DESC, score DESC) でソートして返す。
+
+    T2026-0428-AW: pending_ai.json は append 順だが、processor 側 _sort_key で
+    最終順序が決まる (score DESC が支配的)。それでもキューに早く入る方が
+    1サイクル目で拾われる確率が上がるため、ここでも降順で投入する。
+    """
     unhealthy = []
     reasons_counter = Counter()
     for m in metas:
@@ -79,6 +84,10 @@ def find_unhealthy(metas):
             sv = int(m.get('schemaVersion', 0) or 0)
         except (ValueError, TypeError):
             sv = 0
+        try:
+            score = int(m.get('score', 0) or 0)
+        except (ValueError, TypeError):
+            score = 0
         # archived/legacy/deleted は触らない (lifecycle Lambda の管轄)
         lifecycle = m.get('lifecycleStatus', '')
         if lifecycle in ('archived', 'legacy', 'deleted'):
@@ -101,10 +110,12 @@ def find_unhealthy(metas):
 
         if reasons:
             unhealthy.append({'topicId': tid, 'reasons': reasons,
-                              'title': (m.get('title') or '')[:40], 'ac': ac, 'sv': sv})
+                              'title': (m.get('title') or '')[:40],
+                              'ac': ac, 'sv': sv, 'score': score})
             for r in reasons:
                 reasons_counter[r] += 1
 
+    unhealthy.sort(key=lambda u: (-u['ac'], -u['score']))
     return unhealthy, reasons_counter
 
 
@@ -126,7 +137,11 @@ def mark_for_reprocess(table, tid):
 
 
 def update_pending_ai_json(s3, bucket, tids):
-    """既存 pending_ai.json に tids を追加 (重複排除)。"""
+    """既存 pending_ai.json に tids を追加 (重複排除)。
+    T2026-0428-AW: 新規 unhealthy IDs は **先頭** に挿入。
+    最終的な処理順序は processor 側 _sort_key で決まるが、pending_ai.json
+    そのものを iterate するパスに対しては前方が有利 (DDB GetItem ループの
+    早期に登場する)。"""
     try:
         try:
             resp = s3.get_object(Bucket=bucket, Key='api/pending_ai.json')
@@ -134,7 +149,8 @@ def update_pending_ai_json(s3, bucket, tids):
             cur_ids = list(cur.get('topicIds', []))
         except Exception:
             cur_ids = []
-        merged = list(dict.fromkeys(cur_ids + list(tids)))
+        # tids 先頭 + 既存 cur_ids、重複排除 (dict.fromkeys は最初に出た順を保つ)
+        merged = list(dict.fromkeys(list(tids) + cur_ids))
         s3.put_object(
             Bucket=bucket, Key='api/pending_ai.json',
             Body=json.dumps({'topicIds': merged}).encode('utf-8'),
