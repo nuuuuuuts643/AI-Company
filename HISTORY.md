@@ -1533,3 +1533,13 @@ bash projects/P003-news-timeline/deploy.sh
 **即時対処の結果**: scripts/oneoff/cleanup_empty_topics.py で DynamoDB から 9680 件のゾンビ META + 1134 件の追加メタ + 全関連 SNAP を削除 (合計約 770K 行)。topics.json/topics-full.json/topics-card.json から欠損 tid を除去。
 
 **検証**: `Verified-Effect: empty_topics articleCount<2=0.0%(0/96) detail_missing=0.0%(0/96) threshold=0% PASS @ 2026-04-28T11:17+0900`
+
+
+### 自動 triage: 2026-04-28 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T2026-0428-GRAPH~~ | ✅ 完了 (2026-04-28) | UX | ~~**グラフのスパイクポイントに「きっかけ記事」アノテーションを追加** — detail.js の「記事数の推移」グラフで前ポイント比 +3 件 or +50% 以上の増加点をスパイクとして検出。スパイクポイントはオレンジ点 (radius+) で強調し、ツールチップに「📌 きっかけ: {記事タイトル}」を追記。aggregate モード (日次集計) では各日で articleCount 最大の SNAP の articles[0] を採用。~~ | `frontend/detail.js` | 2026-04-28 |
+| ~~T265~~ | ✅ 完了 (2026-04-28) | パフォーマンス | ~~**topics.json が 207KB と肥大化 — モバイル初回表示帯域コスト** — `proc_storage.generate_topics_card_json()` を新設し card 表示の最小フィールド (topicId/各タイトル/score/articleCount/keyPoint/statusLabel/lastArticleAt/category/imageUrl 等) を抽出。重い AI long-text (generatedSummary/perspectives/watchPoints/outlook 等) を除外。app.js loadTopics() を topics.json → topics-card.json に切替。trendingKeywords は topics.json から非同期 fetch (一覧表示の主動線をブロックしない)。日付別 shard は将来別タスク。~~ | `lambda/processor/proc_storage.py`, `lambda/processor/handler.py`, `frontend/app.js` | 2026-04-28 |
+
+</details>
