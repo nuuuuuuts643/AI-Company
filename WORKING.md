@@ -97,3 +97,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | [Code] T2026-0428-GRAPH スパイクきっかけ記事アノテーション | Code | projects/P003-news-timeline/frontend/detail.js | 2026-04-28 11:28 | yes |
 | [Code] T265 topics-card.json 分割 | Code | projects/P003-news-timeline/lambda/processor/proc_storage.py, projects/P003-news-timeline/frontend/app.js | 2026-04-28 11:28 | yes |
 | [Code] T2026-0428-PRED/AC/AD/T 統合実装 | Code | projects/P003-news-timeline/lambda/processor/proc_ai.py, projects/P003-news-timeline/lambda/processor/proc_storage.py, projects/P003-news-timeline/lambda/processor/handler.py, docs/system-status.md, .github/PULL_REQUEST_TEMPLATE.md, scripts/check_ai_fields_catalog.py, .github/workflows/ci.yml | 2026-04-28 11:30 | yes |
+| [Code] T2026-0428-O/AH Tier-0 wallclock 50% 予約+発端再生成 | Code | projects/P003-news-timeline/lambda/processor/handler.py, projects/P003-news-timeline/lambda/processor/proc_storage.py | 2026-04-28 11:30 | yes |
