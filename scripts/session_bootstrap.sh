@@ -148,14 +148,23 @@ NEEDS_PUSH=$(awk '
   in_sec && /^\|/ && /\| *yes( *\| *)?$/ { printf "%d:%s\n", NR, $0 }
 ' WORKING.md 2>/dev/null || true)
 
-# ---- 6b. 並行タスク行 ≥3 警告 (T2026-0428-X / P0-STABLE-C) ----
+# ---- 6b. 並行タスク行カウント (T2026-0428-X / P0-STABLE-C / T2026-0428-BB) ----
 # 「現在着手中」テーブル本体行だけを数える。ヘッダ行 (`| タスク名 |...`) と
 # 区切り行 (`|---|---|`) を除外して、本物のタスク行のみカウント。
-# ≥3 で lock 競合・重複作業の早期検知警告を出す。
+# 2026-04-28 PM (T2026-0428-BB): [Code] 並走 ≥2 を WARNING ではなく ERROR で出すように昇格。
+# Dispatch 同時 1 件ルール (CLAUDE.md ⚡ Cowork↔Code 連携セクション「セッション並走ルール」) を物理担保。
 CONCURRENT_TASKS=$(awk '
   /^## 現在着手中/        { in_sec=1; next }
   /^## /                  { in_sec=0 }
   in_sec && /^\|/ && !/^\| *タスク名/ && !/^\|[ \-]*\|[ \-]*\|/ { count++ }
+  END { print count + 0 }
+' WORKING.md 2>/dev/null || echo 0)
+
+# [Code] プレフィックス行のみカウント — Dispatch 並走ルール用
+CODE_CONCURRENT=$(awk '
+  /^## 現在着手中/        { in_sec=1; next }
+  /^## /                  { in_sec=0 }
+  in_sec && /^\| *\[Code\]/ { count++ }
   END { print count + 0 }
 ' WORKING.md 2>/dev/null || echo 0)
 
@@ -192,6 +201,17 @@ fi
 if [ "${CONCURRENT_TASKS:-0}" -ge 3 ]; then
   echo "  ⚠️ WORKING.md 並行タスク行 ${CONCURRENT_TASKS} 件 (≥3) — lock 競合・重複作業の可能性。各行の開始JST/needs-push を確認すること"
 fi
+# Dispatch 並走ルール: [Code] が同時 2 件以上は ERROR (T2026-0428-BB)
+if [ "${CODE_CONCURRENT:-0}" -ge 2 ]; then
+  echo "  ❌ ERROR: WORKING.md [Code] セッションが ${CODE_CONCURRENT} 件並走中 (≥2)"
+  echo "     Dispatch ルール: コードセッションは同時 1 件まで (CLAUDE.md ⚡ Cowork↔Code 連携セクション)"
+  echo "     対応: 完了済みセッション行を削除 → push してから新規セッション開始"
+  # 環境変数 ALLOW_CONCURRENT_CODE=1 で bypass 可能 (緊急のみ)
+  if [ "${ALLOW_CONCURRENT_CODE:-0}" != "1" ]; then
+    echo "     bypass (緊急のみ): ALLOW_CONCURRENT_CODE=1 bash scripts/session_bootstrap.sh"
+    BOOTSTRAP_EXIT=1
+  fi
+fi
 if [ "$SCHED" = "1" ]; then
   echo ""
   echo "  📋 schedule-task モード:"
@@ -206,3 +226,9 @@ if [ "$SCHED" = "1" ]; then
 fi
 echo "  次の TASKS.md 着手: cat TASKS.md で未着手を確認"
 echo "─────────────────────────────────────────"
+
+# Dispatch 並走 ERROR が出ていれば exit 1 で物理ブロック (T2026-0428-BB)
+if [ "${BOOTSTRAP_EXIT:-0}" -ne 0 ]; then
+  exit "$BOOTSTRAP_EXIT"
+fi
+exit 0
