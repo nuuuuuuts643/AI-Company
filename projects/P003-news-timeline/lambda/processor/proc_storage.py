@@ -332,6 +332,33 @@ def needs_ai_processing(item):
     return False
 
 
+def _apply_tier0_budget(items: list, budget: int = 3) -> list:
+    """T2026-0428-O: 大規模クラスタ (articles>=10) で aiGenerated=False の topic を
+    必ず先頭に固定 budget 件まで配置する。残りは元の順序を保ったまま続ける。
+
+    背景: T213 の 4段階優先度ソート後でも、可視 × 未生成の 0 番手の中で
+    articleCount の重みが弱く、小規模クラスタが先に処理されて大規模が放置される
+    事象が観測された (本番 2026-04-28 05:13 JST)。Lambda 1 サイクルあたり
+    Tier-0 = 3 件を上限に「必ず処理する」枠を確保する。
+    """
+    if not items:
+        return items
+    tier0 = []
+    rest = []
+    for it in items:
+        try:
+            ac = int(it.get('articleCount', 0) or 0)
+        except (ValueError, TypeError):
+            ac = 0
+        if ac >= 10 and not it.get('aiGenerated') and len(tier0) < budget:
+            tier0.append(it)
+        else:
+            rest.append(it)
+    if tier0:
+        print(f'[get_pending_topics] Tier-0 (articles>=10 × aiGenerated=False) を先頭に固定: {len(tier0)}件')
+    return tier0 + rest
+
+
 def _load_visible_topic_ids() -> set:
     """topics.jsonからユーザーに見えているtopicIdセットを返す。取得失敗時は空set。"""
     if not S3_BUCKET:
@@ -438,6 +465,8 @@ def get_pending_topics(max_topics=100):
                 priority = 3
             return (priority, -int(x.get('score', 0) or 0), -_ts(x.get('lastUpdated', '')))
         items.sort(key=_sort_key)
+        # T2026-0428-O: 大規模クラスタ (articles>=10 × aiGenerated=False) を最大 3 件、必ず先頭で取り切る
+        items = _apply_tier0_budget(items, budget=3)
         visible_pending = sum(1 for x in items if x.get('topicId', '') in visible_tids and not x.get('aiGenerated'))
         print(f'[get_pending_topics] ソート完了: 可視未生成={visible_pending}件が先頭')
 
@@ -502,6 +531,8 @@ def get_pending_topics(max_topics=100):
         return (priority, -int(x.get('score', 0) or 0), -_ts(x.get('lastUpdated', '')))
 
     items.sort(key=_scan_sort_key)
+    # T2026-0428-O: フルスキャン経路でも Tier-0 (articles>=10 × aiGenerated=False) を最大 3 件先頭固定
+    items = _apply_tier0_budget(items, budget=3)
 
     # 発見したIDをpending_ai.jsonに保存して次回スキャンを省略
     if S3_BUCKET and items:
