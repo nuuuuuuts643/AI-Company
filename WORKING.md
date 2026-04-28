@@ -5,6 +5,19 @@
 
 ---
 
+## 🟢 Dispatch 継続性 (Cowork コンテキスト引き継ぎ用)
+
+> **目的**: Dispatch のコンテキストが切れても次のセッションが状態を引き継げるよう、
+> 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
+> 1 セクション 5 行以内・全部書き換え可。
+
+**現在のフェーズ**: フェーズ1（足回り安定）— branch protection (PO手動 2 件) のみ残
+**直近のPO指示** (2026-04-28 PM): 「最優先は基盤安定（フェーズ1）」「セッションが切れた時も考えて動け」「実測なしでの仮説での改善はやめろ」
+**次のアクション**: フェーズ1 完了 → POが GitHub UI で T2026-0428-AY (branch protection) と T2026-0428-AY-2 (CI 必須化) を実施 → フェーズ2 着手判定
+**最終更新**: 2026-04-28 22:00 JST（フェーズ1 残コードタスク BD/BF landing 後）
+
+---
+
 ## ⚠️ セッション種別ルール（2026-04-27 追加）
 
 このファイルは **Claude Code（Mac/CLI）と Cowork（スマホ/デスクトップアプリ）の両方が書き込む**。
@@ -89,4 +102,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] フェーズ1残タスク仕上げ + Dispatch継続性改善 (BD/C-name-rule/WORKING.md構造改善) | コード+ドキュメント | `.github/workflows/ci.yml`, `scripts/session_bootstrap.sh`, `scripts/check_soft_language.sh`, `WORKING.md`, `TASKS.md`, `HISTORY.md`, `docs/project-phases.md` | 2026-04-28 21:55 | yes |

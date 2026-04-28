@@ -377,3 +377,12 @@ jobs:
           # 実装ファイルが repo に実在するかを物理検査。
           # ✅/⚠ 状態の対策は landing していなければ CI ブロック。
           bash scripts/check_lessons_landings.sh
+
+      - name: 形骸化検出 grep (T2026-0428-BD)
+        run: |
+          # CLAUDE.md / global-baseline.md / lessons-learned.md の
+          # 「仕組み的対策」セクションに「気を付ける/注意する/意識する/確認する」
+          # が混入していないかを物理検査。
+          # 引用 (「気を付ける」禁止 等) と否定文は除外。
+          # 仕組み的対策はテキストルールでなく CI / hook / metric / SLI / scripts で物理化する。
+          bash scripts/check_soft_language.sh

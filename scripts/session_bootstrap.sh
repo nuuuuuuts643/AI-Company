@@ -168,6 +168,25 @@ CODE_CONCURRENT=$(awk '
   END { print count + 0 }
 ' WORKING.md 2>/dev/null || echo 0)
 
+# ---- 6c. コードセッション名規則 WARN (T2026-0428-BF) ----
+# WORKING.md の [Code] 行のタスク名が空抽象タイトル（「作業」「調査」「タスク」「着手」単体等）
+# だった場合、何を commit するかが不明確のまま走り出すため WARN する。
+# project-phases.md §C 「コードセッション名規則の徹底」を物理担保。
+ABSTRACT_TITLES=$(awk -F'|' '
+  /^## 現在着手中/        { in_sec=1; next }
+  /^## /                  { in_sec=0 }
+  in_sec && /^\| *\[Code\]/ {
+    name=$2
+    gsub(/^[ \t]+|[ \t]+$/, "", name)
+    # [Code] プレフィックスを除去して中身チェック
+    sub(/^\[Code\][ 　]*/, "", name)
+    # 抽象語のみ or 5 文字以下 or 「作業/調査/タスク/着手/wip/test/対応/確認/対応中」のみ
+    if (length(name) <= 5) { print name; next }
+    if (name ~ /^(作業|調査|タスク|着手|wip|WIP|test|TEST|対応|確認|対応中|チェック|修正)([ 　:：]|$)/) { print name; next }
+    if (name ~ /^(作業|調査|タスク|着手|wip|WIP|test|TEST|対応|確認|対応中|チェック|修正)$/) { print name }
+  }
+' WORKING.md 2>/dev/null || true)
+
 # ---- 6.5 schedule-task モード検知 ----
 # `SCHEDULE_TASK=1` または引数 `--schedule` を渡された場合、
 # scheduled-task-protocol.md と最優先 unblocked タスク 1 件を強調表示する。
@@ -200,6 +219,14 @@ if [ -n "$NEEDS_PUSH" ]; then
 fi
 if [ "${CONCURRENT_TASKS:-0}" -ge 3 ]; then
   echo "  ⚠️ WORKING.md 並行タスク行 ${CONCURRENT_TASKS} 件 (≥3) — lock 競合・重複作業の可能性。各行の開始JST/needs-push を確認すること"
+fi
+# コードセッション名規則 WARN (T2026-0428-BF)
+if [ -n "$ABSTRACT_TITLES" ]; then
+  echo "  ⚠️ WARN: [Code] セッション名が抽象的すぎる行を検出"
+  echo "$ABSTRACT_TITLES" | sed 's/^/      → /'
+  echo "     セッション名は「何を commit するか」が一目で分かる名前にする"
+  echo "     ✅ 例: 「CI 構文チェック fix」「T2026-0428-BD 形骸化 grep CI」"
+  echo "     ❌ 例: 「調査」「作業」「タスク」「対応」"
 fi
 # Dispatch 並走ルール: [Code] が同時 2 件以上は ERROR (T2026-0428-BB)
 if [ "${CODE_CONCURRENT:-0}" -ge 2 ]; then

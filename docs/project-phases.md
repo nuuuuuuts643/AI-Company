@@ -30,27 +30,27 @@
 - ✅ **ロールバック手順の文書化** — `docs/runbooks/rollback.md` (T2026-0428-AX で新設済)。「main が壊れたら何をすれば戻るか」を Lambda（`aws lambda update-function-code` で前 tag に戻す）/ Frontend（`aws s3 sync` で前 tag に戻す）/ DB（quality_heal で再処理）の 3 経路で言語化済
 - ❌ **CI 全パス必須化** — main マージ前に CI 全 job 通過が必須（branch protection の required status checks）。※ GitHub Settings で設定要・PO手動
 
-### C. Dispatch 運用安定（新規・未達 — 2026-04-28 PM 追加）
-- ❌ **Dispatch から起動できるコードセッション = 同時 1 件まで**（Dispatch 自身を含めて 2 件以内）。新規タスクは前のコードセッション完了までキューに積む。WORKING.md の `[Code]` 行が 2 件以上ある瞬間は session_bootstrap.sh が物理 ERROR を出す（既存は WARNING のみ）
+### C. Dispatch 運用安定（新規・進行中 — 2026-04-28 PM 追加）
+- ✅ **Dispatch から起動できるコードセッション = 同時 1 件まで**（Dispatch 自身を含めて 2 件以内）。新規タスクは前のコードセッション完了までキューに積む。WORKING.md の `[Code]` 行が 2 件以上ある瞬間は session_bootstrap.sh が物理 ERROR + exit 1 を出す。T2026-0428-BB で実装済（`scripts/session_bootstrap.sh:204-214`）
 - ✅ **コードセッション並走 0 件の常態化** — `[Code]` 行 2 件以上の状態が 1 時間継続したら Slack 警告（健康指標として観測）。実装: `scripts/check_concurrent_sessions.sh` + `.github/workflows/concurrent-session-guard.yml` で 15 分ごと検出 × Slack 通知。T2026-0428-BB で実装済
-- ❌ **PO判断介入ゼロ** — Dispatch が 1 回受け取った指示について「止める？再開する？」を聞かずに完了まで走る。中断は「実装の前提が根本的に変わった場合」のみ（CLAUDE.md「中断ルール」を参照）
-- ❌ **コードセッション名規則の徹底** — セッション名は「何を commit するか」が一目で分かる名前（✅「CI 構文チェック fix」 ❌「調査」「作業」）。session_bootstrap.sh の出力で空抽象タイトルを自動 WARN
+- ❌ **PO判断介入ゼロ** — Dispatch が 1 回受け取った指示について「止める？再開する？」を聞かずに完了まで走る。中断は「実装の前提が根本的に変わった場合」のみ（CLAUDE.md「中断ルール」を参照）。※ 思想ルール（テキスト規則のみ）
+- ✅ **コードセッション名規則の徹底** — セッション名は「何を commit するか」が一目で分かる名前（✅「CI 構文チェック fix」 ❌「調査」「作業」）。session_bootstrap.sh の出力で空抽象タイトル（"作業/調査/タスク/着手"単体等）を自動 WARN。T2026-0428-BF で実装済
 
-### D. 規律・運用浸透（新規・未達）
-- ⚠ 1PR1task の規律が確立し、WORKING.md の並行タスクが恒常的に ≤2 件 → 今日 3 件滞留したため「達成」と呼べない。`session_bootstrap.sh` で `[Code]` 並走 ≥2 を ERROR 化することで物理担保
-- ❌ **横展開チェックリスト（lessons-learned）の自動検証** — `scripts/check_lessons_landings.sh` (新設) で「過去仕組み的対策の実装ファイルが repo に存在するか」を CI 物理検査
-- ❌ **形骸化ルール棚卸しの定期化** — CLAUDE.md / global-baseline.md / lessons-learned.md の 3 ファイルに「気を付ける/注意する/確認する」が混入していないか月次 CI で grep（テキストルール混入の検出）
+### D. 規律・運用浸透（新規・進行中）
+- ✅ 1PR1task の規律が確立し、WORKING.md の並行タスクが恒常的に ≤2 件 → `session_bootstrap.sh` で `[Code]` 並走 ≥2 を ERROR + exit 1 化することで物理担保（T2026-0428-BB 済）
+- ✅ **横展開チェックリスト（lessons-learned）の自動検証** — `scripts/check_lessons_landings.sh` (新設) で「過去仕組み的対策の実装ファイルが repo に存在するか」を CI 物理検査。T2026-0428-BC で実装済（`.github/workflows/ci.yml:374-379`）
+- ✅ **形骸化ルール棚卸しの定期化** — CLAUDE.md / global-baseline.md / lessons-learned.md の「仕組み的対策」セクションに「気を付ける/注意する/意識する/確認する」が混入していないか月次 CI で grep（テキストルール混入の検出）。T2026-0428-BD で実装済（`scripts/check_soft_language.sh` + `.github/workflows/ci.yml`）
 
 **担当 Epic 一覧**:
 - E1-1: 起動チェック整備（session_bootstrap.sh の責務拡張）— ✅ 観測項目は landing
 - E1-2: タスク管理階層化（本ドキュメント整備・TASKS.md 整理）— ✅
 - E1-3: 観測可能性（health.json / freshness-check / SLI 整備）— ✅ SLI 1〜11
-- E1-4: 並行タスク事故防止（WORKING.md TTL / needs-push ゲート）— ⚠ ERROR 化未達
-- **E1-5（新設）**: リリース管理・ロールバック（develop/main 分離・tag・runbook）
-- **E1-6（新設）**: Dispatch 運用安定（同時 1 件・並走 0 件・判断介入ゼロ）
-- **E1-7（新設）**: 形骸化検出（横展開チェックリスト CI / soft-language grep）
+- E1-4: 並行タスク事故防止（WORKING.md TTL / needs-push ゲート / Code 並走 ERROR 化）— ✅ T2026-0428-BB 済
+- **E1-5（新設）**: リリース管理・ロールバック（develop/main 分離・tag・runbook）— ⚠ tag/runbook 済 / branch protection PO手動待ち
+- **E1-6（新設）**: Dispatch 運用安定（同時 1 件・並走 0 件・名前規則）— ✅ T2026-0428-BB/BF 済（判断介入ゼロのみ思想）
+- **E1-7（新設）**: 形骸化検出（横展開チェックリスト CI / soft-language grep）— ✅ T2026-0428-BC/BD 済
 
-**現在地**: A 完了。B / C / D が未達。フェーズ 2 着手は B + C のロールバック + Dispatch 運用が landing してから。
+**現在地**: A 完了。B は branch protection (PO GitHub UI 手動) のみ残。C/D はコード側全て landing 済。フェーズ 2 着手は B のPO手動 2 件 (develop/main 分離・CI 必須化) が終わり次第。
 
 ## フェーズ2: AI品質改善
 
