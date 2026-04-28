@@ -102,6 +102,16 @@ git push 2>&1 | _strip_fuse_noise | tail -2 || true
 # ---- 3. CLAUDE.md 変更検知 ----
 LATEST_CLAUDE=$(git log --oneline -1 -- CLAUDE.md 2>/dev/null || echo "(none)")
 
+# ---- 3b. product-direction.md 表示 ----
+# セッション切れで方針が消える問題への恒久対策。毎回フルテキストを表示し、
+# Claude が起動直後に現在のプロダクト方針を必ずコンテキストに入れる。
+if [ -f "docs/product-direction.md" ]; then
+  echo ""
+  echo "=== 現在のプロダクト方針 (docs/product-direction.md) ==="
+  cat docs/product-direction.md
+  echo "======================================================="
+fi
+
 # ---- 4. WORKING.md 8h stale 自動削除 ----
 if [ -f WORKING.md ] && [ -x scripts/triage_tasks.py ]; then
   python3 scripts/triage_tasks.py --clean-working-md 2>/dev/null || true

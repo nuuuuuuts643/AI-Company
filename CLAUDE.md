@@ -81,8 +81,9 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 | `docs/rules/user-context-check.md` | 実装前ユーザー文脈チェック（4つの問い） |
 | `docs/rules/legal-policy.md` | 法的・規約方針（引用・クロール・一次情報バッジ） |
 | `docs/flotopic-vision-roadmap.md` | プロダクトビジョン |
+| `docs/product-direction.md` | 現在のプロダクト方針（毎セッション必読・session_bootstrap.sh が起動時に全文表示） |
 
-タスク開始時に CLAUDE.md → global-baseline.md → system-status.md の 3 つを確認し、必要に応じて他を参照する。
+タスク開始時に CLAUDE.md → global-baseline.md → system-status.md → product-direction.md の 4 つを確認し、必要に応じて他を参照する。
 
 ---
 
