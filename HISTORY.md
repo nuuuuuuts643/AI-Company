@@ -4,6 +4,19 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-28 22:00 JST Code フェーズ1 残タスク仕上げ + Dispatch 継続性改善）
+
+- ✅ **T2026-0428-BA ロールバック runbook 整備** — `docs/runbooks/rollback.md` 新設 + `.github/workflows/ci.yml:355-372` で「ファイル存在 / `aws lambda update-function-code` または `git revert` を含む」を物理検査。Lambda / Frontend / DB の 3 経路を言語化。commit: 2f45555 (2026-04-28)
+- ✅ **T2026-0428-BB session_bootstrap.sh の `[Code]` 並走 ERROR 化** — 既存 WARN を ERROR + exit 1 に昇格（`scripts/session_bootstrap.sh:204-214`）。`ALLOW_CONCURRENT_CODE=1` で緊急 bypass 可。Dispatch 同時 1 件ルールを物理担保。commit: a2753dd (2026-04-28)
+- ✅ **T2026-0428-BC 横展開チェックリスト CI 物理検証** — `scripts/check_lessons_landings.sh` 新設 + `.github/workflows/ci.yml:374-379` 組込。`docs/lessons-learned.md` 末尾の表を parse し、✅/⚠ 状態の対策が実装ファイル landing しているかを物理検査。commit: 1c90ad9 (2026-04-28)
+- ✅ **T2026-0428-BD 形骸化検出 grep CI** — `scripts/check_soft_language.sh` 新設 + `.github/workflows/ci.yml` 組込。CLAUDE.md / global-baseline.md / lessons-learned.md の「仕組み的対策」セクションに「気を付ける/気をつける/注意する/意識する/確認する」が混入していないかを物理検査。引用 (「気を付ける」禁止) と否定文 (〜ではない) は除外。実機テスト: 既存 3 ファイル全て pass / 注入テストで違反検出 OK。
+- ✅ **T2026-0428-BF コードセッション名規則 WARN** — session_bootstrap.sh で WORKING.md の `[Code]` 行が空抽象タイトル（「作業」「調査」「タスク」「着手」「対応」「確認」「修正」「チェック」「wip」「test」単体 or 5 文字以下）の場合 WARN。「何を commit するか」が一目で分かる名前を促す。
+- ✅ **T212 クラスタリング パラメータ実測分析・復帰** — クラスタリング閾値 0.35/0.30 を実測根拠で復帰。前回セッション 11e9b392 で実装済（commit 3687397）。「実測なしでの仮説での改善はやめろ」原則に沿った実測分布分析付き。
+- ✅ **「各社の見解」→「各メディアの見解」全ファイル統一** — UI / プロンプト / schema 説明 全て統一。前回セッション 9557ab5f で実施済（commit 999e4cc）。
+- ✅ **Dispatch 継続性改善 (WORKING.md 構造)** — WORKING.md 冒頭に「🟢 Dispatch 継続性」セクション新設。現在のフェーズ・直近のPO指示・次のアクション・最終更新を明記し、Dispatch のコンテキストが切れても次セッションが状態を引き継げるようにした。
+- ✅ **TASKS.md 整理** — フェーズ1 完了済タスク (BA/BB/BC/BD/BF) を除去し、PO手動待ち 2 件 (T2026-0428-AY: branch protection / T2026-0428-AY-2: CI 必須化) を「🚨 PO手動対応待ち」セクションで明示化。
+- ✅ **docs/project-phases.md §C/§D ✅ 化** — フェーズ1-§C (Dispatch 運用安定) は判断介入ゼロ以外 全 ✅。フェーズ1-§D (規律・運用浸透) は全 ✅。残はPO手動 §B 2 件。
+
 ### 完了済み（2026-04-28 16:05 JST Code T2026-0428-AU バッジ文言改善＋アーカイブボタン削除）
 
 - ✅ **T2026-0428-AU バッジ文言を直感的な動詞句に置換 + 📦 アーカイブ ボタン全削除** — POフィードバック「『注目中』『進行中』だけだと何が起きてるか分からん」に対応。①トップ velocity badge (`STATUS_LABEL` in app.js:78): `🔥 急上昇`→`🔥 注目度急上昇`、`⚡ 注目中`→`⚡ いま注目度ピーク`、`📉 落ち着き`→`📉 落ち着き始め` / `📉 沈静化中`。②AI 分析 status badge (`STATUS_BADGE` in detail.js:351): AI 内部値（`発端`/`進行中`/`沈静化`/`決着`）はキーとして保持しつつ、表示用 `label` フィールドを追加して `🌱 起き始め` / `🔥 報道継続中` / `📉 落ち着いてきた` / `✅ ひと段落` に置換。`statusBadgeHtml` の表示ロジックも `b.label || statusLabel` に変更。③フェーズバー (`PHASE_TEXT` / `PHASE_BADGE` / `PHASE_LABEL_OGP`): `現在地: 進行中`→`現在地: 今ここ` で「あなたは今ここにいる」を明示し、AI status バッジの「報道継続中」と差別化。④記事カードの 📦 アーカイブ (Wayback Machine) リンクをタイムライン3箇所＋関連記事1箇所すべて削除。`.article-archive-link` の CSS rule も削除。**理由**: 一般ユーザーには web.archive.org が見慣れず混乱要因。**検証**: PR#3 admin-merge → GHA P003 フロントエンドデプロイ success → `curl https://flotopic.com/app.js` / `detail.js` で新ラベル live + アーカイブボタン跡形なし確認済。CI lint-lambda 失敗（security_audit.sh 内の正規表現リテラル `sk-ant-` を grep が誤検出）と TASKS.md タスクID重複（T2026-0428-E 19/22行）は本変更と無関係の既存issue。Verified: https://flotopic.com/:200:2026-04-28T16:00+0900。
