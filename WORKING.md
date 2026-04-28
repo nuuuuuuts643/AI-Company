@@ -102,5 +102,8 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+<<<<<<< HEAD
 | [Code] T2026-0429-D 繰り返し失敗自動検出の実装 | feat | scripts/detect_repeated_failures.sh, scripts/analyze_task_patterns.sh, scripts/session_bootstrap.sh, .github/workflows/ci.yml | 2026-04-29 08:00 JST | needs-push: yes |
 | [Code] E2-2 keyPoint充填率改善 Lambda手動invoke | ops | TASKS.md (record only) | 2026-04-29 08:14 JST | needs-push: no |
+=======
+>>>>>>> 88a2a55a374e755afe6e929ded5479711671c27c
