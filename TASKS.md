@@ -17,22 +17,28 @@
 
 ### フェーズ1 完了条件タスク（最優先・docs/project-phases.md §B/§C/§D）
 
+> **状態**: コード側は全 landing 済 (BA/BB/BC/BD/BF + AY 文書化部分)。残るは GitHub UI でのナオヤ手動操作 2 件のみ。
+
+#### 🚨 ナオヤ手動対応待ち（GitHub UI でのみ実施可能）
+
+| ID | 優先 | 内容 | 操作場所 | 追加日 |
+|---|---|---|---|---|
+| T2026-0428-AY | 🔴 高 | **develop / main ブランチ分離 + branch protection** — main へ直接 push 禁止 / PR 経由のみ。GitHub Settings → Branches → main の rule で「Require a pull request before merging」を ON | https://github.com/nuuuuuuts643/AI-Company/settings/branches | 2026-04-28 |
+| T2026-0428-AY-2 | 🔴 高 | **CI 全パス必須化** — branch protection の required status checks に CI の全 job を登録。「Require status checks to pass before merging」を ON + 各 job 名選択 | 同上 | 2026-04-28 |
+
+#### 残りのフェーズ1 補強タスク（コード対応）
+
 | ID | 優先 | 軸 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|---|
-| T2026-0428-AY | 🔴 高 | フェーズ1-§B | **develop / main ブランチ分離 + branch protection** — main へ直接 push 禁止 / PR 経由のみ / required status checks (CI 全 job) を必須化。GitHub Settings → Branches で設定。「main は常に動く」を物理担保 | GitHub Settings (UI) + `docs/runbooks/branching.md` 新設 | 2026-04-28 |
-| T2026-0428-AZ | 🔴 高 | フェーズ1-§B | **git tag v1.x.x によるリリース管理** — `vYYYY.MMDD.N` 形式。`scripts/tag_release.sh` 新設 + `.github/workflows/release-tag.yml` で deploy 成功時自動 tag。push 時点を復元できる単位を物理担保 | `scripts/tag_release.sh`, `.github/workflows/release-tag.yml` 新設 | 2026-04-28 |
-| T2026-0428-BA | 🔴 高 | フェーズ1-§B | **ロールバック runbook 整備** — `docs/runbooks/rollback.md` 新設。Lambda (`aws lambda update-function-code` で前 tag に戻す) / Frontend (`aws s3 sync` で前 tag に戻す) / DB (quality_heal で再処理) の 3 経路を言語化。CI で「本ファイル空でない / `git revert` または `aws lambda update-function-code` のいずれかが含まれる」を物理検査 | `docs/runbooks/rollback.md`, `.github/workflows/ci.yml` (runbook check 追加) | 2026-04-28 |
-| T2026-0428-BB | 🔴 高 | フェーズ1-§C | **session_bootstrap.sh の `[Code]` 並走 ERROR 化** — 既存は WARN のみ。`[Code]` 行 2 件以上を検出したら ERROR + bootstrap exit 1。Dispatch 同時 1 件ルールを物理担保 | `scripts/session_bootstrap.sh` | 2026-04-28 |
-| T2026-0428-BC | 🟠 高 | フェーズ1-§D | **横展開チェックリスト CI 物理検証** — `scripts/check_lessons_landings.sh` 新設。`docs/lessons-learned.md` 末尾の表を parse し、`実装ファイル` 列のパスが repo に存在するか・状態 ✅ の行で空ファイルでないかを検査。`.github/workflows/ci.yml` に組込 | `scripts/check_lessons_landings.sh`, `.github/workflows/ci.yml` | 2026-04-28 |
-| T2026-0428-BD | 🟡 中 | フェーズ1-§D | **形骸化検出 grep CI** — CLAUDE.md / global-baseline.md / lessons-learned.md の **「仕組み的対策」セクションに「気を付ける/注意する/意識する/確認する」が混入していないか** を月次 CI で grep。引用以外で hit したら ERROR | `.github/workflows/ci.yml` (新規 step) | 2026-04-28 |
 | T2026-0428-BE | 🟡 中 | フェーズ1-§A | **buildFilters 系の境界値テスト** — `tests/unit/build_filters.test.js` 新設。`topics=[]` `topics=[{genre:'総合'}]` `counts={}` の 3 ケースで `visibleGenres` が空配列にならないことを assert。CLAUDE.md「新規 formatter は boundary test 同梱」を「フィルタ関数」に拡張 | `projects/P003-news-timeline/tests/unit/build_filters.test.js` 新設 | 2026-04-28 |
 
 ### AI 品質・体験（フェーズ2/3）
 
+> **着手条件**: フェーズ1 の branch protection (ナオヤ手動 2 件) が landing してから着手。
+
 | ID | 優先 | 軸 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|---|
-| T212 | 🔴 高 | AI品質 | **同一事象が複数トピックに分裂している** — クラスタリング閾値が低すぎ or タイトル類似度が地名・数字を重視していない。調査方法: `lambda/fetcher/` のクラスタリングロジックを確認 | `lambda/fetcher/` | 2026-04-27 |
-| T2026-0428-E | 🔴 高 | AI品質 | **AI 要約構造 4 軸化（状況解説 / 各社の見解 / これからの注目ポイント / 予想判定）** — proc_ai.py プロンプトと output schema を 4 軸に。frontend detail.js は 2 ゾーン (注目度 / コンテンツ) で表示。既存 `spreadReason`/`backgroundContext`/`background`/`whatChanged` 系は廃止 | `lambda/processor/proc_ai.py`, `lambda/processor/proc_storage.py`, `frontend/detail.js`, `frontend/style.css` | 2026-04-28 |
+| T2026-0428-E | 🔴 高 | AI品質 | **AI 要約構造 4 軸化（状況解説 / 各メディアの見解 / これからの注目ポイント / 予想判定）** — proc_ai.py プロンプトと output schema を 4 軸に。frontend detail.js は 2 ゾーン (注目度 / コンテンツ) で表示。既存 `spreadReason`/`backgroundContext`/`background`/`whatChanged` 系は廃止 | `lambda/processor/proc_ai.py`, `lambda/processor/proc_storage.py`, `frontend/detail.js`, `frontend/style.css` | 2026-04-28 |
 | T191 | 🟠 高 | 体験 | **「ストーリーを追う」フロー設計** — トップ画面で動きが見える → 1 タップで経緯 → 「続きが来たら通知」で離脱。コード変更より先に画面遷移フロー図 | 設計フロー図 | 2026-04-27 |
 | T193 | 🟠 高 | 収益・習慣化 | **「毎日来る理由」設計** — 朝メール / Bluesky 朝 8 時 / 動きトピック固定 のいずれか | `scripts/bluesky_agent.py`, `lambda/processor/`, `frontend/` | 2026-04-27 |
 | T2026-0428-BRANCH | 🟡 中 | AI品質 | **ストーリー分岐はセマンティック関連性で判断する方針メモ** — 注目度（数字）ではなく内容（登場人物・因果関係・エンティティ重複）で。関連: T212 | `lambda/fetcher/`, `lambda/processor/proc_ai.py` | 2026-04-28 |
