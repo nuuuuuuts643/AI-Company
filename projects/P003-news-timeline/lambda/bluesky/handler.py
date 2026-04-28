@@ -27,10 +27,10 @@ def _resolve_mode(event: dict | None) -> str:
     """イベント or 環境変数から mode を解決する。"""
     if isinstance(event, dict):
         mode = event.get('mode')
-        if isinstance(mode, str) and mode in ('daily', 'weekly', 'monthly'):
+        if isinstance(mode, str) and mode in ('daily', 'weekly', 'monthly', 'morning'):
             return mode
     env_mode = os.environ.get('BLUESKY_MODE', '').strip()
-    if env_mode in ('daily', 'weekly', 'monthly'):
+    if env_mode in ('daily', 'weekly', 'monthly', 'morning'):
         return env_mode
     return 'daily'
 

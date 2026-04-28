@@ -86,6 +86,13 @@ BSKY_MAX_CHARS = 300
 # 実投稿は 2.5時間に最大1回 ＝ 1日9〜10回までに抑える（スパム認定回避の上限目安）。
 DAILY_COOLDOWN_HOURS = 2.5
 
+# T193: 朝の定期投稿 (morning) — JST 08:00 EventBridge cron で起動。
+# 「毎日朝に Bluesky を見れば必ず Flotopic の動きトピックが届く」習慣化の入り口。
+# daily / debut とは独立した別系統。MORNING_COOLDOWN_HOURS で 1 日 1 回に物理ガード。
+# EventBridge cron が二重発火しても DynamoDB の最終投稿時刻チェックで防止される。
+MORNING_COOLDOWN_HOURS  = 20    # 1 日 1 回想定 (20h バッファで cron 揺らぎ吸収)
+MORNING_RECENT_HOURS    = 24    # 「今朝の動き」として扱う最大経過時間
+
 # T2026-0428-AS: 初回 AI 要約完了 → 即時投稿 (debut) 用の S3 pending マーカープレフィックス。
 # processor Lambda が初回 AI 要約成功時に bluesky/pending/{topicId}.json を書き込み、
 # bluesky_agent が次の cron tick (≤30分後) で消費して投稿する。
@@ -844,19 +851,134 @@ def post_debut(client, dry_run: bool = False) -> bool:
     return posted_count > 0
 
 
+# ── 朝の定期投稿 (T193): JST 08:00 EventBridge cron で起動 ─────────────────
+
+def post_morning(client, dry_run=False):
+    """
+    JST 08:00 に EventBridge cron で 1 日 1 回起動される朝の定期投稿。
+    過去 MORNING_RECENT_HOURS 以内に更新されたトピックのうち velocityScore 最大の
+    1 件を「🌅 今朝の動き」プレフィックスで投稿する。
+
+    daily / debut とは独立した別系統:
+      - mode='morning' で BLUESKY_POSTS_TABLE に記録
+      - MORNING_COOLDOWN_HOURS=20h で物理ガード (cron 揺らぎ + 二重発火対策)
+      - 静的HTMLが存在するトピックのみ投稿 (OGP リンクカード正しく表示)
+    """
+    print('[bluesky_agent] 朝投稿 開始')
+
+    last_posted = get_last_post_time('morning')
+    if last_posted is not None:
+        elapsed = datetime.now(timezone.utc) - last_posted
+        cooldown = timedelta(hours=MORNING_COOLDOWN_HOURS)
+        if elapsed < cooldown:
+            remaining_min = int((cooldown - elapsed).total_seconds() / 60)
+            elapsed_min   = int(elapsed.total_seconds() / 60)
+            print(
+                f'[bluesky_agent] 朝投稿クールタイム中（前回 morning 投稿から{elapsed_min}分・'
+                f'残り{remaining_min}分）。skipして終了。'
+            )
+            return
+
+    topics = get_topics_from_s3(limit=100, sort_by='velocity')
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=MORNING_RECENT_HOURS)
+
+    def _topic_updated_at(t):
+        upd = t.get('lastUpdated') or t.get('updatedAt') or ''
+        if isinstance(upd, str) and upd:
+            try:
+                return datetime.fromisoformat(upd.replace('Z', '+00:00'))
+            except Exception:
+                return None
+        last_at = t.get('lastArticleAt')
+        if isinstance(last_at, (int, float)) and last_at > 0:
+            try:
+                return datetime.fromtimestamp(int(last_at), tz=timezone.utc)
+            except Exception:
+                return None
+        return None
+
+    recent_posted_ids = get_recent_posted_ids('morning', limit=3)
+
+    fresh = []
+    for t in topics:
+        if t.get('lifecycleStatus', 'active') not in ('active', 'cooling', ''):
+            continue
+        if t.get('topicId') in recent_posted_ids:
+            continue
+        dt = _topic_updated_at(t)
+        if dt is None or dt < cutoff:
+            continue
+        fresh.append(t)
+
+    if not fresh:
+        print(f'[bluesky_agent] 過去{MORNING_RECENT_HOURS}h 以内の動きトピックなし → skip')
+        return
+
+    topic = None
+    for c in fresh:
+        tid = c.get('topicId', '')
+        if not tid:
+            continue
+        try:
+            s3.head_object(Bucket=S3_BUCKET, Key=f'topics/{tid}.html')
+            topic = c
+            break
+        except Exception:
+            continue
+
+    if not topic:
+        print('[bluesky_agent] 静的HTMLが存在する朝トピックなし → skip')
+        return
+
+    title     = topic.get('generatedTitle') or topic.get('title', '')
+    summary   = topic.get('generatedSummary') or topic.get('extractiveSummary', '')
+    tid       = topic.get('topicId', '')
+    cnt       = int(topic.get('articleCount', 0) or 0)
+    image_url = topic.get('imageUrl') or ''
+    tag       = genre_tag(topic)
+    url       = f'{SITE_URL}/topic.html?id={tid}'
+
+    _t = truncate(title, 36)
+    hook = f'🌅 今朝の動き: {_t}\n昨夜から今朝にかけての動きをまとめました'
+    summary_line = f'{truncate(summary, 95)}\n\n' if summary else ''
+    post_text = (
+        f'{hook}\n\n'
+        f'{summary_line}'
+        f'📄 {cnt}件の記事 {tag} #Flotopic #朝のニュース'
+    )
+    post_text = post_text[:BSKY_MAX_CHARS]
+
+    embed = make_link_embed(
+        client=client,
+        uri=url,
+        title=truncate(title, 80),
+        description=truncate(summary, 150),
+        image_url=image_url,
+    )
+
+    if dry_run:
+        print(f'[DRY-RUN morning] ({len(post_text)}文字):\n{post_text}\n  → リンクカード: {url}\n')
+    else:
+        resp = send_post(client, post_text, embed=embed)
+        mark_as_posted(tid, 'morning')
+        print(f'[bluesky_agent] 朝投稿完了: {resp.uri}')
+
+    print('[bluesky_agent] 朝投稿 完了')
+
+
 # ── メイン ───────────────────────────────────────────────────────────────────
 
 def run(mode: str = 'daily', dry_run: bool = False) -> dict:
     """BlueSky 投稿のメインロジック。CLI / Lambda 両方から呼ばれる。
 
     Args:
-        mode: 'daily' / 'weekly' / 'monthly'
+        mode: 'daily' / 'weekly' / 'monthly' / 'morning'
         dry_run: True なら実投稿せずに本文を print
 
     Returns:
         実行サマリ dict (Lambda レスポンス用)。
     """
-    if mode not in ('daily', 'weekly', 'monthly'):
+    if mode not in ('daily', 'weekly', 'monthly', 'morning'):
         raise ValueError(f"invalid mode: {mode!r}")
 
     started_at = datetime.now(timezone.utc).isoformat()
@@ -883,6 +1005,8 @@ def run(mode: str = 'daily', dry_run: bool = False) -> dict:
             post_weekly(client, dry_run=dry_run)
         elif mode == 'monthly':
             post_monthly(client, dry_run=dry_run)
+        elif mode == 'morning':
+            post_morning(client, dry_run=dry_run)
     except Exception:
         import traceback
         err_detail = traceback.format_exc()
@@ -906,8 +1030,8 @@ def main():
     parser = argparse.ArgumentParser(description='Flotopic BlueSky 自動投稿エージェント')
     parser.add_argument(
         '--mode', required=True,
-        choices=['daily', 'weekly', 'monthly'],
-        help='投稿モード: daily=日次, weekly=週次, monthly=月次',
+        choices=['daily', 'weekly', 'monthly', 'morning'],
+        help='投稿モード: daily=日次, weekly=週次, monthly=月次, morning=朝のみ (T193)',
     )
     parser.add_argument(
         '--dry-run', action='store_true',
