@@ -232,6 +232,13 @@ def lambda_handler(event, context):
         )
         needs_story = (cnt >= MIN_ARTICLES_FOR_SUMMARY
                        and not (topic.get('aiGenerated') and all(_required_full_fields)))
+        # T2026-0428-AH: storyPhase=='発端' かつ articleCount>=3 は再生成対象に含める。
+        # proc_storage.py get_pending_topics 側の例外と対で機能させ、handler.py 側の skip
+        # ロジックでも同じ topic を弾かないようにする (T219 プロンプト強化済の効果反映用)。
+        if (not needs_story
+                and topic.get('storyPhase') == '発端'
+                and cnt >= 3):
+            needs_story = True
         if needs_story and api_calls < MAX_API_CALLS:
             new_story = generate_story(articles, article_count=cnt)
             api_calls += 1
