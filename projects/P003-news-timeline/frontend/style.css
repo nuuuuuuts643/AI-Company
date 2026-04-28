@@ -816,16 +816,6 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   color: var(--text-muted);
   margin-top: 2px;
 }
-.article-archive-link {
-  margin-left: 6px;
-  color: var(--text-muted);
-  text-decoration: none;
-  font-size: .68rem;
-  opacity: .6;
-  transition: opacity .15s, color .15s;
-}
-.article-archive-link:hover { opacity: 1; color: var(--primary); }
-
 /* ===== ADS ===== */
 .ad-slot {
   text-align: center;
