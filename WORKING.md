@@ -102,3 +102,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] 維持費削減: MAX_API_CALLS 200→20 + processor 4回/日→2回/日 | perf | projects/P003-news-timeline/lambda/processor/proc_config.py, .github/workflows/deploy-lambdas.yml, projects/P003-news-timeline/lambda/processor/handler.py | 2026-04-29 01:00 | yes |
