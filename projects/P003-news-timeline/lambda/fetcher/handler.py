@@ -332,6 +332,16 @@ def lambda_handler(event, context):
         if not any(a['url'] in new_urls for a in g):
             continue
         cnt    = len(g)
+        # T2026-0428-AK: 空トピック量産を物理的に防止する。
+        # cluster_utils.cluster() は最小サイズ閾値なしで singleton(=1記事) クラスタも返す。
+        # 旧実装は articleCount<2 トピックも DynamoDB に書き、UI 層 (L693-694) でフィルタしていた
+        # → DynamoDB に articleCount<2 のゾンビメタが累積 (本番で 9680件 / 11882件)。
+        # さらに lifecycle が detail JSON 欠損ゾンビを掃除しないため、UI で 11% の空トピックが発生。
+        # 物理ゲート: ユニーク URL 2 件未満のクラスタは META/SNAP を書かない。
+        # 既存ゾンビは lifecycle 側の articleCount<2 削除ロジックで除去する。
+        unique_url_count = len({a['url'] for a in g if a.get('url')})
+        if unique_url_count < 2:
+            continue
         genres = dominant_genres(g)
         genre  = genres[0]
         forced_genre = override_genre_by_title(g)
@@ -576,6 +586,62 @@ def lambda_handler(event, context):
         list(as_completed([ex.submit(_write_dynamo_chunk, c) for c in _db_chunks]))
     print(f'[TIMING] dynamo-batch {len(_dynamo_puts)}items/{len(_db_chunks)}chunks: {time.time()-_t_db:.1f}s')
 
+    # T2026-0428-AK: 新規保存トピックの detail JSON を即座に S3 に書く。
+    # 物理ゲート: META が DynamoDB に書かれた = api/topic/{tid}.json も S3 に存在する。
+    # 旧実装は META put のみで detail JSON は processor.proc_storage.update_topic_s3_file が
+    # 後刻補完していたが、processor 起動前にユーザーが topics.json を見ると「detail 404」状態に。
+    # 本番計測で 12/109 件 (11%) がこのパスで生成されていた → ユーザーが離れる主因。
+    # ここで雛形 (META + 今回 SNAP のみ) を書いておけば AI 結果は次サイクルで上書きマージされる。
+    if S3_BUCKET and saved_ids:
+        _t_detail = time.time()
+        # tid -> 今回書いた SNAP (articles 含む)
+        _tid_to_snap = {}
+        for p in _dynamo_puts:
+            sk = p.get('SK')
+            if isinstance(sk, str) and sk.startswith('SNAP#'):
+                _tid_to_snap[p.get('topicId')] = p
+
+        _detail_internal = {'SK', 'pendingAI'}
+
+        def _ensure_detail(tid):
+            key = f'api/topic/{tid}.json'
+            try:
+                s3.head_object(Bucket=S3_BUCKET, Key=key)
+                return False  # 既存
+            except Exception:
+                pass
+            meta = current_run_metas.get(tid)
+            snap = _tid_to_snap.get(tid)
+            if not meta or not snap:
+                return False
+            detail = {
+                'meta': {k: v for k, v in meta.items() if k not in _detail_internal},
+                'timeline': [{
+                    'timestamp':    snap.get('timestamp'),
+                    'articleCount': snap.get('articleCount'),
+                    'score':        snap.get('score', 0),
+                    'hatenaCount':  snap.get('hatenaCount', 0),
+                    'articles':     snap.get('articles', []),
+                }],
+                'views': [],
+            }
+            try:
+                write_s3(key, detail)
+                return True
+            except Exception as e:
+                print(f'[detail-init] {tid} write failed: {e}')
+                return False
+
+        _detail_created = 0
+        with ThreadPoolExecutor(max_workers=20) as ex:
+            for f in as_completed([ex.submit(_ensure_detail, tid) for tid in saved_ids]):
+                try:
+                    if f.result():
+                        _detail_created += 1
+                except Exception:
+                    pass
+        print(f'[TIMING] detail-init {_detail_created}/{len(saved_ids)} new files: {time.time()-_t_detail:.1f}s')
+
     if S3_BUCKET:
         topics = get_all_topics()
 
@@ -716,6 +782,31 @@ def lambda_handler(event, context):
                 d['generatedSummary'] = d['generatedSummary'][:120]
             return d
         topics_public = [_pub(t) for t in topics_deduped]
+
+        # T2026-0428-AK: detail JSON が無いトピックは topics.json に含めない。
+        # 上の detail-init ブロックで saved_ids 分は雛形生成済だが、過去 run で META だけ
+        # 残っているレガシーゾンビ (DynamoDB に META・S3 に detail なし) を二重防御で除外する。
+        # 物理ゲート: 「topics.json のエントリ = api/topic/{tid}.json が必ず S3 に存在する」を保証。
+        def _detail_exists_check(tid):
+            try:
+                s3.head_object(Bucket=S3_BUCKET, Key=f'api/topic/{tid}.json')
+                return tid, True
+            except Exception:
+                return tid, False
+
+        _check_tids = [t['topicId'] for t in topics_public if t.get('topicId')]
+        _has_detail = {}
+        with ThreadPoolExecutor(max_workers=30) as ex:
+            for f in as_completed([ex.submit(_detail_exists_check, tid) for tid in _check_tids]):
+                try:
+                    tid, ok = f.result()
+                    _has_detail[tid] = ok
+                except Exception:
+                    pass
+        _before = len(topics_public)
+        topics_public = [t for t in topics_public if _has_detail.get(t.get('topicId'), False)]
+        if len(topics_public) < _before:
+            print(f'[topics-public] detail JSON 欠損で除外: {_before - len(topics_public)}件 (残り {len(topics_public)}件)')
 
         write_s3('api/topics.json', {
             'topics':          topics_public,
