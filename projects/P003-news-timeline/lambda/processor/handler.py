@@ -29,6 +29,7 @@ from proc_storage import (
     update_prediction_result, get_topics_for_prediction_judging,
     get_articles_added_after, generate_topics_card_json,
     generate_health_json,
+    _is_keypoint_inadequate,
 )
 
 _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext', 'background'}
@@ -248,8 +249,9 @@ def lambda_handler(event, context):
             raw_title = topic.get('title', '')
             articles  = [{'title': raw_title}] if raw_title else []
 
-        gen_title    = topic.get('generatedTitle')
-        ai_succeeded = False
+        gen_title       = topic.get('generatedTitle')
+        title_succeeded = False
+        story_succeeded = False
 
         # 既にAI処理済み(aiGenerated=True)かつタイトルがあればタイトル再生成をスキップ
         # → APIコスト半減・スループット2倍
@@ -260,8 +262,8 @@ def lambda_handler(event, context):
             api_calls += 1
             time.sleep(1.5)
             if new_title:
-                gen_title    = new_title
-                ai_succeeded = True
+                gen_title       = new_title
+                title_succeeded = True
                 print(f'  [Claude タイトル] {tid[:8]}... → {new_title[:30]}')
 
         gen_story = None
@@ -271,10 +273,15 @@ def lambda_handler(event, context):
         # keyPoint=None のまま永久に skip されていた (本番 0/115 で確認済)。
         # 仕組み的対策: 必須フィールドリストを 1 箇所で管理し、新フィールド追加時の漏れを構造的に防ぐ。
         # T2026-0428-J/E: statusLabel / watchPoints も standard/full mode で必須化。
+        # T2026-0429-KP (2026-04-29): keyPoint は bool() ではなく長さベース判定に変更。
+        # 旧 bool() 判定は短い keyPoint (例: 21 字「ロシア撤退と過激派攻勢の…」) を「充足」と誤判定し、
+        # proc_storage.needs_ai_processing が再生成キューに乗せても handler 側で skip されて
+        # 永久に短いまま滞留していた (本番 38件)。proc_storage._is_keypoint_inadequate と
+        # 100 字閾値を共有して定義の不整合を排除する。
         _required_full_fields = (
             (topic.get('storyTimeline') or _is_minimal),  # minimal は timeline 生成しない
             (topic.get('storyPhase')    or _is_minimal),  # minimal は phase 生成しない
-            bool(topic.get('keyPoint')),                  # T255+T256: minimal も keyPoint 必須。_is_minimal 免除を削除。
+            (not _is_keypoint_inadequate(topic.get('keyPoint'))),  # T2026-0429-KP: 100字閾値 / proc_storage と一致
             (bool(topic.get('statusLabel')) or _is_minimal),   # T2026-0428-J/E: standard/full のみ必須
             (bool(topic.get('watchPoints'))  or _is_minimal),
         )
@@ -309,10 +316,17 @@ def lambda_handler(event, context):
             api_calls += 1
             time.sleep(1.5)
             if new_story:
-                gen_story    = new_story
-                ai_succeeded = True
+                gen_story       = new_story
+                story_succeeded = True
                 mode = new_story.get('summaryMode', 'full')
                 print(f'  [Claude ストーリー] {tid[:8]}... mode={mode} phase={new_story.get("phase")} timeline={len(new_story.get("timeline", []))}件')
+
+        # T2026-0429-AISG (2026-04-29): aiGenerated=True / aiGeneratedAt 更新は **story 生成成功** にのみ紐付ける。
+        # 旧実装は title 生成のみ成功した場合でも ai_succeeded=True としていたため、
+        # gen_story=None のまま update_topic_with_ai が aiGenerated=True を書き、
+        # keyPoint/storyPhase/statusLabel/perspectives 全部空のまま「処理済」扱いされる事故が発生 (本番 149件)。
+        # 修正: title-only 成功は generatedTitle だけ更新する (update_topic_with_ai の generatedTitle 書込は ai_succeeded ガード外なので保たれる)。
+        ai_succeeded = story_succeeded
 
         # OGP画像生成（imageUrl未設定の場合のみ。AI処理成否に関わらず実行）
         ogp_url = None
