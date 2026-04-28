@@ -745,7 +745,7 @@ function buildFilters() {
         if (!seen.has(g)) { counts[g] = (counts[g] || 0) + 1; seen.add(g); }
       }
     }
-    const visibleGenres = GENRES.filter(g => g === '総合' || g === currentGenre || (counts[g] || 0) > 0);
+    const visibleGenres = GENRES;
     gbar.innerHTML = visibleGenres.map(g=>`<button class="filter-btn genre-btn ${currentGenre===g?'active':''}" data-genre="${g}">${g}</button>`).join('');
     gbar.querySelectorAll('.genre-btn').forEach(btn => btn.addEventListener('click', () => {
       gbar.querySelectorAll('.genre-btn').forEach(b=>b.classList.remove('active'));
