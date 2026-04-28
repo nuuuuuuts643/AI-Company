@@ -65,7 +65,7 @@
       // 未来日付は「タイムゾーンずれ等の異常値」として無効扱い
       if (d.getTime() > Date.now() + 365 * 24 * 3600 * 1000) return '';
       return d.toLocaleString('ja-JP', {
-        month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+        year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
       });
     } catch (e) {
       return '';
