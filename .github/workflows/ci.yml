@@ -114,10 +114,15 @@ jobs:
         run: |
           echo "=== 危険パターン検出 ==="
           # ハードコードされたシークレットチェック
-          # re.compile() 行（パターン定義）と # コメント行は除外する
+          # 除外:
+          #   - re.compile/search/match() のパターン定義行
+          #   - # コメント行
+          #   - シークレット検出スクリプト自身（security_audit.sh / security-audit ファイル名）
+          #     これらは「sk-ant-* を grep するための定義」が中身に必要なので構造的に誤検知する
           if grep -rn "sk-ant-\|AKIA[A-Z0-9]" \
                projects/P003-news-timeline/lambda/ scripts/ 2>/dev/null \
-             | grep -v "re\.compile\|re\.search\|re\.match\|#.*sk-ant\|#.*AKIA"; then
+             | grep -v "re\.compile\|re\.search\|re\.match\|#.*sk-ant\|#.*AKIA" \
+             | grep -v "scripts/security_audit\.sh\|scripts/security-audit"; then
             echo "::error::APIキーがコードにハードコードされています"
             exit 1
           fi
