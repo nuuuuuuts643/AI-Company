@@ -846,6 +846,62 @@ def post_debut(client, dry_run: bool = False) -> bool:
 
 # ── メイン ───────────────────────────────────────────────────────────────────
 
+def run(mode: str = 'daily', dry_run: bool = False) -> dict:
+    """BlueSky 投稿のメインロジック。CLI / Lambda 両方から呼ばれる。
+
+    Args:
+        mode: 'daily' / 'weekly' / 'monthly'
+        dry_run: True なら実投稿せずに本文を print
+
+    Returns:
+        実行サマリ dict (Lambda レスポンス用)。
+    """
+    if mode not in ('daily', 'weekly', 'monthly'):
+        raise ValueError(f"invalid mode: {mode!r}")
+
+    started_at = datetime.now(timezone.utc).isoformat()
+    print(f'[bluesky_agent] モード={mode} / dry_run={dry_run} / 開始: {started_at}')
+
+    try:
+        client = get_bluesky_client() if not dry_run else None
+    except ValueError as e:
+        err = str(e)
+        print(f'[bluesky_agent] 認証エラー: {err}')
+        notify_slack_error(f'BlueSky認証エラー: {err}')
+        return {'ok': False, 'mode': mode, 'error': f'auth: {err}'}
+
+    debut_posted = False
+    try:
+        # T2026-0428-AS: 初回投稿 (debut) チェックを mode 問わず先に実行する。
+        # 同一 cron tick で 2 件投稿しないため、debut が走ったら定期投稿はスキップ。
+        debut_posted = post_debut(client, dry_run=dry_run)
+        if debut_posted:
+            print(f'[bluesky_agent] debut 投稿実行のため mode={mode} の定期投稿は次回 tick へ繰り越し')
+        elif mode == 'daily':
+            post_daily(client, dry_run=dry_run)
+        elif mode == 'weekly':
+            post_weekly(client, dry_run=dry_run)
+        elif mode == 'monthly':
+            post_monthly(client, dry_run=dry_run)
+    except Exception:
+        import traceback
+        err_detail = traceback.format_exc()
+        print(f'[bluesky_agent] 予期しないエラー:\n{err_detail}')
+        notify_slack_error(f'モード={mode} で予期しないエラー\n```{err_detail[:500]}```')
+        return {'ok': False, 'mode': mode, 'error': err_detail[:500]}
+
+    finished_at = datetime.now(timezone.utc).isoformat()
+    print(f'[bluesky_agent] 完了: {finished_at}')
+    return {
+        'ok': True,
+        'mode': mode,
+        'dry_run': dry_run,
+        'debut_posted': debut_posted,
+        'started_at': started_at,
+        'finished_at': finished_at,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description='Flotopic BlueSky 自動投稿エージェント')
     parser.add_argument(
@@ -858,40 +914,9 @@ def main():
         help='実際には投稿せず投稿内容をターミナルに出力する',
     )
     args = parser.parse_args()
-
-    print(
-        f'[bluesky_agent] モード={args.mode} / dry_run={args.dry_run} / '
-        f'開始: {datetime.now(timezone.utc).isoformat()}'
-    )
-
-    try:
-        client = get_bluesky_client() if not args.dry_run else None
-    except ValueError as e:
-        err = str(e)
-        print(f'[bluesky_agent] 認証エラー: {err}')
-        notify_slack_error(f'BlueSky認証エラー: {err}')
+    result = run(mode=args.mode, dry_run=args.dry_run)
+    if not result.get('ok'):
         sys.exit(1)
-
-    try:
-        # T2026-0428-AS: 初回投稿 (debut) チェックを mode 問わず先に実行する。
-        # 同一 cron tick で 2 件投稿しないため、debut が走ったら定期投稿はスキップ。
-        debut_posted = post_debut(client, dry_run=args.dry_run)
-        if debut_posted:
-            print(f'[bluesky_agent] debut 投稿実行のため mode={args.mode} の定期投稿は次回 tick へ繰り越し')
-        elif args.mode == 'daily':
-            post_daily(client, dry_run=args.dry_run)
-        elif args.mode == 'weekly':
-            post_weekly(client, dry_run=args.dry_run)
-        elif args.mode == 'monthly':
-            post_monthly(client, dry_run=args.dry_run)
-    except Exception as e:
-        import traceback
-        err_detail = traceback.format_exc()
-        print(f'[bluesky_agent] 予期しないエラー:\n{err_detail}')
-        notify_slack_error(f'モード={args.mode} で予期しないエラー\n```{err_detail[:500]}```')
-        sys.exit(1)
-
-    print(f'[bluesky_agent] 完了: {datetime.now(timezone.utc).isoformat()}')
 
 
 if __name__ == '__main__':

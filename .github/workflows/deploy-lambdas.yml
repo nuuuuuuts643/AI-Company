@@ -7,6 +7,8 @@ on:
       - main
     paths:
       - "projects/P003-news-timeline/lambda/**"
+      - "scripts/bluesky_agent.py"
+      - "scripts/_governance_check.py"
 
 concurrency:
   group: deploy-p003-lambda
@@ -221,6 +223,67 @@ jobs:
             --function-name p003-contact \
             --region ap-northeast-1
           echo "[OK] contact デプロイ完了"
+
+      # ----------------------------------------------------------------
+      # bluesky Lambda (T2026-0428-AV)
+      # GH Actions cron 無料枠の発火不安定問題を根本解決するため、
+      # scripts/bluesky_agent.py のロジックを Lambda 化して
+      # EventBridge から rate(30 minutes) で直接 invoke する。
+      # ハンドラ本体は handler.py、ロジックは scripts/bluesky_agent.py を
+      # ビルド時にコピーして同梱（CLI とのコード分岐を作らない）。
+      # ----------------------------------------------------------------
+      - name: bluesky Lambda をデプロイ
+        id: deploy_bluesky
+        env:
+          BLUESKY_HANDLE:        ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD:  ${{ secrets.BLUESKY_APP_PASSWORD }}
+          SLACK_WEBHOOK:         ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          set -e
+          BLUE_DIR=projects/P003-news-timeline/lambda/bluesky
+          # CLI と同じロジックを Lambda にも入れる（DRY: scripts/ が source of truth）
+          cp scripts/bluesky_agent.py "$BLUE_DIR/bluesky_agent.py"
+          cp scripts/_governance_check.py "$BLUE_DIR/_governance_check.py"
+          cd "$BLUE_DIR"
+          # atproto を Lambda ランタイム (Amazon Linux 2023 / Python 3.12) 向けに同梱
+          # boto3 は Lambda ランタイム標準なので入れない
+          pip install atproto \
+            --platform manylinux2014_x86_64 \
+            --target . \
+            --python-version 3.12 \
+            --only-binary=:all: \
+            -q
+          zip -qr function.zip . --exclude "*.pyc" --exclude "__pycache__/*" --exclude "function.zip"
+          # 関数が無ければ作成、あれば更新
+          if ! aws lambda get-function --function-name flotopic-bluesky --region ap-northeast-1 >/dev/null 2>&1; then
+            ROLE_ARN=$(aws iam get-role --role-name p003-lambda-role --query 'Role.Arn' --output text)
+            aws lambda create-function \
+              --function-name flotopic-bluesky \
+              --runtime python3.12 \
+              --role "$ROLE_ARN" \
+              --handler handler.lambda_handler \
+              --zip-file fileb://function.zip \
+              --timeout 120 --memory-size 256 \
+              --region ap-northeast-1 > /dev/null
+            echo "[OK] flotopic-bluesky 新規作成"
+          else
+            aws lambda update-function-code \
+              --function-name flotopic-bluesky \
+              --zip-file fileb://function.zip \
+              --region ap-northeast-1 > /dev/null
+            aws lambda wait function-updated \
+              --function-name flotopic-bluesky \
+              --region ap-northeast-1
+            echo "[OK] flotopic-bluesky コード更新"
+          fi
+          # 環境変数を毎デプロイで反映（Secrets ローテに追従）
+          aws lambda update-function-configuration \
+            --function-name flotopic-bluesky \
+            --timeout 120 --memory-size 256 \
+            --environment "Variables={BLUESKY_HANDLE=${BLUESKY_HANDLE},BLUESKY_APP_PASSWORD=${BLUESKY_APP_PASSWORD},SLACK_WEBHOOK=${SLACK_WEBHOOK},S3_BUCKET=p003-news-946554699567,AWS_DEFAULT_REGION=ap-northeast-1,SITE_URL=https://flotopic.com}" \
+            --region ap-northeast-1 > /dev/null
+          aws lambda wait function-updated --function-name flotopic-bluesky --region ap-northeast-1
+          echo "[OK] flotopic-bluesky 環境変数更新"
 
       # Slack通知は slack-notify.yml が push 時に一元管理するため不要
 
