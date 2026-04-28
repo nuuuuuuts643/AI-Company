@@ -1,0 +1,103 @@
+name: SLI-keypoint-fill-rate (6h DynamoDB scan)
+
+# T2026-0428-BI: freshness-check.yml の hourly DynamoDB scan ステップを分離。
+# keyPoint 充填率は数時間〜日単位でしか変動しないため、hourly は過剰。
+# CI 実行時間と DynamoDB RCU を 24/日 → 4/日 (-83%) に削減。
+#
+# 仕組み: DynamoDB p003-topics を scan (META 行のみ)。articleCount>=2 で
+#   archived/legacy/deleted を除いた eligible な META に対する keyPoint 充填率を計算。
+# 閾値:
+#   rate >  10% : ok    / rate <= 10% : warn / rate <= 5% : error (Slack 通知)
+# コスト: 6h scan、Lambda/Anthropic invoke なし。READ-ONLY。
+# 関連: scripts/sli_keypoint_fill_rate.py / scripts/quality_heal.py
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'  # 6時間ごと (00:17, 06:17, 12:17, 18:17 UTC)。他の cron と被らない時刻
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sli:
+    name: SLI keyPoint 充填率 (DynamoDB scan)
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION:    ap-northeast-1
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: install boto3
+        shell: bash
+        run: pip install --quiet boto3==1.34.0
+
+      - name: SLI keyPoint 充填率 (DynamoDB scan)
+        id: kp_fill_rate
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -u
+          if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+            echo "::warning::SLI-keypoint-fill-rate: AWS credentials 未設定 (skip)"
+            {
+              echo "status=skipped"
+              echo "kp_fill_rate=-1"
+              echo "eligible_total=0"
+              echo "kp_filled=0"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          OUT=$(mktemp)
+          python3 scripts/sli_keypoint_fill_rate.py | tee "$OUT" || true
+          STATUS=$(grep '^status=' "$OUT" | cut -d= -f2 || echo unknown)
+          RATE=$(grep '^kp_fill_rate=' "$OUT" | cut -d= -f2 || echo -1)
+          ELIGIBLE=$(grep '^eligible_total=' "$OUT" | cut -d= -f2 || echo 0)
+          FILLED=$(grep '^kp_filled=' "$OUT" | cut -d= -f2 || echo 0)
+          {
+            echo "### SLI-keypoint-fill-rate (DynamoDB scan)"
+            echo "- status: ${STATUS}"
+            echo "- rate: ${RATE}%"
+            echo "- eligible (articleCount>=2, not archived/legacy/deleted): ${ELIGIBLE}"
+            echo "- filled: ${FILLED}"
+            echo "- 閾値: rate>10% ok / rate<=10% warn / rate<=5% error"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: SLI keyPoint 充填率 NG で警告 (Slack)
+        if: steps.kp_fill_rate.outputs.status == 'warn' || steps.kp_fill_rate.outputs.status == 'error'
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
+          STATUS: ${{ steps.kp_fill_rate.outputs.status }}
+          RATE: ${{ steps.kp_fill_rate.outputs.kp_fill_rate }}
+          ELIGIBLE: ${{ steps.kp_fill_rate.outputs.eligible_total }}
+          FILLED: ${{ steps.kp_fill_rate.outputs.kp_filled }}
+        shell: bash
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::warning::SLI-keypoint-fill-rate $STATUS: rate=$RATE% filled=$FILLED/$ELIGIBLE"
+            exit 0
+          fi
+          ICON=$([ "$STATUS" = "error" ] && echo ':rotating_light:' || echo ':warning:')
+          PAYLOAD=$(STATUS="$STATUS" RATE="$RATE" ELIGIBLE="$ELIGIBLE" FILLED="$FILLED" ICON="$ICON" python3 -c "
+          import json, os
+          text = (
+              '⚠️ *Flotopic SLI-keypoint-fill-rate*\n'
+              f'• status: \`{os.environ[\"STATUS\"]}\`\n'
+              f'• 充填率: \`{os.environ[\"RATE\"]}%\` (warn<=10% / error<=5%)\n'
+              f'• filled: {os.environ[\"FILLED\"]} / eligible: {os.environ[\"ELIGIBLE\"]}\n'
+              '• 対象: DynamoDB p003-topics META (articleCount>=2, not archived/legacy/deleted)\n'
+              '• 対処: pending_ai.json 投入状況確認 / processor cron ログ参照\n'
+              '\n_T2026-0428-BG: 遡及処理 (pending_ai.json 950 件) の効果観測用 SLI / 6h scan_'
+          )
+          print(json.dumps({'text': text, 'username': 'Flotopic keyPoint Fill Monitor', 'icon_emoji': os.environ['ICON']}))
+          ")
+          curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
