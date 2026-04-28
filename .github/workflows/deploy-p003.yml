@@ -36,13 +36,43 @@ jobs:
             projects/P003-news-timeline/frontend/sw.js
           echo "✅ sw.js CACHE_NAME = flotopic-${SHORT_SHA}"
 
+      - name: HTML 内のローカル JS/CSS 参照に ?v=SHA を付与（T254 cache-busting）
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          FRONTEND="projects/P003-news-timeline/frontend"
+          python3 - <<PYEOF
+          import os
+          import re
+          from glob import glob
+          short_sha = "${SHORT_SHA}"
+          # ローカル参照のみ書き換え。外部URL (http://, https://, //) は除外。
+          # 既存の ?v=... が付いていたら置換、無ければ追加。
+          # マッチ対象: src="path.js" / src="path.js?v=xxx" / href="path.css" / href="path.css?v=xxx"
+          # 除外: src="https://...", src="//cdn...", href="/manifest.json"
+          pat = re.compile(r'(src|href)="(?!https?://|//)([^":?]+\.(?:js|css))(?:\?v=[^"]*)?"')
+          rewritten = 0
+          for f in sorted(glob(os.path.join("${FRONTEND}", "*.html"))):
+              with open(f, "r", encoding="utf-8") as h:
+                  src = h.read()
+              new_src, n = pat.subn(lambda m: f'{m.group(1)}="{m.group(2)}?v={short_sha}"', src)
+              if n > 0:
+                  with open(f, "w", encoding="utf-8") as h:
+                      h.write(new_src)
+                  print(f"  {os.path.basename(f)}: {n} replacements")
+                  rewritten += n
+          print(f"✅ HTML rewrite 完了: 総 {rewritten} 箇所 (SHA={short_sha})")
+          PYEOF
+          # サニティチェック
+          grep -E "(app\\.js|style\\.css|config\\.js)\\?v=${SHORT_SHA}" "${FRONTEND}/index.html" | head -3 \
+            || { echo "⚠️ index.html に書き換え跡が見つからない"; exit 1; }
+
       - name: フロントエンドをS3に同期（cache-control付き）
         run: |
           BUCKET="p003-news-946554699567"
           REGION="ap-northeast-1"
           FRONTEND="projects/P003-news-timeline/frontend"
 
-          # HTML: no-cache（常に最新を取得）
+          # HTML: no-cache（常に最新を取得 — ?v=SHA で参照する JS/CSS を切り替えるため）
           aws s3 sync "${FRONTEND}/" "s3://${BUCKET}/" \
             --region "${REGION}" \
             --exclude "*" \
@@ -50,21 +80,22 @@ jobs:
             --content-type "text/html; charset=utf-8" \
             --cache-control "no-cache, must-revalidate"
 
-          # JS/CSS: no-cache
+          # JS: 長期キャッシュ (T254 — ?v=SHA で URL が変わるため immutable で安全)
           aws s3 sync "${FRONTEND}/" "s3://${BUCKET}/" \
             --region "${REGION}" \
             --exclude "*" \
             --include "*.js" \
             --exclude "sw.js" \
             --content-type "application/javascript" \
-            --cache-control "no-cache, must-revalidate"
+            --cache-control "public, max-age=31536000, immutable"
 
+          # CSS: 長期キャッシュ (T254)
           aws s3 sync "${FRONTEND}/" "s3://${BUCKET}/" \
             --region "${REGION}" \
             --exclude "*" \
             --include "*.css" \
             --content-type "text/css" \
-            --cache-control "no-cache, must-revalidate"
+            --cache-control "public, max-age=31536000, immutable"
 
           # sw.js: no-store（ブラウザのHTTPキャッシュにも保存させない）
           aws s3 cp "${FRONTEND}/sw.js" "s3://${BUCKET}/sw.js" \
