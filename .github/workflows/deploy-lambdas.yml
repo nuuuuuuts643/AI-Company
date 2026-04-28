@@ -263,7 +263,7 @@ jobs:
               --role "$ROLE_ARN" \
               --handler handler.lambda_handler \
               --zip-file fileb://function.zip \
-              --timeout 120 --memory-size 256 \
+              --timeout 120 --memory-size 384 \
               --region ap-northeast-1 > /dev/null
             # 新規作成は Pending 状態で返るので Active になるのを待つ
             aws lambda wait function-active \
@@ -283,7 +283,7 @@ jobs:
           # 環境変数を毎デプロイで反映（Secrets ローテに追従）
           aws lambda update-function-configuration \
             --function-name flotopic-bluesky \
-            --timeout 120 --memory-size 256 \
+            --timeout 120 --memory-size 384 \
             --environment "Variables={BLUESKY_HANDLE=${BLUESKY_HANDLE},BLUESKY_APP_PASSWORD=${BLUESKY_APP_PASSWORD},SLACK_WEBHOOK=${SLACK_WEBHOOK},S3_BUCKET=p003-news-946554699567,SITE_URL=https://flotopic.com}" \
             --region ap-northeast-1 > /dev/null
           aws lambda wait function-updated --function-name flotopic-bluesky --region ap-northeast-1
