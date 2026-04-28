@@ -80,6 +80,11 @@ SITE_URL = 'https://flotopic.com'
 # BlueSky 文字数制限
 BSKY_MAX_CHARS = 300
 
+# 日次投稿クールタイム時間（30分間隔発火に対する実投稿レート制御）
+# ワークフローを */30 * * * * で発火させてcron遅延を吸収するが、
+# 実投稿は4時間に最大1回 ＝ 1日6回までに抑える（過剰投稿防止）。
+DAILY_COOLDOWN_HOURS = 4
+
 # ── AWS クライアント ───────────────────────────────────────────────────────────
 dynamodb = boto3.resource('dynamodb', region_name=REGION)
 s3       = boto3.client('s3', region_name=REGION)
@@ -124,6 +129,35 @@ def get_posted_ids():
     except Exception as e:
         print(f'[bluesky_agent] 投稿済みID取得エラー（テーブル未作成の可能性）: {e}')
         return set()
+
+
+def get_last_post_time(mode: str):
+    """指定 mode の直近投稿時刻（datetime, UTC）を返す。なければ None。"""
+    try:
+        table  = dynamodb.Table(BLUESKY_POSTS_TABLE)
+        latest = None
+        kwargs = {}
+        while True:
+            resp = table.scan(**kwargs)
+            for item in resp.get('Items', []):
+                if item.get('mode') != mode:
+                    continue
+                pt = item.get('postedAt', '')
+                if not pt:
+                    continue
+                try:
+                    dt = datetime.fromisoformat(pt.replace('Z', '+00:00'))
+                except Exception:
+                    continue
+                if latest is None or dt > latest:
+                    latest = dt
+            if not resp.get('LastEvaluatedKey'):
+                break
+            kwargs['ExclusiveStartKey'] = resp['LastEvaluatedKey']
+        return latest
+    except Exception as e:
+        print(f'[bluesky_agent] 最終投稿時刻取得エラー（投稿継続）: {e}')
+        return None
 
 
 def mark_as_posted(topic_id: str, mode: str):
@@ -292,6 +326,23 @@ def post_daily(client, dry_run=False):
       [ジャンルハッシュタグ] #Flotopic
     """
     print('[bluesky_agent] 日次投稿 開始')
+
+    # クールタイムチェック: 直近の daily 投稿から DAILY_COOLDOWN_HOURS 未満なら skip。
+    # ワークフローを 30分ごとに発火させて cron 遅延を吸収する設計のため、
+    # 実投稿レートはここで制御する（過剰投稿防止）。
+    last_posted = get_last_post_time('daily')
+    if last_posted is not None:
+        elapsed = datetime.now(timezone.utc) - last_posted
+        cooldown = timedelta(hours=DAILY_COOLDOWN_HOURS)
+        if elapsed < cooldown:
+            remaining_min = int((cooldown - elapsed).total_seconds() / 60)
+            elapsed_min   = int(elapsed.total_seconds() / 60)
+            print(
+                f'[bluesky_agent] クールタイム中（前回daily投稿から{elapsed_min}分・'
+                f'残り{remaining_min}分）。skipして終了。'
+            )
+            return
+
     topics     = get_topics_from_s3(limit=50, sort_by='velocity')
     posted_ids = get_posted_ids()
 
