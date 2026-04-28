@@ -4,6 +4,31 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-28 22:45 JST Code T2026-0428-AW keyPoint 充填率 改善: quality_heal 改修 + 遡及キュー投入）
+
+- ✅ **T2026-0428-AW 完了** — keyPoint 充填率 10.02% (961/1068 件未充填) の根本原因 = quality_heal.py が今日 (2026-04-28 11:05 JST) 配備されたばかりで cron 初回実行未到達 (06:00 JST 翌朝開始)。**Lambda invoke ゼロ・Anthropic API 呼び出しゼロ**でキュー投入のみ実施 (コスト管理PO指示順守)。
+
+  **実測根拠 (2026-04-28 22:30 JST DynamoDB 1 回スキャン)**:
+  - keyPoint 空 961 件 / pendingAI=True 961 件 / schemaVersion=0 (要再処理) 961 件
+  - articleCount 分布: ac=2:430, ac=3-4:206, ac=5-9:196, ac=10+:129 (高 ac 多数滞留)
+  - lifecycle: active 750 / cooling 105 / archived 105 / legacy 1
+  - **pending_ai.json には 40 件のみ** = quality_heal 未走で 921 件キュー外滞留
+
+  **実装した改善 (3 点・コード変更のみ・実 invoke なし)**:
+  1. `lambda/processor/proc_storage.py` `get_pending_topics._sort_key` — 「可視 × keyPoint 欠落」を priority 0 に昇格 (旧来は aiGenerated=True で priority 1 に沈んでいた)。ユーザーが見えている画面の補完を最優先化。
+  2. `scripts/quality_heal.py` `find_unhealthy` — 結果を articleCount DESC, score DESC でソート。pending_ai.json への投入順を重要度順に。
+  3. `scripts/quality_heal.py` `update_pending_ai_json` — 新規 unhealthy IDs を **先頭** に挿入 (旧来は末尾)。DDB GetItem ループの早期に登場させ、1 サイクルでの取りこぼしを減らす。
+
+  **遡及処理キュー投入 (Lambda 起動なし・S3 + DDB 書き込みのみ)**:
+  - `python3 scripts/quality_heal.py --apply` 実行: 914 件に pendingAI=True セット、pending_ai.json: 40 → 950 件 (910 件追加)
+  - 先頭は ac=20 のトピック (sort 反映確認済)
+  - 次の processor cron (JST 23:00 ~5x/日) が自然に処理開始。100 件/サイクル × 10 サイクル ≈ 2 日で完走見込み
+
+  **次のスケジュール実行で keyPoint 充填率改善を観測**:
+  - 自動: 翌朝 06:00 JST quality-heal.yml cron 走行で品質維持自動化開始
+  - SLI: freshness-check.yml SLI 8 (keyPoint 70%) で日次観測
+  - 次セッション計測予定 (即時計測不要・user 指示)
+
 ### 完了済み（2026-04-28 22:30 JST Code フェーズ1 完了確認 + フェーズ2 完了条件 実測スナップショット）
 
 - ✅ **T2026-0428-AY / AY-2 完了確認** — POが GitHub UI で設定した branch protection を `gh api repos/nuuuuuuts643/AI-Company/branches/main/protection` で実測確認。①PR レビュー必須 (`required_pull_request_reviews.required_approving_review_count=1`)、②required status checks 5 件登録 (`lint-frontend` / `lint-lambda` / `lint-scripts` / `CLAUDE.md 250 行ガード` / `check`) + `strict=true`、③force_push / deletions 禁止。**フェーズ1 完了**。`docs/project-phases.md` §B の ❌ を ✅ に更新。
@@ -1617,5 +1642,15 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T2026-0428-AC~~ ✅準備完了 (Step1) | 🟡 中 | ~~**[仕組み] system-status.md 数値の自動更新化**~~ — 2026-04-28 11:50 JST: `docs/system-status.md` の P003 技術状態スナップショット表に `[AUTO]` 接頭辞 6 行追加 + 表上部に「[AUTO] 行は freshness-check.yml の実測値で自動更新する対象」を明記。**残作業 (T2026-0428-R)**: freshness-check.yml に sed 置換 + auto-commit step を追加して機械観測値だけが正本になる構造へ。 | `docs/system-status.md` (済) / `scripts/_governance_check.py` or `scripts/update_system_status_live.py` (T2026-0428-R で実装) | 2026-04-28 |
 | ~~T2026-0428-AD~~ ✅完了 | 🟢 低 | ~~**[仕組み] 新機能 PR テンプレに「対応 SLI 追記」必須化**~~ — 2026-04-28 11:50 JST 完了。`.github/PULL_REQUEST_TEMPLATE.md` を新規作成し「□ 対応 SLI を `docs/sli-slo.md` に追記したか」を含むチェック欄 + Verified 行 / Verified-Effect 行 / なぜなぜ分析欄を整備。CI 自動 grep は次フェーズ (warning から開始)。 | `.github/PULL_REQUEST_TEMPLATE.md` (済) / `.github/workflows/ci.yml` (CI grep は次フェーズ) | 2026-04-28 |
 | ~~T2026-0428-T~~ ✅完了 | 🟢 低 | ~~**AI フィールドカタログと proc_ai.py schema の CI 突合**~~ — 2026-04-28 11:50 JST 完了。`scripts/check_ai_fields_catalog.py` 新規 (proc_ai import + AST フォールバック / nested key 除外 / `summaryMode` computed 例外)、`.github/workflows/ci.yml` lint-lambda に main push 時 step 追加、`docs/ai-fields-catalog.md` を T2026-0428-J/E の現行 schema (statusLabel/watchPoints 追加・background系削除) に更新。ローカル検証で OK 確認済。 | `scripts/check_ai_fields_catalog.py` (済), `.github/workflows/ci.yml` (済), `docs/ai-fields-catalog.md` (済) | 2026-04-28 |
+
+</details>
+
+
+### 自動 triage: 2026-04-28 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T2026-0428-AY~~ | **develop / main ブランチ分離 + branch protection** | `gh api repos/nuuuuuuts643/AI-Company/branches/main/protection` → `required_pull_request_reviews.required_approving_review_count=1` 確認済 |
+| ~~T2026-0428-AY-2~~ | **CI 全パス必須化** | required_status_checks に 5 件 (`lint-frontend` / `lint-lambda` / `lint-scripts` / `CLAUDE.md 250 行ガード` / `check`) + `strict=true` 確認済 |
 
 </details>
