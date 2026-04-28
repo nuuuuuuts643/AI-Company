@@ -528,9 +528,12 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         + (f'\n{media_block}' if media_block else '')
     )
     try:
+        # T2026-0428-AL: 全文ブロック注入で prompt が ~6000 字伸びるため timeout を 60s に拡張
+        # (旧 25s では Sonnet 4.6 + 1700 max_tokens の生成が間に合わず full mode が
+        # まるごと失敗 → fallback で None になり aiGenerated=False のまま放置されていた)
         result = _call_claude_tool(
             prompt, 'emit_topic_story', _build_story_schema('full'),
-            max_tokens=1700, model='claude-sonnet-4-6',
+            max_tokens=1700, timeout=60, model='claude-sonnet-4-6',
         )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
