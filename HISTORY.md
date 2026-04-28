@@ -4,6 +4,10 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-28 15:25 JST Code T2026-0428-AT チュートリアル文言＋日付西暦付与）
+
+- ✅ **T2026-0428-AT 本番 UI 不具合 2 件を 1 PR で修正** — ナオヤがスクショで発見。① index.html チュートリアルポップアップ「はじめての方へ — カードの見かた」が実際の画面と乖離 (「スコア」は数値表示なし・「経緯を読む →」は一部カードのみ・遷移先 storymap.html は別 UI)。実在する常時表示要素 (🔥 急上昇/⚡ 注目中 バッジ・📄 N件 · 約M分・カードをタップ→詳細) に書き換え。② 日付フォーマッタ全 11 ファイル統一: `app.js` `js/formatters.js` `js/safe_format.js` `js/comments.js` `detail.js` (5箇所) `mypage.html` (3箇所) `profile.html` `catchup.html` `storymap.html`。`YYYY/M/D HH:mm` または `YYYY年M月D日（曜）` 形式に統一。グラフ x 軸ラベルのみ横幅制約のため `YY/M/D` 短縮形 (例: `24/8/22`)。**副次的バグ修正**: `detail.js fmtDay` は dayMap キーにも使われており、年なしだと年またぎで前年同月日と衝突する潜在バグがあった (年付与で根本対策)。**テスト**: `formatters.test.js` 期待値正規表現を `\d{4}\/\d+\/\d+` に更新 + `safe_format.test.js` に年またぎ boundary test 追加 (12/31 of 2023 と 1/1 of 2025 が異なる文字列になることを assert)。ユニットテスト 120 件すべて pass (追加分 +2)。**PR#1 admin-merge → GHA deploy success → flotopic.com で目視 200 + 新文言 + 新フォーマッタ live 確認済**。**Note**: 当初取得 ID `T2026-0428-AS` は同タイミングの Bluesky タスクと衝突したため AT に振替 (next_task_id.sh が並行 worktree の取得をロックしない既知の弱点)。Verified: https://flotopic.com:200:2026-04-28T15:20+0900。
+
 ### 完了済み（2026-04-28 11:50 JST Code T2026-0428-PRED/AC/AD/T 統合実装）
 
 - ✅ **T2026-0428-PRED outlook (AI予想) 自動当否判定** — `proc_ai.judge_prediction(outlook, new_titles, min_titles=5)` を追加。Claude Haiku Tool Use で `result` (matched/partial/missed/pending) + `evidence` (80字以内根拠) を強制 schema 出力。`min_titles` 未満なら API を呼ばずローカルで `pending` を返す (1件で判断するノイズ抑制)。`proc_storage.update_prediction_result(tid, result, evidence)` で META に `predictionResult` / `predictionVerifiedAt` / `predictionEvidence` を書き戻す。`get_topics_for_prediction_judging(min_age_days=7, min_articles=5)` でスキャン (predictionMadeAt 7日経過 × articleCount>=5 × predictionResult==pending)、`get_articles_added_after(tid, since_iso)` で since 以降の SNAP 記事タイトルを抽出。`handler.py` の S3 書き戻し後に最大 10 件まで判定し wallclock guard 尊重、判定実績は response body の `pred_judged` / `pred_skipped` で観測可能化。ナオヤ方針 (2026-04-28) の「予想判定 — 後から当否を判断」と方向性一致。
