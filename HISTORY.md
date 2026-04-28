@@ -4,6 +4,35 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 00:30 JST Code T2026-0428-E2-2 keyPoint 充填率 遡及再処理加速）
+
+- ✅ **T2026-0428-E2-2 第二弾完了** — pending_ai.json と DDB pendingAI=True の同期崩壊 (24 件 vs 855 件) を即時是正 + processor 自動回復ロジック追加で構造的に再発防止。**Lambda invoke ゼロ・Anthropic API ゼロ**。
+
+  **実測根拠 (2026-04-29 00:14 JST DynamoDB scan)**:
+  - META 全 1068 件中 keyPoint 100 字以上の adequate = **5 件 (0.53%)** ← 旧基準 (1 字以上) の 10.02% は緩すぎた。新基準で見直すと事態はもっと深刻。
+  - 内訳: none=855 / 1-49 字=73 / 50-99 字=4 / 100-199 字=1 / 200-299 字=4 / 300+=0。
+  - DDB pendingAI=True (active+ac>=2) は 855 件あったのに、pending_ai.json は **24 件しか入っていない** (LastModified 24 時間前)。
+  - quality_heal cron は 06:00 JST 1 回/日。 processor cron は 5 回/日 で max_topics=100。pending_ai.json が 24 件なら 1 サイクル 24 件しか処理できず、932 件の遡及が完全停滞していた。
+
+  **修正 1: 即時遡及キュー投入** (`scripts/quality_heal.py --apply` 手動実行)
+  - 932 件 unhealthy 検出 (keyPoint 空 855 + 短い 77)
+  - DDB pendingAI=True セット: 932 件
+  - pending_ai.json: 24 → 942 件 (約 40 倍)
+  - 効果: 次の processor cron (05:00 JST) から 100 件/サイクル × 5 回/日 = 500 件/日 で処理進行
+
+  **修正 2: 構造的自動回復ロジック** (`projects/P003-news-timeline/lambda/processor/proc_storage.py:454`)
+  - pending_ai.json 件数が `max_topics` (=100) 未満なら、processor 起動時に DDB を `Attr('pendingAI').eq(True)` で scan → union → 永続化。
+  - quality_heal cron 待ちなしで自動回復。Lambda invoke も Anthropic API invoke もしない (既存 boto3 scan のみ)。
+  - コスト: pending_ai.json 枯渇時のみ scan 発火。平常時は scan しない。月数十円規模。
+  - 閾値以下のときだけ scan するため、既存の正常運用 (pending_ai.json >= 100) には影響しない。
+
+  **動作確認**:
+  - quality_heal --apply 実行直後の DDB scan: pendingAI=True total 1039 / active+ac>=2 で 932 / pending_ai.json 942 件 → 完全整合 (差分 107 はすべて archived/legacy/cooling で意図通り除外)。
+  - proc_storage.py syntax check: ✅ AST parse 通過。
+  - 効果検証 (fill rate 改善) は明朝以降に DDB scan で再測定する。本セッションでは **Lambda invoke 禁止** 制約のため次の cron 起動を待つ。
+
+  **Verified**: scan 直接実行で pending_ai.json=942 / DDB pendingAI=True=1039 を確認 (2026-04-29 00:21 JST)。次回 processor cron (05:00 JST) で 100 件処理開始予定。
+
 ### 完了済み（2026-04-29 00:05 JST Code T2026-0428-E2-3 title 重複による tid 分裂 dedup 実装）
 
 - ✅ **T2026-0428-E2-3 完了** — `topic_fingerprint` の cluster top-5 単語依存で同一イベントが別 tid に分裂していた問題を、fetcher の main loop 入口で title 一致 → 既存 tid 再バインドする物理ガードで解消。**Lambda invoke ゼロ・Anthropic API ゼロ**。
