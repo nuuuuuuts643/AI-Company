@@ -1,20 +1,12 @@
-name: BlueSky Agent (BlueSky自動投稿)
+name: BlueSky Agent (BlueSky自動投稿) [DEPRECATED — 手動フォールバック専用]
+
+# 2026-04-28 (T2026-0428-AV): cron トリガー廃止。
+# GitHub Actions 無料枠の cron は 1 系統で 1 日 3〜5 回、4 系統併走でも安定しなかった
+# (T2026-0428-AU 調査結果)。EventBridge → flotopic-bluesky Lambda に
+# 直接呼び出しを移管し、rate(30 minutes) で物理的に発火確率を担保する。
+# このワークフローは workflow_dispatch (手動) のみ残す（緊急の手動投稿フォールバック）。
 
 on:
-  schedule:
-    # 日次: cron遅延対策で 4 系統を併走（GitHub Actions 無料枠は 1 系統だと
-    # 1日 3〜5 回しか発火しない実績 — 2026-04-28 調査）。
-    # 4 系統の OR で発火確率を引き上げ、スクリプト側で 2.5時間クールタイムにより
-    # 実投稿レートを「1日9〜10回」に上限制御する（DAILY_COOLDOWN_HOURS）。
-    - cron: '*/30 * * * *'           # 0,30 分
-    - cron: '5,35 * * * *'           # 5,35 分
-    - cron: '15,45 * * * *'          # 15,45 分
-    - cron: '25,55 * * * *'          # 25,55 分
-    # 週次: 月曜 JST 9:00 = UTC 0:00
-    - cron: '0 0 * * 1'
-    # 月次: 毎月1日 JST 9:00 = UTC 0:00
-    - cron: '0 0 1 * *'
-
   workflow_dispatch:
     inputs:
       mode:

@@ -94,3 +94,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | [Cowork] T2026-0428-L security_headers_check.sh + SLI 7 実装 | Cowork | scripts/security_headers_check.sh (新規), .github/workflows/security-headers-check.yml (新規), docs/sli-slo.md | 2026-04-28 11:25 | yes |
 | [Code] T2026-0428-AJ グラフUI修正＋記事ローディング修正 | Code | frontend/detail.js, frontend/topic.html, frontend/style.css | 2026-04-28 10:30 | yes |
 | [Code] T2026-0428-AU カテゴリ分類精度改善＋RSS拡充＋空ジャンル非表示 | Code | projects/P003-news-timeline/lambda/processor/proc_ai.py, projects/P003-news-timeline/lambda/fetcher/config.py, projects/P003-news-timeline/frontend/app.js, scripts/migrate_genres.py (新規) | 2026-04-28 15:55 | yes |
+| [Code] T2026-0428-AV Bluesky GH Actions cron→EventBridge+Lambda 移行 | Code | scripts/bluesky_agent.py, projects/P003-news-timeline/lambda/bluesky/handler.py (新規), .github/workflows/deploy-lambdas.yml, .github/workflows/bluesky-agent.yml | 2026-04-28 16:00 | yes |
