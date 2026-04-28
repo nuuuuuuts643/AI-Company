@@ -91,20 +91,86 @@ dynamodb = boto3.resource('dynamodb', region_name=REGION)
 s3       = boto3.client('s3', region_name=REGION)
 
 
+def compute_freshness_score(topic) -> float:
+    """
+    articleCount × 鮮度（直近24h以内の記事数）の代替スコアを 0-100 で返す。
+
+    シグナル:
+      - articleCountDelta  = 当日中に追加された記事数（articleCount - articleCountDayBase）
+      - lastArticleAt      = 最終記事の epoch 秒
+      - articleCount       = 累計記事数（delta=0 のフォールバック）
+
+    減衰カーブ:
+      <6h    ×1.0  / <24h ×0.7  / <48h ×0.3  / <72h ×0.1  / それ以降 ×0.02
+    1記事=10点換算 → 100点上限でクランプ。
+
+    fetcher/Google Trends に依存しない物理計測のみで算出するため、
+    Trends 取得失敗時の安全側フォールバックとして機能する。
+    """
+    cnt     = int(topic.get('articleCount', 0) or 0)
+    delta   = int(topic.get('articleCountDelta', 0) or 0)
+    last_at = int(topic.get('lastArticleAt', 0) or 0)
+
+    # 当日追加分が立っていればそれを優先、立っていなければ累計記事数で代用
+    base_count = delta if delta > 0 else cnt
+
+    if last_at == 0 or base_count == 0:
+        return 0.0
+
+    hours_since = (time.time() - last_at) / 3600
+    if hours_since < 6:
+        decay = 1.0
+    elif hours_since < 24:
+        decay = 0.7
+    elif hours_since < 48:
+        decay = 0.3
+    elif hours_since < 72:
+        decay = 0.1
+    else:
+        decay = 0.02
+
+    return round(min(100.0, base_count * decay * 10), 4)
+
+
+def compute_attention_score(topic) -> float:
+    """
+    Bluesky 選定用のハイブリッド注目度スコア。
+
+    設計方針（Google Trends 単独依存を排除）:
+      - velocityScore は RSS 伸び率に tier/メディア多様性/一次情報を乗じた
+        「急上昇度」。半減期12hで時間減衰するため 0 や欠損になりうる。
+      - velocityScore > 0  → velocityScore 70% + 鮮度 30% のブレンド
+      - velocityScore ≤ 0  → 鮮度 100%（フォールバック）
+
+    NOTE: velocityScore 自体は Google Trends に依存しない（trendsData は別フィールドで
+    可視化専用）。それでも単一シグナル依存を避けるためハイブリッドにしている。
+    velocityScore は乗算ボーナスで 100 超えうるので 100 上限でクランプして合算する。
+    """
+    vs    = float(topic.get('velocityScore', 0) or 0)
+    fresh = compute_freshness_score(topic)
+    if vs > 0:
+        vs_norm = min(100.0, vs)
+        return round(vs_norm * 0.7 + fresh * 0.3, 4)
+    return fresh
+
+
 def get_topics_from_s3(limit=50, sort_by='velocity'):
     """
     S3 api/topics.json から最新のトピック一覧を取得。
     DynamoDB フルスキャンより大幅にコスト削減（月$2.5削減）。
-    sort_by='velocity' → 注目度（velocityScore 降順, score をタイブレーク）日次用
+    sort_by='velocity' → ハイブリッド注目度（compute_attention_score 降順）日次用
     sort_by='score'    → score 降順（週次・月次用）
 
     注目度シグナルの設計（fetcher/scoring.py + score_utils.py 参照）:
       - velocityScore = 直近2h vs 前2h の伸び率にtier重み/メディア多様性/一次情報/
-        テック一般度フィルタを乗じ、半減期12hで時間減衰した「急上昇度」。
+        テック一般度フィルタを乗じ、半減期12hで時間減衰した「急上昇度」（RSS派生）。
       - score        = 基礎ニュース性（メディア数×10 + log(はてブ) + 鮮度/多様性/緊急ボーナス）。
-      - 大半のトピックは時間経過で velocityScore=0 に収束するため、
-        同点時は score を二次キーに使い「ベース重要度の高い方」を優先する。
-      - 記事数 (articleCount) はランキングに使わない（記事数偏重を避ける）。
+      - 鮮度         = 直近 24h 以内の記事数 × 時間減衰（compute_freshness_score）。
+      - 記事数 (articleCount) を単独でランキングに使わない（記事数偏重を避ける）。
+
+    日次選定では velocityScore=0 で大半が同点になる現象を避けるため、
+    velocityScore があるときは 70:30 ブレンド、ないときは鮮度のみ。
+    同点時は score を二次キー、lastArticleAt を三次キーで時系列タイブレーク。
     """
     try:
         resp  = s3.get_object(Bucket=S3_BUCKET, Key='api/topics.json')
@@ -117,8 +183,9 @@ def get_topics_from_s3(limit=50, sort_by='velocity'):
     if sort_by == 'velocity':
         items.sort(
             key=lambda x: (
-                float(x.get('velocityScore', 0) or 0),
+                compute_attention_score(x),
                 float(x.get('score', 0) or 0),
+                int(x.get('lastArticleAt', 0) or 0),
             ),
             reverse=True,
         )
