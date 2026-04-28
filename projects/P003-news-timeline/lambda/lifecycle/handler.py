@@ -166,6 +166,11 @@ def lambda_handler(event, context):
     # (Google News に SEO 信頼度を毀損する状態が継続)。
     deleted_tids = set()
 
+    for item in items:
+        topic_id  = item.get('topicId', '')
+        score     = int(item.get('score', 0))
+        lifecycle = item.get('lifecycleStatus', 'active')
+
         # すでに legacy → lifecycle Lambda では触らない（fetcher も上書きしない設計）
         if lifecycle == 'legacy':
             legacy_count += 1
@@ -299,6 +304,39 @@ def lambda_handler(event, context):
         print(f"[s3-html-cleanup] orphan html deleted: {s3_html_deleted} / {len(all_html_tids)}")
     except Exception as e:
         print(f"[s3-html-cleanup] error: {e}")
+
+    # ---- topics.json から削除 tid を除去 (T2026-0428-AB) ----
+    # 背景: lifecycle が DDB から topic を削除しても topics.json (S3) に entry が残ると、
+    # processor の sitemap 生成は topics.json を読むため orphan tid を sitemap に書き出す。
+    # 結果: news-sitemap.xml の URL が本番で 404 → Google News の SEO 信頼度低下。
+    # 物理ゲート: 削除 tid を topics.json/topics-full.json/topics-card.json から同時に削除する。
+    topics_json_cleaned = 0
+    if deleted_tids:
+        for key in ('api/topics.json', 'api/topics-full.json', 'api/topics-card.json'):
+            try:
+                resp = s3.get_object(Bucket=S3_BUCKET, Key=key)
+                data = json.loads(resp['Body'].read())
+                topics = data.get('topics', []) if isinstance(data, dict) else data
+                before = len(topics)
+                topics = [t for t in topics if t.get('topicId') not in deleted_tids]
+                after = len(topics)
+                if before != after:
+                    if isinstance(data, dict):
+                        data['topics'] = topics
+                        if 'count' in data:
+                            data['count'] = after
+                        body = json.dumps(data, ensure_ascii=False).encode('utf-8')
+                    else:
+                        body = json.dumps(topics, ensure_ascii=False).encode('utf-8')
+                    s3.put_object(
+                        Bucket=S3_BUCKET, Key=key, Body=body,
+                        ContentType='application/json',
+                        CacheControl='max-age=60, must-revalidate',
+                    )
+                    topics_json_cleaned += (before - after)
+                    print(f"[topics-json-sync] {key}: {before} -> {after} (-{before-after})")
+            except Exception as e:
+                print(f"[topics-json-sync] {key} error: {e}")
 
     # ---- filter-feedback S3 クリーンアップ ----
     try:

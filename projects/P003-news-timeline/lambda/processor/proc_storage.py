@@ -1028,6 +1028,20 @@ def generate_and_upload_news_sitemap(topics):
     def xml_escape(s):
         return str(s or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
+    # T2026-0428-AB: 静的 HTML が S3 に存在する tid のみ sitemap に含める。
+    # 背景: lifecycle が DDB と topics.json の sync に失敗するケース、または
+    # AI 未生成のため `topics/{tid}.html` が未作成のケースで、sitemap が
+    # 404 URL を Google News に送る事故を防ぐ防衛ライン。
+    def _has_static_html(tid: str) -> bool:
+        if not tid:
+            return False
+        try:
+            s3.head_object(Bucket=S3_BUCKET, Key=f'topics/{tid}.html')
+            return True
+        except Exception:
+            return False
+    news_topics = [(t, ts) for t, ts in news_topics if _has_static_html(t.get('topicId', ''))]
+
     items = []
     for t, ts in news_topics:
         tid = t.get('topicId', '')
@@ -1086,9 +1100,21 @@ def generate_and_upload_sitemap(topics):
         f'  <url>\n    <loc>https://flotopic.com/privacy.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.3</priority>\n  </url>',
         f'  <url>\n    <loc>https://flotopic.com/contact.html</loc>\n    <lastmod>{today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.4</priority>\n  </url>',
     ]
+    # T2026-0428-AB: 静的 HTML が S3 に存在する tid のみ sitemap に含める防衛ライン。
+    # head_object はバッチ処理だと 200 件で ~6 秒。許容範囲。
+    def _has_static_html(tid: str) -> bool:
+        if not tid:
+            return False
+        try:
+            s3.head_object(Bucket=S3_BUCKET, Key=f'topics/{tid}.html')
+            return True
+        except Exception:
+            return False
     for t in top:
         tid = t.get('topicId', '')
         if not tid:
+            continue
+        if not _has_static_html(tid):
             continue
         last = (t.get('lastUpdated') or today)[:10]
         # 静的HTMLが存在する場合はそちらをSEO canonical URLとして使用
