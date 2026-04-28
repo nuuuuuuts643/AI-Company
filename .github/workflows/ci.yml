@@ -225,12 +225,14 @@ jobs:
 
       - name: 設計指針キーワードの一貫性検査
         run: |
-          # 「7セクション分析（思想フレーム順）」と「始まり→広まってる→急上昇→進行中→ひと段落」
-          # は P003 の中核表記。ドキュメント側 (about.html) に必ず残っているべき。
-          # 万が一どちらかが削除/書き換えされたら CI を落とす。
+          # 2026-04-28 更新: 旧「AI 7セクション分析」「始まり→広まってる→…」は廃止。
+          # AI 構造は 4 軸（状況解説 / 各社の見解 / これからの注目ポイント / AI予想）に再編済み
+          # （T2026-0428-E + about.html 25ba39f / lessons-learned「2026-04-28 AI構造 7→4軸」）。
+          # ドキュメント (about.html) に新 4 軸が残っていることを物理ガード。
           REQUIRED=(
-            "AI 7セクション分析"
-            "始まり→広まってる→急上昇→進行中→ひと段落"
+            "状況解説"
+            "各社の見解"
+            "これからの注目ポイント"
           )
           MISSING=0
           for kw in "${REQUIRED[@]}"; do
@@ -242,10 +244,10 @@ jobs:
             fi
           done
           if [ $MISSING -gt 0 ]; then
-            echo "::error::中核思想キーワードが $MISSING 件消失。about.html / style.css を確認してください"
+            echo "::error::AI 4 軸キーワードが $MISSING 件消失。about.html / style.css を確認してください"
             exit 1
           fi
-          echo "✅ 中核キーワード OK"
+          echo "✅ AI 4 軸キーワード OK"
 
       - name: scriptタグ defer/async 禁止リスト検査
         run: |
