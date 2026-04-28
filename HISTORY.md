@@ -1839,3 +1839,12 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T2026-0428-AH~~ | ✅ 完了 | **storyPhase 「発端」が aiGenerated=True 中 58% (54/93) — T219 修正後も改善せず** — 修正: `proc_storage.needs_ai_processing` に AH ガード追加 (commit `6f39b55c`, 2026-04-28 09:43 JST 実装済 / 2026-04-29 検証完了)。`storyPhase=='発端' かつ articleCount>=3` を再生成対象に含めるロジックは [lambda/processor/proc_storage.py:387-391](projects/P003-news-timeline/lambda/processor/proc_storage.py:387-391) で稼働中。回帰防止テスト: [tests/test_needs_ai_processing.py](projects/P003-news-timeline/tests/test_needs_ai_processing.py) (8 ケース全 PASS)。 | `lambda/processor/proc_storage.py` get_pending_topics または handler skip ロジック | 2026-04-28 |
 
 </details>
+
+
+### 自動 triage: 2026-04-29 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T2026-0428-BE~~ | 🟡 中 | フェーズ1-§A | ~~**buildFilters 系の境界値テスト** — `tests/unit/build_filters.test.js` 新設。`topics=[]` `topics=[{genre:'総合'}]` `counts={}` の 3 ケースで `visibleGenres` が空配列にならないことを assert。CLAUDE.md「新規 formatter は boundary test 同梱」を「フィルタ関数」に拡張~~ ✅ **2026-04-29 完了** — `frontend/js/build_filters.js` に `computeVisibleGenres()` を純粋抽出（app.js 配線済）+ 16 ケース PASS（境界値 + 旧ジャンル名マージ + archived 除外） | `projects/P003-news-timeline/tests/unit/build_filters.test.js` 新設 | 2026-04-28 |
+
+</details>
