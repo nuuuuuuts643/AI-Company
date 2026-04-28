@@ -95,3 +95,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | [Code] T2026-0428-AJ グラフUI修正＋記事ローディング修正 | Code | frontend/detail.js, frontend/topic.html, frontend/style.css | 2026-04-28 10:30 | yes |
 | [Code] T2026-0428-J/M keyPoint充填バグ調査・修正 | Code | projects/P003-news-timeline/lambda/processor/proc_storage.py, projects/P003-news-timeline/lambda/processor/handler.py | 2026-04-28 11:27 | yes |
 | [Code] T2026-0428-PRED/AC/AD/T 統合実装 | Code | projects/P003-news-timeline/lambda/processor/proc_ai.py, projects/P003-news-timeline/lambda/processor/proc_storage.py, projects/P003-news-timeline/lambda/processor/handler.py, docs/system-status.md, .github/PULL_REQUEST_TEMPLATE.md, scripts/check_ai_fields_catalog.py, .github/workflows/ci.yml | 2026-04-28 11:30 | yes |
+| [Code] T2026-0428-DIR product-direction.md 新設＋bootstrap表示 | Code | docs/product-direction.md (新規), scripts/session_bootstrap.sh, CLAUDE.md | 2026-04-28 11:48 | yes |
