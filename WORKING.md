@@ -89,3 +89,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] フェーズ1残タスク仕上げ + Dispatch継続性改善 (BD/C-name-rule/WORKING.md構造改善) | コード+ドキュメント | `.github/workflows/ci.yml`, `scripts/session_bootstrap.sh`, `scripts/check_soft_language.sh`, `WORKING.md`, `TASKS.md`, `HISTORY.md`, `docs/project-phases.md` | 2026-04-28 21:55 | yes |
