@@ -89,4 +89,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| Code T2026-0428-AZ release-tag自動化 | Code | .github/workflows/release-tag.yml, scripts/tag_release.sh, docs/project-phases.md | 20:57 | yes |
