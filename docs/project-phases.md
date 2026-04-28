@@ -16,19 +16,41 @@
 
 ## フェーズ1: 足回り安定（運用優先・現在進行中）
 
-**完了条件**:
-- health.json が CloudWatch / 外部監視で死活確認可能（✅ 済 T2026-0428-AQ）
-- prompt caching が proc_ai に組込まれ動作している（✅ 済 T2026-0428-AJ）
-- 1PR1task の規律が確立し、WORKING.md の並行タスクが恒常的に ≤2 件
-- session_bootstrap.sh で運用前提 4 ファイル（CLAUDE.md / global-baseline.md / system-status.md / product-direction.md / project-phases.md）が毎回確認できる
+**完了条件（2026-04-28 PM 再定義 — T2026-0428-AX）**:
 
-**担当 Epic 一覧（暫定）**:
-- E1-1: 起動チェック整備（session_bootstrap.sh の責務拡張）
-- E1-2: タスク管理階層化（本ドキュメント整備・TASKS.md 整理）
-- E1-3: 観測可能性（health.json / freshness-check / SLI 整備）
-- E1-4: 並行タスク事故防止（WORKING.md TTL / needs-push ゲート）
+### A. 観測・自己修復基盤（既存）
+- ✅ health.json が CloudWatch / 外部監視で死活確認可能（T2026-0428-AQ）
+- ✅ prompt caching が proc_ai に組込まれ動作している（T2026-0428-AJ）
+- ✅ session_bootstrap.sh で運用前提 5 ファイル（CLAUDE.md / global-baseline.md / system-status.md / product-direction.md / project-phases.md）が毎回確認できる
+- ✅ freshness-check SLI 1〜11（updatedAt / sitemap_reach 等）外部観測
 
-**現在地**: E1-1 / E1-2 進行中（T2026-0428-AR）。E1-3 は SLI 8/9/10/11 まで実装済。E1-4 は仕組み実装済・運用浸透中。
+### B. リリース管理・ロールバック（新規・未達）
+- ❌ **develop / main ブランチ分離** — main は常に動く / 開発は develop でマージ → main へは「ロールバック可能な単位の commit」のみ。実装: GitHub branch protection rules で main へ直接 push 禁止 + PR 経由のみ
+- ❌ **git tag v1.x.x によるリリース管理** — `vYYYY.MMDD.N` 形式で push 時点の releases を tag。実装: `.github/workflows/release-tag.yml` (新設) を deploy 成功時に走らせ、自動 tag。手動でも `bash scripts/tag_release.sh` で生成可
+- ❌ **ロールバック手順の文書化** — `docs/runbooks/rollback.md` (新設)。「main が壊れたら何をすれば戻るか」を Lambda（`aws lambda update-function-code` で前 tag に戻す）/ Frontend（`aws s3 sync` で前 tag に戻す）/ DB（quality_heal で再処理）の 3 経路で言語化。CI で「本ファイルが空でないこと」「`git revert` または `aws lambda update-function-code` のいずれかが手順に含まれること」を物理検査
+- ❌ **CI 全パス必須化** — main マージ前に CI 全 job 通過が必須（branch protection の required status checks）
+
+### C. Dispatch 運用安定（新規・未達 — 2026-04-28 PM 追加）
+- ❌ **Dispatch から起動できるコードセッション = 同時 1 件まで**（Dispatch 自身を含めて 2 件以内）。新規タスクは前のコードセッション完了までキューに積む。WORKING.md の `[Code]` 行が 2 件以上ある瞬間は session_bootstrap.sh が物理 ERROR を出す（既存は WARNING のみ）
+- ❌ **コードセッション並走 0 件の常態化** — `[Code]` 行 2 件以上の状態が 1 時間継続したら Slack 警告（健康指標として観測）
+- ❌ **PO判断介入ゼロ** — Dispatch が 1 回受け取った指示について「止める？再開する？」を聞かずに完了まで走る。中断は「実装の前提が根本的に変わった場合」のみ（CLAUDE.md「中断ルール」を参照）
+- ❌ **コードセッション名規則の徹底** — セッション名は「何を commit するか」が一目で分かる名前（✅「CI 構文チェック fix」 ❌「調査」「作業」）。session_bootstrap.sh の出力で空抽象タイトルを自動 WARN
+
+### D. 規律・運用浸透（新規・未達）
+- ⚠ 1PR1task の規律が確立し、WORKING.md の並行タスクが恒常的に ≤2 件 → 今日 3 件滞留したため「達成」と呼べない。`session_bootstrap.sh` で `[Code]` 並走 ≥2 を ERROR 化することで物理担保
+- ❌ **横展開チェックリスト（lessons-learned）の自動検証** — `scripts/check_lessons_landings.sh` (新設) で「過去仕組み的対策の実装ファイルが repo に存在するか」を CI 物理検査
+- ❌ **形骸化ルール棚卸しの定期化** — CLAUDE.md / global-baseline.md / lessons-learned.md の 3 ファイルに「気を付ける/注意する/確認する」が混入していないか月次 CI で grep（テキストルール混入の検出）
+
+**担当 Epic 一覧**:
+- E1-1: 起動チェック整備（session_bootstrap.sh の責務拡張）— ✅ 観測項目は landing
+- E1-2: タスク管理階層化（本ドキュメント整備・TASKS.md 整理）— ✅
+- E1-3: 観測可能性（health.json / freshness-check / SLI 整備）— ✅ SLI 1〜11
+- E1-4: 並行タスク事故防止（WORKING.md TTL / needs-push ゲート）— ⚠ ERROR 化未達
+- **E1-5（新設）**: リリース管理・ロールバック（develop/main 分離・tag・runbook）
+- **E1-6（新設）**: Dispatch 運用安定（同時 1 件・並走 0 件・判断介入ゼロ）
+- **E1-7（新設）**: 形骸化検出（横展開チェックリスト CI / soft-language grep）
+
+**現在地**: A 完了。B / C / D が未達。フェーズ 2 着手は B + C のロールバック + Dispatch 運用が landing してから。
 
 ## フェーズ2: AI品質改善
 
