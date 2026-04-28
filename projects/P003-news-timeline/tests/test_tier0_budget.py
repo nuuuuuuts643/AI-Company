@@ -8,6 +8,10 @@ articles>=10 × aiGenerated=False のトピック (Tier-0) が必ず先頭に固
   commit 894dd1d / 4d62cbc で _apply_tier0_budget 導入。
   本テストは恒久回帰防止用 (handler.py の Phase A wallclock guard と対で機能)。
 
+2026-04-29 追加:
+  Tier-0 以外の rest を _sort_by_recency で「新しい順 (updatedAt 降順, tid フォールバック)」に並べ替える。
+  MAX_API_CALLS=30/run 予算を最新トピックから優先消費するため。
+
 実行:
   cd projects/P003-news-timeline
   python3 -m unittest tests.test_tier0_budget -v
@@ -25,51 +29,61 @@ os.environ.setdefault('AWS_REGION', 'ap-northeast-1')
 import proc_storage  # noqa: E402
 
 apply_t0 = proc_storage._apply_tier0_budget
+sort_recency = proc_storage._sort_by_recency
 
 
-def _topic(tid, ac, ai_gen=False):
-    return {'topicId': tid, 'articleCount': ac, 'aiGenerated': ai_gen}
+def _topic(tid, ac, ai_gen=False, updated_at=None):
+    item = {'topicId': tid, 'articleCount': ac, 'aiGenerated': ai_gen}
+    if updated_at is not None:
+        item['updatedAt'] = updated_at
+    return item
 
 
 class Tier0BudgetTest(unittest.TestCase):
     def test_empty_list_passthrough(self):
         self.assertEqual(apply_t0([]), [])
 
-    def test_no_tier0_preserves_order(self):
-        items = [_topic('a', 3), _topic('b', 5, ai_gen=True), _topic('c', 1)]
-        out = apply_t0(items)
-        self.assertEqual([t['topicId'] for t in out], ['a', 'b', 'c'])
-
-    def test_tier0_promoted_to_front(self):
-        """articleCount>=10 × aiGenerated=False が先頭に固定される"""
+    def test_no_tier0_sorts_by_recency(self):
+        """Tier-0 なし → rest 全件が updatedAt 降順 (新しい順) に並ぶ"""
         items = [
-            _topic('small1', 3),
-            _topic('big_done', 19, ai_gen=True),  # 大規模だが処理済み → Tier-0 ではない
-            _topic('small2', 5),
-            _topic('big_pending', 15),            # ★ Tier-0
-            _topic('small3', 2),
+            _topic('old', 3, updated_at='2026-04-29T00:01:00Z'),
+            _topic('mid', 5, ai_gen=True, updated_at='2026-04-29T00:02:00Z'),
+            _topic('new', 1, updated_at='2026-04-29T00:03:00Z'),
+        ]
+        out = apply_t0(items)
+        self.assertEqual([t['topicId'] for t in out], ['new', 'mid', 'old'])
+
+    def test_tier0_promoted_with_recency_sorted_rest(self):
+        """Tier-0 は先頭固定 / rest は新しい順"""
+        items = [
+            _topic('small1', 3, updated_at='2026-04-29T00:04:00Z'),
+            _topic('big_done', 19, ai_gen=True, updated_at='2026-04-29T00:03:00Z'),
+            _topic('small2', 5, updated_at='2026-04-29T00:02:00Z'),
+            _topic('big_pending', 15, updated_at='2026-04-29T00:05:00Z'),  # ★ Tier-0
+            _topic('small3', 2, updated_at='2026-04-29T00:01:00Z'),
         ]
         out = apply_t0(items)
         self.assertEqual(out[0]['topicId'], 'big_pending')
-        # 残り 4 件は元の順序を保つ
+        # 残り 4 件 (rest) は updatedAt 降順
         self.assertEqual(
             [t['topicId'] for t in out[1:]],
             ['small1', 'big_done', 'small2', 'small3'],
         )
 
-    def test_multiple_tier0_all_to_front_in_original_order(self):
+    def test_multiple_tier0_kept_in_original_order(self):
+        """Tier-0 部分は元順を保つ (Tier-0 内のソートは行わない)"""
         items = [
-            _topic('m', 3),
+            _topic('m', 3, updated_at='2026-04-29T00:03:00Z'),
             _topic('big_a', 19),  # ★ Tier-0
-            _topic('s', 1),
+            _topic('s', 1, updated_at='2026-04-29T00:02:00Z'),
             _topic('big_b', 15),  # ★ Tier-0
             _topic('big_c', 11),  # ★ Tier-0
-            _topic('aiGen_big', 20, ai_gen=True),  # 処理済み → 非 Tier-0
+            _topic('aiGen_big', 20, ai_gen=True, updated_at='2026-04-29T00:01:00Z'),
         ]
         out = apply_t0(items)
         # 先頭 3 件は Tier-0 が元順で並ぶ
         self.assertEqual([t['topicId'] for t in out[:3]], ['big_a', 'big_b', 'big_c'])
-        # 残り 3 件は非 Tier-0 が元順で並ぶ
+        # rest は updatedAt 降順 (m > s > aiGen_big)
         self.assertEqual([t['topicId'] for t in out[3:]], ['m', 's', 'aiGen_big'])
 
     def test_articles_exactly_10_qualifies(self):
@@ -79,24 +93,34 @@ class Tier0BudgetTest(unittest.TestCase):
         self.assertEqual(out[0]['topicId'], 'boundary')
 
     def test_articles_9_does_not_qualify(self):
-        """articleCount==9 (境界直下) は Tier-0 ではない"""
-        items = [_topic('small', 3), _topic('almost', 9)]
+        """articleCount==9 (境界直下) は Tier-0 ではない → rest として recency ソート"""
+        items = [
+            _topic('small', 3, updated_at='2026-04-29T00:01:00Z'),
+            _topic('almost', 9, updated_at='2026-04-29T00:02:00Z'),
+        ]
         out = apply_t0(items)
-        self.assertEqual([t['topicId'] for t in out], ['small', 'almost'])
+        # almost が新しいので先頭
+        self.assertEqual([t['topicId'] for t in out], ['almost', 'small'])
 
     def test_aigenerated_true_disqualifies(self):
         """aiGenerated=True なら articleCount に関わらず Tier-0 ではない"""
-        items = [_topic('small', 3), _topic('big_done', 100, ai_gen=True)]
+        items = [
+            _topic('small', 3, updated_at='2026-04-29T00:01:00Z'),
+            _topic('big_done', 100, ai_gen=True, updated_at='2026-04-29T00:02:00Z'),
+        ]
         out = apply_t0(items)
-        self.assertEqual([t['topicId'] for t in out], ['small', 'big_done'])
+        # rest 内で recency 降順 → big_done が先頭
+        self.assertEqual([t['topicId'] for t in out], ['big_done', 'small'])
 
     def test_budget_caps_tier0_count(self):
         """budget 引数で Tier-0 採用件数を制限できる (デフォルト 100 はほぼ実質全件)"""
-        items = [_topic(f't{i}', 12) for i in range(5)]
+        # 全件 ac=12 → 全て Tier-0 候補。budget=2 で先頭 2 件のみ Tier-0 採用、残り 3 件は rest。
+        items = [_topic(f't{i}', 12, updated_at=f'2026-04-29T00:0{i}:00Z') for i in range(5)]
         out = apply_t0(items, budget=2)
-        # 先頭 2 件は budget 内で Tier-0 採用、残り 3 件は rest 側で順序保持
+        # Tier-0 採用は元順 (t0, t1)
         self.assertEqual([t['topicId'] for t in out[:2]], ['t0', 't1'])
-        self.assertEqual([t['topicId'] for t in out[2:]], ['t2', 't3', 't4'])
+        # rest=[t2, t3, t4] → recency 降順 → [t4, t3, t2]
+        self.assertEqual([t['topicId'] for t in out[2:]], ['t4', 't3', 't2'])
 
     def test_invalid_articlecount_treated_as_zero(self):
         """articleCount が文字列・None でも例外を出さず非 Tier-0 扱い"""
@@ -107,6 +131,81 @@ class Tier0BudgetTest(unittest.TestCase):
         ]
         out = apply_t0(items)
         self.assertEqual(out[0]['topicId'], 'big')
+
+
+class SortByRecencyTest(unittest.TestCase):
+    """2026-04-29 追加: rest の recency ソート挙動を境界値で固定する。"""
+
+    def test_empty_returns_empty(self):
+        self.assertEqual(sort_recency([]), [])
+
+    def test_updatedat_descending(self):
+        """updatedAt 降順 (新しい順)"""
+        items = [
+            {'topicId': 'a', 'updatedAt': '2026-04-29T00:01:00Z'},
+            {'topicId': 'b', 'updatedAt': '2026-04-29T00:03:00Z'},
+            {'topicId': 'c', 'updatedAt': '2026-04-29T00:02:00Z'},
+        ]
+        out = sort_recency(items)
+        self.assertEqual([t['topicId'] for t in out], ['b', 'c', 'a'])
+
+    def test_topicid_fallback_when_no_updatedat(self):
+        """updatedAt がない場合は topicId 降順でフォールバック"""
+        items = [
+            {'topicId': 'aaa'},
+            {'topicId': 'ccc'},
+            {'topicId': 'bbb'},
+        ]
+        out = sort_recency(items)
+        self.assertEqual([t['topicId'] for t in out], ['ccc', 'bbb', 'aaa'])
+
+    def test_updatedat_present_beats_missing(self):
+        """updatedAt あり > updatedAt なし"""
+        items = [
+            {'topicId': 'no_ua_z'},                                    # tid='z' でも negative
+            {'topicId': 'has_ua_a', 'updatedAt': '2026-04-29T00:01Z'},  # tid='a' でも updatedAt あり優先
+        ]
+        out = sort_recency(items)
+        self.assertEqual([t['topicId'] for t in out], ['has_ua_a', 'no_ua_z'])
+
+    def test_empty_string_updatedat_treated_as_missing(self):
+        """updatedAt='' は欠損扱い → topicId フォールバック"""
+        items = [
+            {'topicId': 'a', 'updatedAt': ''},
+            {'topicId': 'b', 'updatedAt': '2026-04-29T00:01Z'},
+        ]
+        out = sort_recency(items)
+        self.assertEqual([t['topicId'] for t in out], ['b', 'a'])
+
+    def test_none_updatedat_treated_as_missing(self):
+        """updatedAt=None は欠損扱い"""
+        items = [
+            {'topicId': 'a', 'updatedAt': None},
+            {'topicId': 'b', 'updatedAt': '2026-04-29T00:01Z'},
+        ]
+        out = sort_recency(items)
+        self.assertEqual([t['topicId'] for t in out], ['b', 'a'])
+
+    def test_same_updatedat_breaks_with_topicid(self):
+        """updatedAt が完全一致 → tid 降順でタイブレーク"""
+        ua = '2026-04-29T00:01:00Z'
+        items = [
+            {'topicId': 'a', 'updatedAt': ua},
+            {'topicId': 'c', 'updatedAt': ua},
+            {'topicId': 'b', 'updatedAt': ua},
+        ]
+        out = sort_recency(items)
+        self.assertEqual([t['topicId'] for t in out], ['c', 'b', 'a'])
+
+    def test_missing_topicid_does_not_crash(self):
+        """topicId 欠損でも例外を出さない"""
+        items = [
+            {'updatedAt': '2026-04-29T00:01Z'},
+            {'topicId': 'a', 'updatedAt': '2026-04-29T00:02Z'},
+        ]
+        out = sort_recency(items)
+        # 欠損 tid は '' として扱われる
+        self.assertEqual(out[0].get('topicId'), 'a')
 
 
 if __name__ == '__main__':

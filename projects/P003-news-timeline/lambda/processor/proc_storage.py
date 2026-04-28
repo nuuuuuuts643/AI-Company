@@ -392,9 +392,28 @@ def needs_ai_processing(item):
     return False
 
 
+def _sort_by_recency(items: list) -> list:
+    """新しい順 (updatedAt 降順) にソートする。updatedAt がない場合は topicId 降順でフォールバック。
+
+    目的 (2026-04-29): MAX_API_CALLS=30/run の予算を「最新の topic」から消費する。
+    背景: 旧実装は元の順序を保つだけだったため、古い backlog が先に処理され、
+    新規トピックが後回しになっていた。
+
+    優先順位:
+      1. updatedAt あり > updatedAt なし
+      2. updatedAt 降順 (新しい順)
+      3. topicId 降順 (タイブレーク・updatedAt 同値や欠損時のフォールバック)
+    """
+    def _key(it):
+        ua = it.get('updatedAt') or ''
+        tid = it.get('topicId') or ''
+        return (1 if ua else 0, ua, tid)
+    return sorted(items, key=_key, reverse=True)
+
+
 def _apply_tier0_budget(items: list, budget: int = 100) -> list:
     """T2026-0428-O: 大規模クラスタ (articles>=10) で aiGenerated=False の topic を
-    必ず先頭に固定 budget 件まで配置する。残りは元の順序を保ったまま続ける。
+    必ず先頭に固定 budget 件まで配置する。Tier-0 以外は updatedAt 降順 (新しい順) にソート。
 
     背景: T213 の 4段階優先度ソート後でも、可視 × 未生成の 0 番手の中で
     articleCount の重みが弱く、小規模クラスタが先に処理されて大規模が放置される
@@ -403,6 +422,9 @@ def _apply_tier0_budget(items: list, budget: int = 100) -> list:
     2026-04-28 改訂: count 上限を 3→100 (=実質 max_topics) に拡大し、Tier-0 を
     全件最前列に配置する。1 サイクルでの取りこぼしは handler.py 側の
     「残り wallclock の 50% を Tier-0 専用に予約」する物理ゲートで防ぐ。
+
+    2026-04-29 追加: Tier-0 以外の rest を _sort_by_recency で新しい順に並べ替える。
+    MAX_API_CALLS=30 の予算を「最新トピック」から優先消費する。
     """
     if not items:
         return items
@@ -419,6 +441,7 @@ def _apply_tier0_budget(items: list, budget: int = 100) -> list:
             rest.append(it)
     if tier0:
         print(f'[get_pending_topics] Tier-0 (articles>=10 × aiGenerated=False) を先頭に固定: {len(tier0)}件')
+    rest = _sort_by_recency(rest)
     return tier0 + rest
 
 
@@ -506,7 +529,7 @@ def get_pending_topics(max_topics=100):
             try:
                 r = table.get_item(
                     Key={'topicId': tid, 'SK': 'META'},
-                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints',
+                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints',
                 )
                 item = r.get('Item')
                 if item and needs_ai_processing(item):
@@ -551,7 +574,7 @@ def get_pending_topics(max_topics=100):
                     try:
                         r = table.get_item(
                             Key={'topicId': tid, 'SK': 'META'},
-                            ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints',
+                            ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints',
                         )
                         item = r.get('Item')
                         if item and needs_ai_processing(item):
@@ -606,7 +629,7 @@ def get_pending_topics(max_topics=100):
     # フォールバック: DynamoDBスキャン
     # pending_ai.json が空 or 未作成のとき、処理必要なトピックを全スキャンして pending_ai.json を再生成
     print('get_pending_topics: pending_ai.json空のためDynamoDBフルスキャン（storyTimeline欠如含む）')
-    proj = 'topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres,keyPoint,statusLabel,watchPoints,schemaVersion'
+    proj = 'topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,statusLabel,watchPoints,schemaVersion'
     filt = (
         Attr('SK').eq('META') & (
             Attr('pendingAI').eq(True) |
@@ -671,7 +694,7 @@ def get_pending_topics(max_topics=100):
 
 def get_topics_by_ids(topic_ids):
     """指定IDのトピックをDynamoDBから直接取得し、AI処理が必要なものを返す。fetcher_trigger専用。"""
-    proj = 'topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,pendingAI,imageUrl,genre,genres'
+    proj = 'topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres'
     items = []
     for tid in topic_ids:
         try:
@@ -929,6 +952,10 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
             # schemaVersion は制御フィールドなので incremental モードでも常に更新する。
             update_expr += ', schemaVersion = :sv'
             expr_values[':sv'] = PROCESSOR_SCHEMA_VERSION
+            # 2026-04-29 案C: AI 生成時刻を記録。「48h 以内 + 新記事 0 件」スキップ判定用。
+            # 制御フィールドのため incremental でも常に最新で更新する。
+            update_expr += ', aiGeneratedAt = :agat'
+            expr_values[':agat'] = datetime.now(timezone.utc).isoformat()
         if gen_title and _can_write('generatedTitle'):
             update_expr += ', generatedTitle = :title'
             expr_values[':title'] = gen_title

@@ -2,8 +2,9 @@
 lambda/processor/handler.py
 ─────────────────────────────────────────────────────────────────────────────
 Stage 2: バッチAI処理 Lambda
-  スケジュール: 1日4回 JST 01:00/07:00/13:00/19:00
-  EventBridge: cron(0 16,22,4,10 * * ? *)  ← UTC 16/22/04/10時
+  スケジュール: 1日2回 JST 08:00/17:00 (2026-04-29 コスト削減のため日中2回に変更)
+  EventBridge: cron(0 23,8 * * ? *)  ← UTC 23:00/08:00
+  即時処理:    fetcher が新規トピック作成時に invoke (maxApiCalls=10 で少量処理)
 
 依存モジュール:
   proc_config.py  — 定数・boto3クライアント・テキストユーティリティ
@@ -178,6 +179,17 @@ def lambda_handler(event, context):
         pending = get_pending_topics(max_topics=100)
         print(f'[Processor] pendingAI=True トピック数: {len(pending)}')
 
+    # event.maxApiCalls で上限をオーバーライド可能 (fetcher_trigger は 10 件など少量で即時処理)。
+    # 不正値 (0/負/非数値) は MAX_API_CALLS にフォールバック。
+    _override = event.get('maxApiCalls')
+    try:
+        _override_int = int(_override) if _override is not None else None
+    except (TypeError, ValueError):
+        _override_int = None
+    effective_max_api_calls = _override_int if (_override_int and _override_int > 0) else MAX_API_CALLS
+    if effective_max_api_calls != MAX_API_CALLS:
+        print(f'[Processor] MAX_API_CALLS オーバーライド: {MAX_API_CALLS} → {effective_max_api_calls} (source={source})')
+
     api_calls      = 0
     processed      = 0
     skipped        = 0
@@ -207,8 +219,8 @@ def lambda_handler(event, context):
         print(f'[Processor] Tier-0 (articles>=10 × aiGenerated=False) {tier0_total}件 / Phase A wallclock={(_initial_runtime_ms//2)/1000:.0f}s 予約')
 
     for topic in pending:
-        if api_calls >= MAX_API_CALLS:
-            print(f'[Processor] API呼び出し上限 ({MAX_API_CALLS}) 到達。残り {len(pending) - processed - skipped - deferred_tier0} 件は次回。')
+        if api_calls >= effective_max_api_calls:
+            print(f'[Processor] API呼び出し上限 ({effective_max_api_calls}) 到達。残り {len(pending) - processed - skipped - deferred_tier0} 件は次回。')
             break
         if not _wallclock_ok():
             remaining_s = _wallclock_remaining_ms() / 1000
@@ -275,7 +287,24 @@ def lambda_handler(event, context):
                 and topic.get('storyPhase') == '発端'
                 and cnt >= 3):
             needs_story = True
-        if needs_story and api_calls < MAX_API_CALLS:
+        # 2026-04-29 案C: 「aiGenerated=True かつ AI 生成から 48h 以内 かつ 新記事 0 件」は skip。
+        # 新記事の有無は lastUpdated > aiGeneratedAt で判定 (fetcher が記事追加時に lastUpdated を更新)。
+        # 目的: pendingAI=True で再キューイングされたが実は変化のない topic で API call を浪費しない。
+        if needs_story and topic.get('aiGenerated') and topic.get('aiGeneratedAt'):
+            try:
+                _ai_at = datetime.fromisoformat(str(topic['aiGeneratedAt']).replace('Z', '+00:00'))
+                _last_upd_raw = topic.get('lastUpdated')
+                _last_upd = datetime.fromisoformat(str(_last_upd_raw).replace('Z', '+00:00')) if _last_upd_raw else None
+                _hours_since_ai = (datetime.now(timezone.utc) - _ai_at).total_seconds() / 3600
+                _no_new_articles = (_last_upd is None) or (_last_upd <= _ai_at)
+                if _hours_since_ai < 48 and _no_new_articles:
+                    needs_story = False
+                    skipped += 1
+                    print(f'  [skip] {tid[:8]}... aiGen後{_hours_since_ai:.1f}h・新記事なし → 再生成 skip')
+                    continue
+            except Exception as _e:
+                pass  # パース失敗時は通常処理
+        if needs_story and api_calls < effective_max_api_calls:
             new_story = generate_story(articles, article_count=cnt)
             api_calls += 1
             time.sleep(1.5)
@@ -468,12 +497,23 @@ def lambda_handler(event, context):
     # 7d では永遠に verdict 0 件。1d/3art なら backfill 後 6 件が即時 eligible になる。
     # データが熟したら段階的に 3d/5art へ戻すこと。
     # 対象数を JUDGE_MAX で抑制し、wallclock guard も尊重する。
+    #
+    # 2026-04-29 案D: コスト削減のため、judge_prediction は 1 日 1 回 (UTC 13:00 = JST 22:00 前後) のみ実行。
+    # fetcher_trigger 経由 (即時処理) でも skip。新スケジュール cron(0 23,8) には UTC 13 起動はないが、
+    # fetcher は 30 分毎に走るため UTC 13 台に fetcher_trigger が来た場合のみ判定が走る。
     pred_judged = 0
     pred_skipped = 0
     JUDGE_MAX = 10
+    _utc_hour = datetime.now(timezone.utc).hour
+    _should_judge = (source != 'fetcher_trigger') and (_utc_hour == 13)
+    if not _should_judge:
+        print(f'[Processor] judge_prediction skip (source={source}, UTC_hour={_utc_hour}) — JST 22:00 前後の scheduled invoke のみ実行')
     try:
-        candidates = get_topics_for_prediction_judging(min_age_days=1, min_articles=3,
-                                                       max_topics=JUDGE_MAX)
+        if not _should_judge:
+            candidates = []
+        else:
+            candidates = get_topics_for_prediction_judging(min_age_days=1, min_articles=3,
+                                                           max_topics=JUDGE_MAX)
         if candidates:
             print(f'[Processor] 予想判定対象: {len(candidates)} 件')
         for cand in candidates:
