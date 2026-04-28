@@ -90,3 +90,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| Cowork T2026-0428-BS Bluesky注目度選定修正 | fix | scripts/bluesky_agent.py | 2026-04-28 10:25 | yes |
