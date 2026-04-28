@@ -35,6 +35,7 @@ def _call_claude(payload: dict, timeout: int = 25) -> dict:
     headers = {
         'x-api-key': ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'prompt-caching-2024-07-31',
         'content-type': 'application/json',
     }
     delay = 5
@@ -79,12 +80,16 @@ def _call_claude(payload: dict, timeout: int = 25) -> dict:
 
 def _call_claude_tool(prompt: str, tool_name: str, input_schema: dict,
                        max_tokens: int = 1500, timeout: int = 25,
-                       model: str = 'claude-haiku-4-5-20251001') -> dict | None:
+                       model: str = 'claude-haiku-4-5-20251001',
+                       system: str | None = None) -> dict | None:
     """Claude Tool Use API で structured output を取得。
     JSON Schema で出力形式を強制するため malformed JSON は物理的に発生しない。
+
+    T2026-0428-AJ: prompt caching 対応。`system` を渡すと cache_control: ephemeral 付きで
+    送信し、固定の共通プロンプトをキャッシュ再利用する (Haiku 2048 / Sonnet 1024 tokens 必要)。
     Returns: tool_use.input (dict) / 失敗時 None。
     """
-    response = _call_claude({
+    payload = {
         'model': model,
         'max_tokens': max_tokens,
         'tools': [{
@@ -94,7 +99,20 @@ def _call_claude_tool(prompt: str, tool_name: str, input_schema: dict,
         }],
         'tool_choice': {'type': 'tool', 'name': tool_name},
         'messages': [{'role': 'user', 'content': prompt}],
-    }, timeout=timeout)
+    }
+    if system:
+        payload['system'] = [{
+            'type': 'text',
+            'text': system,
+            'cache_control': {'type': 'ephemeral'},
+        }]
+    response = _call_claude(payload, timeout=timeout)
+    # cache hit/miss の観測 (governance worker で集計可能に)
+    usage = response.get('usage') or {}
+    cache_read  = usage.get('cache_read_input_tokens', 0)
+    cache_write = usage.get('cache_creation_input_tokens', 0)
+    if cache_read or cache_write:
+        print(f'[METRIC] claude_cache read={cache_read} write={cache_write} model={model}')
     for block in response.get('content', []):
         if block.get('type') == 'tool_use' and block.get('name') == tool_name:
             return block.get('input') or {}
@@ -434,21 +452,21 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
 
 
 def _generate_story_minimal(articles: list) -> dict | None:
-    """1〜2件: シンプルな1段落要約のみ生成（APIコスト最小）。Tool Use で structured output 強制。"""
+    """1〜2件: シンプルな1段落要約のみ生成（APIコスト最小）。Tool Use で structured output 強制。
+    T2026-0428-AJ: 共通プロンプトは _SYSTEM_PROMPT に集約 (cache_control 対象)。
+    """
     headlines, cnt = _build_headlines(articles, limit=2)
     prompt = (
-        '以下はニューストピックに関する記事です。事実のみで簡潔にまとめてください。\n'
-        '断定・感情語・メディア名禁止。固有名詞は初出時に括弧で1語説明 (例: スターリンク（SpaceXの衛星インターネット）)。\n\n'
-        '【aiSummary】150字以内の1段落。「何が起きたか（1文）」+「なぜ重要か・何を意味するか（1文）」の2文構成。読んだ人が「つまりこういうことか」と理解できる結論を必ず含める。\n'
-        '【keyPoint】★最重要フィールド。状況解説を 200〜300 字の連続した文章で書く。背景→時系列→現状の流れで物語的に語る。箇条書き・事実羅列禁止。言葉を選びキレのある日本語で。\n'
-        '【outlook】AI予想として「この先どうなるか」を1文で。〜が予想される/〜の可能性があるで締める。文末に「[確信度:高/中/低]」を必ず付与。検証可能な仮説として書く (曖昧な「動向次第」禁止)。\n'
-        '【isCoherent判定】true=全記事が同一主語・同一流れ。false=異主語/異論点混在。\n'
-        '【topicLevel判定】major=国家間・産業横断/sub=majorの一側面/detail=個別発表。\n'
-        + _GENRES_PROMPT
-        + f'\n記事情報（{cnt}件）:\n{headlines}'
+        f'【今回のモード: minimal (記事 {cnt} 件)】\n'
+        'phase / timeline / perspectives / statusLabel / watchPoints は schema 上存在しないため出力しない。\n'
+        'aiSummary・keyPoint・outlook・topicTitle・latestUpdateHeadline・isCoherent・topicLevel・genres のみを schema に従って出力する。\n\n'
+        f'記事情報（{cnt}件）:\n{headlines}'
     )
     try:
-        result = _call_claude_tool(prompt, 'emit_topic_story', _build_story_schema('minimal'), max_tokens=600)
+        result = _call_claude_tool(
+            prompt, 'emit_topic_story', _build_story_schema('minimal'),
+            max_tokens=600, system=_SYSTEM_PROMPT,
+        )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
         return _normalize_story_result(result, 'minimal')
@@ -487,19 +505,60 @@ _STORY_PROMPT_RULES = (
 )
 
 
+# T2026-0428-AJ: prompt caching 用の共通システムプロンプト。
+# 全モード (minimal/standard/full) で **完全に同一バイト** を渡すことで cache prefix がヒットする。
+# Haiku 最低 2048 tokens / Sonnet 最低 1024 tokens 必要 → _WORD_RULES + _STORY_PROMPT_RULES +
+# _GENRES_PROMPT + 役割定義 + forecast/timeline/出力品質チェックをまとめて 4000 字超 (≒2500-3500 tokens)
+# を確保する。中身を変えるとキャッシュが破棄されるため、修正時は意図的に行うこと。
+_SYSTEM_PROMPT = (
+    'あなたはニュース記事を構造化分析して JSON Schema で出力する専門アシスタントです。\n'
+    '出力は必ず指定されたツールスキーマに従い、事実ベース・断定回避・感情語回避を徹底してください。\n'
+    'メディア名 (毎日新聞/NHK 等) は記述に出さない。固有名詞は初出時に括弧で1語説明を加える。\n'
+    'モード (minimal/standard/full) は user メッセージで通知される。schema に存在しないフィールドは出力しないこと。\n\n'
+    + _WORD_RULES
+    + _STORY_PROMPT_RULES
+    + _GENRES_PROMPT
+    + '【forecast (full mode のみ)】記事内容を根拠にした仮説 (2文)。〜が見込まれる/〜の可能性があるで締める。'
+      '文末に「[確信度:高/中/低]」を必ず付与する (記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低)。\n'
+    '【timeline (standard/full)】重要な転換点。event は体言止め40字以内、'
+    'transition は因果接続 (これを受けて/その翌日/反発を受け/声明を機に/審議を経て) 25字以内。'
+    'standard は最大3件、full は最大6件。最後の項目に transition は付けない。\n'
+    '【出力品質チェック (送信前に内部で確認すること)】\n'
+    '- aiSummary は 150 字以内・2文構成。1文目=何が起きたか、2文目=なぜ重要か/何を意味するか。\n'
+    '- keyPoint は 200〜300 字の連続した文章。箇条書き・「〇〇が△△した」の繰り返し・事実羅列は禁止。\n'
+    '  もともと〇〇 → △△を機に □□ → 現在〇〇 の物語形式で構成する。\n'
+    '- perspectives は 2〜3 社を等しい分量で扱う。1 社だけ詳述しない。論調差が薄ければ「概ね同様」と書く。\n'
+    '- outlook / forecast の文末に必ず [確信度:高] / [確信度:中] / [確信度:低] のいずれかを付与する。\n'
+    '- topicTitle は 15 字以内・体言止め・固有名詞を含む。「〜の最新動向」「〜まとめ」のような曖昧表現は禁止。\n'
+    '- latestUpdateHeadline は 40 字以内・「〜が〜した」形式。\n'
+    '【記事データの渡し方】\n'
+    '- user メッセージには「記事情報（N件）」のブロックがあり、必要に応じて「メディア各社の本文 (perspectives 比較用)」が続く。\n'
+    '- 記事タイトルや概要をそのままコピーせず、抽象化・統合した分析を出力する。\n'
+    '- 「メディア各社の本文」が提供された場合、perspectives はそのテキストを根拠に各社の論調差を抽出する。\n'
+    '【失敗回避】\n'
+    '- schema の required フィールドを欠落させない。型が enum なら enum 内から選ぶ。\n'
+    '- 出力前に self-check: required を全部埋めたか / 確信度タグを付け忘れていないか。\n'
+)
+
+
 def _generate_story_standard(articles: list, cnt: int) -> dict | None:
     """3〜5件: Tool Use で structured output 強制 (旧 JSON 構文エラー撲滅)。
-    T2026-0428-AL: 上位3記事の全文を取得し perspectives の比較根拠とする。"""
+    T2026-0428-AL: 上位3記事の全文を取得し perspectives の比較根拠とする。
+    T2026-0428-AJ: 共通プロンプトは _SYSTEM_PROMPT に集約 (cache_control 対象)。"""
     headlines, _ = _build_headlines(articles, limit=5)
     media_block = _build_media_comparison_block(articles, max_count=3)
     prompt = (
-        _STORY_PROMPT_RULES
-        + _GENRES_PROMPT
-        + f'\n記事情報（{cnt}件）:\n{headlines}'
+        f'【今回のモード: standard (記事 {cnt} 件)】\n'
+        'phase は「拡散 / ピーク / 現在地 / 収束」のみ (発端は禁止)。timeline は最大3件。\n'
+        'forecast は schema に存在しないため出力しない (full モードのみ)。\n\n'
+        f'記事情報（{cnt}件）:\n{headlines}'
         + (f'\n{media_block}' if media_block else '')
     )
     try:
-        result = _call_claude_tool(prompt, 'emit_topic_story', _build_story_schema('standard'), max_tokens=1300)
+        result = _call_claude_tool(
+            prompt, 'emit_topic_story', _build_story_schema('standard'),
+            max_tokens=1300, system=_SYSTEM_PROMPT,
+        )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
         return _normalize_story_result(result, 'standard')
@@ -539,16 +598,15 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
     """6件以上: フル7セクション + 因果タイムライン（最大6件）。Tool Use で structured output 強制。
     記事数が多い大型トピック向け。Sonnet 4.6 を使い keyPoint/backgroundContext/perspectives 等の
     記述品質を底上げする (minimal/standard は Haiku 据え置き)。
-    T2026-0428-AL: 上位3記事の全文を取得し perspectives の比較根拠とする。"""
+    T2026-0428-AL: 上位3記事の全文を取得し perspectives の比較根拠とする。
+    T2026-0428-AJ: 共通プロンプトは _SYSTEM_PROMPT に集約 (cache_control 対象)。"""
     headlines, _ = _build_headlines(articles, limit=10)
     media_block = _build_media_comparison_block(articles, max_count=3)
     prompt = (
-        _WORD_RULES
-        + _STORY_PROMPT_RULES
-        + '【forecast】記事内容を根拠にした仮説 (2文)。〜が見込まれる/〜の可能性があるで締める。文末に「[確信度:高/中/低]」を必ず付与する (記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低)。\n'
-        + '【timeline】3〜6件の重要な転換点。event は体言止め40字以内、transition は因果接続 (これを受けて/その翌日/反発を受け/声明を機に/審議を経て) 25字以内。\n'
-        + _GENRES_PROMPT
-        + f'\n記事情報（{cnt}件・見出しと概要）:\n{headlines}'
+        f'【今回のモード: full (記事 {cnt} 件)】\n'
+        'phase は「拡散 / ピーク / 現在地 / 収束」のみ (発端は禁止)。timeline は 3〜6 件出力。\n'
+        'forecast は必ず出力する (確信度タグ必須)。\n\n'
+        f'記事情報（{cnt}件・見出しと概要）:\n{headlines}'
         + (f'\n{media_block}' if media_block else '')
     )
     try:
@@ -558,6 +616,7 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         result = _call_claude_tool(
             prompt, 'emit_topic_story', _build_story_schema('full'),
             max_tokens=1700, timeout=60, model='claude-sonnet-4-6',
+            system=_SYSTEM_PROMPT,
         )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
@@ -571,85 +630,3 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
 # Tool Use API + JSON Schema (`_build_story_schema`) で structured output を物理的に強制。
 # malformed JSON の発生確率は 0 になり、`generate_story (full) error: Expecting ',' delimiter`
 # 系の警告が消える (T39 の続き、JSON parse error なぜなぜ分析の対策実装)。
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# T2026-0428-PRED: outlook (AI予想) 自動当否判定
-# ─────────────────────────────────────────────────────────────────────────────
-_VALID_PREDICTION_RESULTS = ('matched', 'partial', 'missed', 'pending')
-
-_PREDICTION_JUDGE_SCHEMA = {
-    'type': 'object',
-    'properties': {
-        'result': {
-            'type': 'string',
-            'enum': list(_VALID_PREDICTION_RESULTS),
-            'description': (
-                'matched=新記事群が予想内容を明確に裏付けている / '
-                'partial=部分的に方向性は合っているが完全には一致しない / '
-                'missed=予想と異なる方向に展開した・反対の事実が報じられた / '
-                'pending=判定可能な根拠が新記事群に十分含まれない (継続観測)'
-            ),
-        },
-        'evidence': {
-            'type': 'string',
-            'description': '判定の根拠を 80 字以内で。どの記事の何を根拠にしたかを簡潔に。',
-        },
-    },
-    'required': ['result', 'evidence'],
-}
-
-
-def judge_prediction(outlook: str, new_titles: list, min_titles: int = 5) -> dict | None:
-    """outlook (AI 予想) と、predictionMadeAt 以降に追加された新記事タイトル群を比較し
-    matched / partial / missed / pending を返す。
-
-    Args:
-        outlook:    AI が立てた予想文 (1〜2 文)。文末に [確信度:高/中/低] が付与されている。
-        new_titles: predictionMadeAt 以降に追加された記事タイトルのリスト。
-        min_titles: 判定に必要な最小タイトル数 (5 件未満は 1 件で判断するとノイズになるため None を返す)。
-
-    Returns:
-        {'result': 'matched'|'partial'|'missed'|'pending', 'evidence': '...'}
-        または None (API 未設定 / 入力不足 / API 失敗時)。
-    """
-    if not ANTHROPIC_API_KEY:
-        return None
-    outlook = (outlook or '').strip()
-    if not outlook:
-        return None
-    titles = [str(t).strip() for t in (new_titles or []) if str(t).strip()]
-    if len(titles) < min_titles:
-        # 1〜数件で判定するとノイズなので明示的に「pending = 継続観測」を返す。
-        # API は呼ばずローカルで返す (コスト抑制)。
-        return {'result': 'pending', 'evidence': f'新記事 {len(titles)} 件 < {min_titles} 件のため継続観測。'}
-
-    headlines = '\n'.join(f'- {clean_headline(t)[:80]}' for t in titles[:20])
-    prompt = (
-        '以下は過去にAIが立てた「予想」と、その予想を立てた時刻以降に追加された新しい記事タイトル群です。\n'
-        '新記事群の内容から、予想の当否を 4 値で判定してください。\n\n'
-        '【判定ルール】\n'
-        '- matched: 新記事群が予想の内容を明確に裏付けている (固有名詞・事象の方向性が一致)。\n'
-        '- partial: 方向性は合っているが完全には一致しない / 部分的に進展。\n'
-        '- missed:  予想と異なる方向に展開した、または反対の事実が報じられた。\n'
-        '- pending: 新記事群に判定可能な根拠が十分含まれない (継続観測すべき)。\n\n'
-        '【evidence】判定の根拠を 80 字以内で簡潔に。「どの記事の何を根拠にしたか」を書く。\n'
-        '推測ではなく、新記事群に書かれた事実を引用すること。\n\n'
-        f'【予想文】\n{outlook}\n\n'
-        f'【新記事タイトル ({len(titles)} 件)】\n{headlines}'
-    )
-    try:
-        result = _call_claude_tool(
-            prompt, 'judge_prediction', _PREDICTION_JUDGE_SCHEMA,
-            max_tokens=300, timeout=20,
-        )
-        if not result:
-            return None
-        verdict = result.get('result')
-        if verdict not in _VALID_PREDICTION_RESULTS:
-            return None
-        evidence = str(result.get('evidence') or '').strip()[:200]
-        return {'result': verdict, 'evidence': evidence}
-    except Exception as e:
-        print(f'judge_prediction error: {e}')
-        return None
