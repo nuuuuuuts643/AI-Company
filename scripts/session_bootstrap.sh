@@ -159,6 +159,9 @@ if [ -f TASKS.md ]; then
   ' TASKS.md 2>/dev/null || true)
 fi
 
+# 確定済み決定の期限チェック
+bash "$(dirname "$0")/check_decisions.sh" || true
+
 # ---- 7. サマリ出力 ----
 echo "─────────────────────────────────────────"
 echo "✅ 起動チェック完了 ($(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST'))"
