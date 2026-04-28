@@ -161,11 +161,10 @@ def lambda_handler(event, context):
     deleted_count  = 0
     skipped_count  = 0
     old_snap_deleted = 0
-
-    for item in items:
-        topic_id  = item.get('topicId', '')
-        score     = int(item.get('score', 0))
-        lifecycle = item.get('lifecycleStatus', 'active')
+    # T2026-0428-AB: DynamoDB から削除した tid を追跡し、topics.json と同期する。
+    # これを欠くと sitemap が orphan tid を含み続け、本番 URL が 404 を返す
+    # (Google News に SEO 信頼度を毀損する状態が継続)。
+    deleted_tids = set()
 
         # すでに legacy → lifecycle Lambda では触らない（fetcher も上書きしない設計）
         if lifecycle == 'legacy':
@@ -211,6 +210,7 @@ def lambda_handler(event, context):
             except Exception:
                 pass
             deleted_count += 1
+            deleted_tids.add(topic_id)
             print(f"[deleted]  topicId={topic_id} score={score} items={len(del_keys)}")
 
         else:
