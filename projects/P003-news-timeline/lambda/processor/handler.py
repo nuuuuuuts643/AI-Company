@@ -27,7 +27,7 @@ from proc_storage import (
     auto_archive_incoherent, save_prediction_log,
 )
 
-_PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext'}
+_PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext', 'background'}
 
 # PRED# レコードを topics.json から除外するためのプレフィックスチェックは不要
 # (get_all_topics_for_s3 が SK='META' のみ取得するため自動除外)
@@ -225,10 +225,13 @@ def lambda_handler(event, context):
         # 旧 aiGenerated topic は keyPoint プロンプト追加 (commit 963ff61) 以前の処理結果のため
         # keyPoint=None のまま永久に skip されていた (本番 0/115 で確認済)。
         # 仕組み的対策: 必須フィールドリストを 1 箇所で管理し、新フィールド追加時の漏れを構造的に防ぐ。
+        # T2026-0428-J/E: statusLabel / watchPoints も standard/full mode で必須化。
         _required_full_fields = (
             (topic.get('storyTimeline') or _is_minimal),  # minimal は timeline 生成しない
             (topic.get('storyPhase')    or _is_minimal),  # minimal は phase 生成しない
             bool(topic.get('keyPoint')),                  # T255+T256: minimal も keyPoint 必須。_is_minimal 免除を削除。
+            (bool(topic.get('statusLabel')) or _is_minimal),   # T2026-0428-J/E: standard/full のみ必須
+            (bool(topic.get('watchPoints'))  or _is_minimal),
         )
         needs_story = (cnt >= MIN_ARTICLES_FOR_SUMMARY
                        and not (topic.get('aiGenerated') and all(_required_full_fields)))
@@ -275,13 +278,15 @@ def lambda_handler(event, context):
             'generatedTitle':       gen_title,
             'generatedSummary':     gen_story['aiSummary']           if gen_story else None,
             'keyPoint':             gen_story.get('keyPoint')         if gen_story else None,
-            'spreadReason':         gen_story['spreadReason']         if gen_story else None,
+            # T2026-0428-J/E: 新フィールド (statusLabel / watchPoints / predictionMadeAt / predictionResult)
+            'statusLabel':          gen_story.get('statusLabel')      if gen_story else None,
+            'watchPoints':          gen_story.get('watchPoints')      if gen_story else None,
+            'predictionMadeAt':     (datetime.now(timezone.utc).isoformat() if gen_story and gen_story.get('outlook') else None),
+            'predictionResult':     ('pending' if gen_story and gen_story.get('outlook') else None),
             'forecast':             gen_story['forecast']             if gen_story else None,
             'storyTimeline':        gen_story['timeline']             if gen_story else None,
             'storyPhase':           gen_story['phase']                if gen_story else None,
             'summaryMode':          gen_story['summaryMode']          if gen_story else None,
-            'backgroundContext':    gen_story.get('backgroundContext') if gen_story else None,
-            'background':           gen_story.get('background')        if gen_story else None,
             'perspectives':         gen_story.get('perspectives')      if gen_story else None,
             'outlook':              gen_story.get('outlook')           if gen_story else None,
             'topicTitle':           gen_story.get('topicTitle')              if gen_story else None,
@@ -317,13 +322,15 @@ def lambda_handler(event, context):
                     # detail page には backgroundContext が出ているが、整合性確保のため明示的に追加。
                     # backgroundContext は _PROC_INTERNAL で publish 時に除外され続ける (size抑制)。
                     if upd.get('keyPoint'):                              t['keyPoint']                = upd['keyPoint']
-                    if upd.get('backgroundContext'):                     t['backgroundContext']       = upd['backgroundContext']
-                    if upd.get('spreadReason'):                          t['spreadReason']            = upd['spreadReason']
+                    # T2026-0428-J/E: 新フィールド (statusLabel/watchPoints/predictionMadeAt/predictionResult)
+                    if upd.get('statusLabel'):                           t['statusLabel']             = upd['statusLabel']
+                    if upd.get('watchPoints'):                           t['watchPoints']             = upd['watchPoints']
+                    if upd.get('predictionMadeAt'):                      t['predictionMadeAt']        = upd['predictionMadeAt']
+                    if upd.get('predictionResult'):                      t['predictionResult']        = upd['predictionResult']
                     if upd.get('forecast'):                              t['forecast']                = upd['forecast']
                     if upd.get('storyTimeline') is not None:             t['storyTimeline']           = upd['storyTimeline']
                     if upd.get('storyPhase'):                            t['storyPhase']              = upd['storyPhase']
                     if upd.get('summaryMode'):                           t['summaryMode']             = upd['summaryMode']
-                    if upd.get('background'):                            t['background']              = upd['background']
                     if upd.get('perspectives') is not None:              t['perspectives']            = upd['perspectives']
                     if upd.get('outlook'):                               t['outlook']                 = upd['outlook']
                     if upd.get('topicTitle'):                            t['topicTitle']              = upd['topicTitle']
@@ -338,11 +345,12 @@ def lambda_handler(event, context):
                     if upd.get('aiGenerated'):                           t['aiGenerated']             = True
                     if upd.get('imageUrl') and not t.get('imageUrl'):    t['imageUrl']                = upd['imageUrl']
             ts_iso = datetime.now(timezone.utc).isoformat()
+            # T2026-0428-J/E: generatedSummary[:120] truncate を撤廃。
+            # 旧実装は文中切断 ("...直接的な譲歩に") を発生させ、ユーザーから「要約がカオス」と
+            # 評価される主因となっていた。AI 側で 150 字以内に既に制約しているので、
+            # 後段の文字数 cap は不要 (size 抑制目的なら他フィールドの方が効果大)。
             def _trim(t):
-                d = {k: v for k, v in t.items() if k not in _PROC_INTERNAL}
-                if d.get('generatedSummary'):
-                    d['generatedSummary'] = d['generatedSummary'][:120]
-                return d
+                return {k: v for k, v in t.items() if k not in _PROC_INTERNAL}
             topics_pub = [_trim(t) for t in topics]
             full_payload = {
                 'topics':           topics_pub,
@@ -358,8 +366,8 @@ def lambda_handler(event, context):
             # frontend は当面 topics.json を使い続ける (Step2 で切替)。
             write_s3('api/topics-full.json', full_payload)
             _CARD_KEYS = ('topicId', 'topicTitle', 'generatedTitle', 'articleCount',
-                          'genres', 'genre', 'keyPoint', 'storyPhase', 'imageUrl',
-                          'aiGenerated', 'score', 'updatedAt', 'lifecycleStatus')
+                          'genres', 'genre', 'keyPoint', 'storyPhase', 'statusLabel',
+                          'imageUrl', 'aiGenerated', 'score', 'updatedAt', 'lifecycleStatus')
             card_topics = [{k: t[k] for k in _CARD_KEYS if k in t} for t in topics_pub]
             write_s3('api/topics-card.json', {
                 'topics':    card_topics,
