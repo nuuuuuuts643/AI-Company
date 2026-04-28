@@ -212,6 +212,32 @@ jobs:
           done
           [ $ERRORS -eq 0 ] || exit 1
 
+  conflict-markers:
+    name: コンフリクトマーカー残存チェック
+    runs-on: ubuntu-latest
+    # 用途: マージ解消し忘れた `<<<<<<<` `=======` `>>>>>>>` が main に landing するのを物理ブロック。
+    # 過去事例 (2026-04-29 commit 47dd451): app.js / style.css のマージコンフリクトが
+    # 解消未完了のまま push され、CI が同じ箇所で繰り返し失敗していた (T2026-0429-D 起票理由)。
+    steps:
+      - uses: actions/checkout@v4
+      - name: コンフリクトマーカー grep
+        run: |
+          # `<<<<<<<` と `>>>>>>>` は通常コードに 7 連続出現しないため、行頭一致で検出すれば偽陽性ゼロ。
+          # `=======` は Markdown の h1 underline と衝突するため、`<<<<<<<`/`>>>>>>>` とのペアで判定する。
+          # 検査対象は projects/ 配下の .js / .css / .py / .md (T2026-0429-D 仕様)。
+          set +e
+          MATCHES=$(grep -rEn "^(<<<<<<<|>>>>>>>) " \
+            --include="*.js" --include="*.css" --include="*.py" --include="*.md" \
+            projects/ 2>/dev/null)
+          if [ -n "$MATCHES" ]; then
+            echo "::error::コンフリクトマーカーが残存しています:"
+            echo "$MATCHES" | sed 's/^/  /'
+            echo ""
+            echo "対応: 当該ファイルでコンフリクト解消を完了させてから commit してください。"
+            exit 1
+          fi
+          echo "✅ コンフリクトマーカー残存なし"
+
   content-drift-guard:
     name: 思想・表記ドリフト検出（守らないと進めない仕組み）
     runs-on: ubuntu-latest
