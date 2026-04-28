@@ -1,4 +1,5 @@
 """DynamoDB / S3 アクセス層と Slack 通知。"""
+from __future__ import annotations
 import hashlib
 import io
 import json
@@ -10,7 +11,7 @@ from collections import Counter
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from email.utils import formatdate
+from email.utils import formatdate, parsedate_to_datetime
 
 from boto3.dynamodb.conditions import Key, Attr
 
@@ -39,6 +40,47 @@ _KW_STOP    = {
     '方向', '制度', '政策', '経済', '社会', '市場', '投資', '技術', '事業', '計画',
 }
 _KW_MAX     = 10
+
+
+def _parse_pubdate(raw) -> datetime | None:
+    """記事 pubDate を datetime に変換する。RFC 2822 / ISO 8601 / epoch (秒・ミリ秒) すべて対応。
+
+    戻り値は tz-aware (UTC). 失敗時 None。
+
+    T2026-0428-E2-4: 旧実装は ISO/epoch のみ対応で、RSS 由来の RFC 2822 形式
+    ('Mon, 23 Mar 2026 07:00:00') が silently drop される bug があり、
+    judge_prediction が永遠に new_titles=0 で skip していた。
+    """
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    if not s:
+        return None
+    # 1. ISO 8601
+    try:
+        dt = datetime.fromisoformat(s.replace('Z', '+00:00'))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except Exception:
+        pass
+    # 2. epoch (秒 / ミリ秒)
+    try:
+        ts = int(s)
+        if ts > 0:
+            return datetime.fromtimestamp(ts if ts < 1e11 else ts / 1000, tz=timezone.utc)
+    except Exception:
+        pass
+    # 3. RFC 2822 (RSS pubDate)
+    try:
+        dt = parsedate_to_datetime(s)
+        if dt is not None:
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+    except Exception:
+        pass
+    return None
 
 
 def _extract_trending_keywords(topics: list) -> list:
@@ -643,9 +685,13 @@ def update_prediction_result(tid: str, result: str, evidence: str = '') -> bool:
         return False
 
 
-def get_topics_for_prediction_judging(min_age_days: int = 7, min_articles: int = 5,
+def get_topics_for_prediction_judging(min_age_days: int = 1, min_articles: int = 3,
                                       max_topics: int = 20) -> list:
     """T2026-0428-PRED: 当否判定対象のトピックを抽出する。
+
+    T2026-0428-E2-4 (2026-04-28): default を 7d/5art → 1d/3art に緩和。
+    根本原因 (実測): システム内 outlook の最大経過 2.12 日のため 7 日では永遠に 0 件。
+    データが熟したら段階的に 3d/5art へ戻すこと。
 
     条件:
         - SK == 'META'
@@ -719,22 +765,13 @@ def get_articles_added_after(tid: str, since_iso: str, max_articles: int = 30) -
                 url = a.get('url', '')
                 if url in seen_urls:
                     continue
-                # pubDate 比較
+                # pubDate 比較 (T2026-0428-E2-4: RFC 2822 / ISO 8601 / epoch すべて対応。
+                # 旧実装は ISO/epoch のみ対応で、RSS 由来の RFC 2822 ('Mon, 23 Mar 2026 07:00:00')
+                # は silently drop され、judge_prediction が永遠に new_titles=0 で skip していた)
                 raw = a.get('pubDate', '') or a.get('publishedAt', '')
-                a_dt = None
-                if raw:
-                    try:
-                        a_dt = datetime.fromisoformat(str(raw).replace('Z', '+00:00'))
-                    except Exception:
-                        try:
-                            ts = int(raw)
-                            a_dt = datetime.fromtimestamp(ts if ts < 1e11 else ts / 1000, tz=timezone.utc)
-                        except Exception:
-                            a_dt = None
+                a_dt = _parse_pubdate(raw) if raw else None
                 if a_dt is None:
                     continue
-                if a_dt.tzinfo is None:
-                    a_dt = a_dt.replace(tzinfo=timezone.utc)
                 if a_dt < since_dt:
                     continue
                 seen_urls.add(url)
