@@ -39,6 +39,7 @@ import argparse
 import json
 import os
 import sys
+import time
 import urllib.request
 from datetime import datetime, timezone, timedelta
 
@@ -94,8 +95,16 @@ def get_topics_from_s3(limit=50, sort_by='velocity'):
     """
     S3 api/topics.json から最新のトピック一覧を取得。
     DynamoDB フルスキャンより大幅にコスト削減（月$2.5削減）。
-    sort_by='velocity' → velocityScore 降順（日次用）
+    sort_by='velocity' → 注目度（velocityScore 降順, score をタイブレーク）日次用
     sort_by='score'    → score 降順（週次・月次用）
+
+    注目度シグナルの設計（fetcher/scoring.py + score_utils.py 参照）:
+      - velocityScore = 直近2h vs 前2h の伸び率にtier重み/メディア多様性/一次情報/
+        テック一般度フィルタを乗じ、半減期12hで時間減衰した「急上昇度」。
+      - score        = 基礎ニュース性（メディア数×10 + log(はてブ) + 鮮度/多様性/緊急ボーナス）。
+      - 大半のトピックは時間経過で velocityScore=0 に収束するため、
+        同点時は score を二次キーに使い「ベース重要度の高い方」を優先する。
+      - 記事数 (articleCount) はランキングに使わない（記事数偏重を避ける）。
     """
     try:
         resp  = s3.get_object(Bucket=S3_BUCKET, Key='api/topics.json')
@@ -106,28 +115,56 @@ def get_topics_from_s3(limit=50, sort_by='velocity'):
         return []
 
     if sort_by == 'velocity':
-        items.sort(key=lambda x: float(x.get('velocityScore', 0) or 0), reverse=True)
+        items.sort(
+            key=lambda x: (
+                float(x.get('velocityScore', 0) or 0),
+                float(x.get('score', 0) or 0),
+            ),
+            reverse=True,
+        )
     else:
         items.sort(key=lambda x: float(x.get('score', 0) or 0), reverse=True)
 
     return items[:limit]
 
 
-def get_posted_ids():
-    """投稿済みトピックIDのセットを取得（重複防止）"""
+def get_recent_posted_ids(mode: str, limit: int = 4) -> set:
+    """
+    指定 mode の直近 limit 件の topicId を集合で返す（重複投稿防止用・近接窓ガード）。
+
+    設計方針:
+      - TTL=30日内すべてを除外すると候補が枯渇する（ロングテールが効かなくなる）。
+      - 直近 N 件だけ重複させない近接窓ガードに切り替え、
+        それより前に投稿したものは「再ピックアップ可」とする。
+      - 注目度（velocityScore + score）が高ければ同じトピックを再投稿しても良い。
+        ただしN投稿以内の連投は読み手に冗長なので避ける。
+
+    Args:
+      mode:  'daily' | 'weekly' | 'monthly'
+      limit: 直近 N 件（デフォルト 4）
+
+    Returns:
+      直近 limit 件分の topicId セット。テーブル未作成・取得失敗時は空集合（安全側）。
+    """
     try:
         table  = dynamodb.Table(BLUESKY_POSTS_TABLE)
         items  = []
         kwargs = {}
         while True:
             resp = table.scan(**kwargs)
-            items.extend(resp.get('Items', []))
+            for item in resp.get('Items', []):
+                if item.get('mode') != mode:
+                    continue
+                if not item.get('postedAt') or not item.get('topicId'):
+                    continue
+                items.append(item)
             if not resp.get('LastEvaluatedKey'):
                 break
             kwargs['ExclusiveStartKey'] = resp['LastEvaluatedKey']
-        return {item['topicId'] for item in items}
+        items.sort(key=lambda x: x.get('postedAt', ''), reverse=True)
+        return {it['topicId'] for it in items[:limit]}
     except Exception as e:
-        print(f'[bluesky_agent] 投稿済みID取得エラー（テーブル未作成の可能性）: {e}')
+        print(f'[bluesky_agent] 直近{limit}件取得エラー（重複防止スキップ）: {e}')
         return set()
 
 
@@ -343,18 +380,24 @@ def post_daily(client, dry_run=False):
             )
             return
 
-    topics     = get_topics_from_s3(limit=50, sort_by='velocity')
-    posted_ids = get_posted_ids()
+    topics            = get_topics_from_s3(limit=50, sort_by='velocity')
+    recent_posted_ids = get_recent_posted_ids('daily', limit=4)
 
-    # active / cooling かつ未投稿のトップ1件
+    # 注目度（velocityScore→score タイブレーク）降順で並んだ topics から
+    # 「lifecycle が active / cooling / 空」かつ「直近4件の daily 投稿に
+    #  含まれていない」最上位を選ぶ。
+    #
     # NOTE: lifecycleStatus は 48h 以内→'active', 2-7日→'cooling'。
     # 'active' のみだと48h経過後に全件除外されて投稿ゼロになるため
     # codebase 全体の定義（proc_storage.py L396, fetcher/storage.py L186）に合わせて
     # 'active', 'cooling', '' を許容する。
+    #
+    # 重複防止は近接窓4件のみ（30日全件除外しない）。
+    # ロングテールで再注目を集めたトピックは再投稿可とする。
     candidates = [
         t for t in topics
         if t.get('lifecycleStatus', 'active') in ('active', 'cooling', '')
-        and t.get('topicId') not in posted_ids
+        and t.get('topicId') not in recent_posted_ids
     ]
 
     if not candidates:
