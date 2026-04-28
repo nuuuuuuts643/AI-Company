@@ -90,3 +90,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0428-AJ グラフUI修正＋記事ローディング修正 | Code | frontend/detail.js, frontend/topic.html, frontend/style.css | 2026-04-28 10:30 | yes |
