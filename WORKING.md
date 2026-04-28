@@ -103,3 +103,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Code] E2-4 judge_prediction調査・修正 | Code | proc_ai.py/proc_storage.py/quality_heal.py | 2026-04-28 22:55 JST | yes |
+| [Code] E2-2 keyPoint充填率 遡及再処理加速 | Code | proc_storage.py/quality_heal.py | 2026-04-29 00:14 JST | yes |
