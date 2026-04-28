@@ -102,3 +102,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0428-AW keyPoint 充填率 改善 (実態調査→skip条件→遡及処理) | 実装 | lambda/processor/proc_storage.py, lambda/processor/quality_heal.py, lambda/processor/handler.py | 2026-04-28 22:14 JST | yes |
