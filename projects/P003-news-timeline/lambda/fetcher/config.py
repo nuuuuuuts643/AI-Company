@@ -96,10 +96,28 @@ RSS_FEEDS = [
 ]
 
 # ソースドメイン → tier マッピング（Google News経由の記事など、フィードtierが使えない場合のフォールバック）
+# 注意: このマップは source 名文字列ベースのため偽装に弱い。
+# 一次情報の物理判定は score_utils.is_primary_source(url) を使うこと（T2026-0428-AN）。
 SOURCE_TIER_MAP = {
-    # Tier 1: 一次情報・権威性高
-    'NHK':        1,
-    '首相官邸':   1,
+    # Tier 1: 一次情報・権威性高（URL ドメインでも is_primary_source が True を返す媒体）
+    'NHK':                 1,
+    '首相官邸':            1,
+    '共同通信':            1,
+    'ロイター':            1,
+    'Reuters':             1,
+    'AP通信':              1,
+    'AP':                  1,
+    'BBCニュース':         1,
+    'BBC':                 1,
+    'Bloomberg':           1,
+    'ブルームバーグ':      1,
+    'AFP':                 1,
+    'AFPBB News':          1,
+    '時事通信':            1,
+    'JIJI.COM':            1,
+    '日本経済新聞':        1,
+    '読売新聞':            1,
+    '読売新聞オンライン':  1,
     # Tier 2: 主要メディア
     '毎日新聞':   2,
     '朝日新聞':   2,
@@ -119,8 +137,8 @@ SOURCE_TIER_MAP = {
     'Yahoo!ニュース':   3,
 }
 
-# Tier別スコア重み
-TIER_WEIGHTS = {1: 1.3, 2: 1.0, 3: 0.8}
+# Tier別スコア重み（T2026-0428-AN: tier1 を 1.3 → 1.5 に引き上げ。一次情報優遇）
+TIER_WEIGHTS = {1: 1.5, 2: 1.0, 3: 0.8}
 
 # 不確実表現パターン（「信頼性の材料を可視化」するための検出のみ、真偽判定ではない）
 UNCERTAINTY_PATTERNS = [

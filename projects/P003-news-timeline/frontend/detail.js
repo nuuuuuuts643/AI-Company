@@ -892,16 +892,24 @@ function renderDetail(data) {
                       const _artMs = a.publishedAt ? a.publishedAt * 1000 : (a.pubDate ? new Date(a.pubDate).getTime() : 0);
                       const isNew = _artMs && (Date.now() - _artMs) < 6 * 3600 * 1000;
                       const wayback = `https://web.archive.org/web/*/${encodeURIComponent(a.url || '')}`;
-                      return `<div class="timeline-article">
-                        <a href="${esc(a.url)}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}${isNew ? '<span class="new-badge">NEW</span>' : ''}</a>
-                        <div class="timeline-source">${srcFaviconImg(a.source)}${esc(a.source)}<a href="${esc(wayback)}" class="article-archive-link" target="_blank" rel="noopener noreferrer" title="リンク切れ時は Internet Archive で記事を遡れます">📦 アーカイブ</a></div>
+                      // T2026-0428-AN: 一次情報バッジ（バックエンドの isPrimary フラグを信頼）
+                      // 著作権法32条「引用」として利用、出典明示必須（source 名+リンクで遵守）
+                      const primaryBadge = a.isPrimary
+                        ? '<span class="primary-source-badge" title="この記事は一次情報源（公式機関・主要通信社）からの報道です">🔵 一次情報</span>'
+                        : '';
+                      return `<div class="timeline-article${a.isPrimary ? ' is-primary' : ''}">
+                        ${primaryBadge}<a href="${esc(a.url)}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}${isNew ? '<span class="new-badge">NEW</span>' : ''}</a>
+                        <div class="timeline-source">${srcFaviconImg(a.source)}${esc(a.source)}${a.isPrimary ? ' より引用' : ''}<a href="${esc(wayback)}" class="article-archive-link" target="_blank" rel="noopener noreferrer" title="リンク切れ時は Internet Archive で記事を遡れます">📦 アーカイブ</a></div>
                       </div>`;
                     }).join('')}
                     ${rest.length ? `<details class="day-more-details"><summary class="day-more-btn">他${rest.length}件を表示</summary>${rest.map(a => {
                       const wayback = `https://web.archive.org/web/*/${encodeURIComponent(a.url || '')}`;
-                      return `<div class="timeline-article">
-                        <a href="${esc(a.url)}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
-                        <div class="timeline-source">${srcFaviconImg(a.source)}${esc(a.source)}<a href="${esc(wayback)}" class="article-archive-link" target="_blank" rel="noopener noreferrer" title="リンク切れ時は Internet Archive で記事を遡れます">📦</a></div>
+                      const primaryBadge = a.isPrimary
+                        ? '<span class="primary-source-badge" title="この記事は一次情報源（公式機関・主要通信社）からの報道です">🔵 一次情報</span>'
+                        : '';
+                      return `<div class="timeline-article${a.isPrimary ? ' is-primary' : ''}">
+                        ${primaryBadge}<a href="${esc(a.url)}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
+                        <div class="timeline-source">${srcFaviconImg(a.source)}${esc(a.source)}${a.isPrimary ? ' より引用' : ''}<a href="${esc(wayback)}" class="article-archive-link" target="_blank" rel="noopener noreferrer" title="リンク切れ時は Internet Archive で記事を遡れます">📦</a></div>
                       </div>`;
                     }).join('')}</details>` : ''}
                   </div>
@@ -978,12 +986,16 @@ function renderDetail(data) {
         }
         relatedEl.innerHTML = picked.map(a => {
           const wayback = `https://web.archive.org/web/*/${encodeURIComponent(a.url || '')}`;
+          // T2026-0428-AN: 一次情報バッジ（バックエンドの isPrimary フラグを信頼）
+          const primaryBadge = a.isPrimary
+            ? '<span class="primary-source-badge" title="この記事は一次情報源（公式機関・主要通信社）からの報道です">🔵 一次情報</span>'
+            : '';
           return `
-          <div class="article-item">
-            <a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
+          <div class="article-item${a.isPrimary ? ' is-primary' : ''}">
+            ${primaryBadge}<a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
             <div class="article-meta">
               ${srcFaviconImg(a.source)}
-              ${esc(a.source)} · ${fmtTl(a._snapTs)}
+              ${esc(a.source)}${a.isPrimary ? ' より引用' : ''} · ${fmtTl(a._snapTs)}
               <a href="${esc(wayback)}" class="article-archive-link" target="_blank" rel="noopener noreferrer" title="リンク切れ時は Internet Archive で記事を遡れます">📦 アーカイブ</a>
             </div>
           </div>
