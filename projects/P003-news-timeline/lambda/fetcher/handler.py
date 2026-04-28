@@ -992,15 +992,21 @@ def lambda_handler(event, context):
         write_s3('api/pending_ai.json', {'topicIds': pending_ids, 'updatedAt': ts_iso})
 
         # 新規ペンディングトピックがあれば processor を即時非同期トリガー
+        # maxApiCalls=10: 即時処理は少量に絞る (定期 cron が MAX_API_CALLS=30 で残りを処理)。
+        # 目的: 新規トピック作成→AI要約付与までのレイテンシを最大6時間→最大30分に短縮。
         if new_pending:
             try:
                 _lambda = boto3.client('lambda', region_name='ap-northeast-1')
                 _lambda.invoke(
                     FunctionName='p003-processor',
                     InvocationType='Event',
-                    Payload=json.dumps({'topic_ids': list(new_pending), 'source': 'fetcher_trigger'}).encode(),
+                    Payload=json.dumps({
+                        'topic_ids': list(new_pending),
+                        'source': 'fetcher_trigger',
+                        'maxApiCalls': 10,
+                    }).encode(),
                 )
-                print(f'[fetcher] processor即時トリガー: {len(new_pending)}件')
+                print(f'[fetcher] processor即時トリガー: {len(new_pending)}件 (maxApiCalls=10)')
             except Exception as _e:
                 print(f'[fetcher] processorトリガー失敗（スキップ）: {_e}')
 

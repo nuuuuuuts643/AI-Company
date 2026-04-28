@@ -373,12 +373,13 @@ aws events put-targets \
   --region "$REGION" > /dev/null
 echo "  -> Fetcher: 30分ごとの自動実行を設定完了"
 
-# Processor: 1日3回 JST 7:00 / 12:00 / 18:00
-# UTC換算: 22:00 / 03:00 / 09:00（JST = UTC+9）
+# Processor: 1日2回 JST 08:00 / 17:00 (2026-04-29 コスト削減のため日中2回に変更)
+# UTC換算: 23:00 / 08:00（JST = UTC+9）
+# 即時処理は fetcher が新規トピック作成時に invoke (maxApiCalls=10) で別途走る
 # cron(分 時 日 月 曜 年) ← AWS EventBridge書式
 PROCESSOR_RULE_ARN=$(aws events put-rule \
   --name "p003-processor-schedule" \
-  --schedule-expression "cron(0 22,3,9,15 * * ? *)" \
+  --schedule-expression "cron(0 23,8 * * ? *)" \
   --state ENABLED \
   --region "$REGION" \
   --query RuleArn --output text)
@@ -396,7 +397,7 @@ aws events put-targets \
   --rule "p003-processor-schedule" \
   --targets "Id=1,Arn=${PROCESSOR_ARN}" \
   --region "$REGION" > /dev/null
-echo "  -> Processor: JST 7:00/12:00/18:00/0:00 の自動実行を設定完了 (UTC 22:00/03:00/09:00/15:00)"
+echo "  -> Processor: JST 8:00/17:00 の自動実行を設定完了 (UTC 23:00/08:00)"
 
 # ---- 8. フロントエンド (config.js は全Lambda URL確定後に書き込み) ----
 echo "[8/8] フロントエンドデプロイの準備..."
