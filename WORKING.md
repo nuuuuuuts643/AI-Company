@@ -89,4 +89,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0428-AX 今日の8事象なぜなぜ分析＋仕組み実装＋フェーズ1完了条件再定義＋Dispatch運用ルール | Code | docs/lessons-learned.md, docs/project-phases.md, CLAUDE.md, docs/rules/global-baseline.md, TASKS.md, scripts/git-hooks/pre-commit, scripts/check_ci_self_reference.sh (新規), .github/workflows/ci.yml | 2026-04-28 19:08 | yes |
