@@ -395,7 +395,7 @@ function renderDetail(data) {
       // ─── T2026-0428-J/E: 2 ゾーン設計に再編成 ────────────────────────────
       // 注目度ゾーン: グラフ・記事数スパイクは別 DOM (#score-chart) に既存。
       //   ここでは statusLabel バッジのみを「現在の状況」として可視化する。
-      // コンテンツゾーン: keyPoint (時系列ストーリー) → perspectives (各社の見解)
+      // コンテンツゾーン: keyPoint (時系列ストーリー) → perspectives (各メディアの見解)
       //   → watchPoints (注目ポイント) → outlook (AI予想 + 判定バッジ)。
       // 「両軸が同一ページで満たされる」設計目標を満たすため、ゾーン間に区切り線を入れる。
 
@@ -422,10 +422,10 @@ function renderDetail(data) {
           <p class="ai-section-body">${esc(summary)}</p>
         </div>` : '');
 
-      // ─── コンテンツゾーン: 各社の見解 ───
+      // ─── コンテンツゾーン: 各メディアの見解 ───
       const sectPersp = perspectives ? `
         <div class="ai-section">
-          <div class="ai-section-label">🗞️ 各社の見解</div>
+          <div class="ai-section-label">🗞️ 各メディアの見解</div>
           <p class="ai-section-body">${esc(perspectives)}</p>
         </div>` : '';
 
