@@ -313,6 +313,21 @@ def lambda_handler(event, context):
         processed += 1
         if _is_t0:
             tier0_processed += 1
+
+        # T2026-0428-AS: 初回 AI 要約完了 → Bluesky 即時投稿マーカーを S3 に書き込む。
+        # bluesky_agent.py が次回 cron tick (≤30分後) で消費して投稿する。
+        # 条件: 既存 AI が無い (incremental ではない) × AI が実際に成功 × story 要約あり。
+        # 注目度ベースの定期投稿 (post_daily) とは完全に独立した別トリガー。
+        if (not _is_incremental) and ai_succeeded and gen_story and gen_story.get('aiSummary'):
+            try:
+                write_s3(f'bluesky/pending/{tid}.json', {
+                    'topicId':   tid,
+                    'title':     (gen_title or '')[:140],
+                    'createdAt': datetime.now(timezone.utc).isoformat(),
+                })
+                print(f'  [Bluesky pending] {tid[:8]}... 初回要約完了マーカー作成')
+            except Exception as _bp_err:
+                print(f'  [Bluesky pending] {tid[:8]}... マーカー作成失敗: {_bp_err}')
         articles_cache[tid] = articles
         incremental_map[tid] = _is_incremental
         ai_updates[tid] = {
