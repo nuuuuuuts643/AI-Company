@@ -79,14 +79,45 @@ class ValidateTopicsExistStubRejectTest(unittest.TestCase):
         result = self._run_with_fake_batch_get(topics, responses)
         self.assertEqual(result, [], 'lastUpdated 欠如 stub も除去')
 
-    def test_skip_tids_bypass_validation(self):
-        """skip_tids で渡したトピックは batch_get_item 自体を行わず通す。"""
+    def test_skip_tids_no_longer_bypasses_validation(self):
+        """T2026-0429-H: skip_tids は no-op になった (saved_ids ゴースト混入防止のため)。
+
+        旧挙動: skip_tids 渡したら batch_get_item 自体を呼ばない (高速化)。
+        新挙動: skip_tids は無視。常に DDB を ConsistentRead=True で検証する。
+        理由: fetcher の batch_writer 並列書き込みで silently drop された topicId が
+        saved_ids に残り、skip されると幽霊エントリが topics.json に永続滞留した
+        (本番 7件/run keyPoint 永続未生成、processor 側で「ゴーストID検知 7件全件」)。
+        """
         topics = [{'topicId': 'd' * 16, 'articleCount': 7}]
+        # DDB に存在しない (= 並列書き込みで silently drop された ghost)
+        responses = [{'Responses': {self.storage.TABLE_NAME: []}}]
         fake_db = mock.MagicMock()
+        fake_db.batch_get_item.side_effect = responses
         with mock.patch.object(self.storage, 'dynamodb', fake_db):
             result = self.storage.validate_topics_exist(topics, skip_tids={'d' * 16})
-        self.assertEqual(len(result), 1)
-        fake_db.batch_get_item.assert_not_called()
+        self.assertEqual(result, [], 'skip_tids でも DDB 不在なら除去 (ゴースト保護)')
+        fake_db.batch_get_item.assert_called_once()
+
+    def test_consistent_read_used(self):
+        """T2026-0429-H: ConsistentRead=True で just-written 判定の正確性を保証。"""
+        topics = [{'topicId': 'f' * 16, 'articleCount': 3}]
+        responses = [{
+            'Responses': {self.storage.TABLE_NAME: [
+                {'topicId': 'f' * 16, 'articleCount': 3, 'lastUpdated': '2026-04-29T00:00:00Z'},
+            ]}
+        }]
+        fake_db = mock.MagicMock()
+        fake_db.batch_get_item.side_effect = responses
+        with mock.patch.object(self.storage, 'dynamodb', fake_db):
+            self.storage.validate_topics_exist(topics)
+        call_args = fake_db.batch_get_item.call_args
+        request = call_args.kwargs.get('RequestItems') or call_args.args[0].get('RequestItems')
+        # boto3 の RequestItems[table] に ConsistentRead=True が含まれること
+        self.assertEqual(
+            request[self.storage.TABLE_NAME].get('ConsistentRead'), True,
+            'ConsistentRead=True が指定されていない: just-written 検証で eventual consistency に '
+            '頼ると saved_ids が無効と誤判定されてフェッチャーが topic を破壊する'
+        )
 
     def test_batch_error_keeps_records(self):
         """batch_get_item が例外を投げた場合は既存挙動 (通す) を維持。"""

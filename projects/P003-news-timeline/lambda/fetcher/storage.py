@@ -68,17 +68,20 @@ def validate_topics_exist(topics, skip_tids=None):
     具体的には articleCount と lastUpdated が両方揃っているもののみ valid とする。
     旧 force_reset_pending_all() が無条件 update で量産していた
     {topicId, pendingAI, aiGenerated} だけのスタブ META を topics.json から駆除するため。
+
+    T2026-0429-H: ConsistentRead=True を使い、saved_tids も含めて全件検証する。
+    背景: handler.py 側の batch_writer 並列書き込みで例外が ThreadPool に閉じ込められ
+    f.result() 未呼び出しで silently drop されるケースを観測 (本番 7件/run のゴーストID 永続化)。
+    saved_tids を skip すると DDB 書き込み失敗の topicId が topics.json に混入し、processor 側
+    (get_topics_by_ids) で「ゴーストID検知 7件/全7件」となり keyPoint 生成が永久に走らなくなる。
+    対策: skip_tids の最適化を撤廃し、ConsistentRead=True で just-written 検証も可能にする。
     """
     if not topics:
         return topics
-    skip = skip_tids or set()
-    to_check = [t for t in topics if t['topicId'] not in skip]
-    if not to_check:
-        return topics
-    valid_ids = set(skip)
+    valid_ids = set()
     stub_dropped = 0
-    for i in range(0, len(to_check), 100):
-        chunk = to_check[i:i+100]
+    for i in range(0, len(topics), 100):
+        chunk = topics[i:i+100]
         keys  = [{'topicId': t['topicId'], 'SK': 'META'} for t in chunk]
         try:
             resp = dynamodb.batch_get_item(
@@ -86,6 +89,7 @@ def validate_topics_exist(topics, skip_tids=None):
                     'Keys': keys,
                     'ProjectionExpression': '#tid, articleCount, lastUpdated',
                     'ExpressionAttributeNames': {'#tid': 'topicId'},
+                    'ConsistentRead': True,
                 }}
             )
             for item in resp.get('Responses', {}).get(TABLE_NAME, []):
