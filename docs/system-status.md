@@ -6,6 +6,41 @@
 
 ---
 
+## Dispatch 引き継ぎメモ [2026-04-29 09:30 JST]
+
+### 本セッションで完了したこと
+
+| PR | 内容 | 状態 |
+|---|---|---|
+| #13 | fetcher_trigger keyPoint backfill 経路 | merged |
+| #14 | T2026-0429-B セマンティック分岐プロンプト改善 | merged |
+| #15 | 横断スキャン 根本原因全適用（パターン1〜6） | merged |
+| #16 | T2026-0429-D 繰り返し失敗自動検出 | merged |
+| #18 | fix: deploy-lambdas put-targets 構文修正 | merged |
+| #19 | T225: tokushoho.html 削除 + CI 不在チェック | merged |
+| #20 | T2026-0429-KP4: handler.py 48h skip に keyPoint 不十分チェック追加 | merged |
+
+### keyPoint充填率の現在地と見通し
+
+- 現在値: 2.2%（keyPoint≥100字 / 109件中2件）
+- **根本原因2件を修正済み**:
+  1. KP3: proc_ai.py minLength=100 retry 実装（merged）
+  2. KP4: handler.py 48h skip バイパス（merged 21ed1a2）
+- **見通し**: 次のprocessor実行サイクル（毎時）から短いkeyPointの再生成が始まる。6〜24時間後に充填率が有意に上昇するはず。コスト追加不要。
+
+### スケジューラーが次回やること
+
+1. **6時間後に充填率を再計測**（HTTPで topics-full.json 取得、keyPoint≥100字の件数確認）
+2. 充填率が10%以上に増加していれば → 正常に機能中、継続観測
+3. 充填率が変わっていなければ → `T2026-0429-KP5` として追加調査（proc_ai.pyのretryが実際に発火しているかCloudWatchログ確認）
+4. **次のTASKS.mdタスク**: T2026-0429-C（分岐判定効果検証）、T224a（admin.html allowedEmail修正）
+
+### Lambda関数名（要注意）
+- 正しい関数名: `p003-processor`（`flotopic-processor`は存在しない）
+- backfill用イベント: `backfillDetailJson` / `backfillArchivedTtl` / `forceRegenerateAll`（`backfill_keypoint`は未実装）
+
+---
+
 ## 会社構造
 
 - **出資者・取締役**: ナオヤ（承認のみ、日常運営は CEO に委任）
