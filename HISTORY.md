@@ -4,6 +4,26 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 16:55 JST T2026-0429-J ランキング 3 層原因修正 — age decay + hasAI + ジャンル消失）
+
+- ✅ **PR [#35](https://github.com/nuuuuuuts643/AI-Company/pull/35) merged (commit 8a0121a)** — `fix(T2026-0429-J): age decay 根本修正 + hasAI sort 復活 + ジャンル消失修正`
+  - **背景**: POから 3 件の同時不具合報告:
+    1. 24h〜72h 経った古いトピックがランキング上位に大量混入 (age decay が効いていない)
+    2. PR#34 で消失した「AI 解説の濃いトピックを最優先」ソートを復活
+    3. カテゴリフィルターが「総合」しか表示されない (テクノロジー / 経済 / 政治等が消失)
+  - **3 層独立原因の同時修正**:
+    1. **Layer A — age decay フォールバックがフルウェイト**: 旧コードは `lastUpdated` パース失敗時に `return 1.0` で減衰なし。`EXILE_DECAY=0.10` 導入で missing/invalid と 72h 超を最低ウェイトに倒す
+    2. **Layer B — hasAI sort 消失 (PR#34 リグレッション)**: `hasAI(t) = (aiGenerated || generatedSummary) && keyPoint>=50字` を sort 規則の最優先キーに復活
+    3. **Layer C — buildFilters() が allTopics=[] で走る**: 初回 init で `computeVisibleGenres([])` が `['総合']` だけ返してジャンルバーが固定。`refreshTopics()` で `allTopics` 確定後に `buildFilters()` を呼び直し
+  - **再発防止 (物理ガード)**:
+    - `scripts/check_age_decay.sh` 新設 — 本番 topics.json で `lastUpdated 欠落率 > 5%` / `上位30件 stale_24h+ > 50%` を観測
+    - `.github/workflows/freshness-check.yml` に「age decay 健全性 (T2026-0429-J)」step 追加 — 1h 周期で SLI 化
+    - `frontend/style.css` モバイル card meta tighten — <=480px で hatena/branch/parent/phase バッジ非表示 + genre-tag は先頭1つ
+    - `docs/lessons-learned.md` に 3 層なぜなぜ + 横展開チェックリスト 3 行追加
+  - **検証**: シミュレーション結果 — 旧 sort で hasAI=true は 2/10 (位置 #6, #8) → 新 sort で **6/6 上位固定**。本番 https://flotopic.com/app.js に EXILE_DECAY / hasAI / 初回 buildFilters 修正コードが reflected (curl で 6 ヒット確認)
+  - **CI**: 全 chk pass (CLAUDE.md 250行 / Lambda 構文 / フロントエンド E2E / モバイル 375px / 横展開 landing 物理検査 等)
+  - **deploy**: GitHub Actions deploy-p003.yml で S3 sync + CloudFront invalidation 完了 (run 25097184624)
+
 ### 完了済み（2026-04-29 16:11 JST T2026-0429-P コスト削減 + 要約なしトピック下位固定 + 即時トリガー完全廃止）
 
 - ✅ **PR [#34](https://github.com/nuuuuuuts643/AI-Company/pull/34) merged (commit 5f20b23)** — `perf(T2026-0429-P): コスト削減 + 要約なしトピック下位固定 + 即時トリガー完全廃止`
