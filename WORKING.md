@@ -102,3 +102,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] CLAUDE.md push + T224a admin修正 | Code | CLAUDE.md, WORKING.md, frontend/admin.html | 2026-04-29 01:05 | yes |
