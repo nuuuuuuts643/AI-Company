@@ -33,6 +33,9 @@ CATALOG_PATH = REPO_ROOT / 'docs' / 'ai-fields-catalog.md'
 # proc_ai が AI 出力を内部 dict に正規化する際に追加するフィールドを許容する。
 ALLOW_CATALOG_EXTRA = {
     'summaryMode',  # _normalize_story_result 内で computed
+    # T2026-0429-F: situation は handler.py _trim / proc_storage.update_topic_s3_file で
+    # keyPoint から copy する publish-layer alias。schema には載らないがカタログに載せる。
+    'situation',
 }
 
 
