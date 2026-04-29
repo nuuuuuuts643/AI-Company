@@ -1189,6 +1189,47 @@ def _backfill_ai_fields_from_ddb(items):
     return items
 
 
+def _drop_ghost_topics(items):
+    """T2026-0429-H: DDB に META が存在しない (= articleCount/lastUpdated が無い) topic を除去。
+    fetcher 側の旧 batch_writer 並列書き込みで silently drop された topicId が
+    topics.json に永続滞留し、processor が「ゴーストID検知 N件全件」で keyPoint 生成を
+    永久に skip していた事象 (本番 7件/run) を解消する。
+    """
+    if not items:
+        return items
+    valid_ids = set()
+    for i in range(0, len(items), 100):
+        chunk = items[i:i + 100]
+        keys = [{'topicId': t['topicId'], 'SK': 'META'} for t in chunk if t.get('topicId')]
+        if not keys:
+            continue
+        try:
+            resp = dynamodb.batch_get_item(
+                RequestItems={
+                    table.name: {
+                        'Keys': keys,
+                        'ProjectionExpression': 'topicId, articleCount, lastUpdated',
+                        'ConsistentRead': True,
+                    }
+                }
+            )
+            for it in resp.get('Responses', {}).get(table.name, []):
+                if 'articleCount' in it and 'lastUpdated' in it:
+                    valid_ids.add(it.get('topicId'))
+        except Exception as e:
+            print(f'[drop_ghost] batch_get_item 失敗 (chunk {i}): {e}')
+            # エラー時は chunk 全件 valid にフォールバック (publish blocking を避ける)
+            for t in chunk:
+                if t.get('topicId'):
+                    valid_ids.add(t['topicId'])
+    pre = len(items)
+    cleaned = [t for t in items if t.get('topicId') in valid_ids]
+    dropped = pre - len(cleaned)
+    if dropped:
+        print(f'[drop_ghost] DDB 不在の幽霊 topic を除去: {dropped}件 / pre={pre} → post={len(cleaned)}')
+    return cleaned
+
+
 def get_all_topics_for_s3():
     """S3のtopics.jsonから読み、欠落 AI フィールドを DynamoDB から backfill する。
     TOPICS_S3_CAP件にキャップ。trendingKeywordsはトピックタイトルから毎回新規生成する。"""
@@ -1198,6 +1239,7 @@ def get_all_topics_for_s3():
             data = json.loads(resp['Body'].read())
             items = data.get('topics', [])
             if items:
+                items = _drop_ghost_topics(items)
                 items = _backfill_ai_fields_from_ddb(items)
                 capped = _cap_topics(items)
                 return capped, _extract_trending_keywords(capped)

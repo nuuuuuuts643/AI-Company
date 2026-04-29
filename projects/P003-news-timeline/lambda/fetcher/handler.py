@@ -676,6 +676,10 @@ def lambda_handler(event, context):
         print(f'[trends] 全体エラー（スキップ）: {_te}')
 
     # Step 6b: DynamoDB バッチ並列書き込み（逐次put_item→batch_writer並列化）
+    # T2026-0429-H: ThreadPool で f.result() を呼び出して例外を顕在化させる。
+    # 旧実装は as_completed の future を捨てており、batch_writer 内で投げられた
+    # 例外 (throttling / ValidationException 等) が silently 消えて topicId が
+    # 「saved_ids には入っているが DDB には書かれていない」ゴーストになっていた。
     _t_db = time.time()
     _CHUNK = 25
     _db_chunks = [_dynamo_puts[i:i+_CHUNK] for i in range(0, len(_dynamo_puts), _CHUNK)]
@@ -685,8 +689,17 @@ def lambda_handler(event, context):
             for it in chunk:
                 bw.put_item(Item=it)
 
+    _write_failures = 0
     with ThreadPoolExecutor(max_workers=20) as ex:
-        list(as_completed([ex.submit(_write_dynamo_chunk, c) for c in _db_chunks]))
+        for f in as_completed([ex.submit(_write_dynamo_chunk, c) for c in _db_chunks]):
+            try:
+                f.result()
+            except Exception as _we:
+                _write_failures += 1
+                print(f'[dynamo-batch] chunk write 失敗: {_we}')
+    if _write_failures:
+        print(f'[dynamo-batch] WARN: {_write_failures}/{len(_db_chunks)} chunks 失敗 — '
+              f'validate_topics_exist で saved_ids 全件検証して幽霊を除去する')
     print(f'[TIMING] dynamo-batch {len(_dynamo_puts)}items/{len(_db_chunks)}chunks: {time.time()-_t_db:.1f}s')
 
     # T2026-0428-AK: 新規保存トピックの detail JSON を即座に S3 に書く。
@@ -758,12 +771,23 @@ def lambda_handler(event, context):
                 topics_by_tid[item['topicId']] = item
         topics = list(topics_by_tid.values())
 
-        # 幽霊エントリ除去: 今回runで書いたtopicはDynamoDB確定なのでスキップ
-        saved_tids = set(saved_ids)
+        # 幽霊エントリ除去: T2026-0429-H で skip_tids 最適化を撤廃。
+        # 旧実装は「今回 run の saved_ids は DDB 確定」と仮定して skip していたが、
+        # batch_writer の例外が ThreadPool で silently drop されてゴーストが saved_ids に
+        # 残るケースを観測 (本番 7件/run keyPoint 永続未生成)。validate_topics_exist が
+        # ConsistentRead=True で全件検証する設計に変えたので、skip しなくても安全。
         pre_count  = len(topics)
-        topics     = validate_topics_exist(topics, skip_tids=saved_tids)
+        topics     = validate_topics_exist(topics)
         if len(topics) < pre_count:
             print(f'幽霊エントリ除去: {pre_count - len(topics)}件削除')
+        # 幽霊が消えた tid は saved_ids / current_run_metas からも除去 (pending 計算の整合性確保)
+        _verified_tids = {t['topicId'] for t in topics}
+        _ghost_saved = [tid for tid in saved_ids if tid not in _verified_tids]
+        if _ghost_saved:
+            print(f'[ghost] saved_ids から DDB 不在の {len(_ghost_saved)}件を除去 (sample={_ghost_saved[:5]})')
+            saved_ids = [tid for tid in saved_ids if tid in _verified_tids]
+            for tid in _ghost_saved:
+                current_run_metas.pop(tid, None)
 
         topics_active = [t for t in topics if t.get('lifecycleStatus', 'active') not in INACTIVE_LIFECYCLE_STATUSES]
         topics_active = sorted(topics_active, key=lambda x: int(x.get('score', 0) or 0), reverse=True)[:500]
