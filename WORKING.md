@@ -13,7 +13,6 @@
 
 **現在のフェーズ**: **フェーズ2（AI品質改善）進行中** — Code行1件起動中
 **直近のナオヤ指示** (2026-04-29): 「セッション変わるごとにルール無視しないで」「理解してから進めろ」
-**次のアクション**: **コードセッション完了待ち**。CLAUDE.md push(branch claude/T237-ai-coverage-fix → PR → main) + T224a(admin.html allowedEmail build時注入) を1セッションで連続実行中。完了後にkeyPoint充填率確認(JST 02:00/08:00 processor実行後)。TASKS未着手: T2026-0429-C(分岐判定効果検証)。
 **最終更新**: 2026-04-29 01:05 JST Dispatch更新（Code行1件 / コードセッション local_88da747b 起動済）
 
 ---
