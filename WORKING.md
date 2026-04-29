@@ -102,5 +102,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T237 AI coverage 根本原因調査 + T2026-0429-A velocityScoreバッジ + T2026-0428-Q success-but-empty スキャン | 調査・実装 | projects/P003-news-timeline/lambda/processor/proc_storage.py, proc_ai.py, frontend/app.js, style.css, scripts/scan_success_but_empty.py | 2026-04-29T07:08 JST | needs-push: yes |
 | [Code] T225 tokushoho.html 削除 + CI 不在チェック | code | projects/P003-news-timeline/frontend/tokushoho.html, .github/workflows/ci.yml | 2026-04-29 09:18 JST | yes |
 | [Code] T2026-0429-A velocityScore フロント可視化 | code | projects/P003-news-timeline/frontend/app.js, projects/P003-news-timeline/frontend/style.css | 2026-04-29 09:18 JST | yes |

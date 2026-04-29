@@ -1978,3 +1978,13 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T2026-0428-AF~~ | ~~🟡 中~~ | ~~**`generatedTitle` に markdown `# / *` 残骸が残るレガシートピック** — 2026-04-28 05:13 JST 観測で `# 鈴木誠也が佐々木朗希から本塁打、カブス連勝中の活躍続く` (full mode topic) が title 先頭に `#` を持つ。fix commit `b5c36b0: fix(P003): generate_title で markdown 残骸 (# / *) を strip` 適用前に生成された aiGenerated=True topic は再生成 skip 条件で永続。一括 sanitize: `lambda/processor/handler.py` の admin mode `forceRegenerateAll` を一度実行する or `proc_storage.py update_topic_s3_file` 呼び出し前に title から `^\s*[#*]+\s*` を strip する band-aid を入れる (band-aid は CLAUDE.md ルールで本来禁止だが「過去データ補正」用途として一時許容、補正完了後に削除)。~~ ✅ 2026-04-29: proc_storage.py に `_strip_title_markdown()` ヘルパ追加 + `update_topic_with_ai` / `update_topic_s3_file` 両方の write path で適用（再保存時に自然に正規化、一括書き換え無し） | `lambda/processor/proc_storage.py` or admin `forceRegenerateAll` 実行 | 2026-04-28 |
 
 </details>
+
+
+### 自動 triage: 2026-04-29 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T2026-0429-B~~ | ~~🟠 高~~ | ~~AI品質~~ | ~~**proc_ai.py に分岐判定 prompt 追加** — 数字を渡さず内容のみで `decision: merge\|branch\|new\|link` を AI が返す。`docs/rules/story-branching-policy.md` §3.4 の prompt 採用~~ ✅ 2026-04-29: should_branch() 関数 (判定マトリクス ①〜④) + _CAUSAL_SEQUENCES (28 ペア) + _extract_primary_entities() 実装、_STORY_PROMPT_RULES に「同一事件の新展開は継続」「watchPoints に次回ブランチ判定材料」指針追加、test_story_branching.py 13 ケース全 pass、数字 (velocityScore) を判定から除外 | lambda/processor/proc_ai.py, projects/P003-news-timeline/tests/test_story_branching.py | 2026-04-29 |
+| ~~T2026-0428-L~~ | ~~🟢 低~~ | ~~**`scripts/security_headers_check.sh` 新設 + CI 化** — T251 検証で「2026-04-28 04:20 時点で全付与済」を確認したが、CloudFront response headers policy の drift を外部観測する仕組みが無い。GH Actions cron で毎日 `curl -sI https://flotopic.com/` を取得し HSTS / X-Frame-Options / Permissions-Policy / Referrer-Policy / X-Content-Type-Options が消えていれば Slack 警告。SLI 8 として登録。~~ ✅ 2026-04-29: `scripts/security_headers_check.sh` + `.github/workflows/security-headers-check.yml` 既に main 着地済 (#11/#12 マージ経由)。HEAD/Frame/Type/Referrer/Permissions の 5 ヘッダ毎日 03:17 JST 検査、欠落で exit 1。 | `scripts/security_headers_check.sh`, `.github/workflows/security-headers-check.yml`, `docs/sli-slo.md` SLI 7 | 2026-04-28 |
+
+</details>
