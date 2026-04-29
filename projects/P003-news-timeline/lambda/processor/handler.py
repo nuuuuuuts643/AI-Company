@@ -320,6 +320,11 @@ def lambda_handler(event, context):
         # 2026-04-29 案C: 「aiGenerated=True かつ AI 生成から 48h 以内 かつ 新記事 0 件」は skip。
         # 新記事の有無は lastUpdated > aiGeneratedAt で判定 (fetcher が記事追加時に lastUpdated を更新)。
         # 目的: pendingAI=True で再キューイングされたが実は変化のない topic で API call を浪費しない。
+        # T2026-0429-KP4 (2026-04-29): keyPoint が不十分な場合は 48h スキップを無効化する。
+        # 旧実装は aiGenerated=True かつ 48h 以内なら無条件 skip していたため、
+        # KP3 で proc_ai.py に minLength=100 retry を入れても永久に発火せず、
+        # 短い keyPoint の topic (本番 38件) が48hごとにしか再生成チャンスが来ない構造だった。
+        # _is_keypoint_inadequate と一致させる (proc_storage / handler._required_full_fields と同じ閾値)。
         if needs_story and topic.get('aiGenerated') and topic.get('aiGeneratedAt'):
             try:
                 _ai_at = datetime.fromisoformat(str(topic['aiGeneratedAt']).replace('Z', '+00:00'))
@@ -327,10 +332,11 @@ def lambda_handler(event, context):
                 _last_upd = datetime.fromisoformat(str(_last_upd_raw).replace('Z', '+00:00')) if _last_upd_raw else None
                 _hours_since_ai = (datetime.now(timezone.utc) - _ai_at).total_seconds() / 3600
                 _no_new_articles = (_last_upd is None) or (_last_upd <= _ai_at)
-                if _hours_since_ai < 48 and _no_new_articles:
+                _kp_inadequate = _is_keypoint_inadequate(topic.get('keyPoint'))
+                if _hours_since_ai < 48 and _no_new_articles and not _kp_inadequate:
                     needs_story = False
                     skipped += 1
-                    print(f'  [skip] {tid[:8]}... aiGen後{_hours_since_ai:.1f}h・新記事なし → 再生成 skip')
+                    print(f'  [skip] {tid[:8]}... aiGen後{_hours_since_ai:.1f}h・新記事なし・keyPoint充足 → 再生成 skip')
                     continue
             except Exception as _e:
                 pass  # パース失敗時は通常処理
