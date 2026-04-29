@@ -496,7 +496,16 @@ def lambda_handler(event, context):
             # 評価される主因となっていた。AI 側で 150 字以内に既に制約しているので、
             # 後段の文字数 cap は不要 (size 抑制目的なら他フィールドの方が効果大)。
             def _trim(t):
-                return {k: v for k, v in t.items() if k not in _PROC_INTERNAL}
+                out = {k: v for k, v in t.items() if k not in _PROC_INTERNAL}
+                # T2026-0429-F (2026-04-29): situation = keyPoint の publish-layer alias。
+                # 背景: docs/product-direction.md の 4 軸 (状況解説/各社見解/注目ポイント/予想判定)
+                # のうち「状況解説」を SLI 観測する際 `situation` フィールド名で集計されていたが、
+                # 実装上は `keyPoint` 一本だったため topics.json の situation 充填率が常に 0%。
+                # publish boundary で alias を作り、外部観測・将来のスキーマ rename へ前進する。
+                kp = out.get('keyPoint')
+                if kp:
+                    out['situation'] = kp
+                return out
             topics_pub = [_trim(t) for t in topics]
             full_payload = {
                 'topics':           topics_pub,
