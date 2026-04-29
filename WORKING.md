@@ -101,3 +101,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| T2026-0429-IL ranking penalty + velocityScore root cause | [Code] | projects/P003-news-timeline/frontend/app.js, projects/P003-news-timeline/lambda/proc_storage.py | 2026-04-29 15:18 | yes |
