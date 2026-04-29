@@ -19,6 +19,18 @@ bash /Users/OWNER/ai-company/scripts/session_bootstrap.sh
 
 ---
 
+## ⚡ Dispatch / Cowork 起動時（毎回必須・行動前に実行）
+
+```
+1. WORKING.md の「Dispatch継続性」セクションを読む（状態把握）
+2. WORKING.md の [Code] 行を数える → 1件以上あれば新規コードセッション起動禁止
+3. 前セッション報告に ERROR/WARN 残存があれば先に解消させる
+4. コードセッションへのプロンプトに「PR→CI→merge→done.sh」を必ず明記
+5. 完了後: WORKING.md Dispatch継続性セクションを最新状態に書き換えて push
+```
+
+---
+
 ## ⚡ 起動後の自動タスク実行
 
 **実行前に必ず**: `docs/project-phases.md` で現在フェーズと完了条件を確認 → `cat /Users/OWNER/ai-company/TASKS.md` で未着手を取得 → **現在フェーズに紐付くタスクを優先**して実行する。各セクション直下の `<!-- フェーズN -->` コメントが帰属判断の根拠。フェーズ1 完了条件未達のうちは、フェーズ2/3 のタスクは原則着手しない（PO明示指示があれば例外）。
