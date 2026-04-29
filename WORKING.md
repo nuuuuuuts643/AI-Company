@@ -11,7 +11,10 @@
 > 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
+**現在のフェーズ**: **フェーズ2（AI品質改善）進行中** — Code行0件・新規セッション起動可
 **直近のPO指示** (2026-04-29): 「セッション変わるごとにルール無視しないで」「理解してから進めろ」
+**次のアクション**: T2026-0429-C 完了 (PR#27 内容は bootstrap-sync 経由で main へ landing 済 / `branching_rate=28.3%` `error_branch=7.7%(PASS)` `error_merge=84.6%(FAIL)`)。後続: **T2026-0429-E (マージ閾値調整 🔴高)** が最優先 — `proc_storage.py` topic マッチ閾値か `should_branch` に「主役不在 + 低 Jaccard 強制分岐」追加で `error_merge<=15%` を目指す。並行: T2026-0429-F (situation 0%) / T2026-0429-G (storyPhase 発端率悪化) も 🔴高。
+**最終更新**: 2026-04-29 13:35 JST（T2026-0429-C done.sh 完了。verify_effect.sh ai_quality は FAIL だが内容軸は別タスク T2026-0429-F/G で扱い済）
 
 ---
 
