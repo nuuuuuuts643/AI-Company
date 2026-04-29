@@ -30,6 +30,7 @@
 |---|---|---|---|---|---|---|---|---|
 | `aiSummary` | ✅ | ✅ | → `generatedSummary` | ✅ | ✅ | ✅ | ✅ | カードと詳細両方で表示 |
 | `keyPoint` | ✅ | ✅ (400字 cap) | ✅ | ✅ (T249 で merge 修正) | ✅ | ✅ ヒーロー枠 | ✅ ヒーロー枠 | **T2026-0428-J/E で 200〜300 字物語形式に拡張** |
+| `situation` | — (alias) | — | — | ✅ (T2026-0429-F handler.py `_trim` で copy) | ✅ (T2026-0429-F proc_storage.update_topic_s3_file で copy) | ✅ (`_CARD_INCLUDE_KEYS` 経由) | (`keyPoint` を表示するため未使用) | **T2026-0429-F: `keyPoint` の publish-layer alias**。docs/product-direction.md の 4 軸 (状況解説/各社見解/注目ポイント/予想判定) のうち「状況解説」を外部観測 SLI が `situation` フィールド名で集計していたため、publish 経路 (topics.json / topics-full.json / topics-card.json / topic/{tid}.json) すべてで `keyPoint` から同値 copy。schema には載らない (ALLOW_CATALOG_EXTRA で CI 許容)。将来的な keyPoint→situation rename への前進。 |
 | `statusLabel` | ✅ (standard/full) | ✅ (enum 矯正) | ✅ | ✅ | ✅ | ✅ chip | ✅ | T2026-0428-J/E: 発端 / 進行中 / 沈静化 / 決着 (読者向け 4 値) |
 | `watchPoints` | ✅ (standard/full) | ✅ (200字 cap) | ✅ | ✅ | ✅ | — | ✅ | T2026-0428-J/E: ① ② ③ 番号付きの観察視点 |
 | `outlook` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ 末尾 | ✅ | 文末に [確信度:高/中/低] 必須。T2026-0428-PRED で当否自動判定 |
