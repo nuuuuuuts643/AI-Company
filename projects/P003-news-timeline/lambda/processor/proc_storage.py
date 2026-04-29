@@ -1267,7 +1267,8 @@ _CARD_INCLUDE_KEYS = (
     # ステータス (badge / フィルター)
     'status', 'lifecycleStatus', 'storyPhase', 'statusLabel', 'summaryMode',
     # card 上で読まれる短い AI テキスト
-    'keyPoint', 'latestUpdateHeadline',
+    # T2026-0429-F: situation は keyPoint の alias。card にも乗せて publish 経路を統一する。
+    'keyPoint', 'situation', 'latestUpdateHeadline',
     # 制御フラグ
     'aiGenerated', 'topicCoherent', 'topicLevel', 'reliability',
     # 親子トピック (分岐 bar)
@@ -1302,6 +1303,9 @@ def generate_health_json(topics: list, updated_at: str) -> dict:
     total = len(topics)
     ai_gen = sum(1 for t in topics if t.get('aiGenerated'))
     key_point = sum(1 for t in topics if t.get('keyPoint'))
+    # T2026-0429-F: situation = keyPoint alias の充填率も観測する (4 軸 SLI)。
+    # 値は keyPoint と完全一致する想定だが、欠損検出のために独立カウントする。
+    situation = sum(1 for t in topics if t.get('situation'))
     zero_articles = sum(1 for t in topics if t.get('articleCount', 0) == 0)
 
     return {
@@ -1310,6 +1314,8 @@ def generate_health_json(topics: list, updated_at: str) -> dict:
         'aiGeneratedCount':  ai_gen,
         'keyPointCount':     key_point,
         'keyPointRate':      round(key_point / ai_gen * 100, 1) if ai_gen > 0 else 0,
+        'situationCount':    situation,
+        'situationRate':     round(situation / ai_gen * 100, 1) if ai_gen > 0 else 0,
         'zeroArticleCount':  zero_articles,
         'status':            'ok' if zero_articles == 0 and (key_point / ai_gen > 0.5 if ai_gen > 0 else True) else 'degraded',
     }
@@ -1375,6 +1381,11 @@ def update_topic_s3_file(tid, upd, articles=None, incremental=False):
             meta['generatedSummary'] = upd['generatedSummary']
         if upd.get('keyPoint') and _can_set('keyPoint'):
             meta['keyPoint'] = upd['keyPoint']
+        # T2026-0429-F (2026-04-29): situation = keyPoint alias を meta にも常時 sync。
+        # publish 経路 (handler.py _trim) と detail JSON (この関数) の両方に同じ alias を入れる。
+        # _can_set は keyPoint 側で判定しているため、ここは現在の keyPoint を素直に写す。
+        if meta.get('keyPoint'):
+            meta['situation'] = meta['keyPoint']
         # T2026-0428-J/E: 新フィールド statusLabel / watchPoints / predictionMadeAt / predictionResult を merge
         if upd.get('statusLabel') and _can_set('statusLabel'):
             meta['statusLabel'] = upd['statusLabel']
