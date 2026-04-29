@@ -11,10 +11,10 @@
 > 現在進行中フェーズ・直近のナオヤ指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**現在のフェーズ**: **フェーズ2（AI品質改善）進行中** — T237/T2026-0429-KP3/T2026-0429-B/T2026-0429-D 全マージ済 (#13/#14/#16)。WORKING.md 着手中テーブル空 = `[Code]` 行 0 件。
+**現在のフェーズ**: **フェーズ2（AI品質改善）進行中** — T237/T2026-0429-A/T2026-0428-Q Code セッション稼働中（07:08 JST 開始）
 **直近のナオヤ指示** (2026-04-29): 「p003巡回を自律的に動かせ」「完成度上げてくれ」
-**次のアクション**: **CASE B 該当だが新規 Code 起動見送り — cron 反映待ちフェーズ**。**2026-04-29 09:11 JST 自律巡回 SLI 実測** (topics-full.json updatedAt=**2026-04-29T00:05Z=JST 09:05・約 6 分前**, count=109): ① keyPoint 100字以上 **2/109=1.8%**（前回 1.9% から横ばい・**KP3 retry 効果未反映**）② keyPoint 空でない 93/109=85.3% ③ 文字数分布 21–50字 82件・51–99字 3件・100+ 2件・1-20字 6件・空 16 ④ storyPhase 発端率(ac≥3) **4/52=7.7%**（目標 <10% 既達継続・前回 4.2%→7.7%）⑤ phase 分布(ac≥3): 拡散 28/ピーク 5/現在地 4/発端 4/none 11 ⑥ schemaVersion≥3 **39/109=35.8%**（前回 32/105=30.5% → 緩やか増加）⑦ statusLabel/watchPoints/perspectives 37/109,37/109,38/109・outlook 93/109 ⑧ predictions frontend export 0 件継続。**前回懸念解消**: topics-full.json updatedAt 停滞 5h → 解消 (6分前更新)・regenerate 復旧確認。**判断**: KP3 (proc_ai.py minLength:100 retry) + T237 (fetcher_trigger backfill) は約 2h 以内マージで cron 1〜2 サイクル分しか経過していない。新規 Code 起動より 6h 後再観測で効果評価。改善ゼロなら T2026-0429-KP4 候補（既存 keyPoint <100字 トピックの reprocess、コスト試算 109 件 × $0.0023 ≈ $0.25 上限・要ナオヤ確認）。並行候補: T2026-0428-E (4軸化) は schemaVersion≥3 が 35.8% で緩慢、T2026-0429-A (velocityScore 可視化・UI) は課金リスクなし即着手可。
-**最終更新**: 2026-04-29 09:11 JST 自律巡回（CASE B 該当・Code 行 0 件 / KP3+T237 マージ済 cron 反映待ち / topics-full.json 6分前更新で停滞解消 / 6h 後再観測で keyPoint 効果評価 / ゼロなら KP4 reprocess 提案）
+**次のアクション**: **CASE A — Code セッション完了待ち**。**2026-04-29 07:09 JST 自律巡回 SLI 実測** (topics-full.json updatedAt=**2026-04-28T17:05Z=JST 02:05・約 5h 停滞**, count=105): ① keyPoint 100字以上 **2/105=1.9%**（前回 06:10 JST と完全同一 = データ更新自体が動いてない）② keyPoint 空でない 94/105=89.5% ③ 文字数分布 21–50字に 83件 (79%) 集中・51–99字 3件・100+ 2件・1-20字 6件 ④ storyPhase 発端率(ac≥3) **2/48=4.2%**（目標 <10% 既達継続）⑤ phase 分布: 拡散 28/拡散優位、ピーク 5、現在地 4、発端 2、none 9 ⑥ schemaVersion≥3 32/105、statusLabel 37/105、watchPoints 37/105、perspectives 38/105、outlook 94/105 ⑦ judge_prediction 0 件継続。**新規発見**: topics-full.json `updatedAt` が 5 時間更新されていない → regenerateSitemap または processor の処理停止疑い。**起動中タスクとは別軸**でナオヤ指示後の次セッションで T2026-0429-KP3（proc_ai.py プロンプト minLength:100 強化）+ T2026-0428-E（4軸化）+ topics.json 停滞調査が候補。新規起動禁止（CASE A 物理ルール）。
+**最終更新**: 2026-04-29 07:09 JST 自律巡回（CASE A: Code 行 1 件稼働中・新規起動禁止 / SLI 完全同値 / topics-full.json 5h 停滞検知 / regenerateSitemap または processor 停止疑い・次サイクルで要観測）
 
 ---
 
@@ -102,3 +102,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T237 AI coverage 根本原因調査 + T2026-0429-A velocityScoreバッジ + T2026-0428-Q success-but-empty スキャン | 調査・実装 | projects/P003-news-timeline/lambda/processor/proc_storage.py, proc_ai.py, frontend/app.js, style.css, scripts/scan_success_but_empty.py | 2026-04-29T07:08 JST | needs-push: yes |
