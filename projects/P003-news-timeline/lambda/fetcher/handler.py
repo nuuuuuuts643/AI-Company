@@ -1016,39 +1016,17 @@ def lambda_handler(event, context):
 
         write_s3('api/pending_ai.json', {'topicIds': pending_ids, 'updatedAt': ts_iso})
 
-        # measured: T2026-0429-P (2026-04-29 PM) 通常時の processor 即時トリガーは廃止。
-        # 旧仕様: new_pending があれば全件即時 invoke (maxApiCalls=10)。
-        # 新仕様: 「直近30分で記事3件以上の新規トピック」かつ「AI要約なし」だけを速報例外として
-        #         invoke (maxApiCalls=2, 該当 topicId のみ)。fetcher は 30分ごと走るため
-        #         「今 run で新規作成 (=new_pending)」の時点で既に「直近30分」条件は満たす。
-        # 通常の AI 要約付与は EventBridge schedule (5:30/17:30 JST, MAX_API_CALLS=20) が担う。
-        # コスト影響: 通常時は 0 call/run 増加 (旧 ~10 call/run × 48 run/day = 480 call/day を削減)。
-        #             速報例外は重大事案のみで 1 day に数回程度を想定。
-        # UX トレードオフ: 通常の新規トピックは AI 要約が付くまで最大 12h 待つ可能性あり
-        #                  (記事リスト表示は変わらず、AI 要約のみ遅延)。
-        BREAKING_MIN_ARTICLES = 3
-        breaking_pending = [
-            tid for tid in new_pending
-            if int((current_run_metas.get(tid, {}) or {}).get('articleCount', 0) or 0) >= BREAKING_MIN_ARTICLES
-            and not (current_run_metas.get(tid, {}) or {}).get('aiGenerated')
-        ]
-        if breaking_pending:
-            try:
-                _lambda = boto3.client('lambda', region_name='ap-northeast-1')
-                _lambda.invoke(
-                    FunctionName='p003-processor',
-                    InvocationType='Event',
-                    Payload=json.dumps({
-                        'topic_ids': breaking_pending,
-                        'source': 'fetcher_breaking',
-                        'maxApiCalls': 2,
-                    }).encode(),
-                )
-                print(f'[fetcher] processor速報トリガー: {len(breaking_pending)}件 (maxApiCalls=2, articleCount>={BREAKING_MIN_ARTICLES})')
-            except Exception as _e:
-                print(f'[fetcher] processor速報トリガー失敗（スキップ）: {_e}')
-        else:
-            print(f'[fetcher] processor即時トリガーなし (new_pending={len(new_pending)} 件中、articleCount>={BREAKING_MIN_ARTICLES} の速報該当なし)')
+        # measured: T2026-0429-P (2026-04-29 PM) processor 即時トリガーは例外含め完全廃止。
+        # 旧仕様: new_pending があれば全件即時 invoke (maxApiCalls=10) → コスト爆発の主因。
+        # 中間案 (速報例外 maxApiCalls=2) も廃案。判定ロジックが将来バグった場合の
+        # コスト爆発リスクを排除するため、シンプルに EventBridge schedule のみ動かす。
+        # processor の起動経路は (1) EventBridge 5:30/17:30 JST, MAX_API_CALLS=20 のみ。
+        # それ以外の経路から processor を Lambda invoke しない (運用ルール = 物理ガード)。
+        # コスト影響: 旧 ~10 call/run × 48 run/day = 480 call/day を完全削除。
+        # UX トレードオフ: 新規トピックは記事リストには即時出るが、AI 要約は最大 12h 待つ
+        #                  (5:30 と 17:30 のどちらか直近の処理タイミングまで)。
+        if new_pending:
+            print(f'[fetcher] processor即時トリガーは廃止。new_pending={len(new_pending)} 件は次回 EventBridge (5:30/17:30 JST) で処理')
 
         generate_rss(topics, ts_iso)
         generate_sitemap(topics_deduped)  # 公開対象のみsitemapに含める

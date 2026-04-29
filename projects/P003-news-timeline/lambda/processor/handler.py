@@ -4,8 +4,8 @@ lambda/processor/handler.py
 Stage 2: バッチAI処理 Lambda
   スケジュール: 1日2回 JST 05:30/17:30 (2026-04-29 PM T2026-0429-P で朝刊/夕刊タイミングに変更)
   EventBridge: cron(30 20,8 * * ? *)  ← UTC 20:30(前日)/08:30
-  即時処理:    fetcher は通常時トリガーしない。「直近30分で記事3件以上の新規トピック」かつ
-              「AI要約なし」の速報例外時のみ invoke (maxApiCalls=2、該当 topicId のみ)
+  即時処理:    廃止。fetcher / 他経路からの即時 invoke はコスト爆発リスク排除のため一切なし。
+              processor の起動経路は EventBridge 5:30/17:30 のみ (運用ルール = 物理ガード)。
 
 依存モジュール:
   proc_config.py  — 定数・boto3クライアント・テキストユーティリティ
@@ -182,8 +182,8 @@ def lambda_handler(event, context):
         pending = get_pending_topics(max_topics=100)
         print(f'[Processor] pendingAI=True トピック数: {len(pending)}')
 
-    # event.maxApiCalls で上限をオーバーライド可能 (fetcher_trigger 速報例外は maxApiCalls=2 で少量処理)。
-    # 不正値 (0/負/非数値) は MAX_API_CALLS にフォールバック。
+    # event.maxApiCalls で上限をオーバーライド可能 (手動 invoke のデバッグ用途のみ。
+    # fetcher 等からの自動 invoke 経路は廃止)。不正値 (0/負/非数値) は MAX_API_CALLS にフォールバック。
     _override = event.get('maxApiCalls')
     try:
         _override_int = int(_override) if _override is not None else None
