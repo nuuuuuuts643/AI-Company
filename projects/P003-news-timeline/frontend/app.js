@@ -868,16 +868,23 @@ async function refreshTopics() {
     const nowSec2 = Date.now() / 1000;
     // AI要約済みは1.0、未要約は0.80（同スコア帯で要約済みを上位に）
     const aiMult = t => t.generatedSummary ? 1.0 : 0.80;
-    // age decay (暫定値): 6h/12h/24h/48h 階段。実測 max age=67h, P50=53h を考慮。
+    // T2026-0429-J: age decay 根本修正
+    //   旧: lastUpdated パース失敗 → return 1.0 (=減衰なし) でフルウェイト → 古いトピックが上位に出る
+    //   新: lastUpdated 欠落/不正は最低係数 (EXILE_DECAY=0.10) で表示圏外に押しやる
+    //   さらに 72h 超は強制 exile（24h サイクルで運用するため、3 日経った話題は不要）
+    const EXILE_DECAY = 0.10;
     const ageDecay = t => {
-      const age = nowSec2 - toUnixSec(t.lastUpdated);
-      if (age <= 0 || !toUnixSec(t.lastUpdated)) return 1.0;
+      const ts = toUnixSec(t.lastUpdated);
+      if (!ts) return EXILE_DECAY;          // missing / invalid → exile
+      const age = nowSec2 - ts;
+      if (age <= 0) return 1.0;             // 未来日付（時計ズレ吸収）
       const h = age / 3600;
+      if (h >= 72) return EXILE_DECAY;      // 強制 exile (運用 24h サイクル前提)
       return h < 6  ? 1.0
            : h < 12 ? 0.85
            : h < 24 ? 0.65
            : h < 48 ? 0.40
-           :          0.20;
+           :          0.20;                 // 48-72h
     };
     // keyPoint 長ペナルティ: 実測 P25=25, P95=52 に基づく（薄い解説を物理降格）
     const kpPenalty = t => {
@@ -886,9 +893,19 @@ async function refreshTopics() {
       if (len < 50) return 0.85;  // 中央 70%: 軽微なペナルティ (n=69/92)
       return 1.0;                 // 上位 5%: ペナルティなし (n=6/92)
     };
+    // T2026-0429-J: hasAI 判定 — aiGenerated=true (or generatedSummary 存在) かつ keyPoint>=50字
+    //   ai があってかつ十分な解説があるトピックを最優先で見せる（PR#34 で消失 → 復活）
+    const hasAI = t => {
+      const kpLen = ((t.keyPoint || '') + '').trim().length;
+      const aiOk  = (t.aiGenerated === true) || !!t.generatedSummary;
+      return aiOk && kpLen >= 50;
+    };
     const decayedVS    = t => Number(t.velocityScore || 0) * ageDecay(t) * aiMult(t) * kpPenalty(t);
     const decayedScore = t => Number(t.score || 0)         * ageDecay(t) * aiMult(t) * kpPenalty(t);
     allTopics = raw.sort((a, b) => {
+      // T2026-0429-J: hasAI を最優先 — AI解説の充実したトピックを上位に固定
+      const ha = hasAI(a), hb = hasAI(b);
+      if (ha !== hb) return hb ? 1 : -1;
       const vs = decayedVS(b) - decayedVS(a);
       if (Math.abs(vs) > 0.5) return vs;
       // velocityScore=0 が常態化している環境では実質 score の比較になる
@@ -906,6 +923,10 @@ async function refreshTopics() {
     }
     lastFetchTime = Date.now();
     updateFreshnessDisplay();
+    // T2026-0429-J: 初回 init 時 (DOMContentLoaded 直後) は allTopics=[] で buildFilters() が走り、
+    // computeVisibleGenres が ['総合'] のみ返してジャンルバーがロックされる。
+    // データ取得後にもう一度走らせて全ジャンルボタンを描画する。
+    buildFilters();
     renderReturnStrip(allTopics);
     renderFavStrip(allTopics);
     // 初訪問時（_prevSnapなし）はhot-stripで十分なためスキップ、再訪問時のみ表示
