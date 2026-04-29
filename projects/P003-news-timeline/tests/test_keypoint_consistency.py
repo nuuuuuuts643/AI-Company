@@ -14,6 +14,12 @@
   2) ai_succeeded を title_succeeded / story_succeeded に分割。
      aiGenerated=True / aiGeneratedAt の更新は story 生成成功時のみ行う。
      → title-only 成功で「処理済」フラグだけ立つ事故を防ぐ。
+  3) handler.py 48h スキップに keyPoint 不十分チェック追加 (T2026-0429-KP4)。
+     旧実装は aiGenerated=True かつ 48h 以内なら無条件 skip していたため、
+     KP3 で proc_ai.py に minLength=100 retry を入れても永久に発火せず、
+     短い keyPoint topic が 48 時間ごとにしか再生成チャンスが来ない構造だった。
+     skip 条件に `not _is_keypoint_inadequate(keyPoint)` を追加し、
+     keyPoint 不十分なら 48h 以内・新記事 0 件でも必ず再生成する。
 
 実行:
   cd projects/P003-news-timeline
@@ -22,6 +28,7 @@
 import os
 import sys
 import unittest
+from datetime import datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'lambda', 'processor'))
@@ -217,6 +224,91 @@ class AiSucceededSplitTest(unittest.TestCase):
     def test_both_failed(self):
         ai_succ, gt_set, gs_set = _simulate_handler_success_flags(None, None)
         self.assertFalse(ai_succ)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Section 5: 48h skip と keyPoint 不十分の整合性 (T2026-0429-KP4)
+#   handler.py の「aiGen 48h 以内 + 新記事なし」skip が keyPoint 不十分の topic を
+#   素通しさせないことを保証する。boto3 副作用回避のため純粋関数で再現する。
+# ─────────────────────────────────────────────────────────────────────────────
+def _handler_should_skip_48h(topic, now=None):
+    """handler.py から抜粋した 48h skip の純粋関数版 (T2026-0429-KP4 修正後)。
+
+    Returns: True なら skip (= 再生成しない)、False なら通常処理に進む。
+    """
+    now = now or datetime.now(timezone.utc)
+    if not (topic.get('aiGenerated') and topic.get('aiGeneratedAt')):
+        return False
+    try:
+        ai_at = datetime.fromisoformat(str(topic['aiGeneratedAt']).replace('Z', '+00:00'))
+    except Exception:
+        return False
+    last_upd_raw = topic.get('lastUpdated')
+    try:
+        last_upd = datetime.fromisoformat(str(last_upd_raw).replace('Z', '+00:00')) if last_upd_raw else None
+    except Exception:
+        last_upd = None
+    hours_since_ai = (now - ai_at).total_seconds() / 3600
+    no_new_articles = (last_upd is None) or (last_upd <= ai_at)
+    kp_inadequate = _is_keypoint_inadequate(topic.get('keyPoint'))
+    return (hours_since_ai < 48) and no_new_articles and (not kp_inadequate)
+
+
+class FortyEightHourSkipKeyPointTest(unittest.TestCase):
+    """48h skip が keyPoint 不十分の topic を skip しないこと (T2026-0429-KP4)"""
+
+    def _topic(self, **override):
+        now = datetime.now(timezone.utc)
+        base = _full_topic(
+            aiGenerated=True,
+            aiGeneratedAt=(now - timedelta(hours=2)).isoformat().replace('+00:00', 'Z'),
+            lastUpdated=(now - timedelta(hours=3)).isoformat().replace('+00:00', 'Z'),
+        )
+        base.update(override)
+        return base
+
+    def test_full_keypoint_within_48h_no_new_articles_skips(self):
+        """正常系: 充足 keyPoint・48h 以内・新記事なし → skip"""
+        self.assertTrue(_handler_should_skip_48h(self._topic()))
+
+    def test_none_keypoint_within_48h_does_not_skip(self):
+        """keyPoint=None → skip させない (再生成チャンスを失わない)"""
+        self.assertFalse(_handler_should_skip_48h(self._topic(keyPoint=None)))
+
+    def test_empty_keypoint_within_48h_does_not_skip(self):
+        """keyPoint='' → skip させない"""
+        self.assertFalse(_handler_should_skip_48h(self._topic(keyPoint='')))
+
+    def test_short_keypoint_99chars_within_48h_does_not_skip(self):
+        """keyPoint=99字 → skip させない (100字閾値未満)"""
+        s = 'あ' * 99
+        self.assertFalse(_handler_should_skip_48h(self._topic(keyPoint=s)))
+
+    def test_keypoint_at_threshold_100chars_within_48h_skips(self):
+        """keyPoint=100字 ちょうど → 充足判定で skip"""
+        s = 'あ' * 100
+        self.assertTrue(_handler_should_skip_48h(self._topic(keyPoint=s)))
+
+    def test_after_48h_does_not_skip_regardless_of_keypoint(self):
+        """48h 経過後は keyPoint に関係なく通常処理 (本来の 48h skip 範疇外)"""
+        now = datetime.now(timezone.utc)
+        old = self._topic(
+            aiGeneratedAt=(now - timedelta(hours=49)).isoformat().replace('+00:00', 'Z'),
+        )
+        self.assertFalse(_handler_should_skip_48h(old))
+
+    def test_new_articles_does_not_skip_regardless_of_keypoint(self):
+        """lastUpdated > aiGeneratedAt なら 48h 以内でも通常処理 (新記事来てる)"""
+        now = datetime.now(timezone.utc)
+        topic = self._topic(
+            lastUpdated=(now - timedelta(hours=1)).isoformat().replace('+00:00', 'Z'),
+        )
+        self.assertFalse(_handler_should_skip_48h(topic))
+
+    def test_not_ai_generated_does_not_skip(self):
+        """aiGenerated=False → そもそも 48h skip 対象外"""
+        topic = self._topic(aiGenerated=False)
+        self.assertFalse(_handler_should_skip_48h(topic))
 
 
 if __name__ == '__main__':
