@@ -101,4 +101,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0429-F2 situation alias 撤去 | コード | projects/P003-news-timeline/lambda/processor/handler.py, proc_storage.py, .github/workflows/freshness-check.yml, tests/test_situation_alias.py | 2026-04-29 14:30 JST | yes |
