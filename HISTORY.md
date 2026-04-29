@@ -4,6 +4,19 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 13:50 JST T2026-0429-F situation = keyPoint publish-layer alias）
+
+- ✅ **PR [#28](https://github.com/nuuuuuuts643/AI-Company/pull/28) merged (commit 71d41f3)** — `fix(T2026-0429-F): situation = keyPoint publish-layer alias`
+  - **背景**: 11:09 JST 巡回 SLI で `topics.json.situation` 充填率 0.00% (0/104) を検出。perspectives 36.54% / outlook 35.58% に対し situation だけ全件空。
+  - **根本原因**: `situation` フィールドは proc_ai schema にも publish 経路にも存在しない phantom-field。「状況解説」概念は実装上 `keyPoint` 一本で表現されており (`proc_ai.py:381` description=「トピックの状況解説」)、SLI 観測側が 4 軸名 (状況解説/各社見解/注目ポイント/予想判定) を `situation` 別名で集計していたため命名乖離。
+  - **仕組み的対策 (3 つ)**: ① `handler.py _trim` で keyPoint→situation を topics.json/topics-full.json publish 時 copy ② `proc_storage.update_topic_s3_file` で keyPoint→situation を topic/{tid}.json meta sync ③ `_CARD_INCLUDE_KEYS` に situation 追加 (topics-card.json)。
+  - **追加観測**: `generate_health_json` に `situationCount` / `situationRate` 追加。`scripts/check_ai_fields_catalog.py` の `ALLOW_CATALOG_EXTRA` に situation 追加 (publish-layer alias は schema 不在で OK)。`docs/ai-fields-catalog.md` に 5 層 alias 行を追加。
+  - **検証**: `tests/test_situation_alias.py` 7 ケース全 pass / 既存 `test_keypoint_consistency` 等 65 ケース regression なし / CI 全 job green。
+  - **効果**: 次回 processor run 後 `topics.json.situation` 充填率は keyPoint と同値 (本番 100%) に到達する想定。verify_effect.sh ai_quality は keyPoint>=100字=2.2% / perspectives=41.1% で FAIL だが situation 自体は本タスク範囲外。
+  - **横展開**: 「概念名と実装フィールド名の乖離」は他 4 軸 (perspectives/outlook/watchPoints) にも潜在。catalog に situation alias を載せたことで keyPoint→situation rename への前進点にもなる。
+
+---
+
 ### 完了済み（2026-04-29 10:10 JST T224a admin.html allowedEmail 直書き対応 — 既に解決済みと確認）
 
 - ✅ **T224a クローズ — 修正不要（既に解決済み）**
