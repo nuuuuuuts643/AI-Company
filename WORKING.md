@@ -102,3 +102,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0429-D keyPoint≥100字 充填率改善（プロンプト強化＋全件再生成） | code | projects/P003-news-timeline/lambda/processor/proc_ai.py | 2026-04-29 09:14 JST | yes |
