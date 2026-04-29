@@ -4,6 +4,19 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 09:50 JST T2026-0429-SCH 「時間待ち確認はスケジューラーに渡す」原則制定）
+
+- ✅ **PR #22 (commit 247e1b8) — docs 追記**
+  - `docs/rules/global-baseline.md` に §10「時間待ち確認はスケジューラーに渡す」を新規追加。Dispatch / Code セッションを時間待ちで開いたままにせず、scheduled task に SLI 再測定 → 閾値未達なら TASKS.md に次アクションを積むルーチンを仕掛けて即クローズする運用ルールを明文化（自律ループ化）。
+  - `CLAUDE.md` の「Cowork ↔ Code 連携ルール」セクション末尾に小見出し付きで 1 段落要約を追記。本文は global-baseline §10 へリンク（CLAUDE.md = 165 行 / 250 行制限内）。
+  - **なぜ**: 「効果が出るまで Dispatch を起動したままにしておく」運用は (a) セッション並走上限を圧迫する (b) コンテキストが切れて引き継ぎ漏れる (c) POが追加指示できない、の 3 重に詰まる。
+- ✅ **PR #23 (commit 8125daa) — WORKING.md stale Code 行 3 件削除**
+  - bootstrap が ❌ ERROR で報告していた「[Code] 3 件並走」を解消。削除した stale 行: T237 (PR #13 + 49464f5)、T225 (PR #19 + cdb06b5)、T2026-0429-A (cdb06b5 + 47dd451)。
+  - 再 bootstrap で ERROR / needs-push 滞留 / 並走警告すべて消えたことを確認。
+- ✅ **`bash done.sh T2026-0429-SCH docs/rules/global-baseline.md` 実行済**（unknown verify_target format は対象がドキュメントのため期待動作）。
+
+---
+
 ### 完了済み（2026-04-29 07:58 JST Code 横断スキャン 根本原因全適用 — パターン1〜6）
 
 - ✅ **パターン1 完了** — title markdown strip 漏れ全 write path 適用。
