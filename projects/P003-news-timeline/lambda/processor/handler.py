@@ -2,9 +2,10 @@
 lambda/processor/handler.py
 ─────────────────────────────────────────────────────────────────────────────
 Stage 2: バッチAI処理 Lambda
-  スケジュール: 1日2回 JST 08:00/17:00 (2026-04-29 コスト削減のため日中2回に変更)
-  EventBridge: cron(0 23,8 * * ? *)  ← UTC 23:00/08:00
-  即時処理:    fetcher が新規トピック作成時に invoke (maxApiCalls=10 で少量処理)
+  スケジュール: 1日2回 JST 05:30/17:30 (2026-04-29 PM T2026-0429-P で朝刊/夕刊タイミングに変更)
+  EventBridge: cron(30 20,8 * * ? *)  ← UTC 20:30(前日)/08:30
+  即時処理:    廃止。fetcher / 他経路からの即時 invoke はコスト爆発リスク排除のため一切なし。
+              processor の起動経路は EventBridge 5:30/17:30 のみ (運用ルール = 物理ガード)。
 
 依存モジュール:
   proc_config.py  — 定数・boto3クライアント・テキストユーティリティ
@@ -153,7 +154,7 @@ def lambda_handler(event, context):
         est_cost_usd = round(reset_count * 0.0023, 3)
         print(f'[Processor] forceRegenerateAll: {reset_count} 件を pendingAI=True にリセット → 推定コスト ${est_cost_usd}。通常処理ルートに合流して MAX_API_CALLS={int(MAX_API_CALLS)} 件まで処理')
         # リセット後は通常のスケジュール処理ルートに合流して MAX_API_CALLS まで処理
-        # 続きは次回手動 invoke or 次回スケジュール (4x/day)で
+        # 続きは次回手動 invoke or 次回スケジュール (2x/day, 5:30/17:30 JST)で
 
     # 特殊モード: サイトマップ・RSS・静的JSON再生成のみ（AI呼び出しなし）
     if event.get('regenerateSitemap'):
@@ -181,8 +182,8 @@ def lambda_handler(event, context):
         pending = get_pending_topics(max_topics=100)
         print(f'[Processor] pendingAI=True トピック数: {len(pending)}')
 
-    # event.maxApiCalls で上限をオーバーライド可能 (fetcher_trigger は 10 件など少量で即時処理)。
-    # 不正値 (0/負/非数値) は MAX_API_CALLS にフォールバック。
+    # event.maxApiCalls で上限をオーバーライド可能 (手動 invoke のデバッグ用途のみ。
+    # fetcher 等からの自動 invoke 経路は廃止)。不正値 (0/負/非数値) は MAX_API_CALLS にフォールバック。
     _override = event.get('maxApiCalls')
     try:
         _override_int = int(_override) if _override is not None else None
