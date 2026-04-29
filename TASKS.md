@@ -41,6 +41,8 @@
 |---|---|---|---|---|---|
 | T2026-0429-A | 🟡 中 | 体験 | **トピックカード velocityScore 可視化** — 現状はソート用内部値のみ。スパークラインまたは縦バーでカードに「勢い」を可視化。T191 から分離 | frontend/app.js, frontend/style.css | 2026-04-29 |
 | T2026-0429-C | 🟡 中 | AI品質 | **分岐判定の効果検証** — T2026-0429-B 後に 30 件サンプル手動レビュー（誤分岐 / 誤マージ）+ 前後の分岐数比較 SLI | scripts/verify_branching_quality.py | 2026-04-29 |
+| T2026-0429-F | 🔴 高 | AI品質 | **situation 充填率 0% — 4軸AI のうち1軸が完全に空** — p003 巡回 11:09 JST 計測で公開対象 (topics.json) の `situation` フィールドが 104件中 0件。perspectives 36.54% / outlook 35.58% に対し situation だけ 0%。原因仮説: ① proc_ai.py で situation の prompt block が抜けている ② 生成しているが proc_storage.py で DynamoDB 書き込み時に key が取れていない ③ topics.json builder で fields に含まれていない。対応: (a) proc_ai.py の prompt 確認 (b) DynamoDB 直接 scan で META.situation 値を 5件確認 (c) Lambda log で生成有無 grep。修正後に充填率 30%超 を確認。 | lambda/processor/proc_ai.py, lambda/processor/proc_storage.py, scripts/build_topics_json.py | 2026-04-29 |
+| T2026-0429-G | 🔴 高 | AI品質 | **storyPhase 発端率 50.96% — フェーズ2 完了条件 (10%未満) に対し 41pt 超過、前回 18.75% から大幅悪化** — p003 巡回 11:09 JST 計測 (公開対象 articleCount>=3, 104件中 53件)。母集団変動 (DB全体176→公開104) の影響を割り引いても劣化傾向。「-」(未設定) も 13件。原因仮説: ① 4軸AI 化リファクタ後に storyPhase 推定 prompt が壊れた ② storyPhase が `発端` のままで更新ロジックが走っていない (拡散/ピーク/現在地への遷移が起きていない) ③ judge_prediction の verdict 起動条件が緩い。対応: (a) 発端 53件のうち最古 (publishedAt 古い順) 5件の articleCount と最新記事日時を確認 (b) proc_ai.py の storyPhase 推定 prompt 確認 (c) storyPhase 更新トリガー (proc_storage.py) のコード確認。修正後に発端率 30%以下 を確認。 | lambda/processor/proc_ai.py, lambda/processor/proc_storage.py | 2026-04-29 |
 
 ---
 
