@@ -130,6 +130,10 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 
 > Cowork が実装〜push まで完結できる構造。lock 退避で競合を回避する。Dispatch 運用安定はフェーズ 1 完了条件 §C（`docs/project-phases.md`）。
 
+### 時間待ち確認はスケジューラーに渡す（2026-04-29 制定）
+
+**効果検証や データ伝播待ちで Dispatch / Code セッションを開いたままにしない。スケジューラー（`anthropic-skills:schedule` / scheduled task / GitHub Actions cron）に「次回実行時に SLI を再測定し閾値未達なら TASKS.md に次アクションを積む」routine を仕掛けて、セッションは即クローズする。詳細・引き継ぎ手順は `docs/rules/global-baseline.md` §10。**
+
 ---
 
 ## ⚡ Team Operating Rules
