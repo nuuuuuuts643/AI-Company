@@ -102,3 +102,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0429-H Lambda停止調査・修正 | 調査・修正 | lambda/* | 2026-04-29 13:52 JST | yes |
