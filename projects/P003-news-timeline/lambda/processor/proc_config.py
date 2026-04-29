@@ -12,12 +12,13 @@ dynamodb = boto3.resource('dynamodb', region_name=REGION)
 table    = dynamodb.Table(TABLE_NAME)
 s3       = boto3.client('s3', region_name=REGION)
 
-# 200→30 に削減（2026-04-29 コスト削減）。
-# 4回/日 × 30 = 120 calls/day = ~$0.28/day = ~$8.4/month（Haiku 4.5 基準）。
-# 現状の 200 × 4 = 800 calls/day から約 85% 削減。
-# 上げる必要が出たら DAILY_API_BUDGET と一緒に再調整する。
-MAX_API_CALLS          = 30
-DAILY_API_BUDGET       = 120  # MAX_API_CALLS(30) × 4 回/日 = 120 が 1 日あたりの API 呼び出し上限
+# measured: T2026-0429-P (2026-04-29 PM) 30→20 に再削減。
+# 同 PR で processor schedule を 4回/日 → 2回/日 (5:30/17:30 JST) に変更。
+# 2回/日 × 20 = 40 calls/day = ~$0.092/day = ~$2.8/month（Haiku 4.5 基準・full mode 含む）。
+# 旧 4 × 30 = 120 calls/day から約 67% 削減。fetcher 即時トリガーは速報例外時のみ
+# (maxApiCalls=2) のため通常は加算なし。実測コストが目標 $0.50/日 を超えたら再調整。
+MAX_API_CALLS          = 20
+DAILY_API_BUDGET       = 40  # MAX_API_CALLS(20) × 2 回/日 = 40 が 1 日あたりの API 呼び出し上限（速報例外除く）
 MIN_ARTICLES_FOR_TITLE   = 2
 MIN_ARTICLES_FOR_SUMMARY = 2
 TOPICS_S3_CAP          = 500
