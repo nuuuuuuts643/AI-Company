@@ -4,6 +4,19 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 14:36 JST T2026-0429-F2 situation alias 撤去）
+
+- ✅ **PR [#31](https://github.com/nuuuuuuts643/AI-Company/pull/31) merged (commit 0439fbf)** — `fix(T2026-0429-F2): situation alias 撤去`
+  - **背景**: PR #28 (T2026-0429-F) で追加した `keyPoint → situation` publish-layer alias は SLI 数字を通すためだけのコードだった。フロントエンド全コードに対する `grep -rn situation projects/P003-news-timeline/frontend/` で参照ゼロを確認。「実装したがユーザー体験に何も届いていない」典型例。
+  - **根本判断**: docs/rules/bug-prevention.md に追加した「タスク実装前『ユーザー体験で何が変わるか』必須確認」ルール (e2a64c8) に照らして PR #28 は不適格。コード負債と判定し撤去。
+  - **削除対象 (5 箇所)**: ① `handler.py _trim` の keyPoint→situation copy ② `proc_storage.py _CARD_INCLUDE_KEYS` の `'situation'` ③ `proc_storage.update_topic_s3_file` の `meta['situation'] = meta['keyPoint']` sync ④ `proc_storage.generate_health_json` の `situationCount`/`situationRate` ⑤ `scripts/check_ai_fields_catalog.py ALLOW_CATALOG_EXTRA` の `'situation'` ⑥ `docs/ai-fields-catalog.md` の `situation` 行 ⑦ `tests/test_situation_alias.py` (alias 自体がなくなるため不要)。
+  - **検証**: pytest 206 件 pass / `check_ai_fields_catalog.py` schema-catalog 一致 OK / `grep -rn situation lambda/ tests/ scripts/ .github/` 残存ゼロ。
+  - **ユーザー体験影響**: ゼロ (frontend 未使用フィールド削除)。データパイプラインのシンプル化のみ。
+  - **横展開**: 歴史的言及 (HISTORY.md の T2026-0429-F エントリ・docs/rules/design-mistakes.md・bug-prevention.md) はそのまま残す (lessons-learned)。SLI フィールド ↔ 実装スキーマ乖離検出 CI は T2026-0429-M として TASKS.md に登録済み。
+  - **Verified**: `https://flotopic.com:200:2026-04-29T14:36+0900`
+
+---
+
 ### 完了済み（2026-04-29 14:10 JST T2026-0429-H Lambda AI 要約パイプライン復旧 — ゴーストID 駆除）
 
 - ✅ **PR [#29](https://github.com/nuuuuuuts643/AI-Company/pull/29) merged (commit 0139882)** — `fix(T2026-0429-H): ゴーストID 駆除でAI要約パイプライン復旧`
