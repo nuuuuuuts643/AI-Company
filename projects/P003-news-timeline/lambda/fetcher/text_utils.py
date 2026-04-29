@@ -361,6 +361,35 @@ def _title_bigrams(title: str) -> set:
     return {s[i:i+2] for i in range(len(s) - 1)} if len(s) >= 2 else set()
 
 
+# T2026-0429-E: detect_topic_hierarchy の親子化 false_merge ガード用。
+# scripts/verify_branching_quality.py が使う char-bigram と一致させることで、
+# 「ガードを通過した親子ペアは validator で suspect_false_merge にならない」
+# という不変条件を成立させる。
+_HIERARCHY_BIGRAM_DROP_CHARS = frozenset('、。「」『』・…ー-—()（）[]［］')
+
+
+def _hierarchy_bigrams(text: str) -> set:
+    """validator (verify_branching_quality.py::char_bigrams) と同じ計算で char bigram を返す。"""
+    if not text:
+        return set()
+    cleaned = ''.join(
+        ch for ch in text
+        if not ch.isspace() and ch not in _HIERARCHY_BIGRAM_DROP_CHARS
+    )
+    if len(cleaned) < 2:
+        return {cleaned} if cleaned else set()
+    return {cleaned[i:i + 2] for i in range(len(cleaned) - 1)}
+
+
+# 親子化最低類似度。
+# 実測 (2026-04-29 production topics-full.json, n=12 branched pairs):
+#   suspect_false_merge: 11 件すべて max(title,keyPoint) sim <= 0.18 (validator metric)
+#   ok:                   1 件 sim = 0.32 (チョルノービリ事故40年 系)
+# 0.20 = validator (verify_branching_quality.py) の suspect_false_merge 境界
+# (sim < 0.2)。本ガードを通過したペアは validator で false_merge とカウントされない。
+_HIERARCHY_CONTENT_SIM_THRESHOLD = 0.20
+
+
 def _jaccard(a: set, b: set) -> float:
     if not a or not b:
         return 0.0
@@ -474,6 +503,16 @@ def detect_topic_hierarchy(topics: list, topic_entities: dict) -> dict:
         for t in topics
     }
 
+    # T2026-0429-E: 親子化 false_merge ガード用に title / keyPoint の char bigram を事前計算。
+    topic_title_bigrams: dict = {}
+    topic_keypoint_bigrams: dict = {}
+    for t in topics:
+        tid = t['topicId']
+        title = t.get('generatedTitle') or t.get('title') or ''
+        keypoint = t.get('keyPoint') or ''
+        topic_title_bigrams[tid] = _hierarchy_bigrams(title)
+        topic_keypoint_bigrams[tid] = _hierarchy_bigrams(keypoint) if keypoint else set()
+
     # 転置インデックス: entity → topicId集合
     entity_to_tids: dict = {}
     for tid, ents in topic_entities.items():
@@ -567,6 +606,21 @@ def detect_topic_hierarchy(topics: list, topic_entities: dict) -> dict:
             elif len(shared_ents) >= 1 and len(shared_kws) >= 2:
                 pass  # 1 entity + 補強 kw → OK
             else:
+                continue
+
+            # T2026-0429-E: コンテンツ類似度ガード。
+            # entity / kw 共有だけでは「高市首相」「マリ」等の主役名 1 語＋汎用 kw で
+            # 別事件・別主役のトピックが誤マージされる (error_merge=83% in T2026-0429-C)。
+            # validator (verify_branching_quality.py) と同じ char-bigram + max(title,keyPoint)
+            # で sim を算出し、suspect_false_merge 境界 (sim < 0.20) を切る。
+            tba = topic_title_bigrams.get(tid_a, set())
+            tbb = topic_title_bigrams.get(tid_b, set())
+            kpa = topic_keypoint_bigrams.get(tid_a, set())
+            kpb = topic_keypoint_bigrams.get(tid_b, set())
+            content_sim = _jaccard(tba, tbb)
+            if kpa and kpb:
+                content_sim = max(content_sim, _jaccard(kpa, kpb))
+            if content_sim < _HIERARCHY_CONTENT_SIM_THRESHOLD:
                 continue
 
             # 優先度: 記事数 × 100 + スコア + 早出現ボーナス

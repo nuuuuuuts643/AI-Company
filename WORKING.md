@@ -101,3 +101,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0429-E error_merge 削減 | fix | lambda/processor/proc_storage.py, lambda/processor/proc_ai.py | 2026-04-29 15:32 JST | yes |
