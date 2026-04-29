@@ -314,20 +314,22 @@ jobs:
           fi
           echo "✅ 意味色ハードコードなし"
 
-      - name: tokushoho.html 内部リンク復活禁止検査
+      - name: tokushoho.html 不在＆内部リンク復活禁止検査 (T225)
         run: |
           # CLAUDE.md「tokushoho.html 廃止済み・復活禁止」の物理強制。
-          # ファイル自体は外部古リンク向け noindex+redirect スタブとして残す。
-          # ただし内部 (footer/sitemap/sw.js/他HTML) からは参照しない。
-          # 自分自身 (tokushoho.html) のヒットは除外する。
-          REFS=$(grep -rln 'tokushoho' projects/P003-news-timeline/frontend/ 2>/dev/null \
-                  | grep -v 'tokushoho.html$' || true)
+          # T225 (2026-04-29): スタブファイル自体も削除。今後は frontend に存在してはならない。
+          if [ -f "projects/P003-news-timeline/frontend/tokushoho.html" ]; then
+            echo "::error::projects/P003-news-timeline/frontend/tokushoho.html が復活しています (T225 で削除済)"
+            exit 1
+          fi
+          # 内部参照 (footer/sitemap/sw.js/他HTML) も復活禁止
+          REFS=$(grep -rln 'tokushoho' projects/P003-news-timeline/frontend/ 2>/dev/null || true)
           if [ -n "$REFS" ]; then
             echo "::error::tokushoho 内部参照が復活しています:"
             echo "$REFS" | sed 's/^/   /'
             exit 1
           fi
-          echo "✅ tokushoho 内部参照なし (スタブファイル自体は許容)"
+          echo "✅ tokushoho.html 不在 / 内部参照なし"
 
       - name: ads.txt と index.html pub-id 整合性検査 (T239)
         run: |
