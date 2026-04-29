@@ -4,6 +4,27 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 15:47 JST T2026-0429-E detect_topic_hierarchy false_merge ガード）
+
+- ✅ **PR [#33](https://github.com/nuuuuuuts643/AI-Company/pull/33) merged (commit 574a136)** — `fix(T2026-0429-E): detect_topic_hierarchy の親子化 false_merge ガード`
+  - **背景**: T2026-0429-C の `verify_branching_quality.py` 実測で `error_merge=83.3% (10/12)`。「高市首相」「マリ」「OpenAI」のような主役 1 語＋汎用 kw だけで別事件・別主役のトピックが親子化され、ストーリー追体験が破綻していた。
+  - **根本原因**: `lambda/fetcher/text_utils.py::detect_topic_hierarchy` の親子化判定が `shared_ents>=2 OR (shared_ents>=1 AND shared_kws>=2)` だけで、コンテンツ類似度のチェックが一切なかった。エンティティ＋汎用語 2 語が偶然一致するだけで通過する設計欠陥。
+  - **仕組み的対策**:
+    1. `_hierarchy_bigrams()` を新設し validator (`verify_branching_quality.py::char_bigrams`) と完全一致する char-bigram 計算で sim を出す。snapshot test で物理担保。
+    2. `_HIERARCHY_CONTENT_SIM_THRESHOLD = 0.20` を validator の `suspect_false_merge` 境界 (sim < 0.2) と紐付けて assert。「ガード通過 → validator で false_merge にならない」不変条件を成立させる。
+    3. `detect_topic_hierarchy` 候補ループ最後に `max(title_jaccard, keyPoint_jaccard) < 0.20` なら親子化拒否。validator と同じ計算式 (max) で抜け漏れ防止。
+  - **実測根拠 (production topics-full.json, 2026-04-29 15:31 JST, n=12 branched pairs)**:
+    - suspect_false_merge: 11 件すべて max(title, keyPoint) sim ≤ 0.184
+    - ok: 1 件 sim = 0.382 (チョルノービリ事故40年 系)
+    - 0.20 ガード適用: 11 BLOCK / 1 PASS（false_merge 完全消滅）
+    - **期待 error_merge**: 83.3% (10/12) → 0.0% (0/1)（Lambda 次回 fetcher run 後に validator で再測定）
+  - **副作用 (intentional)**: `branching_rate` 29.3% (27/92) → 約 17% (16/92)。分岐が減ってもストーリーの正確さを優先（フェーズ2 方針）。
+  - **テスト**: `tests/test_topic_hierarchy_guardrail.py` 新設 5 ケース（block / allow / validator 一致 / max 採用 / 閾値定数）。pytest 211 件全パス（regression なし）。
+  - **横展開**: 「semantic 判定 = entity 共有 + kw 共有」だけでは汎用語で誤合致するので、必ず内容類似度 (bigram Jaccard) もチェックする — `docs/lessons-learned.md` の横展開チェックリスト追記候補（別タスクで landing）。
+  - **Verified**: pytest 211 passed / Verified-Effect: branching_quality projected error_merge 83.3% → 0.0% (n=12 production sample) @ 2026-04-29T15:50+0900
+
+---
+
 ### 完了済み（2026-04-29 14:36 JST T2026-0429-F2 situation alias 撤去）
 
 - ✅ **PR [#31](https://github.com/nuuuuuuts643/AI-Company/pull/31) merged (commit 0439fbf)** — `fix(T2026-0429-F2): situation alias 撤去`
