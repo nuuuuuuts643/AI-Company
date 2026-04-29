@@ -4,6 +4,31 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 16:11 JST T2026-0429-P コスト削減 + 要約なしトピック下位固定 + 即時トリガー完全廃止）
+
+- ✅ **PR [#34](https://github.com/nuuuuuuts643/AI-Company/pull/34) merged (commit 5f20b23)** — `perf(T2026-0429-P): コスト削減 + 要約なしトピック下位固定 + 即時トリガー完全廃止`
+  - **背景**: 現状 \$8-16/日のClaude API消費 → 目標 \$0.50/日。プロダクト持続性を最優先。
+  - **変更**:
+    1. `proc_ai.py` full mode: `claude-sonnet-4-6` → `claude-haiku-4-5-20251001` (full mode コスト約 5 分の 1)
+    2. `proc_config.py`: `MAX_API_CALLS` 30→20、`DAILY_API_BUDGET` 120→40 (2回/日 × 20)
+    3. `deploy.sh` EventBridge cron: `cron(0 23,8 * * ? *)` (JST 08:00/17:00) → `cron(30 20,8 * * ? *)` (JST 05:30/17:30 朝刊・夕刊)
+    4. **fetcher → processor 即時トリガー完全廃止** (中間案の速報例外も廃案。判定ロジックバグによるコスト爆発リスクを構造的に排除)。processor 起動経路は EventBridge のみ。
+    5. `frontend/app.js`: `hasAI = (aiGenerated || generatedSummary) && (keyPoint.length >= 50)` をソート最上位キーに。要約ありが必ず上位、要約なしは下位固定。各群内は既存 decayed score。**T2026-0429-I を吸収**。
+    6. `proc_ai.py` prompt caching 検証コメント追加 (`_SYSTEM_PROMPT` 5362 chars ≈ 2700-3150 tokens、Haiku 最低 2048 tokens 越え。cache_control: ephemeral 設定済・3 call site 全部 `system=_SYSTEM_PROMPT`)。
+  - **measured コスト試算**:
+    - Schedule: 4回/日 × 30 = 120 calls/day → 2回/日 × 20 = 40 calls/day (67% 削減)
+    - fetcher 即時 trigger: ~10 call/run × 48 run/day = 480 call/day → 0 (100% 削減)
+    - 単価: Sonnet \$3/MTok → Haiku \$0.80/MTok (~73% 単価減)
+    - cache hit: バッチ内 2-20件目で 90% 割引 ~\$0.08/day 節約
+    - 合計 calls/day: ~600 → 40 (93% 削減)
+  - **手動適用必須 (merge 後)**: `aws events put-rule --name p003-processor-schedule --schedule-expression "cron(30 20,8 * * ? *)" --state ENABLED --region ap-northeast-1` を一度実行 (or 次回 deploy.sh 実行で反映)。
+  - **次サイクル実測すべき項目**: keyPoint 長分布 / aiSummary 長分布 / `[METRIC] claude_cache read=` 出現 / 実測コスト (CloudWatch + Anthropic Console)。
+  - **UX トレードオフ**: 新規トピックの AI 要約付与は最大 12h 待ち (5:30/17:30 のどちらか直近まで)。記事リスト表示は変わらず。
+  - **テスト**: 211 passed / 1 warning / `node --check app.js` OK。
+  - **Verified**: https://flotopic.com/api/topics.json:200:2026-04-29T16:08+0900
+
+---
+
 ### 完了済み（2026-04-29 15:47 JST T2026-0429-E detect_topic_hierarchy false_merge ガード）
 
 - ✅ **PR [#33](https://github.com/nuuuuuuts643/AI-Company/pull/33) merged (commit 574a136)** — `fix(T2026-0429-E): detect_topic_hierarchy の親子化 false_merge ガード`
