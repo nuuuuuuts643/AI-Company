@@ -852,27 +852,47 @@ function setupSearch() {
 async function refreshTopics() {
   try {
     const raw = await loadTopics();
-    // velocityScore に時間減衰を適用してソート（古いトピックを下に送る）
+    // T2026-0429-IL: 古いトピック降格 + keyPoint 短すぎ降格
+    // 実測 (n=92, topics.json 2026-04-29 15:30 JST):
+    //   - publishedAt: 0/92 (フィールド未設定。lastUpdated を時刻軸に使う)
+    //   - velocityScore: 0/92 (全件 0)
+    //     → 根本原因: calc_velocity_score は「過去2時間以内の記事数」で計測する設計のため、
+    //       新規記事が直近2hに入らないと全トピック 0 になる。
+    //       現環境は最古更新でも age=9.2h → 全件 0 が正常動作。
+    //   - keyPoint 長: P25=25 / P50=29 / P75=35 / P95=52 字
+    //     (<25:17件, 25-49:69件, ≥50:6件)
+    //   - age: 9.2h ~ 67.2h (<6h:0, 6-24h:2, 24-48h:19, 48-72h:71)
+    // 係数（暫定 — POと最終調整予定）:
+    //   AI要約生成は1日1回バッチ運用に移行予定のため、age decay の刻み幅は仮設定。
+    //   keyPoint penalty は方針確定済みで継続。
     const nowSec2 = Date.now() / 1000;
     // AI要約済みは1.0、未要約は0.80（同スコア帯で要約済みを上位に）
     const aiMult = t => t.generatedSummary ? 1.0 : 0.80;
-    const decayedVS = t => {
-      const vs  = Number(t.velocityScore || 0);
-      const age = nowSec2 - toUnixSec(t.lastUpdated); // 秒
-      if (age <= 0 || !toUnixSec(t.lastUpdated)) return vs * aiMult(t);
+    // age decay (暫定値): 6h/12h/24h/48h 階段。実測 max age=67h, P50=53h を考慮。
+    const ageDecay = t => {
+      const age = nowSec2 - toUnixSec(t.lastUpdated);
+      if (age <= 0 || !toUnixSec(t.lastUpdated)) return 1.0;
       const h = age / 3600;
-      // 6h未満: 100% / 12h: 85% / 24h: 65% / 48h: 40% / 72h以上: 20%
-      const decay = h < 6  ? 1.0
-                  : h < 12 ? 0.85
-                  : h < 24 ? 0.65
-                  : h < 48 ? 0.40
-                  :          0.20;
-      return vs * decay * aiMult(t);
+      return h < 6  ? 1.0
+           : h < 12 ? 0.85
+           : h < 24 ? 0.65
+           : h < 48 ? 0.40
+           :          0.20;
     };
+    // keyPoint 長ペナルティ: 実測 P25=25, P95=52 に基づく（薄い解説を物理降格）
+    const kpPenalty = t => {
+      const len = ((t.keyPoint || '') + '').trim().length;
+      if (len < 25) return 0.5;   // 下位 25%: 明確に薄い (n=17/92)
+      if (len < 50) return 0.85;  // 中央 70%: 軽微なペナルティ (n=69/92)
+      return 1.0;                 // 上位 5%: ペナルティなし (n=6/92)
+    };
+    const decayedVS    = t => Number(t.velocityScore || 0) * ageDecay(t) * aiMult(t) * kpPenalty(t);
+    const decayedScore = t => Number(t.score || 0)         * ageDecay(t) * aiMult(t) * kpPenalty(t);
     allTopics = raw.sort((a, b) => {
       const vs = decayedVS(b) - decayedVS(a);
       if (Math.abs(vs) > 0.5) return vs;
-      const sc = Number(b.score || 0) * aiMult(b) - Number(a.score || 0) * aiMult(a);
+      // velocityScore=0 が常態化している環境では実質 score の比較になる
+      const sc = decayedScore(b) - decayedScore(a);
       if (sc !== 0) return sc;
       return (b.lastUpdated || '').localeCompare(a.lastUpdated || '');
     });
