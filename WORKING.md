@@ -103,3 +103,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Code] T237 AI coverage 根本原因調査 + T2026-0429-A velocityScoreバッジ + T2026-0428-Q success-but-empty スキャン | 調査・実装 | projects/P003-news-timeline/lambda/processor/proc_storage.py, proc_ai.py, frontend/app.js, style.css, scripts/scan_success_but_empty.py | 2026-04-29T07:08 JST | needs-push: yes |
+| [Code] T2026-0429-KP4 handler.py 48h skip に keyPoint 不十分チェック追加 | code | projects/P003-news-timeline/lambda/processor/handler.py, projects/P003-news-timeline/tests/test_keypoint_consistency.py | 2026-04-29T09:24 JST | needs-push: yes |
