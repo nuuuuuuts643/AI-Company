@@ -361,6 +361,21 @@ def _keypoint_too_short(s) -> bool:
     if not isinstance(s, str):
         return True
     return len(s.strip()) < _KEYPOINT_MIN_CHARS
+
+
+def _emit_keypoint_metric(mode: str, keypoint, *, retried: bool) -> None:
+    """T2026-0429-J: keyPoint 文字数を CloudWatch から拾える形で 1 行 print する。
+
+    フォーマット: `[METRIC] keypoint_len mode=<mode> len=<n> ge100=<0|1> ge200=<0|1> retried=<0|1>`
+    用途: 改善効果 (≥100 字 70% 達成) を本番ログから集計可能にする。
+    """
+    n = len((keypoint or '').strip()) if isinstance(keypoint, str) else 0
+    print(
+        f'[METRIC] keypoint_len mode={mode} len={n} '
+        f'ge100={1 if n >= 100 else 0} '
+        f'ge200={1 if n >= 200 else 0} '
+        f'retried={1 if retried else 0}'
+    )
 # T2026-0428-J/E: 「トピックの状況」をユーザー視点で明確に区分する 4 値ラベル。
 # 既存 phase (発端/拡散/ピーク/現在地/収束) は AI 内部判定の細粒度ラベル、
 # statusLabel は detail page で読者に直接見せる粗粒度ラベル。
@@ -488,44 +503,10 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
     return out
 
 
-def _retry_short_keypoint(
-    base_prompt: str,
-    schema: dict,
-    mode: str,
-    short_keypoint: str,
-    *,
-    max_tokens: int,
-    timeout: int,
-    model: str,
-) -> dict | None:
-    """T2026-0429-KP3: keyPoint が 100 字未満で返ってきたとき 1 回だけ再生成を要求する。
-
-    - prompt に「前回の keyPoint は N 字でしたが 100 字以上 必須です。書き直して下さい」を追記。
-    - cache_control を活かすため _SYSTEM_PROMPT は同一バイトのまま再利用する。
-    - 再生成も短ければ best effort で結果を返す (None ではなく短い結果でも上位に渡す)。
-    Returns: tool_use.input (dict) / API 失敗時 None。
-    """
-    actual_len = len(short_keypoint or '')
-    follow_up_prompt = (
-        base_prompt
-        + '\n\n'
-        '【再生成要求 - T2026-0429-KP3】\n'
-        f'前回の keyPoint は {actual_len} 字でした (要件: 100 字以上 / 推奨 200〜300 字)。\n'
-        '★ 100 字未満は schema 違反として扱われます。\n'
-        '★ 短い箇条書き・タイトル風の一行は禁止。背景 → 経緯 → 現在の状況の物語形式で書き直してください。\n'
-        '★ 出力直前に文字数を数え、100 字以上であることを確認してください。\n'
-        '同じ schema (emit_topic_story) で全フィールドを書き直して出力してください。\n'
-    )
-    print(f'[METRIC] keypoint_retry mode={mode} prev_len={actual_len}')
-    try:
-        return _call_claude_tool(
-            follow_up_prompt, 'emit_topic_story', schema,
-            max_tokens=max_tokens, timeout=timeout, model=model,
-            system=_SYSTEM_PROMPT,
-        )
-    except Exception as e:
-        print(f'[METRIC] keypoint_retry_failed mode={mode} err={type(e).__name__}')
-        return None
+# T2026-0429-J (2026-04-29): 旧 _retry_short_keypoint は撤去 (ナオヤ指示・コスト抑制)。
+# 「100 字未満なら 1 回再生成」は AI コール 2x 増 → コスト 2x 増のため許容しない。
+# 代替策: プロンプト強化 (worked example + 200 字目標明示) のみで品質改善を狙う。
+# 計測: _emit_keypoint_metric が CloudWatch ログに残し、verify_keypoint_length.py で外部観測する。
 
 
 def _generate_story_minimal(articles: list) -> dict | None:
@@ -547,19 +528,13 @@ def _generate_story_minimal(articles: list) -> dict | None:
         )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
-        # T2026-0429-KP3: keyPoint が 100 字未満なら 1 回だけ再生成を要求
+        # T2026-0429-J: 再生成ロジックは廃止 (コスト抑制)。短い場合はメトリクスログで警告のみ。
         if _keypoint_too_short(result.get('keyPoint')):
-            retry = _retry_short_keypoint(
-                prompt, schema, 'minimal',
-                str(result.get('keyPoint') or ''),
-                max_tokens=600, timeout=25, model='claude-haiku-4-5-20251001',
+            print(
+                f'[WARN] keypoint_short mode=minimal len='
+                f'{len((result.get("keyPoint") or "").strip())}'
             )
-            if retry and str(retry.get('aiSummary') or '').strip():
-                # 再生成 keyPoint が前回より長ければ採用 (短くなったら原本を維持)
-                new_kp = str(retry.get('keyPoint') or '')
-                old_kp = str(result.get('keyPoint') or '')
-                if len(new_kp.strip()) > len(old_kp.strip()):
-                    result = retry
+        _emit_keypoint_metric('minimal', result.get('keyPoint'), retried=False)
         return _normalize_story_result(result, 'minimal')
     except Exception as e:
         print(f'generate_story (minimal) error: {e}')
@@ -570,16 +545,28 @@ _STORY_PROMPT_RULES = (
     '【トピック分析】事実は「〜した/〜と述べた」で記述。断定・感情語・メディア名禁止。主語を具体的に。\n'
     '固有名詞は初出時に括弧で1語説明 (例: スターリンク（SpaceXの衛星インターネット）)。\n'
     '【aiSummary】150字以内の1段落。「何が起きたか（1文）」+「なぜ重要か・何を意味するか（1文）」の2文構成を基本とする。事実羅列禁止。読んだ人が「つまりこういうことか」と理解できる結論を必ず含める。\n'
-    '【keyPoint】★最重要フィールド。トピックの状況解説。\n'
-    '  ★★★ 文字数のハード要件: **必ず 100 字以上** (推奨 200〜300 字)。**100 字未満は schema 違反**として扱われ再生成される。\n'
-    '  ★★★ 短い箇条書き・単語のみ・タイトル風の一行 (例「ロシア撤退と過激派攻勢の同時進行が新段階へ」) は禁止。\n'
+    # T2026-0429-J (2026-04-29): keyPoint の充填率は 100% だが ≥100 字は 2.17% しか出ていない実測。
+    # 平均 35.6 字で大半が「タイトル風一行」(例: 19〜36 字)。LLM が aiSummary や latestUpdateHeadline と
+    # 役割を混同している。フィールド名 "keyPoint" の英語が「要点メモ」を連想させているのが第一原因。
+    # → ① 200〜300 字目標を最重要要件として強調 ② ＜悪い例 vs 良い例＞ の worked example を埋め込む。
+    '【keyPoint】★最重要フィールド。aiSummary / latestUpdateHeadline とは役割が完全に異なる。\n'
+    '  ★★★ 文字数のハード要件: **必ず 200 字以上 300 字以内 (目標)**。\n'
+    '       ハード下限: **100 字未満は schema 違反**として扱われ再生成される。\n'
+    '       ★ aiSummary (150 字以内 結論) や latestUpdateHeadline (40 字以内 見出し) と"絶対に同じ長さ"にしない。\n'
+    '       ★ keyPoint だけが「物語形式の状況解説」役。タイトル風 1 行は禁止。\n'
     '  ★★★ 想定読者: このトピックを 1 週間後に初めて読む人。背景・経緯・現在の状況を一気に理解できる時系列ストーリーとして書く。\n'
     '  ◎ 構成: ① 背景（この問題がなぜ存在するか）から始める → ② 時系列（何がいつ起きたか）を自然な流れで織り込む → ③ 現在の状況で締める。\n'
     '  ◎ トーン: 言葉を選び、簡潔でキレのある日本語で書く。情報を並べるのではなくニュースを語る。\n'
     '  × 箇条書き禁止。事実の羅列禁止。「〇〇が△△した」の繰り返し禁止。\n'
     '  ◎ 「もともと〇〇という状況があり、△△をきっかけに□□が起き、現在〇〇の段階にある」のように物語的に語る。\n'
     '  ◎ 専門用語は初出時に括弧で平易化 (例: FOMC（米国の金融政策を決める会議）)。\n'
-    '  ◎ 出力前に self-check: keyPoint の文字数を数え、100 字未満なら**書き直してから出力する**。\n'
+    '  ◎ 出力前に self-check: keyPoint の文字数を数え、200 字未満なら**背景・経緯を補強して書き直してから出力する**。\n'
+    '  ─── ★ 良い例 (251 字) ───\n'
+    '  「これまでのAI競争は、大量テキストから統計的パターンを学ぶ言語モデルの性能向上が中心だった。しかし実世界での応用を考えると、単なる会話能力では限界がある。'
+    'OpenAI や DeepMind といった主要企業は、物理現象や因果関係を直接理解する「世界モデル」（現実世界の仕組みを数学的に再現する手法）の開発にリソースを集中させ始めている。'
+    'この転換により、ロボット制御や複雑なシミュレーション、科学研究での応用が現実味を帯びてきた段階にある。」\n'
+    '  ─── × 悪い例 (21 字) ───「ロシア撤退と過激派攻勢の同時進行が新段階へ」← これは latestUpdateHeadline の役割。keyPoint としては不合格。\n'
+    '  ─── × 悪い例 (36 字) ───「円安抑制を目的とした段階的利上げ継続、2026 年までの政策見通しが明確化」← これは aiSummary 級の長さ。keyPoint は 6 倍以上の物語が必要。\n'
     '【statusLabel】読者向け 4 値ラベル: 発端 / 進行中 / 沈静化 / 決着。\n'
     '  発端=注目され始めた直後。進行中=報道が続き熱量がある。沈静化=報道頻度が落ちている。決着=結論や合意が出て話題が閉じた。\n'
     '【watchPoints】これからの注目ポイントを複数軸で簡潔に案内 (80〜150字 / **80 字以上 必須**)。断言や予測ではなく「ここを見ておくといい」という観察視点。\n'
@@ -625,9 +612,12 @@ _SYSTEM_PROMPT = (
     'standard は最大3件、full は最大6件。最後の項目に transition は付けない。\n'
     '【出力品質チェック (送信前に内部で確認すること)】\n'
     '- aiSummary は 150 字以内・2文構成。1文目=何が起きたか、2文目=なぜ重要か/何を意味するか。\n'
-    '- keyPoint は **100 字以上 必須** (推奨 200〜300 字)。**100 字未満は schema 違反として扱われ再生成される**。\n'
-    '  → 出力直前に必ず文字数を数え、100 字未満なら書き直してから出力する。短い箇条書き・タイトル風の一行は禁止。\n'
-    '  → 箇条書き・「〇〇が△△した」の繰り返し・事実羅列は禁止。\n'
+    # T2026-0429-J: keyPoint 平均 35.6 字 / ≥100 字 2.17% の実測を受け、目標を「200 字以上 300 字以内」に格上げし、
+    # aiSummary との混同を防ぐため "200 字以上必須" を最重要要件として最優先で記述する。
+    '- keyPoint は **200 字以上 300 字以内 (目標)・100 字未満は schema 違反として再生成される**。\n'
+    '  → 出力直前に必ず文字数を数え、200 字未満なら**背景・経緯を 1 段落補強してから**出力する。100 字未満は不合格。\n'
+    '  → aiSummary (150 字以内) や latestUpdateHeadline (40 字以内) と同じ長さで終わらせない。keyPoint だけが物語形式の長文。\n'
+    '  → 短い箇条書き・タイトル風の一行は禁止。「〇〇が△△した」の繰り返し・事実羅列は禁止。\n'
     '  → もともと〇〇 → △△を機に □□ → 現在〇〇 の物語形式で構成する。\n'
     '- perspectives は 2〜3 社を等しい分量で扱う。1 社だけ詳述しない。論調差が薄ければ「概ね同様」と書く。\n'
     '- outlook / forecast の文末に必ず [確信度:高] / [確信度:中] / [確信度:低] のいずれかを付与する。\n'
@@ -664,18 +654,13 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
         )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
-        # T2026-0429-KP3: keyPoint が 100 字未満なら 1 回だけ再生成を要求
+        # T2026-0429-J: 再生成ロジックは廃止 (コスト抑制)。短い場合はメトリクスログで警告のみ。
         if _keypoint_too_short(result.get('keyPoint')):
-            retry = _retry_short_keypoint(
-                prompt, schema, 'standard',
-                str(result.get('keyPoint') or ''),
-                max_tokens=1300, timeout=25, model='claude-haiku-4-5-20251001',
+            print(
+                f'[WARN] keypoint_short mode=standard len='
+                f'{len((result.get("keyPoint") or "").strip())}'
             )
-            if retry and str(retry.get('aiSummary') or '').strip():
-                new_kp = str(retry.get('keyPoint') or '')
-                old_kp = str(result.get('keyPoint') or '')
-                if len(new_kp.strip()) > len(old_kp.strip()):
-                    result = retry
+        _emit_keypoint_metric('standard', result.get('keyPoint'), retried=False)
         return _normalize_story_result(result, 'standard')
     except Exception as e:
         print(f'generate_story (standard) error: {e}')
@@ -736,18 +721,13 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
-        # T2026-0429-KP3: keyPoint が 100 字未満なら 1 回だけ再生成を要求 (Sonnet)
+        # T2026-0429-J: 再生成ロジックは廃止 (コスト抑制)。短い場合はメトリクスログで警告のみ。
         if _keypoint_too_short(result.get('keyPoint')):
-            retry = _retry_short_keypoint(
-                prompt, schema, 'full',
-                str(result.get('keyPoint') or ''),
-                max_tokens=1700, timeout=60, model='claude-sonnet-4-6',
+            print(
+                f'[WARN] keypoint_short mode=full len='
+                f'{len((result.get("keyPoint") or "").strip())}'
             )
-            if retry and str(retry.get('aiSummary') or '').strip():
-                new_kp = str(retry.get('keyPoint') or '')
-                old_kp = str(result.get('keyPoint') or '')
-                if len(new_kp.strip()) > len(old_kp.strip()):
-                    result = retry
+        _emit_keypoint_metric('full', result.get('keyPoint'), retried=False)
         return _normalize_story_result(result, 'full')
     except Exception as e:
         print(f'generate_story (full) error: {e}')
