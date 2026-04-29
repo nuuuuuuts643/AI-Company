@@ -4,6 +4,27 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 14:10 JST T2026-0429-H Lambda AI 要約パイプライン復旧 — ゴーストID 駆除）
+
+- ✅ **PR [#29](https://github.com/nuuuuuuts643/AI-Company/pull/29) merged (commit 0139882)** — `fix(T2026-0429-H): ゴーストID 駆除でAI要約パイプライン復旧`
+  - **症状**: 12:05 JST 以降「新規 topic に keyPoint が生成されない」事象。本番 7件/run の topic が `aiGenerated=False` のまま固定化。13:35 run の `aiCallsUsed: 0 / processedByAI: 10` (incremental mode) で確定。
+  - **根本原因 (Why1〜Why5)**:
+    - Why1: fetcher_trigger 経路の processor が「7件指定 → 0件処理対象」を毎 run 出力。
+    - Why2: 渡された 7 tid 全件が `[get_topics_by_ids] ゴーストID検知 (DDB に存在しない)`。
+    - Why3: fetcher は `current_run_metas` を topics.json に書きつつ、`saved_ids` の DDB 書き込みは ThreadPool 並列で `f.result()` 未呼び出し → 例外 silently drop。
+    - Why4: `validate_topics_exist` は `skip_tids=saved_tids` 最適化で「今回 run の write は確実」と仮定。検証が走らず幽霊 tid が topics.json に永続混入。
+    - Why5: processor `get_all_topics_for_s3` は S3 読み + backfill のみで、DDB 不在 entry を駆除しない。topics.json の幽霊が世代を跨いで蓄積。
+  - **仕組み的対策 (3つ)**:
+    1. `fetcher/storage.py validate_topics_exist`: `skip_tids` 撤廃 + `ConsistentRead=True` で全件検証。just-written write も整合性検証可。
+    2. `fetcher/handler.py`: ThreadPool で `f.result()` を呼んで例外顕在化、検証で除外された幽霊 tid を `saved_ids/current_run_metas` から削除し pending 計算の整合性確保。
+    3. `processor/proc_storage.py _drop_ghost_topics()` 新設: `get_all_topics_for_s3` が S3 読み直後に呼ぶ。過去ランから持ち越された幽霊も 1 ラン目で除去。
+  - **テスト**: `tests/test_ghost_topic_cleanup.py` (新規 8件) + `tests/test_stub_meta_guard.py` 更新で boundary network 形成。全 195 件 pass、regression なし。
+  - **効果検証 (本番 14:10 JST)**: 手動 invoke 後 `topics-full.json: total=92 (97→92, 5幽霊 drop) / no keyPoint=0 / aiCallsUsed=4 / processedByAI=1`。`health.json: keyPointRate=102.2%, situationRate=102.2%, status=ok`。AI 呼び出し再開を実測で確認。
+  - **横展開チェックリスト**: 「並列書き込み + 後段 silently skip」パターン（threadpool exception silently drop / publish-layer skip 最適化）は他コンポーネントにも潜在。bluesky_agent / cf-analytics 等を順次確認要。
+  - **Verified**: `https://flotopic.com/api/topics-card.json:200:2026-04-29T14:03+0900`
+
+---
+
 ### 完了済み（2026-04-29 13:50 JST T2026-0429-F situation = keyPoint publish-layer alias）
 
 - ✅ **PR [#28](https://github.com/nuuuuuuts643/AI-Company/pull/28) merged (commit 71d41f3)** — `fix(T2026-0429-F): situation = keyPoint publish-layer alias`

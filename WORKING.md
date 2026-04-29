@@ -12,9 +12,9 @@
 > 1 セクション 5 行以内・全部書き換え可。
 
 **現在のフェーズ**: **フェーズ2（AI品質改善）進行中** — Code行0件・新規セッション起動可
-**直近のナオヤ指示** (2026-04-29): 「セッション変わるごとにルール無視しないで」「理解してから進めろ」
-**次のアクション**: T2026-0429-F 完了 (PR #28 merged: situation = keyPoint publish-layer alias)。次回 processor run 後に topics.json/topic.json/topics-card.json/health.json で situation 充填率が keyPoint と同値 (本番 ~100%) になる想定。後続: **T2026-0429-E (マージ閾値調整 🔴高 error_merge=84.6%)** が最優先。並行: T2026-0429-G (storyPhase 発端率 50.96% 悪化 🔴高)。verify_effect.sh ai_quality は keyPoint>=100字=2.2% / perspectives=41.1% で FAIL だが situation は本タスクの範囲外。
-**最終更新**: 2026-04-29 13:50 JST（T2026-0429-F PR #28 merge 完了。tests/test_situation_alias.py 7 ケース pass / 既存 65 ケース regression なし）
+**直近のナオヤ指示** (2026-04-29): 「T2026-0429-H 完走、止まらずに最後まで」
+**次のアクション**: T2026-0429-H 完了 (PR #29 merged: ゴーストID 駆除で AI 要約パイプライン復旧)。本番手動 invoke 後 `health.json: topicCount=92 / keyPointRate=102.2 / situationRate=102.2 / status=ok` を確認。次回 cron 14:35 JST 以降は新コードで自動回復。後続: **T2026-0429-E (マージ閾値調整 🔴高 error_merge=84.6%)** が最優先。並行: T2026-0429-G (storyPhase 発端率 50.96% 悪化 🔴高)。verify_effect.sh ai_quality は keyPoint>=100字=2.2% / perspectives=41.1% で FAIL だが本タスクのスコープ外。
+**最終更新**: 2026-04-29 14:10 JST（T2026-0429-H PR #29 merge 完了 + 本番効果検証完了。tests/test_ghost_topic_cleanup.py 新規 8 ケース + 全 195 件 pass）
 
 ---
 
