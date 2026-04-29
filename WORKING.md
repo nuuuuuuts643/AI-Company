@@ -102,3 +102,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0429-F situation 0% 修正 | Code | lambda/proc_ai.py,lambda/proc_storage.py,scripts/build_topics_json.py | 2026-04-29 13:37 JST | yes |
