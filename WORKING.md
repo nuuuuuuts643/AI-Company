@@ -101,4 +101,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0429-J ranking 復活+age decay 根本修正+UI tighten | fix | frontend/app.js, frontend/styles.css, scripts/check_age_decay.sh, .github/workflows/sli-check.yml, docs/lessons-learned.md | 2026-04-29 16:50 | yes |
