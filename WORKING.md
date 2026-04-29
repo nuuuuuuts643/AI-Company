@@ -13,6 +13,8 @@
 
 **現在のフェーズ**: **フェーズ2（AI品質改善）進行中** — Code行0件・新規セッション起動可
 **直近のPO指示** (2026-04-29): 「セッション変わるごとにルール無視しないで」「理解してから進めろ」
+**次のアクション**: T2026-0429-F 完了 (PR #28 merged: situation = keyPoint publish-layer alias)。次回 processor run 後に topics.json/topic.json/topics-card.json/health.json で situation 充填率が keyPoint と同値 (本番 ~100%) になる想定。後続: **T2026-0429-E (マージ閾値調整 🔴高 error_merge=84.6%)** が最優先。並行: T2026-0429-G (storyPhase 発端率 50.96% 悪化 🔴高)。verify_effect.sh ai_quality は keyPoint>=100字=2.2% / perspectives=41.1% で FAIL だが situation は本タスクの範囲外。
+**最終更新**: 2026-04-29 13:50 JST（T2026-0429-F PR #28 merge 完了。tests/test_situation_alias.py 7 ケース pass / 既存 65 ケース regression なし）
 
 ---
 
