@@ -589,6 +589,16 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
 /* T191: カード単位フレッシュネスバッジ — 「今動いているか」を即時可視化 */
 .freshness-badge { font-size: .64rem; font-weight: 600; color: var(--text-muted); background: rgba(148,163,184,.12); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
 .freshness-badge.freshness-active { color: #ef4444; background: rgba(239,68,68,.12); font-weight: 700; }
+/* T2026-0429-J: モバイルでカードメタ行が崩れる対策。
+   non-essential なタグを 480px 以下で隠し、ジャンルは先頭1つだけ表示する。 */
+@media (max-width: 480px) {
+  .topic-meta { gap: 4px; row-gap: 2px; }
+  .topic-meta .parent-indicator,
+  .topic-meta .hatena-count,
+  .topic-meta .branch-link,
+  .topic-meta .phase-change-badge { display: none; }
+  .topic-meta .genre-tag ~ .genre-tag { display: none; }
+}
 /* ═══════════════════════════════════
    COMPONENT: BADGES
    ═══════════════════════════════════ */

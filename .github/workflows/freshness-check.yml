@@ -190,6 +190,30 @@ jobs:
           PY
 
       # =====================================================================
+      # age decay 健全性 (T2026-0429-J)
+      # 背景: PR#34 で hasAI sort 消失 + lastUpdated パース失敗 → return 1.0 で
+      #   古い topic がフルウェイトのまま上位に出る事故が発生。再発防止に
+      #   - lastUpdated 欠落率
+      #   - 上位30件の 24h+ 比率
+      #   を観測する。閾値超で job ログに warning だけ出す（Slack はノイズ過多回避）。
+      # =====================================================================
+      - name: age decay 健全性 (T2026-0429-J)
+        id: age_decay
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          bash scripts/check_age_decay.sh https://flotopic.com/api/topics.json >> "$GITHUB_STEP_SUMMARY" 2>&1
+          rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          if [ $rc -eq 2 ]; then
+            echo "::warning::age_decay: lastUpdated 欠落率が閾値超 (5%) — フォールバック多発"
+          elif [ $rc -eq 1 ]; then
+            echo "::notice::age_decay: 上位30件の 24h 超比率が 50% を超過"
+          fi
+          exit 0
+
+      # =====================================================================
       # topics.json サイズ監視 (T2026-0428-F Step1)
       # 背景: 207KB / 115件 → 件数線形で増加。モバイル初回表示帯域コストの天井対策。
       # 250KB 超で警告 (将来 topics-card.json 切替の昇格 trigger)。
