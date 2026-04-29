@@ -75,7 +75,6 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| T224a | 高 | **admin.html の `allowedEmail` フロント直書き対応** — T224 残課題。`frontend/admin.html:296` の `allowedEmail` 直書きは公開ファイルでスピアフィッシング情報として漏洩中。build 時注入機構 (env→HTMLテンプレート置換) を作る大改修。暫定運用は admin.html を CloudFront で IP 制限など。 | `frontend/admin.html` | 2026-04-28 |
 | T225 | 中 | **tokushoho.html 残存** — Cowork 範囲外 (FUSE マウントで物理削除不可)。Code セッションで `git rm projects/P003-news-timeline/frontend/tokushoho.html` + CloudFront キャッシュパージ + Search Console URL 削除リクエスト + CI に「frontend に tokushoho.html が存在しないこと」チェック追加。 | `frontend/tokushoho.html`（削除）, CI チェック | 2026-04-28 |
 
 ### セキュリティ・運用堅牢性

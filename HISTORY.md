@@ -4,6 +4,17 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-29 10:10 JST T224a admin.html allowedEmail 直書き対応 — 既に解決済みと確認）
+
+- ✅ **T224a クローズ — 修正不要（既に解決済み）**
+  - 前提確認: `grep -rn "allowedEmail\|mrkm\|owner643" projects/P003-news-timeline/frontend/` → 0 件 (exit 1)。admin.html に PII は残っていない。
+  - 解決経緯: 2026-04-28 commit db3e4a5 (`security: T2026-0428-Z PII除去+週次セキュリティ監査自動化`) で `CONFIG.allowedEmail` フィールド自体を削除し、クライアント側メール判定を廃止。認可は Lambda 側 `ADMIN_EMAIL` 環境変数 + `verify_admin_token` で実施する設計に切り替え済。
+  - **build 時注入機構は不要だった**: 当初想定していた `__ADMIN_ALLOWED_EMAIL__` placeholder + `scripts/build_admin.sh` での env 置換は、クライアント側でメール照合する必要が無くなったため不要化。Lambda 側で完結する単純化案を採用したのが正解だった。
+  - **回帰防止**: `scripts/security_audit.sh` (週次 cron + 手動) の A1「個人名パターンスキャン」が `naoya|mrkm|OWNER|村上` を grep。`.github/workflows/security-audit.yml` で毎週月曜 JST 09:00 自動実行。再混入時は CI 赤化で物理ブロック。
+  - **TASKS.md 後始末**: T224a 行を 2026-04-29 に削除（高優先度のまま放置されていた）。
+
+---
+
 ### 完了済み（2026-04-29 09:50 JST T2026-0429-SCH 「時間待ち確認はスケジューラーに渡す」原則制定）
 
 - ✅ **PR #22 (commit 247e1b8) — docs 追記**
