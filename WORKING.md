@@ -101,3 +101,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0429-P コスト削減（Sonnet→Haiku, 即時トリガー削減, MAX_API_CALLS, app.js hasAI grouping） | コード | lambda/processor/proc_ai.py, lambda/processor/handler.py, lambda/processor/proc_config.py, lambda/fetcher/handler.py, frontend/app.js, TASKS.md | 2026-04-29 15:49 | yes |

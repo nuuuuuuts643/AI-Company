@@ -373,13 +373,16 @@ aws events put-targets \
   --region "$REGION" > /dev/null
 echo "  -> Fetcher: 30分ごとの自動実行を設定完了"
 
-# Processor: 1日2回 JST 08:00 / 17:00 (2026-04-29 コスト削減のため日中2回に変更)
-# UTC換算: 23:00 / 08:00（JST = UTC+9）
-# 即時処理は fetcher が新規トピック作成時に invoke (maxApiCalls=10) で別途走る
+# Processor: 1日2回 JST 05:30 (朝刊) / 17:30 (夕刊)
+# measured: T2026-0429-P (2026-04-29 PM) 朝刊/夕刊タイミングに変更。
+#   旧 cron(0 23,8 * * ? *) = JST 08:00/17:00 → 新 cron(30 20,8 * * ? *) = JST 05:30/17:30
+#   UTC換算: 20:30(前日) / 08:30（JST = UTC+9）
+# 即時処理は fetcher が「直近30分で記事3件以上の新規トピック」かつ AI 未生成の速報例外時のみ
+# invoke (maxApiCalls=2, 該当 topicId のみ)。通常時の即時トリガーは廃止。
 # cron(分 時 日 月 曜 年) ← AWS EventBridge書式
 PROCESSOR_RULE_ARN=$(aws events put-rule \
   --name "p003-processor-schedule" \
-  --schedule-expression "cron(0 23,8 * * ? *)" \
+  --schedule-expression "cron(30 20,8 * * ? *)" \
   --state ENABLED \
   --region "$REGION" \
   --query RuleArn --output text)

@@ -1016,24 +1016,17 @@ def lambda_handler(event, context):
 
         write_s3('api/pending_ai.json', {'topicIds': pending_ids, 'updatedAt': ts_iso})
 
-        # 新規ペンディングトピックがあれば processor を即時非同期トリガー
-        # maxApiCalls=10: 即時処理は少量に絞る (定期 cron が MAX_API_CALLS=30 で残りを処理)。
-        # 目的: 新規トピック作成→AI要約付与までのレイテンシを最大6時間→最大30分に短縮。
+        # measured: T2026-0429-P (2026-04-29 PM) processor 即時トリガーは例外含め完全廃止。
+        # 旧仕様: new_pending があれば全件即時 invoke (maxApiCalls=10) → コスト爆発の主因。
+        # 中間案 (速報例外 maxApiCalls=2) も廃案。判定ロジックが将来バグった場合の
+        # コスト爆発リスクを排除するため、シンプルに EventBridge schedule のみ動かす。
+        # processor の起動経路は (1) EventBridge 5:30/17:30 JST, MAX_API_CALLS=20 のみ。
+        # それ以外の経路から processor を Lambda invoke しない (運用ルール = 物理ガード)。
+        # コスト影響: 旧 ~10 call/run × 48 run/day = 480 call/day を完全削除。
+        # UX トレードオフ: 新規トピックは記事リストには即時出るが、AI 要約は最大 12h 待つ
+        #                  (5:30 と 17:30 のどちらか直近の処理タイミングまで)。
         if new_pending:
-            try:
-                _lambda = boto3.client('lambda', region_name='ap-northeast-1')
-                _lambda.invoke(
-                    FunctionName='p003-processor',
-                    InvocationType='Event',
-                    Payload=json.dumps({
-                        'topic_ids': list(new_pending),
-                        'source': 'fetcher_trigger',
-                        'maxApiCalls': 10,
-                    }).encode(),
-                )
-                print(f'[fetcher] processor即時トリガー: {len(new_pending)}件 (maxApiCalls=10)')
-            except Exception as _e:
-                print(f'[fetcher] processorトリガー失敗（スキップ）: {_e}')
+            print(f'[fetcher] processor即時トリガーは廃止。new_pending={len(new_pending)} 件は次回 EventBridge (5:30/17:30 JST) で処理')
 
         generate_rss(topics, ts_iso)
         generate_sitemap(topics_deduped)  # 公開対象のみsitemapに含める
