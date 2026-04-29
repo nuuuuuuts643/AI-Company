@@ -102,4 +102,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0429-D keyPoint≥100字 充填率改善（プロンプト強化＋全件再生成） | code | projects/P003-news-timeline/lambda/processor/proc_ai.py | 2026-04-29 09:14 JST | yes |
+| [Code] T225 tokushoho.html 削除 + CI 不在チェック | code | projects/P003-news-timeline/frontend/tokushoho.html, .github/workflows/ci.yml | 2026-04-29 09:18 JST | yes |
+| [Code] T2026-0429-A velocityScore フロント可視化 | code | projects/P003-news-timeline/frontend/app.js, projects/P003-news-timeline/frontend/style.css | 2026-04-29 09:18 JST | yes |
