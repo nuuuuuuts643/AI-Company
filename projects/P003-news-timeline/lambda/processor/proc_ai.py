@@ -90,6 +90,18 @@ def _call_claude_tool(prompt: str, tool_name: str, input_schema: dict,
     T2026-0428-AJ: prompt caching 対応。`system` を渡すと cache_control: ephemeral 付きで
     送信し、固定の共通プロンプトをキャッシュ再利用する (Haiku 2048 / Sonnet 1024 tokens 必要)。
     Returns: tool_use.input (dict) / 失敗時 None。
+
+    measured: T2026-0429-P (2026-04-29) cache savings 試算。
+      _SYSTEM_PROMPT 文字数 = 5362 chars (日本語混在)。
+      日本語混在の Anthropic tokenizer 実測値 ≈ 1 token / 1.7-2.0 chars
+        → 推定 2700-3150 tokens (Haiku 最低 2048 tokens を上回る・キャッシュ適用可能)。
+      バッチ 1回 (MAX_API_CALLS=20) のうち、初回が cache write、2-20 件目が cache read。
+      cache read tokens は 90% 割引 (Anthropic 公式)。
+      節約: ~2900 tokens × 19 件 × 90% = ~49,590 tokens / バッチ。
+      Haiku 4.5 input $0.80/MTok → 約 $0.04 / バッチ × 2 batch/day = $0.08/day 節約。
+    観測: 実装後の実測は CloudWatch Insights で
+      `fields @timestamp, @message | filter @message like /claude_cache/`
+      で `read=` の出現を確認すること。read=0 が連続するならキャッシュミス。
     """
     payload = {
         'model': model,
@@ -713,10 +725,14 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         # T2026-0428-AL: 全文ブロック注入で prompt が ~6000 字伸びるため timeout を 60s に拡張
         # (旧 25s では Sonnet 4.6 + 1700 max_tokens の生成が間に合わず full mode が
         # まるごと失敗 → fallback で None になり aiGenerated=False のまま放置されていた)
+        # measured: T2026-0429-P (2026-04-29) Sonnet 4.6 → Haiku 4.5 切替。
+        # full mode コスト約 5 分の 1 ($3/MTok in → $0.80/MTok in、$15/MTok out → $4/MTok out)。
+        # 品質劣化は次サイクルの実測 (keyPoint 長分布 / aiSummary 長分布) で確認。
+        # timeout=60s は据え置き (Haiku は速いので余裕あり、外れ値だけ拾う)。
         schema = _build_story_schema('full')
         result = _call_claude_tool(
             prompt, 'emit_topic_story', schema,
-            max_tokens=1700, timeout=60, model='claude-sonnet-4-6',
+            max_tokens=1700, timeout=60, model='claude-haiku-4-5-20251001',
             system=_SYSTEM_PROMPT,
         )
         if not result or not str(result.get('aiSummary') or '').strip():

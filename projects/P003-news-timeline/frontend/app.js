@@ -888,7 +888,20 @@ async function refreshTopics() {
     };
     const decayedVS    = t => Number(t.velocityScore || 0) * ageDecay(t) * aiMult(t) * kpPenalty(t);
     const decayedScore = t => Number(t.score || 0)         * ageDecay(t) * aiMult(t) * kpPenalty(t);
+    // measured: T2026-0429-P (2026-04-29 PM) hasAI グループ分けを最上位ソートキーに導入。
+    // 旧 kpPenalty (25字→0.5x, 50字→0.85x) はスコア比較で逆転されうる軽い降格に過ぎず、
+    // 「要約なしトピックが上位浮上」をナオヤが繰り返し報告 → 物理的にグループ固定する。
+    // hasAI = (aiGenerated/generatedSummary が真) AND (keyPoint が 50字以上)。
+    // 50 字: 実測 (n=92, 2026-04-29 15:30 JST) で keyPoint P95=52字。50字未満は薄い解説。
+    // hasAI=true 群が必ず上、hasAI=false 群が必ず下。各群内は既存の decayed score。
+    const hasAI = t => {
+      const kpLen = ((t.keyPoint || '') + '').trim().length;
+      const aiOk  = (t.aiGenerated === true) || !!t.generatedSummary;
+      return aiOk && kpLen >= 50;
+    };
     allTopics = raw.sort((a, b) => {
+      const ha = hasAI(a), hb = hasAI(b);
+      if (ha !== hb) return ha ? -1 : 1;  // 要約あり優先・要約なしは末尾
       const vs = decayedVS(b) - decayedVS(a);
       if (Math.abs(vs) > 0.5) return vs;
       // velocityScore=0 が常態化している環境では実質 score の比較になる

@@ -1016,24 +1016,39 @@ def lambda_handler(event, context):
 
         write_s3('api/pending_ai.json', {'topicIds': pending_ids, 'updatedAt': ts_iso})
 
-        # 新規ペンディングトピックがあれば processor を即時非同期トリガー
-        # maxApiCalls=10: 即時処理は少量に絞る (定期 cron が MAX_API_CALLS=30 で残りを処理)。
-        # 目的: 新規トピック作成→AI要約付与までのレイテンシを最大6時間→最大30分に短縮。
-        if new_pending:
+        # measured: T2026-0429-P (2026-04-29 PM) 通常時の processor 即時トリガーは廃止。
+        # 旧仕様: new_pending があれば全件即時 invoke (maxApiCalls=10)。
+        # 新仕様: 「直近30分で記事3件以上の新規トピック」かつ「AI要約なし」だけを速報例外として
+        #         invoke (maxApiCalls=2, 該当 topicId のみ)。fetcher は 30分ごと走るため
+        #         「今 run で新規作成 (=new_pending)」の時点で既に「直近30分」条件は満たす。
+        # 通常の AI 要約付与は EventBridge schedule (5:30/17:30 JST, MAX_API_CALLS=20) が担う。
+        # コスト影響: 通常時は 0 call/run 増加 (旧 ~10 call/run × 48 run/day = 480 call/day を削減)。
+        #             速報例外は重大事案のみで 1 day に数回程度を想定。
+        # UX トレードオフ: 通常の新規トピックは AI 要約が付くまで最大 12h 待つ可能性あり
+        #                  (記事リスト表示は変わらず、AI 要約のみ遅延)。
+        BREAKING_MIN_ARTICLES = 3
+        breaking_pending = [
+            tid for tid in new_pending
+            if int((current_run_metas.get(tid, {}) or {}).get('articleCount', 0) or 0) >= BREAKING_MIN_ARTICLES
+            and not (current_run_metas.get(tid, {}) or {}).get('aiGenerated')
+        ]
+        if breaking_pending:
             try:
                 _lambda = boto3.client('lambda', region_name='ap-northeast-1')
                 _lambda.invoke(
                     FunctionName='p003-processor',
                     InvocationType='Event',
                     Payload=json.dumps({
-                        'topic_ids': list(new_pending),
-                        'source': 'fetcher_trigger',
-                        'maxApiCalls': 10,
+                        'topic_ids': breaking_pending,
+                        'source': 'fetcher_breaking',
+                        'maxApiCalls': 2,
                     }).encode(),
                 )
-                print(f'[fetcher] processor即時トリガー: {len(new_pending)}件 (maxApiCalls=10)')
+                print(f'[fetcher] processor速報トリガー: {len(breaking_pending)}件 (maxApiCalls=2, articleCount>={BREAKING_MIN_ARTICLES})')
             except Exception as _e:
-                print(f'[fetcher] processorトリガー失敗（スキップ）: {_e}')
+                print(f'[fetcher] processor速報トリガー失敗（スキップ）: {_e}')
+        else:
+            print(f'[fetcher] processor即時トリガーなし (new_pending={len(new_pending)} 件中、articleCount>={BREAKING_MIN_ARTICLES} の速報該当なし)')
 
         generate_rss(topics, ts_iso)
         generate_sitemap(topics_deduped)  # 公開対象のみsitemapに含める
