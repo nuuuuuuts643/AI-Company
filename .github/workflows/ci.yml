@@ -110,6 +110,19 @@ jobs:
           echo "=== AI フィールドカタログ vs schema 突合 ==="
           python3 scripts/check_ai_fields_catalog.py
 
+      - name: DDB-bound dict の Decimal ラップ漏れ検出 (T2026-0430-D)
+        run: |
+          # 2026-04-27 commit 59eaf649 で fetcher/handler.py:584 の
+          # 'diversityScore': _div_mult が Decimal 未ラップで本番に landing し
+          # "Float types are not supported" で chunk 3/4 失敗 → 新規記事 159件保存失敗 →
+          # topics 88% 72h+ 停滞 という事故 (PR #46) の物理再発防止。
+          # AST で Dict literal を歩き、value のいずれかが Decimal(...) で wrap されている
+          # dict を「DDB 行き」と判定し、他 value に bare float / 未ラップ float-func 呼び出し /
+          # constant float / Div BinOp が混在していないか検査する。
+          echo "=== Decimal ラップ漏れ物理ガード ==="
+          python3 scripts/check_decimal_wrap.py
+          python3 -m unittest scripts.test_decimal_wrap -v
+
       - name: 危険パターン検出
         run: |
           echo "=== 危険パターン検出 ==="
