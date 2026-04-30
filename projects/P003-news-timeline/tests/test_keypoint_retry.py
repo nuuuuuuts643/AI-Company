@@ -1,24 +1,27 @@
-"""keyPoint プロンプト・no-retry 仕様の物理ガード。
+"""keyPoint プロンプト + 1 回 retry + length validation の物理ガード。
 
 経緯:
-  T2026-0429-J で「200〜300 字物語固定」を強く指示し、minLength=100 のハード下限を入れたが、
-  本番 SLI は 2/92 = 2.17% のまま停滞 (2026-04-30 観測)。LLM が無理に 200 字を埋めると
-  「一般論で水増し」する症状が発生し、品質が逆に悪化していた。
+  T2026-0429-J で「コスト抑制のため retry 撤去」したが、本番 SLI では keyPoint ≥100 字
+  の充填率が 2.2% (2/92) のまま停滞 (2026-04-30 18:05 JST 観測)。プロンプト強化のみでは
+  Tool Use API が「タイトル風 30〜40 字」「空文字」を返し続けるパターンを抑制できなかった。
 
-T-keypoint-prompt (2026-04-30) でフェーズ判定方式へ転換:
-  1) _STORY_PROMPT_RULES / _SYSTEM_PROMPT を「フェーズ判定 (記事数) で書き方を変える」方式に書き換え
-     - 記事 1 件 = 初動フェーズ: 3 要素 (何が起きたか / なぜ重要か / 今後)
-     - 記事 2 件以上 = 変化フェーズ: 4 文構成 (今回の変化 / 以前の状況 / 追加情報 / 意味・今後)
-  2) worked example を「関税」「日銀」など具体的な変化を起点にしたものへ差し替え
-  3) schema の minLength を 100 → 0 に変更 (「書けない場合は空文字を返す」エスケープを許容)
-  4) 100 字以上必須は description / prompt 側のガイドとして残し、書ける場合のみ適用
-  5) 旧 retry ロジックは撤去のまま (T2026-0429-J)。再生成によるコスト 2x 増は許容しない
+T2026-0430-A (2026-04-30) で **新アーキの retry を再導入**:
+  1) 初回 keyPoint < 100 字なら 1 回だけ再生成 (合計 2 回まで・コスト上限明確化)
+  2) retry 専用プロンプト「前回が短すぎたので最低 100 字以上、具体数字・固有名詞で拡張」
+  3) keyPoint だけ生成する縮小スキーマ + max_tokens=400 でコスト最小化
+  4) retry も短ければ "SHORT_FALLBACK" フラグ → keyPointFallback=True で DDB に記録
+     (空にしない・捨てない方針: 短文でも情報量があるため original/retry の長い方を保存)
+  5) keyPointLength / keyPointRetried / keyPointFallback を normalize 出力に含める
+  6) [KP_QUALITY] プレフィックスで CloudWatch Logs に固定フォーマット出力 (集計分析用)
 
 このテストでは API を mock し、以下を物理確認する:
-  - generate_story (minimal/standard/full) は **常に 1 回しか _call_claude_tool を呼ばない** (no-retry)
-  - keyPoint 短縮時でも結果は dict で返る (None ではなく best effort)
-  - worked example (「関税」「日銀」) とフェーズ判定文言が _STORY_PROMPT_RULES に存在
-  - schema の minLength=0 (空文字を許容) が維持されていること
+  - generate_story (minimal/standard/full) は短文時 **必ず 2 回** _call_claude_tool を呼ぶ (1 回 retry)
+  - 長文時は 1 回のみ (retry なし)
+  - retry 成功時: keyPointFallback=False / keyPointRetried=True
+  - retry 失敗時: keyPointFallback=True / keyPointRetried=True / keyPoint は空にしない
+  - keyPointLength は最終 keyPoint の文字数と一致
+  - [KP_QUALITY] ログが固定フォーマットで出力される
+  - schema の minLength=0 (空文字を許容) は維持
 
 実行:
   cd projects/P003-news-timeline
@@ -50,6 +53,12 @@ _LONG_KP = (
     '今後の焦点は合意形成の可否と、それに伴う周辺諸国の動きにある。'
 )
 _SHORT_KP = 'ロシア撤退と過激派攻勢の同時進行'  # 17字
+_RETRY_LONG_KP = (
+    'マリ国防相が首都での同時多発攻撃で殺害され、過激派 JNIM がサヘル全域で攻勢を強めた。'
+    'これまではロシア・ワグネルが治安維持を担っていたが、撤退を機に空白地帯が生じた。'
+    '今後はサヘル諸国の連携と仏軍再展開の有無が焦点となる。'
+)
+assert len(_RETRY_LONG_KP) >= 100, f'retry stub の長文 keyPoint は 100 字以上必要 (現在 {len(_RETRY_LONG_KP)} 字)'
 
 
 def _stub_minimal_full(keypoint: str) -> dict:
@@ -79,6 +88,11 @@ def _stub_standard_full(keypoint: str) -> dict:
     return base
 
 
+def _stub_retry_response(keypoint: str) -> dict:
+    """retry 専用スキーマの返却 (keyPoint のみ)。"""
+    return {'keyPoint': keypoint}
+
+
 _DUMMY_ARTICLES = [
     {'title': 'マリで国防相殺害', 'description': '首都圏で同時多発攻撃', 'pubDate': '2026-04-28'},
     {'title': '過激派が攻勢', 'description': '複数の都市で衝突', 'pubDate': '2026-04-29'},
@@ -106,56 +120,135 @@ class KeyPointTooShortHelperTest(unittest.TestCase):
         self.assertFalse(proc_ai._keypoint_too_short(_LONG_KP))
 
 
-class GenerateStoryNoRetryTest(unittest.TestCase):
-    """T2026-0429-J: 旧 retry 撤去後の no-retry contract test。
-    どのモードでも _call_claude_tool は 1 回しか呼ばれず、コスト増を起こさない。"""
+class GenerateStoryRetryTest(unittest.TestCase):
+    """T2026-0430-A: 1 回 retry contract test。
+    短文時は 2 回呼ばれ、長文時は 1 回のみ。"""
 
-    def test_standard_short_keypoint_no_retry(self):
-        """初回 17 字 → retry なし (1 回だけ呼ばれる)。短くても dict で best effort 返却。"""
-        side = [_stub_standard_full(_SHORT_KP)]
+    def test_standard_short_keypoint_triggers_retry(self):
+        """初回 17 字 → retry 1 回呼ばれる (合計 2 回)。retry 成功時は長文 keyPoint で上書き。"""
+        side = [_stub_standard_full(_SHORT_KP), _stub_retry_response(_RETRY_LONG_KP)]
         with mock.patch('proc_ai._call_claude_tool', side_effect=side) as mocked:
             result = proc_ai._generate_story_standard(_DUMMY_ARTICLES, cnt=3)
-            self.assertEqual(mocked.call_count, 1, '再生成は撤去されたので必ず 1 回のみ')
-        self.assertIsNotNone(result, '短くても dict は返ること (None ではない)')
+            self.assertEqual(mocked.call_count, 2, '短文時は retry 1 回 (合計 2 call)')
+        self.assertIsNotNone(result)
+        self.assertGreaterEqual(len(result['keyPoint']), 100, 'retry 成功時は keyPoint >= 100 字')
+        self.assertTrue(result['keyPointRetried'], 'retried フラグが立つ')
+        self.assertFalse(result['keyPointFallback'], 'retry 成功なら fallback=False')
+        self.assertEqual(result['keyPointLength'], len(result['keyPoint']))
 
-    def test_standard_long_first_single_call(self):
-        """初回 150 字 → 元々 1 回のはず。回帰検証。"""
+    def test_standard_long_first_no_retry(self):
+        """初回 150 字 → retry なし (1 call のみ)。"""
         side = [_stub_standard_full(_LONG_KP)]
         with mock.patch('proc_ai._call_claude_tool', side_effect=side) as mocked:
             result = proc_ai._generate_story_standard(_DUMMY_ARTICLES, cnt=3)
-            self.assertEqual(mocked.call_count, 1, '正常生成は当然 1 回のみ')
+            self.assertEqual(mocked.call_count, 1, '正常生成は 1 call のみ')
         self.assertIsNotNone(result)
         self.assertGreaterEqual(len(result['keyPoint']), 100)
+        self.assertFalse(result['keyPointRetried'])
+        self.assertFalse(result['keyPointFallback'])
 
-    def test_full_short_keypoint_no_retry(self):
-        """full モードでも no-retry: 1 回のみ呼ばれる。"""
-        side = [_stub_standard_full(_SHORT_KP)]
+    def test_standard_retry_also_short_marks_fallback(self):
+        """retry も短い場合 → fallback=True、長い方の keyPoint を保存 (空にしない)。"""
+        side = [_stub_standard_full(_SHORT_KP), _stub_retry_response('まだ短い')]
+        with mock.patch('proc_ai._call_claude_tool', side_effect=side) as mocked:
+            result = proc_ai._generate_story_standard(_DUMMY_ARTICLES, cnt=3)
+            self.assertEqual(mocked.call_count, 2)
+        self.assertIsNotNone(result)
+        self.assertTrue(result['keyPointRetried'])
+        self.assertTrue(result['keyPointFallback'], 'retry も短ければ fallback=True')
+        self.assertGreater(len(result['keyPoint']), 0, 'fallback でも keyPoint は空にしない')
+        # original (17 字) > retry (5 字) なので original を残す
+        self.assertEqual(result['keyPoint'], _SHORT_KP)
+        self.assertEqual(result['keyPointLength'], len(_SHORT_KP))
+
+    def test_standard_retry_returns_none_keeps_original(self):
+        """retry が None を返した場合 → fallback=True、original を残す。"""
+        side = [_stub_standard_full(_SHORT_KP), None]
+        with mock.patch('proc_ai._call_claude_tool', side_effect=side) as mocked:
+            result = proc_ai._generate_story_standard(_DUMMY_ARTICLES, cnt=3)
+            self.assertEqual(mocked.call_count, 2)
+        self.assertIsNotNone(result)
+        self.assertTrue(result['keyPointRetried'])
+        self.assertTrue(result['keyPointFallback'])
+        self.assertEqual(result['keyPoint'], _SHORT_KP)
+
+    def test_full_short_keypoint_triggers_retry(self):
+        """full モードでも短文時は retry 1 回呼ばれる。"""
+        side = [_stub_standard_full(_SHORT_KP), _stub_retry_response(_RETRY_LONG_KP)]
         with mock.patch('proc_ai._build_media_comparison_block', return_value=''), \
              mock.patch('proc_ai._call_claude_tool', side_effect=side) as mocked:
             result = proc_ai._generate_story_full(_DUMMY_ARTICLES * 3, cnt=9)
-            self.assertEqual(mocked.call_count, 1, 'full モードでも 1 回のみ')
+            self.assertEqual(mocked.call_count, 2, 'full モードでも retry 1 回')
         self.assertIsNotNone(result)
+        self.assertTrue(result['keyPointRetried'])
+        self.assertFalse(result['keyPointFallback'])
 
-    def test_minimal_short_keypoint_no_retry(self):
-        """minimal モードでも no-retry: 1 回のみ呼ばれる。"""
-        side = [_stub_minimal_full(_SHORT_KP)]
+    def test_minimal_short_keypoint_triggers_retry(self):
+        """minimal モードでも短文時は retry 1 回呼ばれる。"""
+        side = [_stub_minimal_full(_SHORT_KP), _stub_retry_response(_RETRY_LONG_KP)]
         with mock.patch('proc_ai._call_claude_tool', side_effect=side) as mocked:
             result = proc_ai._generate_story_minimal(_DUMMY_ARTICLES[:2])
-            self.assertEqual(mocked.call_count, 1, 'minimal モードでも 1 回のみ')
+            self.assertEqual(mocked.call_count, 2, 'minimal モードでも retry 1 回')
         self.assertIsNotNone(result)
+        self.assertTrue(result['keyPointRetried'])
+        self.assertFalse(result['keyPointFallback'])
+        self.assertGreaterEqual(result['keyPointLength'], 100)
 
-    def test_retry_function_removed(self):
-        """旧 _retry_short_keypoint シンボル自体が proc_ai から削除されていること。"""
-        self.assertFalse(
+    def test_retry_function_exists(self):
+        """T2026-0430-A: _retry_short_keypoint シンボルが proc_ai に再導入されていること。"""
+        self.assertTrue(
             hasattr(proc_ai, '_retry_short_keypoint'),
-            '_retry_short_keypoint は T2026-0429-J で撤去されているべき (コスト抑制)',
+            '_retry_short_keypoint は T2026-0430-A で新アーキで再導入されているべき',
+        )
+        self.assertTrue(
+            hasattr(proc_ai, '_process_keypoint_quality'),
+            '_process_keypoint_quality も新アーキの中核として存在するべき',
         )
 
 
+class KeyPointQualityFieldsTest(unittest.TestCase):
+    """T2026-0430-A: normalize 出力に keyPointLength / keyPointRetried / keyPointFallback が含まれる。"""
+
+    def test_minimal_normalize_includes_quality_fields(self):
+        side = [_stub_minimal_full(_LONG_KP)]
+        with mock.patch('proc_ai._call_claude_tool', side_effect=side):
+            result = proc_ai._generate_story_minimal(_DUMMY_ARTICLES[:1])
+        self.assertIn('keyPointLength', result)
+        self.assertIn('keyPointRetried', result)
+        self.assertIn('keyPointFallback', result)
+        self.assertEqual(result['keyPointLength'], len(result['keyPoint']))
+
+    def test_standard_normalize_includes_quality_fields(self):
+        side = [_stub_standard_full(_LONG_KP)]
+        with mock.patch('proc_ai._call_claude_tool', side_effect=side):
+            result = proc_ai._generate_story_standard(_DUMMY_ARTICLES, cnt=3)
+        self.assertIn('keyPointLength', result)
+        self.assertIn('keyPointRetried', result)
+        self.assertIn('keyPointFallback', result)
+        self.assertEqual(result['keyPointLength'], len(result['keyPoint']))
+
+
+class KPQualityLogTest(unittest.TestCase):
+    """T2026-0430-A: [KP_QUALITY] プレフィックスで固定フォーマットの 1 行ログが出る。"""
+
+    def test_kp_quality_log_format(self):
+        from io import StringIO
+        side = [_stub_standard_full(_SHORT_KP), _stub_retry_response(_RETRY_LONG_KP)]
+        buf = StringIO()
+        with mock.patch('proc_ai._call_claude_tool', side_effect=side), \
+             mock.patch('sys.stdout', buf):
+            proc_ai._generate_story_standard(_DUMMY_ARTICLES, cnt=3)
+        out = buf.getvalue()
+        self.assertIn('[KP_QUALITY]', out)
+        self.assertIn('mode=standard', out)
+        self.assertIn('retried=1', out)
+        self.assertIn('ge100=1', out)
+
+
 class SchemaMinLengthTest(unittest.TestCase):
-    """T-keypoint-prompt (2026-04-30): schema の keyPoint は minLength=0 (空文字を許容)。
-    PO指示「『何が変わったのか』が書けない場合は生成しない」を物理化するため、
-    schema 上は空文字を valid とし、品質ガイドは prompt 側に置く。"""
+    """schema の keyPoint は minLength=0 を維持 (T-keypoint-prompt 2026-04-30)。
+    PO 指示「『何が変わったのか』が書けない場合は生成しない」を物理化するため、
+    schema 上は空文字を valid とする。"""
 
     def test_minimal_schema_allows_empty(self):
         schema = proc_ai._build_story_schema('minimal')
@@ -174,49 +267,39 @@ class PromptHardRequirementTest(unittest.TestCase):
     """_SYSTEM_PROMPT / _STORY_PROMPT_RULES にフェーズ判定とハード要件の文言が含まれていること。"""
 
     def test_system_prompt_mentions_100chars(self):
-        # 100 字以上必須 (書ける場合) のガイドが prompt 側に残っていること。
         self.assertIn('100 字', proc_ai._SYSTEM_PROMPT)
 
     def test_story_rules_mentions_phase_decision(self):
-        # フェーズ判定 (記事数で書き方を変える) の文言があること。
         self.assertIn('フェーズ', proc_ai._STORY_PROMPT_RULES)
 
 
 class PromptWorkedExampleTest(unittest.TestCase):
-    """T-keypoint-prompt (2026-04-30): _STORY_PROMPT_RULES に新しい worked example が埋め込まれていること。
-
-    旧 worked example (「世界モデル」251 字の物語) は「一般論で水増し」誘導の原因となったため撤去。
-    新 worked example は「関税」「日銀」などの具体的な変化を起点にしたものへ差し替え。"""
+    """T-keypoint-prompt (2026-04-30): _STORY_PROMPT_RULES に新しい worked example が埋め込まれていること。"""
 
     def test_story_rules_contains_good_example_initial_phase(self):
-        # 初動フェーズの良い例 (関税発動) がプロンプトに埋まっていること。
         self.assertIn('60%の追加関税', proc_ai._STORY_PROMPT_RULES)
 
     def test_story_rules_contains_good_example_change_phase(self):
-        # 変化フェーズの良い例 (日銀利上げ) がプロンプトに埋まっていること。
         self.assertIn('利上げ幅を0.25%から0.5%', proc_ai._STORY_PROMPT_RULES)
 
     def test_story_rules_contains_bad_example_marker(self):
-        # 「悪い例」表記が含まれており、対比形式で示されていること。
         self.assertIn('悪い例', proc_ai._STORY_PROMPT_RULES)
 
     def test_story_rules_mentions_initial_phase_structure(self):
-        # 初動フェーズの 3 要素構造 (何が起きたか / なぜ重要か / 今後どうなりそうか) を明示。
         self.assertIn('初動フェーズ', proc_ai._STORY_PROMPT_RULES)
         self.assertIn('何が起きたか', proc_ai._STORY_PROMPT_RULES)
 
     def test_story_rules_mentions_change_phase_structure(self):
-        # 変化フェーズの 4 文構成 (今回の変化 / 以前の状況 / 追加情報 / 意味・今後) を明示。
         self.assertIn('変化フェーズ', proc_ai._STORY_PROMPT_RULES)
         self.assertIn('今回の変化', proc_ai._STORY_PROMPT_RULES)
 
     def test_story_rules_allows_empty_when_unwritable(self):
-        # 「書けない場合は空文字」のエスケープが prompt に書かれていること。
         self.assertIn('空文字', proc_ai._STORY_PROMPT_RULES)
 
 
 class EmitKeypointMetricTest(unittest.TestCase):
-    """T2026-0429-J: _emit_keypoint_metric が CloudWatch 想定の固定フォーマットを print すること。"""
+    """T2026-0429-J: _emit_keypoint_metric が CloudWatch 想定の固定フォーマットを print すること。
+    T2026-0430-A: retried=1 のフォーマットも追加検証。"""
 
     def test_metric_format_long(self):
         from io import StringIO
@@ -241,6 +324,15 @@ class EmitKeypointMetricTest(unittest.TestCase):
         self.assertIn('ge100=0', out)
         self.assertIn('ge200=0', out)
 
+    def test_metric_format_retried(self):
+        from io import StringIO
+        buf = StringIO()
+        with mock.patch('sys.stdout', buf):
+            proc_ai._emit_keypoint_metric('full', 'あ' * 120, retried=True)
+        out = buf.getvalue()
+        self.assertIn('retried=1', out)
+        self.assertIn('ge100=1', out)
+
     def test_metric_format_none_or_empty(self):
         from io import StringIO
         buf = StringIO()
@@ -248,7 +340,6 @@ class EmitKeypointMetricTest(unittest.TestCase):
             proc_ai._emit_keypoint_metric('full', None, retried=False)
             proc_ai._emit_keypoint_metric('full', '', retried=False)
         out = buf.getvalue()
-        # None / 空文字いずれも len=0 として出力される
         self.assertIn('len=0', out)
 
 
