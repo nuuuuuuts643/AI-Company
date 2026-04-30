@@ -115,7 +115,7 @@
 <!-- T2026-0428-P (system-status 二重管理) は T2026-0428-R で構造改善 landing → 完了 -->
 <!-- T266 (system-status カバレッジ古い) は T2026-0428-R で auto-commit 化済 -->
 | T238 | 低 | **processor handler.py の特殊モード分岐が肥大化（300+行）** — `lambda/processor/handler.py:60-150` に `regenerateStaticHtml` / `backfillDetailJson` / `backfillArchivedTtl` / `purgeAll` / `forceRegenerateAll` / `regenerateSitemap` の6つの特殊モードが連結 if 文で並ぶ。テスト・保守・新モード追加が困難。`proc_admin_modes.py` に分離。 | `lambda/processor/handler.py` (新規ファイル) | 2026-04-28 |
-| T260 | 中 | **個別 topic JSON の `data['meta']` で aiGenerated=False の topic も生成されている** — `https://flotopic.com/api/topic/8f81be6586cbea09.json` は `aiGenerated=False` で meta が `{aiGenerated, topicId}` の 2 フィールドだけ。空の個別 JSON が量産。`update_topic_s3_file` で `aiGenerated=False` かつ generatedTitle 等が無いトピックは個別 JSON 生成をスキップ。 | `lambda/processor/proc_storage.py` update_topic_s3_file | 2026-04-28 |
+| ~~T260~~ | ~~中~~ | ~~**個別 topic JSON の `data['meta']` で aiGenerated=False の topic も生成されている** — `https://flotopic.com/api/topic/8f81be6586cbea09.json` は `aiGenerated=False` で meta が `{aiGenerated, topicId}` の 2 フィールドだけ。空の個別 JSON が量産。`update_topic_s3_file` で `aiGenerated=False` かつ generatedTitle 等が無いトピックは個別 JSON 生成をスキップ。~~ → **2026-04-30 22:15 JST 完了** — `proc_storage.update_topic_s3_file` に skip 判定 (merge 後 meta が `aiGenerated=False` かつ `generatedTitle` 不在/空白) を追加し S3 PUT をスキップ + `[SKIP_EMPTY_JSON] tid=... reason=aiGenerated=False` ログ。`tests/test_skip_empty_topic_json.py` 9 ケース新設 + 全 271 ケース pass。本番 `aiGenerated=False` のアクティブトピックは scan 結果 数十件規模 (空 JSON 撲滅見積)。DynamoDB レコードは未変更なので将来 AI 生成時には正常に書かれる。 | `lambda/processor/proc_storage.py`, `tests/test_skip_empty_topic_json.py` | 2026-04-28 |
 
 ### 収益・拡張
 
