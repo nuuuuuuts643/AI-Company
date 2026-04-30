@@ -100,3 +100,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0429-M SLIフィールド乖離検出CI | Code | scripts/check_sli_field_coverage.sh, .github/workflows/ci.yml, docs/rules/bug-prevention.md | 2026-04-30 16:00 | yes |
