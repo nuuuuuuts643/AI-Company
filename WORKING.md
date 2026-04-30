@@ -100,4 +100,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0429-L velocityScore減衰修正 | Code | proc_storage.py, app.js | 2026-04-30 15:47 | yes |
