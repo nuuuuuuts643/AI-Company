@@ -105,5 +105,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T256 AI fields coverage CI guard | CI 物理ガード | `scripts/check_ai_fields_coverage.py` 新規, `.github/workflows/ci.yml`, `tests/test_ai_fields_coverage.py` 新規 | 2026-04-30 21:50 | yes |
-| [Code] T260 aiGenerated=False 空JSON スキップ | Code | `projects/P003-news-timeline/lambda/processor/proc_storage.py`, `projects/P003-news-timeline/tests/test_skip_empty_topic_json.py` 新規 | 2026-04-30 22:08 | yes |
+| [Code] T264 stale worktrees cleanup | Code | `scripts/cleanup_stale_worktrees.sh` 新規, `scripts/session_bootstrap.sh`, `tests/test_cleanup_stale_worktrees.sh` 新規 | 2026-04-30 22:16 | yes |
