@@ -601,6 +601,13 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   padding: 1px 6px;
   margin-left: 2px;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+/* T2026-0501-A: velocityScore 数値表示の段階別配色。
+   <3: low（薄色） / 3-14: rising（橙） / 15-49: explode（赤橙） / ≥50: extreme（鮮赤＋強調） */
+.velocity-badge.velocity-low {
+  background: rgba(148,163,184,.15);
+  color: var(--text-muted, #64748b);
 }
 .velocity-badge.velocity-rising {
   background: linear-gradient(90deg, #f97316, #fb923c);
@@ -610,6 +617,13 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   background: linear-gradient(90deg, #dc2626, #f97316);
   color: #fff;
   box-shadow: 0 0 4px rgba(220, 38, 38, 0.4);
+}
+.velocity-badge.velocity-extreme {
+  background: linear-gradient(90deg, #b91c1c, #dc2626);
+  color: #fff;
+  box-shadow: 0 0 6px rgba(220, 38, 38, 0.55);
+  font-size: .68rem;
+  padding: 1px 7px;
 }
 /* T191: カード単位フレッシュネスバッジ — 「今動いているか」を即時可視化 */
 .freshness-badge { font-size: .64rem; font-weight: 600; color: var(--text-muted); background: rgba(148,163,184,.12); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
