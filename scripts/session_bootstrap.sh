@@ -160,6 +160,15 @@ else
   fi
 fi
 
+# ---- 4b. .claude/worktrees/ stale worktree 検知 (T264) ----
+# WORKING.md の 8h TTL とは別軸で、worktree ディレクトリ自体の stale 検出を行う。
+# session_bootstrap.sh 経由では --dry-run で「削除候補の一覧表示のみ」。
+# 実削除は手動 (`bash scripts/cleanup_stale_worktrees.sh`) で発火させる。
+# 失敗は silent (exit 0 保証)。
+if [ "$DRY_RUN" = "0" ] && [ -x scripts/cleanup_stale_worktrees.sh ]; then
+  bash scripts/cleanup_stale_worktrees.sh --dry-run 2>/dev/null | grep -E '^\[CLEANUP_WORKTREE\]' || true
+fi
+
 # ---- 5. TASKS.md 取消線→HISTORY.md ----
 if [ "$DRY_RUN" = "1" ]; then
   if [ -f TASKS.md ]; then
