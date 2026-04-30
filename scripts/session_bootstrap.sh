@@ -32,8 +32,9 @@ case " $* " in *" --dry-run "*) DRY_RUN=1 ;; esac
 # 新セッションでは存在せず「❌ repo not found」で起動チェック自体が失敗した。
 # 修正: glob で `/sessions/*/mnt/ai-company` を探索し、最初に見つかったものを使う。
 REPO="${REPO:-}"
-if [ -z "$REPO" ] || [ ! -d "$REPO" ]; then
-  REPO=""
+# REPO が明示的に渡されていれば、その値を尊重する（負のテスト互換のため）。
+# 未指定のときだけ自動検出に進む。
+if [ -z "$REPO" ]; then
   # 1. 現在のスクリプト位置から git toplevel を解決（worktree 含めどこから呼ばれても効く）
   GIT_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel 2>/dev/null || true)"
   if [ -n "$GIT_ROOT" ] && [ -d "$GIT_ROOT" ]; then
