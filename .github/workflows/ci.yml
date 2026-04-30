@@ -414,3 +414,9 @@ jobs:
           # 引用 (「気を付ける」禁止 等) と否定文は除外。
           # 仕組み的対策はテキストルールでなく CI / hook / metric / SLI / scripts で物理化する。
           bash scripts/check_soft_language.sh
+
+      - name: SLI フィールド ↔ 実装スキーマ 乖離検出 (T2026-0429-M)
+        run: |
+          # freshness-check.yml の t.get('FOO') と proc_ai.py / handler.py の生成フィールド名を
+          # 突合し、SLI が常に 0% を測ってしまう「situation 0% 問題」型の事故を物理ガード。
+          bash scripts/check_sli_field_coverage.sh
