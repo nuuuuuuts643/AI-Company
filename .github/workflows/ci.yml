@@ -249,6 +249,28 @@ jobs:
           # ルールは最終手段。落ちる仕組みでブロックする。
           bash scripts/check_section_sync.sh
 
+      - name: PII 検査（個人情報のコード直書き禁止）
+        run: |
+          # 公開リポジトリに owner の username/email が残らないよう物理ガード。
+          # 検出パターン: OWNER / owner / owner643
+          # 除外（パターンを意図的に保持するファイル）:
+          #   - scripts/security_audit.sh — A1 監査の grep パターン
+          #   - done.sh — security 系タスクの PII grep
+          #   - .github/workflows/ci.yml — このチェック自体
+          HITS=$(git ls-files \
+            | xargs grep -lE "OWNER|mrkm\\.naoya|owner643" 2>/dev/null \
+            | grep -v "^scripts/security_audit\.sh$" \
+            | grep -v "^done\.sh$" \
+            | grep -v "^\.github/workflows/ci\.yml$" \
+            || true)
+          if [ -n "$HITS" ]; then
+            echo "::error::PII (owner username/email) detected in tracked files:"
+            echo "$HITS" | sed 's/^/   /'
+            echo "::error::Use \$HOME / git rev-parse --show-toplevel / placeholder instead."
+            exit 1
+          fi
+          echo "✅ PII 検査 OK"
+
       - name: 設計指針キーワードの一貫性検査
         run: |
           # 2026-04-28 更新: 旧「AI 7セクション分析」「始まり→広まってる→…」は廃止。

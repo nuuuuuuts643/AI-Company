@@ -56,3 +56,7 @@ projects/P003-news-timeline/lambda/fetcher/sgmllib3k-*.dist-info/
 projects/P003-news-timeline/lambda/fetcher/*.so
 .claude/worktrees/
 .claude/worktrees/ # 念のため
+
+# 個人情報・ローカル専用ファイル（公開リポに置かない）
+.claude/settings.json
+HISTORY.md

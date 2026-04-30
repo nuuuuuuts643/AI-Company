@@ -20,8 +20,8 @@
 # ⚡ セッション開始
 
 ```bash
-rm -f /Users/OWNER/ai-company/.git/index.lock
-cd /Users/OWNER/ai-company
+rm -f ~/ai-company/.git/index.lock
+cd ~/ai-company
 git add -A && git commit -m "chore: sync $(date '+%Y-%m-%d %H:%M')" || true
 git pull --rebase origin main || true
 git push || true
@@ -32,7 +32,7 @@ git log --oneline -5 -- CLAUDE.md
 
 # ⚡ 起動後の自動タスク実行
 
-`cat /Users/OWNER/ai-company/TASKS.md` → 状態が「未着手」のタスクを優先度順で実行。
+`cat ~/ai-company/TASKS.md` → 状態が「未着手」のタスクを優先度順で実行。
 
 各タスクで以下を順守:
 1. WORKING.md の stale (8h 超) を削除
