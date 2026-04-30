@@ -1,0 +1,118 @@
+name: Fetcher health (連続2h 0件保存検知)
+
+# T2026-0430-H で追加。
+#
+# 背景: 2026-04-30 まで Decimal バグで 3 日間 0 件保存が続いても誰も気付かなかった。
+# freshness SLI は 12h 周期だったため最大 72h の検知遅延。
+#
+# 仕組み:
+#   1h ごとに CloudWatch メトリクス P003/Fetcher.FetcherSavedArticles の
+#   過去 2 時間合計 (Sum) を取得し、< 1 (= 連続 4 run で 0 件) なら Slack 警告。
+#   CloudWatch Alarm + SNS email と並走する第二の検知経路。
+#   handler.py の [FETCHER_HEALTH] JSON ログ + scripts/setup_fetcher_alarm.sh の
+#   Metric Filter が前提。
+
+on:
+  schedule:
+    - cron: '23 * * * *'   # 毎時 23 分 UTC（他の workflow と被らない時刻）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: FetcherSavedArticles past 2h sum
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: get-metric-statistics と判定
+        id: probe
+        shell: bash
+        run: |
+          set -u
+          END_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          START_TIME=$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+            || python3 -c "import datetime as dt; print((dt.datetime.utcnow()-dt.timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M:%SZ'))")
+
+          RESULT=$(aws cloudwatch get-metric-statistics \
+            --namespace P003/Fetcher \
+            --metric-name FetcherSavedArticles \
+            --start-time "$START_TIME" \
+            --end-time "$END_TIME" \
+            --period 7200 \
+            --statistics Sum \
+            --output json 2>/dev/null || echo '{"Datapoints":[]}')
+
+          SUM=$(echo "$RESULT" | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          pts = d.get('Datapoints', [])
+          if not pts:
+              print(-1)  # メトリクスゼロ件 = MetricFilter 未設定 or 一切走ってない
+          else:
+              print(int(sum(p['Sum'] for p in pts)))
+          ")
+
+          if [ "$SUM" = "-1" ]; then
+            STATUS=no_data
+          elif [ "$SUM" -lt 1 ]; then
+            STATUS=zero_articles
+          else
+            STATUS=healthy
+          fi
+
+          {
+            echo "status=$STATUS"
+            echo "sum=$SUM"
+            echo "start_time=$START_TIME"
+            echo "end_time=$END_TIME"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "🩺 FetcherSavedArticles 過去2h合計=${SUM}件 status=${STATUS} window=${START_TIME}〜${END_TIME}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Slack に警告 (連続2h 0件 / メトリクス欠損)
+        if: steps.probe.outputs.status != 'healthy'
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
+          STATUS: ${{ steps.probe.outputs.status }}
+          SUM: ${{ steps.probe.outputs.sum }}
+          START_TIME: ${{ steps.probe.outputs.start_time }}
+          END_TIME: ${{ steps.probe.outputs.end_time }}
+        shell: bash
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "SLACK_WEBHOOK 未設定。CI ログのみで通知"
+            exit 0
+          fi
+          LOG_URL='https://ap-northeast-1.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252Fp003-fetcher'
+          ALARM_URL='https://ap-northeast-1.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#alarmsV2:alarm/P003-Fetcher-Zero-Articles-2h'
+          PAYLOAD=$(STATUS="$STATUS" SUM="$SUM" START_TIME="$START_TIME" END_TIME="$END_TIME" LOG_URL="$LOG_URL" ALARM_URL="$ALARM_URL" python3 -c "
+          import json, os
+          status = os.environ['STATUS']
+          headline = '🚨 *Flotopic fetcher が 2 時間 0 件保存*' if status == 'zero_articles' else '⚠️ *Flotopic fetcher メトリクス欠損*'
+          text = (
+              f'{headline}\n'
+              f'• status: \`{status}\`\n'
+              f'• 過去2h saved_articles 合計: \`{os.environ[\"SUM\"]}\` 件\n'
+              f'• 観測窓: {os.environ[\"START_TIME\"]} 〜 {os.environ[\"END_TIME\"]}\n'
+              f'• fetcher ログ: {os.environ[\"LOG_URL\"]}\n'
+              f'• Alarm: {os.environ[\"ALARM_URL\"]}\n'
+              '\n_T2026-0430-H fetcher-health-check.yml からの通知 (CloudWatch Alarm と並走)_'
+          )
+          print(json.dumps({'text': text, 'username': 'Flotopic Fetcher Monitor', 'icon_emoji': ':rotating_light:'}))
+          ")
+          curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
+
+      - name: zero_articles 判定で job を赤くする
+        if: steps.probe.outputs.status == 'zero_articles'
+        shell: bash
+        run: |
+          echo "::error::Fetcher Lambda が連続 2 時間 0 件保存です (合計=${{ steps.probe.outputs.sum }})。"
+          exit 1
