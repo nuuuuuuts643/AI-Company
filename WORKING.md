@@ -105,3 +105,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0430-FRESH fresh24h=18.75% 根本調査 | 調査 | TASKS.md, scripts/* | 2026-04-30 23:48 | no |
