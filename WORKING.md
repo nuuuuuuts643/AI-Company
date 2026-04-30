@@ -105,4 +105,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0428-K env dry-run CI | Code | scripts/session_bootstrap.sh, .github/workflows/env-scripts-dryrun.yml | 2026-04-30 22:32 | yes |
