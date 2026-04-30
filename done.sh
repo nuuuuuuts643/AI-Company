@@ -14,7 +14,7 @@ set +e
 TASK_ID=${1:?タスクIDを指定してください（例: bash done.sh T028 lambda:p003-processor）}
 VERIFY_TARGET=${2:-}
 
-cd /Users/murakaminaoya/ai-company
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo "$HOME/ai-company")"
 
 echo "=== ${TASK_ID} 完了処理開始 ==="
 

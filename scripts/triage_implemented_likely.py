@@ -26,6 +26,7 @@ import argparse
 import glob
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -36,7 +37,19 @@ def _candidates() -> list[Path]:
     env_repo = os.environ.get("REPO")
     if env_repo:
         cand.append(Path(env_repo))
-    cand.append(Path("/Users/murakaminaoya/ai-company"))
+    # スクリプト位置から git toplevel を解決（worktree 含めどこから呼ばれても効く）
+    try:
+        script_dir = Path(__file__).resolve().parent
+        out = subprocess.check_output(
+            ["git", "-C", str(script_dir), "rev-parse", "--show-toplevel"],
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+        if out:
+            cand.append(Path(out))
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    home_repo = Path.home() / "ai-company"
+    cand.append(home_repo)
     for p in glob.glob("/sessions/*/mnt/ai-company"):
         cand.append(Path(p))
     cand.append(Path(os.getcwd()))

@@ -1,7 +1,7 @@
 # ⚡ セッション開始時に必ず最初に実行すること
 
 ```bash
-bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
+bash ~/ai-company/scripts/session_bootstrap.sh
 ```
 
 これ 1 本で以下が走る（詳細は `docs/rules/global-baseline.md` §3）:
@@ -33,7 +33,7 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 
 ## ⚡ 起動後の自動タスク実行
 
-**実行前に必ず**: `docs/project-phases.md` で現在フェーズと完了条件を確認 → `cat /Users/murakaminaoya/ai-company/TASKS.md` で未着手を取得 → **現在フェーズに紐付くタスクを優先**して実行する。各セクション直下の `<!-- フェーズN -->` コメントが帰属判断の根拠。フェーズ1 完了条件未達のうちは、フェーズ2/3 のタスクは原則着手しない（ナオヤ明示指示があれば例外）。
+**実行前に必ず**: `docs/project-phases.md` で現在フェーズと完了条件を確認 → `cat ~/ai-company/TASKS.md` で未着手を取得 → **現在フェーズに紐付くタスクを優先**して実行する。各セクション直下の `<!-- フェーズN -->` コメントが帰属判断の根拠。フェーズ1 完了条件未達のうちは、フェーズ2/3 のタスクは原則着手しない（PO 明示指示があれば例外）。
 
 各タスクで以下を順守:
 
@@ -45,7 +45,7 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 3. **実装する**
 4. **完了したら WORKING.md から自分の行を削除し commit & push**
 
-ナオヤから新指示があれば優先。未着手なし → 「タスクなし、待機中」と報告して待機。
+POから新指示があれば優先。未着手なし → 「タスクなし、待機中」と報告して待機。
 
 ---
 
@@ -71,14 +71,14 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 | **新規外部システム統合の3ステップ** | ①公式ドキュメント通読 ②外部が独立に読みに来る全ファイルをリスト化 ③外部管理画面で「Verified」確認 | 思想 |
 | **対症療法ではなく根本原因** | band-aid より API 設計修正 | 思想 |
 | **なぜなぜは構造化 + 横展開チェックリスト追記** | Why1〜Why5 + 仕組み的対策 3 つ以上 + `docs/lessons-learned.md` の「横展開チェックリスト」表に 1 行追加（実装ファイルパスを書く）。CI `check_lessons_landings.sh` で landing 物理検証 | 物理 |
-| **deploy.sh は直接実行しない** | デプロイは GitHub Actions 任せ。インフラ新規作成のみ例外でナオヤ確認 | 思想 |
+| **deploy.sh は直接実行しない** | デプロイは GitHub Actions 任せ。インフラ新規作成のみ例外でPO確認 | 思想 |
 
 ### 中断ルール（2026-04-28 PM 制定）
 
 | 規則 | 内容 |
 |---|---|
-| **完了まで走る** | コードセッションは完了まで走り切る。「止める？再開する？」をナオヤに聞かない |
-| **中断条件** | 中断してナオヤに確認するのは「**実装の前提が根本的に変わった場合**」のみ。文言の好み・デザインの揺らぎは中断理由にしない |
+| **完了まで走る** | コードセッションは完了まで走り切る。「止める？再開する？」をPOに聞かない |
+| **中断条件** | 中断してPOに確認するのは「**実装の前提が根本的に変わった場合**」のみ。文言の好み・デザインの揺らぎは中断理由にしない |
 | **金がかかる場合** | 例外: 新規 AWS リソース作成 / API 課金 / 不可逆操作（DB drop 等）は事前確認 |
 
 ---
@@ -114,7 +114,7 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 
 ## ⚡ Cowork ↔ Code 連携ルール
 
-**Dispatch（Cowork スマホ/デスクトップ）= ナオヤから指示を受け取り、コードセッションをキューで管理し、完了を報告する。判断は最小化する。**
+**Dispatch（Cowork スマホ/デスクトップ）= POから指示を受け取り、コードセッションをキューで管理し、完了を報告する。判断は最小化する。**
 
 両方が同一リポジトリに git push する。役割分担:
 
@@ -126,7 +126,7 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 **Cowork / Dispatch（スマホ・デスクトップ）**:
 - `CLAUDE.md` `WORKING.md` `TASKS.md` `HISTORY.md` のドキュメント更新
 - CloudWatch 確認・S3 データ参照・ステータス報告
-- ナオヤとの会話・分析・計画立案
+- POとの会話・分析・計画立案
 - コードファイル編集も可（WORKING.md 明記してから）
 - git 操作も可（push 前に lock 退避: `mv .git/*.lock .git/_garbage/`）
 
@@ -135,8 +135,8 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 | 規則 | 内容 |
 |---|---|
 | **同時起動上限** | Dispatch から起動するコードセッション = **同時 1 件まで**（Dispatch 自身含め 2 件以内）。新規タスクは前セッション完了までキューに積む |
-| **完了まで走る** | コードセッションは完了まで走り切ってから報告する。「止める？再開する？」を Dispatch がナオヤに聞かない |
-| **中断条件** | 中断してナオヤに確認するのは「**実装の前提が根本的に変わった場合**」のみ。それ以外は判断コストゼロで完走 |
+| **完了まで走る** | コードセッションは完了まで走り切ってから報告する。「止める？再開する？」を Dispatch がPOに聞かない |
+| **中断条件** | 中断してPOに確認するのは「**実装の前提が根本的に変わった場合**」のみ。それ以外は判断コストゼロで完走 |
 | **セッション名規則** | コードセッション名は「**何を commit するか**」が一目で分かる名前。✅「CI 構文チェック fix」 ❌「調査」「作業」 |
 | **物理担保** | `session_bootstrap.sh` が `[Code]` 行 2 件以上を ERROR で出す（既存 WARN を ERROR 化）。WORKING.md の並走 ≥2 件常態化はフェーズ 1 完了の阻害要因 |
 
@@ -171,7 +171,7 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 ## ⚡ 絶対ルール（毎セッション遵守）
 
 - 決まったことは会話で終わらせず即ファイルに書く
-- URL の確認・デプロイ確認は自分でやる（ナオヤに聞かない）
+- URL の確認・デプロイ確認は自分でやる（POに聞かない）
 - 「書きました」「やります」の宣言は信用されない。ファイル存在が証拠
 - 空報告禁止
 - 実装した≠動いている。実際にエンドユーザーが使えて初めて完了

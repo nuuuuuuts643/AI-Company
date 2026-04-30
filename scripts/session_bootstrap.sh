@@ -34,8 +34,12 @@ case " $* " in *" --dry-run "*) DRY_RUN=1 ;; esac
 REPO="${REPO:-}"
 if [ -z "$REPO" ] || [ ! -d "$REPO" ]; then
   REPO=""
-  if [ -d "/Users/murakaminaoya/ai-company" ]; then
-    REPO="/Users/murakaminaoya/ai-company"
+  # 1. 現在のスクリプト位置から git toplevel を解決（worktree 含めどこから呼ばれても効く）
+  GIT_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -n "$GIT_ROOT" ] && [ -d "$GIT_ROOT" ]; then
+    REPO="$GIT_ROOT"
+  elif [ -d "$HOME/ai-company" ]; then
+    REPO="$HOME/ai-company"
   else
     # Cowork VM 環境: session ID は不定なので glob で発見
     for cand in /sessions/*/mnt/ai-company; do

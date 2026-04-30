@@ -138,7 +138,7 @@ hook インストール: `bash scripts/install_hooks.sh`（clone 直後 1 回）
 
 | プロダクト | CLAUDE.md | 固有ルール先 |
 |---|---|---|
-| P003 Flotopic | `/Users/murakaminaoya/ai-company/CLAUDE.md` | `docs/rules/bug-prevention.md` `docs/rules/design-mistakes.md` |
+| P003 Flotopic | `~/ai-company/CLAUDE.md` | `docs/rules/bug-prevention.md` `docs/rules/design-mistakes.md` |
 | P002 Flutter | `projects/P002-flutter-game/briefing.md` | （未整備）|
 
 ---

@@ -28,30 +28,22 @@ section() { echo ""; echo "═══ $* ═══"; }
 audit_pii() {
   section "A. PII スキャン（コード内個人情報）"
 
-  # A1. 個人名パターン（コードファイル）
-  log_info "A1. 個人名パターンをスキャン中..."
-  PII_HITS=$(grep -rn \
-    --include="*.py" --include="*.js" --include="*.html" --include="*.yml" --include="*.yaml" \
-    -E "(naoya|mrkm|murakaminaoya|村上)" \
-    "$REPO_ROOT" \
-    --exclude-dir=".git" \
-    --exclude-dir="node_modules" \
-    2>/dev/null | \
-    grep -v "security_audit.sh\|security-audit.yml" | \
-    wc -l)
+  # A1. 個人名パターン（git-tracked な全ファイル — docs/script/ops/proposals 等も含む）
+  log_info "A1. 個人名パターンを git-tracked 全ファイルでスキャン中..."
+  cd "$REPO_ROOT"
+  PII_FILES=$(git ls-files 2>/dev/null \
+    | xargs grep -lE "(naoya|mrkm|murakaminaoya|村上)" 2>/dev/null \
+    | grep -v "^scripts/security_audit\.sh$" \
+    | grep -v "^\.github/workflows/security-audit\.yml$" \
+    | grep -v "^\.github/workflows/ci\.yml$" \
+    | grep -v "^HISTORY\.md$" \
+    || true)
+  PII_HITS=$(echo -n "$PII_FILES" | grep -c '^' || true)
 
   if [ "$PII_HITS" -gt 0 ]; then
     # 件数のみ報告（内容をログに出さない）
-    log_warn "A1: 個人名パターン $PII_HITS 件検出。詳細: grep -rn 'naoya|mrkm|murakaminaoya|村上' (除外: .git, node_modules, 監査ファイル自身)"
-    grep -rn \
-      --include="*.py" --include="*.js" --include="*.html" --include="*.yml" --include="*.yaml" \
-      -E "(naoya|mrkm|murakaminaoya|村上)" \
-      "$REPO_ROOT" \
-      --exclude-dir=".git" \
-      --exclude-dir="node_modules" \
-      2>/dev/null | \
-      grep -v "security_audit.sh\|security-audit.yml" | \
-      sed 's/:[^:]*@[^:]*//g' | head -20 || true
+    log_warn "A1: 個人名パターン $PII_HITS 件のファイルで検出（git-tracked 全体スキャン）"
+    echo "$PII_FILES" | head -20 | sed 's/^/     /'
   else
     log_ok "A1: 個人名パターン 検出なし"
   fi
