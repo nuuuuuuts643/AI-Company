@@ -101,3 +101,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T-keypoint-prompt PR #36 マージ + T2026-0429-I 完了マーク | merge+docs | TASKS.md, HISTORY.md | 2026-04-30 15:25 JST | no |
