@@ -710,13 +710,22 @@ def _build_media_comparison_block(articles: list, max_count: int = 3) -> str:
 
 def _generate_story_full(articles: list, cnt: int) -> dict | None:
     """6件以上: フル7セクション + 因果タイムライン（最大6件）。Tool Use で structured output 強制。
-    記事数が多い大型トピック向け。Sonnet 4.6 を使い keyPoint/backgroundContext/perspectives 等の
-    記述品質を底上げする (minimal/standard は Haiku 据え置き)。
+    記事数が多い大型トピック向け。
+    T-haiku-full (2026-04-30): Sonnet 4.6 → Haiku 4.5 に統一しコスト 91% 削減。
+    Haiku は Sonnet より指示追従が弱いため、user prompt 先頭に「最重要・必ず守る」ブロックを
+    入れて keyPoint/perspectives/outlook の品質を担保する。
     T2026-0428-AL: 上位3記事の全文を取得し perspectives の比較根拠とする。
     T2026-0428-AJ: 共通プロンプトは _SYSTEM_PROMPT に集約 (cache_control 対象)。"""
     headlines, _ = _build_headlines(articles, limit=10)
     media_block = _build_media_comparison_block(articles, max_count=3)
     prompt = (
+        '【最重要: 必ず守ること】\n'
+        '1. keyPoint は必ずフェーズ判定に従って書く（記事1件=初動3要素 / 2件以上=変化4文構成）。\n'
+        '2. 一般論・抽象論・「〜が注目される」「〜に影響を与える」「動向に注目」は禁止。\n'
+        '3. 具体的な固有名詞・数字・変化を必ず含める。\n'
+        '4. 書けない場合は空文字 ("") を返す（無理に埋めない）。100 字未満で埋めるより空文字が良い。\n'
+        '5. perspectives は 2〜3 社を等しく扱う。1 社だけ詳述は禁止。論調差が薄ければ「概ね同様」と書く。\n'
+        '6. outlook / forecast の文末に必ず [確信度:高] / [確信度:中] / [確信度:低] のいずれかを付ける。\n\n'
         f'【今回のモード: full (記事 {cnt} 件)】\n'
         'phase は「拡散 / ピーク / 現在地 / 収束」のみ (発端は禁止)。timeline は 3〜6 件出力。\n'
         'forecast は必ず出力する (確信度タグ必須)。\n'
@@ -726,13 +735,12 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         + (f'\n{media_block}' if media_block else '')
     )
     try:
-        # T2026-0428-AL: 全文ブロック注入で prompt が ~6000 字伸びるため timeout を 60s に拡張
-        # (旧 25s では Sonnet 4.6 + 1700 max_tokens の生成が間に合わず full mode が
-        # まるごと失敗 → fallback で None になり aiGenerated=False のまま放置されていた)
+        # T2026-0428-AL: 全文ブロック注入で prompt が ~6000 字伸びるため timeout を 60s に拡張。
+        # T-haiku-full (2026-04-30): Haiku 4.5 に切替後も media_block で prompt が長いため 60s 維持。
         schema = _build_story_schema('full')
         result = _call_claude_tool(
             prompt, 'emit_topic_story', schema,
-            max_tokens=1700, timeout=60, model='claude-sonnet-4-6',
+            max_tokens=1700, timeout=60,
             system=_SYSTEM_PROMPT,
         )
         if not result or not str(result.get('aiSummary') or '').strip():
