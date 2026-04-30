@@ -39,6 +39,10 @@
     - 全 88/92 が 48h+ のため top20 全件フレッシュ化は物理不可（fetcher 側で新規記事流入が低調なのは別タスク）
   - **検証**: node --check pass / npm run test:unit (136 tests pass) / CI 全 16 pass / Verified: https://flotopic.com/api/topics.json:200:2026-04-30T16:08+0900
   - **次タスク示唆**: `calc_velocity_score` の 2h 窓が狭すぎて全 92 トピックが velocityScore=0 になる問題は別途要調査（スコープ外）。
+  - **本番効果再検証 (2026-04-30 16:15 JST, https://flotopic.com/api/topics.json n=92)**: `Verified-Effect: velocity_decay stale48h=17/20 fresh24h=1/20 pearson=+0.499 top20_mean_age=66.1h data_pool_48h+=89/92`
+    - ソートロジックは設計通り維持（pearson +0.50, top20 mean age 66h）。
+    - 絶対値 stale=17/20 は **目標 ≤3 未達だがソート由来ではない** — data 92 件中 89 件が 48h+ で、24h 以内は 1 件のみ。これは fetcher 側の新規記事流入が低調な上流データ供給問題で、ソート側で挽回不可能。
+    - 結論: PR #39 の sort 改修は完了状態を維持。データ供給強化は別スコープ（freshness SLI で観測中）。
 
 ### 完了済み（2026-04-30 15:50 JST T2026-0429-K Bluesky投稿品質改善 — 24h重複・古トピック排除）
 
