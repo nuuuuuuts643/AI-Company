@@ -8,11 +8,11 @@
 
 ## 起動時に読む順序（順序を変えるな）
 
-1. `cat /Users/OWNER/ai-company/CLAUDE.md` — 絶対ルール
-2. `bash /Users/OWNER/ai-company/scripts/session_bootstrap.sh` — 起動チェック
-3. `cat /Users/OWNER/ai-company/docs/system-status.md` — 現状スナップショット
+1. `cat ~/ai-company/CLAUDE.md` — 絶対ルール
+2. `bash ~/ai-company/scripts/session_bootstrap.sh` — 起動チェック
+3. `cat ~/ai-company/docs/system-status.md` — 現状スナップショット
 4. **本ファイル** — schedule-task の動作プロトコル
-5. `cat /Users/OWNER/ai-company/TASKS.md` — 最優先 unblocked タスク
+5. `cat ~/ai-company/TASKS.md` — 最優先 unblocked タスク
 
 ---
 

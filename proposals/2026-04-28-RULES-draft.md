@@ -1,6 +1,6 @@
 # RULES.md (ドラフト・採用候補)
 
-> 採用される場合 `/Users/OWNER/ai-company/RULES.md` として配置。CLAUDE.md からはこのファイルへリンクのみ。
+> 採用される場合 `~/ai-company/RULES.md` として配置。CLAUDE.md からはこのファイルへリンクのみ。
 > 上限 200 行。超えたら統廃合または LESSONS.md 移動を必ず行う。
 
 ## 絶対ルール 7 か条
@@ -17,8 +17,8 @@
 
 ```bash
 # 1. git lock 削除 → 同期
-rm -f /Users/OWNER/ai-company/.git/index.lock
-cd /Users/OWNER/ai-company
+rm -f ~/ai-company/.git/index.lock
+cd ~/ai-company
 git add -A && git commit -m "chore: sync $(date '+%F %H:%M')" 2>/dev/null
 git pull --rebase origin main
 git push 2>/dev/null
