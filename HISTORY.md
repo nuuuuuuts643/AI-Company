@@ -4,6 +4,23 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-30 16:10 JST T2026-0429-M SLIフィールド ↔ 実装スキーマ 乖離検出 CI）
+
+- ✅ **PR [#40](https://github.com/nuuuuuuts643/AI-Company/pull/40) merged (commit 9da2703)** — `ci(T2026-0429-M): SLIフィールド ↔ 実装スキーマ 乖離検出CI`
+  - **背景**: 「situation 0% / background 0%」型の SLI 形骸化を物理ガード化。freshness-check.yml が AI フィールド充填率を測定しているが、proc_ai.py 側でフィールド削除されていることに気付かず 0% を測り続ける事故が過去に発生（lessons-learned「success-but-empty 横展開」）。
+  - **実装**:
+    1. `scripts/check_sli_field_coverage.sh` 新規 — Python で 3 ソース突合
+       - freshness-check.yml の `t.get('FIELD')` パターン抽出
+       - proc_ai.py `_build_story_schema` の Tool Use schema フィールド抽出
+       - handler.py `ai_updates[tid] = {...}` の LHS キー抽出
+       - + builder allowlist (`articleCount` / `lifecycleStatus` / `lastUpdated` 等)
+       - 上記 3 つのいずれにも含まれないフィールドが SLI 側で測定されていれば exit 1
+    2. `.github/workflows/ci.yml` content-drift-guard ジョブに新ステップ追加
+    3. `.github/workflows/freshness-check.yml` から死んだ `background` / `backgroundContext` measurement を削除（2026-04-28 の 4軸再編で proc_ai.py:392 から削除済のため、本 CI ガード実装中に検出された）
+    4. `docs/rules/bug-prevention.md` にルール追記
+  - **検証**: ローカル pass / 意図的に bogus field 挿入 → ERROR で exit 1 確認 / CI 全 15 pass + 5 skipping
+  - **完了条件達成**: 「意図的にフィールド名をずらしたとき ERROR になること」を bash 一時パッチで確認済
+
 ### 完了済み（2026-04-30 16:10 JST T2026-0429-L velocityScore 減衰強化 — 古いトピックを上位から排除）
 
 - ✅ **PR [#39](https://github.com/nuuuuuuts643/AI-Company/pull/39) merged** — `fix(T2026-0429-L): velocityScore減衰強化 — 古いトピックを上位から排除`
