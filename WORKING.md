@@ -11,9 +11,10 @@
 > 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**直近のPO指示** (2026-04-30): 「継続稼働」「コスト上げるな」「改善」「小さな綻びを見落とすな」「収益化に向け引き続き頼む。評価する仕組みが(いる)」「フェーズタスク進行は任せる」
+**直近のPO指示** (2026-05-01): 「ユーザー体験周りの評価が弱い・改善が機能してるか不明・トピックが無難・表題に惹きがない」+「正確性/リーガル制約も加味」+「ジャンル/トピック単位プロンプト分岐」+「PR放置するな」
 
-**本日完了PR (2026-04-30)**: #46-65 大量完了。主要: #61 keyPoint backfill先頭挿入修正(~87件1日消化) / #62 UX週次検証CI / #63 favicon.ico 404解消 / #64 perspectives min80字強制 / #65 収益計測インフラ(revenue_check.sh + revenue-log.md + revenue-sli.yml)
+**本日完了PR (2026-05-01)**: #69 (T2026-0501-C) 開発中: タイトルプロンプト改善 (角度+緊張感+リーガル制約) / scripts/qualitative_eval.sh + .github/workflows/qualitative-eval.yml / docs/quality-scores.md (初回 baseline=2.33/5, perspectives=1.0 が最弱) / generate_story に genre 引数貫通 → perspectives ジャンル別 actor 指定 (Phase 1)
+**滞留PR triage (2026-05-01 01:55)**: #63 ✅ merged / #61 ✅ merged (auto-merge) / #65, #64 auto-merge enabled・update-branch 後 CI 待ち / #69 file-conflict guard 待ち (#64 merge 後に rebase 要否確認)
 
 **次のアクション（スケジューラー待ち）**: 05/01 05:30 JST→processor実行(keyPoint/perspectives効果測定) / 05/01 07:00 JST→UX/revenue-sli週次実行 / 05/01 08:03 JST→SLI朝チェック
 
@@ -107,4 +108,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-C タイトルプロンプト改善+定性評価CI | feature | lambda/processor/proc_ai.py, scripts/qualitative_eval.sh, .github/workflows/qualitative-eval.yml, docs/quality-scores.md | 2026-05-01 01:30 JST | needs-push: yes |
+
