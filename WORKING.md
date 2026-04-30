@@ -99,4 +99,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0430-C fetcher停滞調査+修正+app.js hasAIBonus 24h制限 | bug-fix | projects/P003-news-timeline/lambda/fetcher/*, frontend/app.js | 2026-04-30 19:33 | yes |
