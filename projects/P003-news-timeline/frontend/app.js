@@ -895,11 +895,15 @@ async function refreshTopics() {
       if (len < 50) return 0.85;  // 中央 70%: 軽微なペナルティ (n=69/92)
       return 1.0;                 // 上位 5%: ペナルティなし (n=6/92)
     };
-    // hasAI: aiGenerated=true (or generatedSummary 存在) かつ keyPoint>=50字 → 2x ボーナス
+    // hasAI: aiGenerated=true (or generatedSummary 存在) かつ keyPoint>=50字 かつ age<24h → 2x ボーナス
+    // T2026-0430-C: age<24h の追加。fetcher 停滞時に古いトピックの hasAIBonus が
+    // 上位を占有して新着が埋もれる事故を物理的に抑える対症療法。
     const hasAI = t => {
       const kpLen = ((t.keyPoint || '') + '').trim().length;
       const aiOk  = (t.aiGenerated === true) || !!t.generatedSummary;
-      return aiOk && kpLen >= 50;
+      const ts = toUnixSec(t.lastUpdated);
+      const ageH = ts ? (nowSec2 - ts) / 3600 : Infinity;
+      return aiOk && kpLen >= 50 && ageH < 24;
     };
     const hasAIBonus = t => hasAI(t) ? 2.0 : 1.0;
     // velocityScore は 0 が常態化しているため、score を主軸にしつつ vs は 5x で混入

@@ -581,7 +581,7 @@ def lambda_handler(event, context):
             'mediaCount':      media,
             'hatenaCount':     hb,
             'score':           score,
-            'diversityScore':  _div_mult,
+            'diversityScore':  Decimal(str(_div_mult)),
             'velocity':        Decimal(str(velocity)),
             'velocityScore':   Decimal(str(velocity_score)),
             'lastUpdated':     ts_iso,
