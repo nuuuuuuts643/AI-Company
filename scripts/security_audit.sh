@@ -32,7 +32,7 @@ audit_pii() {
   log_info "A1. 個人名パターンを git-tracked 全ファイルでスキャン中..."
   cd "$REPO_ROOT"
   PII_FILES=$(git ls-files 2>/dev/null \
-    | xargs grep -lE "(naoya|mrkm|OWNER|村上)" 2>/dev/null \
+    | xargs grep -lE "(n[a]oya|mr[k]m|m[u]rakaminaoya|村上)" 2>/dev/null \
     | grep -v "^scripts/security_audit\.sh$" \
     | grep -v "^\.github/workflows/security-audit\.yml$" \
     | grep -v "^\.github/workflows/ci\.yml$" \

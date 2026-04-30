@@ -91,10 +91,11 @@ if [ -n "$VERIFY_TARGET" ]; then
             # セキュリティ系タスクのときは PII grep で内容も検証する
             if [ "$IS_SECURITY" = "1" ]; then
                 echo "  → セキュリティ系: レスポンス本文の PII grep を実行"
-                PII_HITS=$(grep -ic "OWNER\|mrkm\.naoya\|owner643" "$BODY_FILE" || true)
+                # character class escape — filter-repo safe
+                PII_HITS=$(grep -ic "m[u]rakaminaoya\|mr[k]m\.naoya\|n[a]oya643" "$BODY_FILE" || true)
                 if [ "${PII_HITS:-0}" -gt 0 ]; then
                     echo "  ❌ PII 検出: ${PII_HITS} 件"
-                    grep -in "OWNER\|mrkm\.naoya\|owner643" "$BODY_FILE" | head -5 | sed 's/^/     /'
+                    grep -in "m[u]rakaminaoya\|mr[k]m\.naoya\|n[a]oya643" "$BODY_FILE" | head -5 | sed 's/^/     /'
                     rm -f "$BODY_FILE"
                     exit 1
                 fi
