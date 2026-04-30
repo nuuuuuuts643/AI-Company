@@ -87,7 +87,18 @@ class MinimalSchemaPerspectivesTest(unittest.TestCase):
                       'cnt=2 のとき perspectives が required に入るべき (Tool Use API が強制)')
         self.assertEqual(schema['properties']['perspectives'].get('minLength'),
                          proc_ai._PERSPECTIVES_MIN_CHARS,
-                         'minLength=60 字 (= _PERSPECTIVES_MIN_CHARS) が指定されているべき')
+                         f'minLength={proc_ai._PERSPECTIVES_MIN_CHARS} 字 (= _PERSPECTIVES_MIN_CHARS) が指定されているべき')
+
+    def test_perspectives_min_chars_at_80(self):
+        """T2026-0430-K: perspectives 最小文字数は 80 字。
+
+        60 字下限では「概ね同様の論調」だけの短文 fallback が量産され
+        2 媒体の論調差を示す目的が果たせなかった。80 字に上げて
+        「論点・取り上げ方の重心」を 1 文ずつ書く情報量を強制する。
+        定数を下げる変更が来たらこのテストで物理的に検出する。
+        """
+        self.assertEqual(proc_ai._PERSPECTIVES_MIN_CHARS, 80,
+                         '_PERSPECTIVES_MIN_CHARS は 80 (T2026-0430-K)')
 
     def test_minimal_cnt1_excludes_perspectives(self):
         schema = proc_ai._build_story_schema('minimal', cnt=1)
