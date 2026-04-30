@@ -105,3 +105,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0428-Q success-but-empty スキャン | Code | scripts/scan_success_but_empty.py, .github/workflows/success-but-empty-scan.yml, TASKS.md | 2026-04-30 22:42 JST | yes |
