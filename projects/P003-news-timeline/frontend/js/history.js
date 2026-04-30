@@ -34,17 +34,25 @@ async function loadCloudHistory() {
         : (h.viewedAt || Date.now()),
     }));
     const local = readLocalHistory();
-    // マージ: topicIdで重複排除、viewedAt新しい方を優先
-    const merged = [...cloudItems, ...local].reduce((acc, item) => {
-      const existing = acc.find(a => a.topicId === item.topicId);
-      if (!existing) { acc.push(item); }
-      else if ((item.viewedAt || 0) > (existing.viewedAt || 0)) {
-        Object.assign(existing, item);
-      }
-      return acc;
-    }, []);
-    merged.sort((a, b) => (b.viewedAt || 0) - (a.viewedAt || 0));
+    // マージ: topicIdで重複排除、viewedAt新しい方を優先 (純粋ロジックは ViewedHistory.mergeHistory)
+    const merged = (typeof ViewedHistory !== 'undefined' && ViewedHistory.mergeHistory)
+      ? ViewedHistory.mergeHistory(cloudItems, local)
+      : [...cloudItems, ...local].reduce((acc, item) => {
+          const existing = acc.find(a => a.topicId === item.topicId);
+          if (!existing) { acc.push(item); }
+          else if ((item.viewedAt || 0) > (existing.viewedAt || 0)) {
+            Object.assign(existing, item);
+          }
+          return acc;
+        }, []).sort((a, b) => (b.viewedAt || 0) - (a.viewedAt || 0));
     saveLocalHistory(merged);
+    // T2026-0501-B: クラウド側 viewedAt を viewedTopics Map に再反映 + 必要なら再描画。
+    // これをやらないと、別デバイスで見たトピックが本デバイスでグレーアウトされない (PO 指摘)。
+    if (typeof loadViewedTopics === 'function') loadViewedTopics();
+    if (typeof allTopics !== 'undefined' && Array.isArray(allTopics) && allTopics.length
+        && typeof renderTopics === 'function') {
+      try { renderTopics(allTopics); } catch {}
+    }
   } catch {}
 }
 
