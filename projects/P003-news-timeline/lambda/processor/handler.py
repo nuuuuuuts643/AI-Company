@@ -288,7 +288,10 @@ def lambda_handler(event, context):
         needs_title = (cnt >= MIN_ARTICLES_FOR_TITLE
                        and not (topic.get('aiGenerated') and gen_title))
         if needs_title:
-            new_title = generate_title(articles)
+            # T2026-0501-C: 既知ジャンル(再処理時)があれば角度ヒントとして渡す。
+            # 初回処理時 (gen_story 未生成) は None になり「総合」ヒントが使われる。
+            existing_genre = topic.get('genre') or (topic.get('genres') or [None])[0]
+            new_title = generate_title(articles, genre=existing_genre)
             api_calls += 1
             time.sleep(1.5)
             if new_title:
@@ -348,7 +351,9 @@ def lambda_handler(event, context):
             except Exception as _e:
                 pass  # パース失敗時は通常処理
         if needs_story and api_calls < effective_max_api_calls:
-            new_story = generate_story(articles, article_count=cnt)
+            # T2026-0501-C-2: 既知ジャンル(再処理時)を perspectives アクター指定に渡す。
+            existing_genre = topic.get('genre') or (topic.get('genres') or [None])[0]
+            new_story = generate_story(articles, article_count=cnt, genre=existing_genre)
             api_calls += 1
             time.sleep(1.5)
             if new_story:
