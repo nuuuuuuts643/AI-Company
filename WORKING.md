@@ -100,4 +100,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0429-N PRテンプレ改善 + 係数根拠必須化 | Code | .github/pull_request_template.md, scripts/check_param_basis.sh, .github/workflows/ci.yml | 2026-04-30 16:18 JST | yes |
