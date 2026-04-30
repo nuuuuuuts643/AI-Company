@@ -1,6 +1,7 @@
 import json
 import re
 import time
+import unicodedata
 import urllib.request
 import boto3
 import xml.etree.ElementTree as ET
@@ -191,13 +192,51 @@ _TITLE_DEDUP_LIVE_PREFIX_RE = re.compile(r'^(中継|速報|更新|独自|詳報|
 
 
 def _title_dedup_key(title: str) -> str:
-    """generatedTitle / title の正規化キーを返す。空文字は ''。"""
+    """generatedTitle / title の正規化キーを返す。空文字は ''。
+
+    T2026-0430-L: NFKC 正規化を追加。
+    `米ＧＤＰ` (全角) と `米GDP` (半角) を同一キーに揃え、半角/全角差で
+    別 tid が生まれるのを防ぐ。
+    """
     if not title:
         return ''
-    s = str(title).lower()
+    s = unicodedata.normalize('NFKC', str(title))
+    s = s.lower()
     s = _TITLE_DEDUP_PUNCT_RE.sub('', s)
     s = _TITLE_DEDUP_LIVE_PREFIX_RE.sub('', s)
     return s[:18]
+
+
+# T2026-0430-L: title 完全一致 dedup を超える Jaccard 類似度マージ。
+# 「米GDP速報値2.0%増 1〜3月期」 vs 「米GDP年率2.0%増 4四半期連続のプラス成長」
+# のような同イベントの異なる切り口を既存 AI topic に紐付ける。
+_JACCARD_TITLE_THRESHOLD = 0.35  # cluster_utils と同じ閾値
+_JACCARD_RECENT_TOPICS_MAX = 200  # 計算量上限 (200 * group数)
+
+
+def _title_bigrams(title: str) -> frozenset:
+    """タイトルから bigram set を返す。NFKC 正規化 + 句読点除去後に作る。"""
+    if not title:
+        return frozenset()
+    s = unicodedata.normalize('NFKC', str(title)).lower()
+    s = _TITLE_DEDUP_PUNCT_RE.sub('', s)
+    s = _TITLE_DEDUP_LIVE_PREFIX_RE.sub('', s)
+    if len(s) < 2:
+        return frozenset()
+    return frozenset(s[i:i+2] for i in range(len(s) - 1))
+
+
+def _jaccard_title_sim(a: str, b: str) -> float:
+    """2 つのタイトルの bigram Jaccard 類似度。0.0〜1.0。"""
+    bg_a = _title_bigrams(a)
+    bg_b = _title_bigrams(b)
+    if not bg_a or not bg_b:
+        return 0.0
+    inter = bg_a & bg_b
+    union = bg_a | bg_b
+    if not union:
+        return 0.0
+    return len(inter) / len(union)
 
 
 def _resolve_tid_collisions_by_title(group_tids, existing_topics):
@@ -225,6 +264,10 @@ def _resolve_tid_collisions_by_title(group_tids, existing_topics):
     now_ts = int(time.time())
     cutoff_ts = now_ts - 14 * 86400
     title_to_tid = {}
+    # T2026-0430-L: AI 生成済 active topic を Jaccard fallback の候補として保持。
+    # (tid, title, ts) の tuple list。直近の AI topic を優先するため
+    # lastArticleAt 降順で _JACCARD_RECENT_TOPICS_MAX 件に絞る。
+    ai_topic_candidates: list = []
     for t in existing_topics:
         tid_e = t.get('topicId', '')
         if not tid_e:
@@ -238,11 +281,23 @@ def _resolve_tid_collisions_by_title(group_tids, existing_topics):
             norm = _title_dedup_key(src_title)
             if norm and norm not in title_to_tid:
                 title_to_tid[norm] = tid_e
+        if t.get('aiGenerated'):
+            best_title = t.get('generatedTitle') or t.get('title') or ''
+            if best_title:
+                ai_topic_candidates.append((tid_e, best_title, last))
 
-    if not title_to_tid:
+    if not title_to_tid and not ai_topic_candidates:
         return group_tids
 
+    ai_topic_candidates.sort(key=lambda x: x[2], reverse=True)
+    ai_topic_candidates = ai_topic_candidates[:_JACCARD_RECENT_TOPICS_MAX]
+    # bigram の事前計算 (タイトル別 1 回のみ)
+    ai_topic_bigrams = [
+        (tid_e, ttl, _title_bigrams(ttl)) for tid_e, ttl, _ in ai_topic_candidates
+    ]
+
     rebound = 0
+    rebound_jaccard = 0
     resolved = []
     for g, tid in group_tids:
         candidate = extractive_title(g) or (g[0].get('title', '') if g else '')
@@ -251,9 +306,34 @@ def _resolve_tid_collisions_by_title(group_tids, existing_topics):
         if target and target != tid:
             tid = target
             rebound += 1
+        elif ai_topic_bigrams and candidate:
+            # T2026-0430-L: 完全一致しなかった場合のみ Jaccard fallback で
+            # 既存 AI topic との類似度を確認。0.35 以上で再バインド。
+            cand_bg = _title_bigrams(candidate)
+            if cand_bg:
+                best_sim = 0.0
+                best_tid = None
+                for tid_e, _ttl, ttl_bg in ai_topic_bigrams:
+                    if not ttl_bg:
+                        continue
+                    inter = cand_bg & ttl_bg
+                    if not inter:
+                        continue
+                    union = cand_bg | ttl_bg
+                    if not union:
+                        continue
+                    sim = len(inter) / len(union)
+                    if sim > best_sim:
+                        best_sim = sim
+                        best_tid = tid_e
+                if best_tid and best_sim >= _JACCARD_TITLE_THRESHOLD and best_tid != tid:
+                    tid = best_tid
+                    rebound_jaccard += 1
         resolved.append((g, tid))
     if rebound:
         print(f'[title-dedup] {rebound}/{len(group_tids)} groups rebound to existing tids')
+    if rebound_jaccard:
+        print(f'[title-dedup-jaccard] {rebound_jaccard}/{len(group_tids)} groups merged into AI topics by Jaccard>={_JACCARD_TITLE_THRESHOLD}')
 
     by_tid: dict = {}
     order: list = []
