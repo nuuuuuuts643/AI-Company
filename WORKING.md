@@ -105,3 +105,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0430-REV 収益計測インフラ | feat | scripts/revenue_check.sh, docs/revenue-log.md, .github/workflows/revenue-sli.yml, TASKS.md | 2026-04-30 23:36 | yes |
