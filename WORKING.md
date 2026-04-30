@@ -11,15 +11,15 @@
 > 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**直近のPO指示** (2026-04-30): 「継続稼働」「コスト上げるな」「改善」「小さな綻びを見落とすな」「収益化に向け引き続き頼む。評価する仕組みが(いる)」「フェーズタスク進行は任せる」
-
-**本日完了PR (2026-04-30)**: #46-65 大量完了。主要: #61 keyPoint backfill先頭挿入修正(~87件1日消化) / #62 UX週次検証CI / #63 favicon.ico 404解消 / #64 perspectives min80字強制 / #65 収益計測インフラ(revenue_check.sh + revenue-log.md + revenue-sli.yml)
+**直近のPO指示** (2026-05-01): 「ユーザー体験周りの評価が弱い・改善が機能してるか不明・トピックが無難・表題に惹きがない」+「正確性/リーガル制約も加味」+「ジャンル/トピック単位プロンプト分岐」+「PR放置するな」
 
 **次のアクション（スケジューラー待ち）**: 05/01 05:30 JST→processor実行(keyPoint/perspectives効果測定) / 05/01 07:00 JST→UX/revenue-sli週次実行 / 05/01 08:03 JST→SLI朝チェック
 
-**T2026-0430-L 新規追加**: fresh24h=25.4% 根本調査完了。原因=fetcher の `_title_dedup_key` が NFKC 正規化していない + prefix 18字 dedup が同一イベントの異なる切り口記事を捕捉できない (rebound率1-2%)。新記事は新規 tid として湧き既存 AI topic が放置される構造。NFKC追加 + Jaccard類似度判定追加が必要。優先度🔴高。
+**直近 landing**: T2026-0430-L (PR #66, fresh24h NFKC+Jaccard) / T2026-0430-J (PR #61, keyPoint backfill 先頭挿入) / T2026-0501-A (PR #68, すべてタブ+velocityScore) / T2026-0501-B (PR #70, 履歴クロスデバイス同期) / T2026-0501-C (タイトル改善+定性評価CI) — フェーズ2 高優先タスク全消化済。
 
-**現フェーズ**: フェーズ2 (AI品質) + 収益計測基盤 — keyPoint backfill自然消化中・freshness 構造改修待ち
+**現フェーズ**: フェーズ2 (AI品質) + 収益計測基盤 — 高優先実装完了、SLI 効果測定はスケジューラー (05:30/07:00/08:03 JST) 待ち
+
+**直近 SLI 実測 (2026-05-01 04:10 JST P003 自律巡回・公開 topics-card.json サブセット 202件)**: keyPoint>=100字 充填率 29.7% (60/202) — 04/28 ベースライン 10.02% から +19.7pt 改善 / ac>=3 サブ 36.4% (32/88) / kp 平均長 **103.8字** (04/28 43.8字 → +60字、T2026-0430-A `_retry_short_keypoint` 効果顕在化) / **storyPhase 発端率 (ac>=3) 0.0% (0/88) ✅ 完了条件 10% 未満 達成** (T2026-0429-G `normalize_minimal_phase` 効果) / aiGenerated 144件中 kp>=100字 40.3%。**フェーズ2 完了条件は keyPoint 充填率 70% のみ未達**。05:30 JST processor 実行後に再観測。
 
 ---
 
@@ -107,4 +107,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-C タイトルプロンプト改善+定性評価CI | feature | lambda/processor/proc_ai.py, scripts/qualitative_eval.sh, .github/workflows/qualitative-eval.yml, docs/quality-scores.md | 2026-05-01 01:30 JST | needs-push: yes |
+| [Code] T2026-0501-PR-TRIAGE 滞留PR triage と修正 | triage | (調査のみ・必要時 .github/workflows/) | 2026-05-01 06:15 JST | no |
+

@@ -447,7 +447,12 @@ function renderTopicCard(t, i) {
     ? `<div class="card-thumb"><img class="card-thumb-img" src="${esc(safeImgUrl(t.imageUrl))}" alt="" loading="lazy" referrerpolicy="origin-when-cross-origin" onerror="this.parentNode.innerHTML='<div class=\\'card-thumb-placeholder ${displayStatus}\\'>${genreEmoji(primaryGenre)}</div>'"></div>`
     : `<div class="card-thumb"><div class="card-thumb-placeholder ${displayStatus}">${genreEmoji(primaryGenre)}</div></div>`;
   const isFav    = userFavorites.has(t.topicId);
-  const isViewed = viewedTopics.has(t.topicId);
+  // T2026-0501-B: 「viewedAt 後に新記事 (lastArticleAt) が来た」ら グレーアウト解除 + 続報あり バッジ
+  const hasNewArticles = topicHasNewArticles(t);
+  const isViewed = viewedTopics.has(t.topicId) && !hasNewArticles;
+  const continuationBadge = hasNewArticles
+    ? '<span class="card-continuation-badge" title="あなたが見た後に新しい記事が追加されました">📰 続報あり</span>'
+    : '';
 
   // cooling時に「N日前に沈静化」を表示
   const coolingAgeHtml = (() => {
@@ -490,7 +495,7 @@ function renderTopicCard(t, i) {
       <a class="topic-card ${displayStatus}${isViewed ? ' viewed' : ''}${childTopics.length > 0 ? ' has-story' : ''}" href="topic.html?id=${esc(t.topicId)}" data-tid="${esc(t.topicId)}">
         ${thumbHtml}
         <div class="card-body">
-          <div class="topic-status ${displayStatus}">${STATUS_LABEL[displayStatus] || displayStatus}${coolingAgeHtml}${phaseHtml}</div>
+          <div class="topic-status ${displayStatus}">${STATUS_LABEL[displayStatus] || displayStatus}${coolingAgeHtml}${phaseHtml}${continuationBadge}</div>
           ${velMeterHtml}
           <h3>${esc(t.topicTitle || t.generatedTitle || stripMediaSuffix(t.title))}</h3>
           ${t.latestUpdateHeadline ? `<p class="card-update-headline">${esc(t.latestUpdateHeadline)}</p>` : ''}
@@ -1201,27 +1206,47 @@ function showTrendingBanner(topics) {
 // renderDetail, renderDiscovery, trackView, updateOGP 等は detail.js を参照
 
 // ===== 既読管理 =====
+// T2026-0501-B: viewedTopics を Set<topicId> から Map<topicId, viewedAtMs> に拡張。
+// flotopic_history (タイムスタンプ付) を一次ソースとし、新着 lastArticleAt > viewedAt で
+// グレーアウトを解除し「続報あり」バッジを出す (renderTopicCard 参照)。
+// 旧 flotopic_viewed (Set, タイムスタンプ無) は viewedAt=0 sentinel として残し、
+// 新着判定からは除外する (互換性のため: 既存ユーザーで一斉に続報あり化させない)。
 const LS_VIEWED = 'flotopic_viewed';
-let viewedTopics = new Set();
+let viewedTopics = new Map();
 function loadViewedTopics() {
-  try { viewedTopics = new Set(JSON.parse(localStorage.getItem(LS_VIEWED) || '[]')); } catch {}
-  // flotopic_history からも既読IDをマージ（別ルートで記録された閲覧履歴を反映）
-  try {
-    const hist = JSON.parse(localStorage.getItem(LS_KEYS.HISTORY) || '[]');
-    for (const h of hist) if (h && h.topicId) viewedTopics.add(h.topicId);
-  } catch {}
+  // 純粋ロジックは frontend/js/viewed_history.js (ViewedHistory) に集約。
+  // ここは localStorage の取得 + Map への代入のみ。boundary test はモジュール側で実施。
+  const histJson = (() => { try { return localStorage.getItem(LS_KEYS.HISTORY); } catch { return null; } })();
+  const legacyJson = (() => { try { return localStorage.getItem(LS_VIEWED); } catch { return null; } })();
+  if (typeof ViewedHistory !== 'undefined' && ViewedHistory.loadViewedMap) {
+    viewedTopics = ViewedHistory.loadViewedMap(histJson, legacyJson);
+  } else {
+    // フォールバック: モジュール未読み込み時 (テスト環境想定)。本番では発生しない。
+    viewedTopics = new Map();
+  }
 }
 function markViewed(topicId) {
-  viewedTopics.add(topicId);
+  viewedTopics.set(topicId, Date.now());
   try {
-    const arr = [...viewedTopics].slice(-200);
-    localStorage.setItem(LS_VIEWED, JSON.stringify(arr));
+    // 旧 flotopic_viewed Set もタイムスタンプ無で書き残す (互換)
+    const ids = [...viewedTopics.keys()].slice(-200);
+    localStorage.setItem(LS_VIEWED, JSON.stringify(ids));
   } catch {}
   // お気に入りの場合は既読時刻を更新（次回の「更新あり」バッジを消す）
   if (typeof userFavorites !== 'undefined' && userFavorites.has(topicId) && typeof markFavSeen === 'function') {
     const t = (typeof allTopics !== 'undefined' ? allTopics : []).find(x => x.topicId === topicId);
     if (t) markFavSeen(topicId, t.lastUpdated);
   }
+}
+// T2026-0501-B: トピックが「新着あり」(viewedAt 後に新記事追加) かどうか。
+// 純粋ロジックは ViewedHistory.hasNewArticlesAfter (frontend/js/viewed_history.js)。
+function topicHasNewArticles(t) {
+  if (!t || !t.topicId) return false;
+  const viewedAtMs = viewedTopics.get(t.topicId);
+  if (typeof ViewedHistory !== 'undefined' && ViewedHistory.hasNewArticlesAfter) {
+    return ViewedHistory.hasNewArticlesAfter(viewedAtMs, t.lastArticleAt || t.lastUpdated);
+  }
+  return false;
 }
 loadViewedTopics();
 

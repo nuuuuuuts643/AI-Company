@@ -2965,6 +2965,27 @@ details[open] .day-more-btn::before { content: '▼ '; }
 .topic-card.viewed h3 { color: var(--text-muted, #94a3b8); }
 .topic-card.viewed:hover { opacity: .85; }
 
+/* T2026-0501-B: 続報ありバッジ — viewedAt 後に lastArticleAt が更新された既読トピックに付与。
+   topic-status 行内に inline で配置。控えめだが目を引く色 (オレンジ) で「新着あり」を示す。 */
+.card-continuation-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  background: #f97316;
+  color: #fff;
+  font-size: .68rem;
+  font-weight: 700;
+  border-radius: 999px;
+  letter-spacing: .02em;
+  vertical-align: middle;
+  box-shadow: 0 1px 4px rgba(249,115,22,0.35);
+  animation: new-pulse 2.4s ease-in-out infinite;
+}
+[data-theme="dark"] .card-continuation-badge {
+  background: #fb923c;
+  color: #1a1a2e;
+}
+
 /* ===== Back to top ===== */
 .back-to-top-btn {
   position: fixed;

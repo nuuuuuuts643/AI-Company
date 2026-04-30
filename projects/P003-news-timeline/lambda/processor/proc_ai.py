@@ -126,34 +126,103 @@ def clean_headline(title):
     return re.sub(r'\s*[-－–|｜]\s*[^\s].{1,20}$', '', title).strip()
 
 
-def generate_title(articles):
-    """Claude Haiku でトピックタイトルを生成。"""
+# T2026-0501-C-2: ジャンル別の perspectives アクター定義。
+# 初回 qualitative_eval で perspectives_score=1.0 (全件) と判明し、原因の一つが
+# 「視点ホルダー = メディア各社」固定設計だった (政治/科学トピックで媒体差が出にくい)。
+# PO 指示 (2026-05-01): genre ベースで視点ホルダーを動的に切り替えるための辞書。
+# 中期: トピック単位 (entity_type=person/company/policy/product 等) の差し替えに発展する足場。
+_GENRE_PERSPECTIVE_ACTORS = {
+    '政治': '与党 / 野党 / 市民 / 専門家 (政治学者・元官僚) / 利害関係省庁',
+    'ビジネス': '経営者・企業側 / 投資家・株主 / 消費者・取引先 / 業界アナリスト / 規制当局',
+    '株・金融': '市場 (短期トレーダー) / 機関投資家 / 中央銀行・規制当局 / アナリスト / 個人投資家',
+    'テクノロジー': '開発者・エンジニア / 企業・プラットフォーマー / 規制当局・政府 / エンドユーザー / 競合プレイヤー',
+    '科学': '研究者・学界 / 応用先業界 (医療・産業) / 政策担当者 / 一般市民・倫理委員会',
+    '健康': '医療従事者 / 患者・家族 / 製薬・医療機器企業 / 規制当局・PMDA / 保険者',
+    '国際': '当事国政府 / 周辺国・同盟国 / 国際機関 (UN/IMF 等) / 民間 (現地市民・経済界) / 安全保障専門家',
+    '社会': '当事者・被害者 / 加害者側 / 行政・自治体 / 専門家・支援団体 / 一般市民の世論',
+    'スポーツ': '選手・チーム / 監督・コーチ / リーグ・運営 / ファン・市場 / 競合チーム',
+    'エンタメ': '当事者・出演者 / 制作側・所属事務所 / ファン / 業界 (レーベル・配信) / 評論・批評家',
+    'くらし': '当事者世帯・消費者 / 行政 / 関連業界 / 専門家・研究者 / 自治体',
+    'グルメ': '店側・料理人 / 食通・批評家 / 一般客 / 食材生産者 / 業界 (流通)',
+    'ファッション': 'ブランド側 / バイヤー・小売 / 消費者・愛好家 / 評論家・編集 / 業界アナリスト',
+    '総合': '当事者 / 関係省庁・自治体 / 専門家 / 一般世論 / 関連業界',
+}
+
+
+# T2026-0501-C: ジャンル別の角度ヒント。将来ジャンル別プロンプト分岐の足場。
+# 現状は単一プロンプト本体に追加注入する形。新ジャンルを増やすときはここに 1 行追加。
+_GENRE_TITLE_HINTS = {
+    '政治':         '対立軸・票差・与野党のスタンス・政策決定のスピードを軸に角度を出す',
+    'ビジネス':     '業績インパクト・市場シェア・買収/提携・売上の前年比を軸に角度を出す',
+    '株・金融':     '価格・%変動・予想とのギャップ・市場の織り込みを軸に角度を出す',
+    'テクノロジー': '性能差・既存プレイヤーへの脅威・採用速度・規制リスクを軸に角度を出す',
+    '科学':         '発見の意外性・既存学説への影響・応用可能性を軸に角度を出す',
+    '健康':         '有効性データ・副作用・対象患者・既存治療との比較を軸に角度を出す',
+    '国際':         '対立軸・力学変化・経済波及・周辺国の反応を軸に角度を出す',
+    '社会':         '当事者の状況・影響範囲・行政対応の遅速を軸に角度を出す',
+    'スポーツ':     '記録・ライバル関係・タイトル獲得への影響を軸に角度を出す',
+    'エンタメ':     '話題性・反響規模・関係者の反応を軸に角度を出す',
+    'くらし':       '生活への影響・対象世帯・コスト変動を軸に角度を出す',
+    'グルメ':       '味/価格/独自性・予約難易度・行列規模を軸に角度を出す',
+    'ファッション': 'トレンド・価格帯・ブランド戦略を軸に角度を出す',
+    '総合':         '事実の意外性・連鎖反応・予想とのギャップを軸に角度を出す',
+}
+
+
+def generate_title(articles, genre: str | None = None):
+    """Claude Haiku でトピックタイトルを生成。
+
+    Args:
+        articles: 元記事リスト (title, description, pubDate を見る)。
+        genre:    既知ジャンル ('政治' / 'ビジネス' 等)。プロンプト内に角度ヒントとして
+                  注入する。None の場合は『総合』のヒントを使う。将来ジャンル別の
+                  完全分岐に拡張するための引数 (T2026-0501-C, PO 指示)。
+    """
     if not ANTHROPIC_API_KEY:
         return None
     headlines = '\n'.join(clean_headline(a.get('title', '')) for a in articles[:8])
+    genre_hint = _GENRE_TITLE_HINTS.get(genre or '', _GENRE_TITLE_HINTS['総合'])
     prompt = (
         '以下はニュース記事の見出しです。\n'
-        'これらが共通して報じているトピックを表す、**初見ユーザーが見出し1行で「何の話か」一発で分かる**日本語タイトルを作ってください。\n\n'
-        '【最重要ルール: 一発理解性】\n'
-        '- 必ず「主語(誰/何が)」+「目的語(何を/何の)」+「動詞 or 状態」を含める\n'
-        '- 「〇〇をめぐる最新の動き」「〇〇問題まとめ」のような **何の話か特定できない曖昧な締め方は絶対禁止**\n'
-        '- 商品名/組織名/事件名だけでは不十分。「何が起きたか」「何の問題か」を必ず添える\n'
-        '- 例(❌→✅):\n'
+        'これらが共通して報じているトピックを、読者が「**続きを読みたい**」と感じる魅力的な日本語タイトルにしてください。\n\n'
+        '【最重要: 角度と緊張感を加える】\n'
+        '事実を正確に伝えつつ、「何が引っかかるのか」「なぜ今動いたのか」を1フレーズで表現する。\n'
+        '安全な要約ではなく、ニュースの「角度」(intrigue / tension / hook) を出す。\n'
+        '- 数字があれば必ず入れる(GDP、株価、票差、件数、年限 等)\n'
+        '- 対立軸・予想とのギャップ・連鎖反応・電撃性・矛盾 を見出しに織り込む\n'
+        '- 「——」「、」で前段(事実)+後段(意味/含意)の二段構造にすると惹きが出る\n'
+        f'- ジャンル別の切り口ヒント【{genre or "総合"}】: {genre_hint}\n\n'
+        '【⚖ 正確性・リーガル制約 (絶対遵守)】\n'
+        '- タイトルは記事に書かれた事実のみを根拠にする。記事に書かれていないことを推測で書かない\n'
+        '- 名誉毀損になる断定は禁止: 「〜が不正」「〜は詐欺」「〜が虚偽」「〜が違法」\n'
+        '  → 司法判断や当局発表が記事内に明示されている場合のみ「〜の疑いで送検」「〜と発表」等の引用形式で記述\n'
+        '- 個人/企業の人格・能力を貶める表現は禁止: 「無能」「破綻寸前」「失墜」等の主観評価\n'
+        '- 「煽り」と「角度」は別物: 角度=事実から自然に出る含意 / 煽り=事実を超えた断定\n\n'
+        '【❌ 禁止: 平坦な要約】\n'
+        '- 末尾が「〜について」「〜が発表」「〜を決定」「〜まとめ」「〜の動き」で終わるタイトル\n'
+        '- 「〇〇が△△した」だけで終わる起承転結なしの中立タイトル\n'
+        '- 商品名/組織名/事件名だけ並べた告知文(「○○、新製品発表」レベルは弱い)\n'
+        '- 「速報」「続報」「最新」など時事マーカーで誤魔化す\n\n'
+        '【✅ 改善例(平坦→惹きあり、いずれも事実ベース)】\n'
+        '  ❌「米国GDPが発表される」\n'
+        '  ✅「米GDP、予想割れ2.0%——市場の利下げ観測が一気に動く」\n'
+        '  ❌「政府が方針を決定」\n'
+        '  ✅「政府、○○を電撃決定——業界に反発の声」\n'
         '  ❌「イラン・トランプ政権の対立をめぐる最新の動き」\n'
         '  ✅「核合意修復で対立する米イラン、パキスタン仲介の行方」\n'
         '  ❌「プラスチック危機をめぐる最新の動きまとめ」\n'
         '  ✅「プラスチック汚染削減条約、主要国の対立で交渉難航」\n'
         '  ❌「ソニーREON POCKET PRO Plus わかりやすく解説」\n'
-        '  ✅「ソニーREON POCKET PRO Plus、首掛け冷暖房デバイス発表」\n'
+        '  ✅「ソニーの首掛け冷暖房新型——猛暑対策市場で先手」\n'
         '  ❌「安保3文書の改定内容と論点をわかりやすく解説」\n'
-        '  ✅「安保3文書改定、防衛費GDP比2%目標と反撃能力をめぐる論点」\n\n'
+        '  ✅「安保3文書改定、GDP比2%目標と反撃能力で割れる与野党」\n\n'
         '【その他ルール】\n'
-        '- 18〜35文字程度のタイトル\n'
-        '- 記事タイトルをそのままコピーしないこと\n'
-        '- メディア名（例: 毎日新聞、NHK等）は絶対に含めないこと\n'
+        '- 20〜35文字。短く力強く、20字台前半を目指す\n'
+        '- 必ず「主語(誰/何が)」+「動詞 or 状態」を含める。曖昧な締めは禁止\n'
+        '- 記事タイトルをそのままコピーしない(抽象化・統合する)\n'
+        '- メディア名(毎日新聞、NHK等)は絶対に含めない\n'
         '- 固有名詞・核心キーワードを必ず含める\n'
-        '- 「速報」「続報」は使わない\n'
-        '- 説明文・句読点・かぎかっこ不要。タイトルのみ1行で出力\n\n'
+        '- 説明文・かぎかっこ不要。タイトルのみ1行で出力\n\n'
         f'見出し:\n{headlines}'
     )
     _REFUSAL = ('申し訳', 'できません', 'ありません', 'ください', '提供いただいた', '異なる',
@@ -248,6 +317,34 @@ _GENRES_PROMPT = (
 )
 
 
+def _build_perspective_actor_hint(genre):
+    """T2026-0501-C-2: genre に応じた perspectives アクター指定をユーザープロンプトに注入。
+
+    既存のシステムプロンプト (cache 対象) は `[メディア名]は〜` 構文を例示しているが、
+    政治/科学/テクノロジー等のジャンルではメディア各社の論調差が出にくく、
+    perspectives_score=1.0 (qualitative_eval 初回 baseline) の主因になっていた。
+    この関数はユーザープロンプトに「ジャンル別アクター候補 + 視点ホルダーの選び方」を
+    1 ブロック追加し、_SYSTEM_PROMPT を変更せずキャッシュを保ちつつ視点を多様化する。
+
+    Args:
+        genre: トピックの主ジャンル文字列 (例: '政治', '株・金融')。None or 未知は『総合』扱い。
+
+    Returns:
+        str: ユーザープロンプトに直結するブロック。空文字を返さず必ず 1 ブロック返す。
+    """
+    actors = _GENRE_PERSPECTIVE_ACTORS.get(genre or '', _GENRE_PERSPECTIVE_ACTORS['総合'])
+    return (
+        '【perspectives アクター指定 (T2026-0501-C-2)】★最優先で従うこと\n'
+        f'このトピックは【{genre or "総合"}】系。視点ホルダーは「メディア各社」固定ではなく、\n'
+        f'  → 候補: {actors}\n'
+        'の中から実際に立場が異なる 2〜3 アクターを選び、各 60 字以上で論調差を書く。\n'
+        '記法: 「[アクター名] は〜」(例: 「与党は〜と支持、野党は〜と反対、市民は〜と懸念」)。\n'
+        '記事内に該当アクターの発言・反応がない場合は「(○○について記事内で言及なし)」と明示する。\n'
+        '★ 媒体名 (朝日/産経 等) を視点ホルダーに使うのは、他に立場の異なるアクターがいない時の最終手段。\n'
+        '\n'
+    )
+
+
 def _validate_genres(raw):
     """AI が返した genres を _VALID_GENRE_SET 内に絞り込む。
     - 文字列が来たら 1 要素配列扱い
@@ -316,12 +413,18 @@ def _sanitize_timeline(raw_timeline, max_items: int = 6) -> list:
     return sanitized
 
 
-def generate_story(articles, article_count: int | None = None):
+def generate_story(articles, article_count: int | None = None, genre: str | None = None):
     """記事数に応じた段階的ストーリー分析を生成。
 
     - 1〜2件 / storyTimeline ≤ 2ステップ相当: シンプルな1段落要約のみ
     - 3〜5件: 概要 + なぜ広がったか + 短いタイムライン（2〜3件）
     - 6件以上: フル4セクション + 因果タイムライン（最大6件）
+
+    Args:
+        articles: 元記事リスト
+        article_count: 件数 (省略時 len(articles))
+        genre: 既知ジャンル (再処理時)。perspectives アクター指定に使われる。
+               T2026-0501-C-2: PO 指示で追加。trial: ジャンル単位で視点ホルダー切替。
 
     Returns:
         dict: {"aiSummary", "spreadReason", "forecast", "timeline", "phase", "summaryMode"}
@@ -334,11 +437,11 @@ def generate_story(articles, article_count: int | None = None):
     cnt = article_count if article_count is not None else len(articles)
 
     if cnt <= 2:
-        return _generate_story_minimal(articles)
+        return _generate_story_minimal(articles, genre=genre)
     elif cnt <= 5:
-        return _generate_story_standard(articles, cnt)
+        return _generate_story_standard(articles, cnt, genre=genre)
     else:
-        return _generate_story_full(articles, cnt)
+        return _generate_story_full(articles, cnt, genre=genre)
 
 
 _VALID_PHASES = ['発端', '拡散', 'ピーク', '現在地', '収束']
@@ -351,7 +454,14 @@ _KEYPOINT_MIN_CHARS = 100
 # 旧スキーマは keyPoint のみ minLength を持ち、他フィールドは「150字以内」等の上限のみで
 # 実測 watchPoints 平均 38 字 / outlook 41 字 / perspectives 47 字程度の薄さに留まっていた。
 # 最低文字数を schema に書くと Tool Use validation が schema 違反で再要求するため物理ガードになる。
-_PERSPECTIVES_MIN_CHARS = 60
+# T2026-0430-K (2026-04-30): perspectives 60→80 字に引き上げ。
+# 60 字下限では「概ね同様の論調で〜」だけの 65 字前後 fallback が量産され、
+# UX 検証で「2 媒体の論調差を示す」目的が果たせていなかった。実測:
+#   - aiGenerated active topics 477 件中 80 字未満 364 件 (76.3%) — 目標 60% 未満。
+#   - 内訳: 60-79 字短文 13 件はほぼ全てが「概ね同様の論調」テンプレ fallback。
+# 80 字に上げると Tool Use API が schema 違反を再要求するため物理ガード。
+# プロンプトの「60 字以上 必須」表現も全て「80 字以上 必須」に統一する。
+_PERSPECTIVES_MIN_CHARS = 80
 _WATCHPOINTS_MIN_CHARS = 80   # ① 〇〇 ② △△ の 2 項目分 (各 40 字目安) の合計
 _OUTLOOK_MIN_CHARS = 60
 
@@ -418,7 +528,7 @@ def _build_story_schema(mode: str, *, cnt: int = 1) -> dict:
             base_props['perspectives'] = {
                 'type': 'string',
                 'minLength': _PERSPECTIVES_MIN_CHARS,
-                'description': '2 媒体の見解を「[メディア名] は〜」の構文で並列列挙 (**60 字以上 必須**)。各社の本文 (ある場合) を根拠にし、推測ではなく実際の論調差を抽出する。論調差が薄い場合は「概ね同様の論調」と書く。',
+                'description': '2 媒体の見解を「[メディア名] は〜」の構文で並列列挙 (**80 字以上 必須**)。各社の本文 (ある場合) を根拠にし、推測ではなく実際の論調差を抽出する。論調差が薄い場合でも単なる「概ね同様の論調」では不可。各社が何に焦点を当てているか (扱う論点・取り上げ方の重心) を 1 文ずつ書き、最後に「両社で論調差は限定的」と結ぶ等、80 字以上の情報量を確保する。',
             }
             required.append('perspectives')
     else:
@@ -432,7 +542,7 @@ def _build_story_schema(mode: str, *, cnt: int = 1) -> dict:
             'minLength': _WATCHPOINTS_MIN_CHARS,
             'description': 'これからの注目ポイントを複数軸で簡潔に案内する(80〜150字)。**80 字以上 必須**。断言や予測は避け「ここを見ておくといい」という観察視点を提示する。形式: ①〇〇の進捗 ②△△の対応 ③□□の動向 のように 2〜3 項目を ① ② ③ 番号付きで列挙し、各項目を 40 字程度の説明で書く。outlook (AI予想) とは役割が異なり、こちらは「どこを見るべきか」のガイドに徹する。',
         }
-        base_props['perspectives'] = {'type': 'string', 'minLength': _PERSPECTIVES_MIN_CHARS, 'description': '各社の懸念・可能性・着目点を並列列挙(2〜3社・60字以上)。**60 字以上 必須**。例: 朝日は経済への打撃を懸念、産経は安全保障上の利益を指摘、毎日は外交プロセスの不透明性に着目。'}
+        base_props['perspectives'] = {'type': 'string', 'minLength': _PERSPECTIVES_MIN_CHARS, 'description': '各社の懸念・可能性・着目点を並列列挙(2〜3社・**80 字以上 必須**)。各社が何に焦点を当てているか(扱う論点・取り上げ方の重心)を 1 文ずつ書く。論調差が薄くても短文 fallback (例: 「概ね同様」だけで終わる) は禁止。例: 朝日は経済への打撃を懸念し関税試算を主軸にする、産経は安全保障上の利益を指摘し防衛装備の前向きな影響を強調、毎日は外交プロセスの不透明性に着目し交渉経緯を詳述する。'}
         base_props['phase'] = {'type': 'string', 'enum': _VALID_PHASES}
         base_props['timeline'] = {
             'type': 'array',
@@ -643,7 +753,7 @@ def _process_keypoint_quality(result: dict, articles: list, cnt: int,
     _emit_keypoint_metric(mode, result.get('keyPoint'), retried=retried)
 
 
-def _generate_story_minimal(articles: list) -> dict | None:
+def _generate_story_minimal(articles: list, genre: str | None = None) -> dict | None:
     """1〜2件: シンプルな1段落要約のみ生成（APIコスト最小）。Tool Use で structured output 強制。
     T2026-0428-AJ: 共通プロンプトは _SYSTEM_PROMPT に集約 (cache_control 対象)。
     T2026-0430-G (2026-04-30): cnt>=2 のときは perspectives も生成 (2 媒体の論調差)。
@@ -663,15 +773,17 @@ def _generate_story_minimal(articles: list) -> dict | None:
     schema_hint = (
         'phase / timeline / statusLabel / watchPoints は schema 上存在しないため出力しない。\n'
         'aiSummary・keyPoint・outlook・perspectives・topicTitle・latestUpdateHeadline・isCoherent・topicLevel・genres のみを schema に従って出力する。\n'
-        '【perspectives】2 媒体の見解を「[メディア名] は〜」の構文で並列列挙 (**60 字以上 必須**)。論調差が薄ければ「概ね同様の論調」と書く。1 社だけ詳述は禁止。\n'
+        '【perspectives】2 媒体の見解を「[メディア名] は〜」の構文で並列列挙 (**80 字以上 必須**)。各社が扱う論点・取り上げ方の重心を 1 文ずつ書く。論調差が薄くても短文 fallback (「概ね同様」だけで終わる) は禁止。差が薄ければ「両社とも〜の事実関係を中心に報じている / 各社の論調差は限定的」のように具体的な共通点と差の大きさまで書く。1 社だけ詳述は禁止。\n'
         if has_perspectives else
         'phase / timeline / perspectives / statusLabel / watchPoints は schema 上存在しないため出力しない。\n'
         'aiSummary・keyPoint・outlook・topicTitle・latestUpdateHeadline・isCoherent・topicLevel・genres のみを schema に従って出力する。\n'
     )
+    perspective_actor_hint = _build_perspective_actor_hint(genre) if has_perspectives else ''
     prompt = (
         f'【今回のモード: minimal (記事 {cnt} 件)】\n'
         + schema_hint
         + keypoint_phase_hint
+        + perspective_actor_hint
         + '\n'
         f'記事情報（{cnt}件）:\n{headlines}'
         + (f'\n{media_block}' if media_block else '')
@@ -729,10 +841,11 @@ _STORY_PROMPT_RULES = (
     '【watchPoints】これからの注目ポイントを複数軸で簡潔に案内 (80〜150字 / **80 字以上 必須**)。断言や予測ではなく「ここを見ておくといい」という観察視点。\n'
     '  形式: ①〇〇の進捗 ②△△の対応 ③□□の動向 のように 2〜3 項目を ① ② ③ 番号付きで列挙し、各項目に 40 字程度の説明を加える。outlook (AI予想) とは役割が異なる。\n'
     '  ★ 観点 1 件は **次回のブランチ判定材料となる注目点**を必ず含める (例: ①新たな主役エンティティが登場するか / 別事案への波及があるか等)。後続記事が来た際の merge/branch 判断を AI が再判定する際の手がかりになる。\n'
-    '【perspectives】2〜3社の見解を「[メディア名] は〜」の構文で並列列挙 (**60 字以上 必須**)。各社の本文 (ある場合) を根拠にし、推測ではなく実際の論調差を抽出する。\n'
+    '【perspectives】2〜3社の見解を「[メディア名] は〜」の構文で並列列挙 (**80 字以上 必須**)。各社の本文 (ある場合) を根拠にし、推測ではなく実際の論調差を抽出する。\n'
     '  - 公平性: 特定メディアの論調に引きずられず、各社を等しく扱う。1社だけ詳しく書くのは禁止。\n'
-    '  - 各社の論調差が薄い場合は無理に違いを作らず「概ね同様の論調 (◯社の本文より)」と書く。\n'
-    '  - 例 (◎): 朝日は経済への打撃を懸念、産経は安全保障上の利益を指摘、毎日は外交プロセスの不透明性に着目。\n'
+    '  - 論調差が薄くても「概ね同様」のみの短文で終わるのは禁止。各社が扱う論点・取り上げ方の重心を 1 文ずつ書き、最後に「両社で論調差は限定的」「各社とも事実関係に終始」のように差の大きさまで明示する。\n'
+    '  - 例 (◎ 80 字超): 朝日は経済への打撃を懸念し関税試算を主軸に置く一方、産経は安全保障上の利益を指摘し防衛装備の前向きな影響を強調する。毎日は外交プロセスの不透明性に着目し交渉経緯を詳述している。\n'
+    '  - 例 (×): 「概ね同様の論調で事実報道している。」(短すぎる/差の有無の説明がない)\n'
     '  - 例 (×): 朝日が「重大な懸念」と強く批判 (1社だけ詳述は偏りに見える)。\n'
     '【outlook】★ AI予想として記述 (**60 字以上 必須**)。1文。〜が予想される/〜の可能性があるで締める。文末に「[確信度:高/中/低]」を必ず付与する (例: 「合意成立の可能性がある [確信度:中]」)。記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低。後で新記事と照合し当否判定するため、検証可能な仮説として書くこと (曖昧な「動向次第」「状況による」は禁止)。\n'
     '【phase判定】このトピックは記事3件以上のため「発端」は選択禁止。選択肢は「拡散/ピーク/現在地/収束」のみ。'
@@ -789,19 +902,21 @@ _SYSTEM_PROMPT = (
 )
 
 
-def _generate_story_standard(articles: list, cnt: int) -> dict | None:
+def _generate_story_standard(articles: list, cnt: int, genre: str | None = None) -> dict | None:
     """3〜5件: Tool Use で structured output 強制 (旧 JSON 構文エラー撲滅)。
     T2026-0428-AL: 上位3記事の全文を取得し perspectives の比較根拠とする。
     T2026-0428-AJ: 共通プロンプトは _SYSTEM_PROMPT に集約 (cache_control 対象)。"""
     headlines, _ = _build_headlines(articles, limit=5)
     media_block = _build_media_comparison_block(articles, max_count=3)
+    perspective_actor_hint = _build_perspective_actor_hint(genre)
     prompt = (
         f'【今回のモード: standard (記事 {cnt} 件)】\n'
         'phase は「拡散 / ピーク / 現在地 / 収束」のみ (発端は禁止)。timeline は最大3件。\n'
         'forecast は schema に存在しないため出力しない (full モードのみ)。\n'
         # T-keypoint-prompt (2026-04-30): 記事 2 件以上は変化フェーズ。
         '【keyPoint のフェーズ判定】記事 2 件以上 = 変化フェーズ → 4 文構成（1文目=今回の変化 / 2文目=以前の状況 / 3文目=追加情報 / 4文目=意味・今後）。1 文目で「何が変わったか」を必ず明示する。書けない場合は空文字を返す。\n\n'
-        f'記事情報（{cnt}件）:\n{headlines}'
+        + perspective_actor_hint
+        + f'記事情報（{cnt}件）:\n{headlines}'
         + (f'\n{media_block}' if media_block else '')
     )
     try:
@@ -847,7 +962,7 @@ def _build_media_comparison_block(articles: list, max_count: int = 3) -> str:
     return '\n'.join(lines)
 
 
-def _generate_story_full(articles: list, cnt: int) -> dict | None:
+def _generate_story_full(articles: list, cnt: int, genre: str | None = None) -> dict | None:
     """6件以上: フル7セクション + 因果タイムライン（最大6件）。Tool Use で structured output 強制。
     記事数が多い大型トピック向け。
     T-haiku-full (2026-04-30): Sonnet 4.6 → Haiku 4.5 に統一しコスト 91% 削減。
@@ -857,20 +972,22 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
     T2026-0428-AJ: 共通プロンプトは _SYSTEM_PROMPT に集約 (cache_control 対象)。"""
     headlines, _ = _build_headlines(articles, limit=10)
     media_block = _build_media_comparison_block(articles, max_count=3)
+    perspective_actor_hint = _build_perspective_actor_hint(genre)
     prompt = (
         '【最重要: 必ず守ること】\n'
         '1. keyPoint は必ずフェーズ判定に従って書く（記事1件=初動3要素 / 2件以上=変化4文構成）。\n'
         '2. 一般論・抽象論・「〜が注目される」「〜に影響を与える」「動向に注目」は禁止。\n'
         '3. 具体的な固有名詞・数字・変化を必ず含める。\n'
         '4. 書けない場合は空文字 ("") を返す（無理に埋めない）。100 字未満で埋めるより空文字が良い。\n'
-        '5. perspectives は 2〜3 社を等しく扱う。1 社だけ詳述は禁止。論調差が薄ければ「概ね同様」と書く。\n'
+        '5. perspectives は 2〜3 アクターを等しく扱う (下記アクター指定参照)。1 アクターだけ詳述は禁止。論調差が薄ければ「概ね同様」と書く。\n'
         '6. outlook / forecast の文末に必ず [確信度:高] / [確信度:中] / [確信度:低] のいずれかを付ける。\n\n'
         f'【今回のモード: full (記事 {cnt} 件)】\n'
         'phase は「拡散 / ピーク / 現在地 / 収束」のみ (発端は禁止)。timeline は 3〜6 件出力。\n'
         'forecast は必ず出力する (確信度タグ必須)。\n'
         # T-keypoint-prompt (2026-04-30): 記事 2 件以上は変化フェーズ。
         '【keyPoint のフェーズ判定】記事 2 件以上 = 変化フェーズ → 4 文構成（1文目=今回の変化 / 2文目=以前の状況 / 3文目=追加情報 / 4文目=意味・今後）。1 文目で「何が変わったか」を必ず明示する。書けない場合は空文字を返す。\n\n'
-        f'記事情報（{cnt}件・見出しと概要）:\n{headlines}'
+        + perspective_actor_hint
+        + f'記事情報（{cnt}件・見出しと概要）:\n{headlines}'
         + (f'\n{media_block}' if media_block else '')
     )
     try:

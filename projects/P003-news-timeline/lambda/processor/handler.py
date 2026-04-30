@@ -193,27 +193,33 @@ def lambda_handler(event, context):
     if effective_max_api_calls != MAX_API_CALLS:
         print(f'[Processor] MAX_API_CALLS オーバーライド: {MAX_API_CALLS} → {effective_max_api_calls} (source={source})')
 
-    # T237 (2026-04-29): fetcher_trigger 経路で空き API budget を keyPoint backfill に使う。
-    # 背景: scheduled cron は 1日2回 (08:00 + 17:00 JST) しか走らず、keyPoint < 100字 の
-    # 既存 topic 補完が 1日 60件 (=2cron×30) しか進まない。fetcher は 30分ごとに走るが、
-    # ゴーストID率が高く実処理対象が極めて少ない (実測 0〜1件/run)。
-    # 結果: 92件の短い keyPoint topic が滞留し、本番 keyPoint 充填率 1.9% で停滞。
-    # 修正: fetcher_trigger 経路で「指定 IDs 数 < effective_max_api_calls」のとき、
-    # 空き枠を get_pending_topics() の優先度順 backfill で埋める。
-    # コスト中立: effective_max_api_calls (=fetcher_trigger なら 10) が上限なので、
-    # 全体の API 呼び出し回数は増えない (ゴーストID で空いた枠の活用)。
-    if topic_id_filter and len(pending) < effective_max_api_calls:
-        backfill_budget = effective_max_api_calls - len(pending)
+    # T237 (2026-04-29) → T2026-0430-J (2026-04-30 改定):
+    # 背景: scheduled cron は 1日2回 (08:30 + 20:30 UTC = JST 17:30 + 05:30) しか走らず、
+    # keyPoint < 100字 の既存 topic 補完が 1日 60件 (=2cron×30) しか進まない。
+    # fetcher は 30分ごとに走るが MAX_API_CALLS=10 (override) で空きが少ない。
+    #
+    # 旧実装 (T237): pending 末尾に backfill 追加。だが API call budget (10) で
+    # 5 topic 処理時点で loop break するため、末尾 backfill は永久に処理されない bug。
+    # 結果: 短い keyPoint 87件 (77.7%) が 2026-04-26〜29 から数日滞留。
+    #
+    # 新実装 (T2026-0430-J): kp-rescue を pending **先頭** に挿入。
+    # KP_RESCUE_PER_RUN=2 件/run × 48 runs/day (fetcher_trigger) = 96 救済/day 上限 →
+    # 87 件は ~1 日で全消化。トレードオフ: fetcher 指定の fresh topic 処理が
+    # 1〜2 件/run 後ろ倒しになるが、次回 fetcher_trigger (30分後) で復帰可能。
+    # コスト: 2 topic × 2 calls = 4 API call/run (既存 budget 10 内なので増加なし)。
+    KP_RESCUE_PER_RUN = 2
+    if topic_id_filter:
         try:
-            backfill = get_pending_topics(max_topics=backfill_budget)
+            rescue = get_pending_topics(max_topics=KP_RESCUE_PER_RUN)
             existing_ids = {p.get('topicId') for p in pending}
-            backfill_added = [b for b in backfill if b.get('topicId') not in existing_ids][:backfill_budget]
-            if backfill_added:
-                pending.extend(backfill_added)
-                print(f'[Processor] fetcher_trigger backfill: 空き枠 {backfill_budget}件 → '
-                      f'{len(backfill_added)}件追加 (合計 {len(pending)}件処理対象)')
+            rescue_added = [r for r in rescue if r.get('topicId') not in existing_ids][:KP_RESCUE_PER_RUN]
+            if rescue_added:
+                pending = rescue_added + pending  # 先頭挿入で確実に処理させる
+                rescue_ids_str = ', '.join((r.get('topicId') or '')[:8] for r in rescue_added)
+                print(f'[Processor] fetcher_trigger kp-rescue: 先頭に {len(rescue_added)}件挿入 '
+                      f'({rescue_ids_str}) — 合計 {len(pending)}件')
         except Exception as e:
-            print(f'[Processor] fetcher_trigger backfill 失敗 (継続): {e}')
+            print(f'[Processor] fetcher_trigger kp-rescue 失敗 (継続): {e}')
 
     api_calls      = 0
     processed      = 0
@@ -282,7 +288,10 @@ def lambda_handler(event, context):
         needs_title = (cnt >= MIN_ARTICLES_FOR_TITLE
                        and not (topic.get('aiGenerated') and gen_title))
         if needs_title:
-            new_title = generate_title(articles)
+            # T2026-0501-C: 既知ジャンル(再処理時)があれば角度ヒントとして渡す。
+            # 初回処理時 (gen_story 未生成) は None になり「総合」ヒントが使われる。
+            existing_genre = topic.get('genre') or (topic.get('genres') or [None])[0]
+            new_title = generate_title(articles, genre=existing_genre)
             api_calls += 1
             time.sleep(1.5)
             if new_title:
@@ -342,7 +351,9 @@ def lambda_handler(event, context):
             except Exception as _e:
                 pass  # パース失敗時は通常処理
         if needs_story and api_calls < effective_max_api_calls:
-            new_story = generate_story(articles, article_count=cnt)
+            # T2026-0501-C-2: 既知ジャンル(再処理時)を perspectives アクター指定に渡す。
+            existing_genre = topic.get('genre') or (topic.get('genres') or [None])[0]
+            new_story = generate_story(articles, article_count=cnt, genre=existing_genre)
             api_calls += 1
             time.sleep(1.5)
             if new_story:
