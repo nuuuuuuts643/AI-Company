@@ -4,6 +4,25 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-30 16:10 JST T2026-0429-L velocityScore 減衰強化 — 古いトピックを上位から排除）
+
+- ✅ **PR [#39](https://github.com/nuuuuuuts643/AI-Company/pull/39) merged** — `fix(T2026-0429-L): velocityScore減衰強化 — 古いトピックを上位から排除`
+  - **問題**: 上位20件中19件が48h+古いトピック（pearson(rank, age)= -0.22）。`hasAI=true` のハード優先 tier により、keyPoint>=50字の48-92h古いトピック6件が上位を占有。スコア減衰係数が緩すぎて、score=20-42の古いトピックが score=4-10の新着を上回っていた。
+  - **修正（`projects/P003-news-timeline/frontend/app.js` のみ）**:
+    1. `hasAI` を hard-tier から **2x 乗算ボーナス** に変更（古いトピックを問答無用で上位に置かない）
+    2. ageDecay を 24h 以降で大幅強化:
+       - 24-48h: 0.40 → **0.20**
+       - 48-72h: 0.20 → **0.05**
+       - ≥72h: 0.10 → **0.02**
+    3. 旧 dual-stage sort（hasAI > vs > score > lastUpdated）を **`(score + 5×velocityScore) × decay × kp × ai × hasAIBonus` 単一スコアの降順ソート** に変更
+  - **実測検証 (n=92, 2026-04-30 06:35 UTC topics.json)**:
+    - **pearson(rank, age): -0.22 → +0.50** （古いほど下位、完了条件「相関 > 0.5 程度」を達成）
+    - top20 平均 age: 79.3h → **65.8h**
+    - フレッシュ4件（<48h）のうち **3件が top20 に浮上**（旧: 1件）
+    - 全 88/92 が 48h+ のため top20 全件フレッシュ化は物理不可（fetcher 側で新規記事流入が低調なのは別タスク）
+  - **検証**: node --check pass / npm run test:unit (136 tests pass) / CI 全 16 pass / Verified: https://flotopic.com/api/topics.json:200:2026-04-30T16:08+0900
+  - **次タスク示唆**: `calc_velocity_score` の 2h 窓が狭すぎて全 92 トピックが velocityScore=0 になる問題は別途要調査（スコープ外）。
+
 ### 完了済み（2026-04-30 15:50 JST T2026-0429-K Bluesky投稿品質改善 — 24h重複・古トピック排除）
 
 - ✅ **PR [#37](https://github.com/nuuuuuuts643/AI-Company/pull/37) merged (commit fbdb5a9)** — `fix(T2026-0429-K): Bluesky重複・古トピック投稿排除`
