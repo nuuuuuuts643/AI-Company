@@ -1,23 +1,24 @@
-"""T2026-0429-J regression test: keyPoint プロンプト強化 + no-retry 仕様の物理ガード。
+"""keyPoint プロンプト・no-retry 仕様の物理ガード。
 
-背景 (2026-04-29 自律巡回 SLI 実測):
-  本番 topics.json で keyPoint 100 字以上は 2/92 = 2.17% のみ。平均 35.6 字で
-  大半が「タイトル風一行」(例: 19〜36 字)。LLM が aiSummary や latestUpdateHeadline と
-  役割を混同しているのが第一原因。
+経緯:
+  T2026-0429-J で「200〜300 字物語固定」を強く指示し、minLength=100 のハード下限を入れたが、
+  本番 SLI は 2/92 = 2.17% のまま停滞 (2026-04-30 観測)。LLM が無理に 200 字を埋めると
+  「一般論で水増し」する症状が発生し、品質が逆に悪化していた。
 
-修正の中身 (T2026-0429-J):
-  1) _STORY_PROMPT_RULES / _SYSTEM_PROMPT に「200 字以上 300 字以内 (目標)」を最重要要件として強調
-  2) _STORY_PROMPT_RULES に worked example (251 字の良い例 + 19/36 字の悪い例) を埋め込み、
-     LLM に「目標尺」を物理的に提示する
-  3) schema の keyPoint に minLength=100 を付与 (ハード下限・先行修正 KP3 から維持)
-  4) ★ 旧 retry ロジック (_retry_short_keypoint) は撤去 — PO指示によりコスト 2x 増を許容しない
-  5) ポスト生成で _emit_keypoint_metric が CloudWatch ログにメトリクスを残す (警告のみ)
+T-keypoint-prompt (2026-04-30) でフェーズ判定方式へ転換:
+  1) _STORY_PROMPT_RULES / _SYSTEM_PROMPT を「フェーズ判定 (記事数) で書き方を変える」方式に書き換え
+     - 記事 1 件 = 初動フェーズ: 3 要素 (何が起きたか / なぜ重要か / 今後)
+     - 記事 2 件以上 = 変化フェーズ: 4 文構成 (今回の変化 / 以前の状況 / 追加情報 / 意味・今後)
+  2) worked example を「関税」「日銀」など具体的な変化を起点にしたものへ差し替え
+  3) schema の minLength を 100 → 0 に変更 (「書けない場合は空文字を返す」エスケープを許容)
+  4) 100 字以上必須は description / prompt 側のガイドとして残し、書ける場合のみ適用
+  5) 旧 retry ロジックは撤去のまま (T2026-0429-J)。再生成によるコスト 2x 増は許容しない
 
 このテストでは API を mock し、以下を物理確認する:
   - generate_story (minimal/standard/full) は **常に 1 回しか _call_claude_tool を呼ばない** (no-retry)
   - keyPoint 短縮時でも結果は dict で返る (None ではなく best effort)
-  - worked example (「世界モデル」) と「200 字以上 300 字以内」が _SYSTEM_PROMPT または _STORY_PROMPT_RULES に存在
-  - schema の minLength=100 が維持されていること
+  - worked example (「関税」「日銀」) とフェーズ判定文言が _STORY_PROMPT_RULES に存在
+  - schema の minLength=0 (空文字を許容) が維持されていること
 
 実行:
   cd projects/P003-news-timeline
@@ -152,46 +153,66 @@ class GenerateStoryNoRetryTest(unittest.TestCase):
 
 
 class SchemaMinLengthTest(unittest.TestCase):
-    """schema の keyPoint に minLength=100 が物理的に存在すること。"""
+    """T-keypoint-prompt (2026-04-30): schema の keyPoint は minLength=0 (空文字を許容)。
+    PO指示「『何が変わったのか』が書けない場合は生成しない」を物理化するため、
+    schema 上は空文字を valid とし、品質ガイドは prompt 側に置く。"""
 
-    def test_minimal_schema_has_minlength(self):
+    def test_minimal_schema_allows_empty(self):
         schema = proc_ai._build_story_schema('minimal')
-        self.assertEqual(schema['properties']['keyPoint'].get('minLength'), 100)
+        self.assertEqual(schema['properties']['keyPoint'].get('minLength'), 0)
 
-    def test_standard_schema_has_minlength(self):
+    def test_standard_schema_allows_empty(self):
         schema = proc_ai._build_story_schema('standard')
-        self.assertEqual(schema['properties']['keyPoint'].get('minLength'), 100)
+        self.assertEqual(schema['properties']['keyPoint'].get('minLength'), 0)
 
-    def test_full_schema_has_minlength(self):
+    def test_full_schema_allows_empty(self):
         schema = proc_ai._build_story_schema('full')
-        self.assertEqual(schema['properties']['keyPoint'].get('minLength'), 100)
+        self.assertEqual(schema['properties']['keyPoint'].get('minLength'), 0)
 
 
 class PromptHardRequirementTest(unittest.TestCase):
-    """_SYSTEM_PROMPT / _STORY_PROMPT_RULES に 100 字必須の文言が含まれていること。"""
+    """_SYSTEM_PROMPT / _STORY_PROMPT_RULES にフェーズ判定とハード要件の文言が含まれていること。"""
 
     def test_system_prompt_mentions_100chars(self):
+        # 100 字以上必須 (書ける場合) のガイドが prompt 側に残っていること。
         self.assertIn('100 字', proc_ai._SYSTEM_PROMPT)
 
-    def test_story_rules_mention_schema_violation(self):
-        self.assertIn('schema 違反', proc_ai._STORY_PROMPT_RULES)
+    def test_story_rules_mentions_phase_decision(self):
+        # フェーズ判定 (記事数で書き方を変える) の文言があること。
+        self.assertIn('フェーズ', proc_ai._STORY_PROMPT_RULES)
 
 
 class PromptWorkedExampleTest(unittest.TestCase):
-    """T2026-0429-J: _STORY_PROMPT_RULES に worked example (良い例 / 悪い例) が埋め込まれていること。"""
+    """T-keypoint-prompt (2026-04-30): _STORY_PROMPT_RULES に新しい worked example が埋め込まれていること。
 
-    def test_story_rules_contains_good_example_keyword(self):
-        # 良い例の本文の一部 (「世界モデル」) がプロンプトに埋まっていることで、
-        # LLM に 251 字レンジの目標尺が物理的に提示されている。
-        self.assertIn('世界モデル', proc_ai._STORY_PROMPT_RULES)
+    旧 worked example (「世界モデル」251 字の物語) は「一般論で水増し」誘導の原因となったため撤去。
+    新 worked example は「関税」「日銀」などの具体的な変化を起点にしたものへ差し替え。"""
+
+    def test_story_rules_contains_good_example_initial_phase(self):
+        # 初動フェーズの良い例 (関税発動) がプロンプトに埋まっていること。
+        self.assertIn('60%の追加関税', proc_ai._STORY_PROMPT_RULES)
+
+    def test_story_rules_contains_good_example_change_phase(self):
+        # 変化フェーズの良い例 (日銀利上げ) がプロンプトに埋まっていること。
+        self.assertIn('利上げ幅を0.25%から0.5%', proc_ai._STORY_PROMPT_RULES)
 
     def test_story_rules_contains_bad_example_marker(self):
         # 「悪い例」表記が含まれており、対比形式で示されていること。
         self.assertIn('悪い例', proc_ai._STORY_PROMPT_RULES)
 
-    def test_story_rules_target_range_200_300(self):
-        # 「200 字以上 300 字以内」を目標として明示。
-        self.assertIn('200 字以上 300 字以内', proc_ai._STORY_PROMPT_RULES)
+    def test_story_rules_mentions_initial_phase_structure(self):
+        # 初動フェーズの 3 要素構造 (何が起きたか / なぜ重要か / 今後どうなりそうか) を明示。
+        self.assertIn('初動フェーズ', proc_ai._STORY_PROMPT_RULES)
+        self.assertIn('何が起きたか', proc_ai._STORY_PROMPT_RULES)
+
+    def test_story_rules_mentions_change_phase_structure(self):
+        # 変化フェーズの 4 文構成 (今回の変化 / 以前の状況 / 追加情報 / 意味・今後) を明示。
+        self.assertIn('変化フェーズ', proc_ai._STORY_PROMPT_RULES)
+        self.assertIn('今回の変化', proc_ai._STORY_PROMPT_RULES)
+
+    def test_story_rules_allows_empty_when_unwritable(self):
+        # 「書けない場合は空文字」のエスケープが prompt に書かれていること。
+        self.assertIn('空文字', proc_ai._STORY_PROMPT_RULES)
 
 
 class EmitKeypointMetricTest(unittest.TestCase):
