@@ -4,6 +4,24 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-30 16:32 JST T2026-0429-N PRテンプレ係数根拠必須化 + check_param_basis.sh）
+
+- ✅ **PR [#41](https://github.com/nuuuuuuts643/AI-Company/pull/41) merged (commit fe058de)** — `ci(T2026-0429-N): PRテンプレ係数根拠必須化 + check_param_basis.sh (WARNING)`
+  - **背景**: 「なぜこの実装が必要か」を考えずに実装が進む事故 (T2026-0429-L 検証時、係数根拠が事後に lessons-learned へ追記される運用) を、PRテンプレ側の構造で防ぐ。
+  - **実装**:
+    1. `.github/PULL_REQUEST_TEMPLATE.md` 冒頭に 3 セクション必須化:
+       - 「このPRで答えられる問い」(将来「これは正しかったか」を判断する基準)
+       - 「将来の検証方法」(マージ後の再測定方法)
+       - 「係数・パラメータを使った場合（使用した場合のみ）」(`# measured:` / `# theoretical:` 形式の実測根拠)
+    2. `scripts/check_param_basis.sh` 新規 — PR 本文 / commit / diff のいずれにも上記 3 要素 (テンプレ「答えるべき問い」セクション充填 / `# measured:` / `# theoretical:`) が無い場合に WARNING (exit 0)。プレースホルダ HTML コメントは strip して空セクション検出。
+    3. `.github/workflows/ci.yml` content-drift-guard ジョブに `pull_request` 時のみ走るステップ追加。
+    4. **セキュリティ修正 (commit 2733fa9)**: 初版で `${{ github.event.pull_request.body }}` を `run:` ブロックに直接埋めたため、PR 本文内の `` ` `` バッククォートが GitHub Actions 文字列展開後に bash command substitution として実行される脆弱性を発見 (CI ログで script が 3 回実行されていた)。env 経由 (`PR_BODY_TEXT: ${{ ... }}`) に修正し、command injection を遮断。
+  - **動作確認 (本 PR 自身で検証)**:
+    - 初版: `⚠️  WARNING` × 2 + `✅ OK` × 1 (script が 3 回実行されてた)
+    - 修正後: `✅ check_param_basis: 係数・パラメータの根拠が見つかりました (sources: pr-template-question pr-measured)` × 1 (期待通り 1 回のみ)
+  - **検証**: ローカル smoke 4 cases (空 / プレースホルダのみ / 内容あり / `# measured:` 単独) 全て期待通り / CI 全 16 pass + 5 skipping / Verified: https://github.com/nuuuuuuts643/AI-Company/pull/41:200:2026-04-30T16:32+0900
+  - **将来の検証方法**: 次回 1〜2 週間の PR をレビュー時に「冒頭3セクションが空のまま放置されているか」目視。WARNING 件数が高止まりしたらブロック化 (exit 1) を検討。
+
 ### 完了済み（2026-04-30 16:10 JST T2026-0429-M SLIフィールド ↔ 実装スキーマ 乖離検出 CI）
 
 - ✅ **PR [#40](https://github.com/nuuuuuuts643/AI-Company/pull/40) merged (commit 9da2703)** — `ci(T2026-0429-M): SLIフィールド ↔ 実装スキーマ 乖離検出CI`
