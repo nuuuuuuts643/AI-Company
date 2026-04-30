@@ -1512,6 +1512,14 @@ def update_topic_s3_file(tid, upd, articles=None, incremental=False):
         if upd.get('imageUrl') and not meta.get('imageUrl'):
             meta['imageUrl'] = upd['imageUrl']
         data['meta'] = meta
+        # T260 (2026-04-30): aiGenerated=False かつ generatedTitle 等の AI フィールドが
+        # 一つも無い場合、meta が事実上空 ({topicId, aiGenerated} の 2 フィールドだけ) の
+        # 個別 JSON を S3 に書き続ける必要がない (S3 容量・CloudFront 転送・Lambda 処理が無駄)。
+        # DynamoDB レコードは変更しないので、後で AI 生成が走ったときには通常通り書かれる。
+        _gt = meta.get('generatedTitle')
+        if not meta.get('aiGenerated') and not (isinstance(_gt, str) and _gt.strip()):
+            print(f'[SKIP_EMPTY_JSON] tid={tid} reason=aiGenerated=False')
+            return
         new_body = json.dumps(data, default=dec_convert, ensure_ascii=False).encode('utf-8')
         new_etag = '"' + hashlib.md5(new_body).hexdigest() + '"'
         json_changed = new_etag != old_etag
