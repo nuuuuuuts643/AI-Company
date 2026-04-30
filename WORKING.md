@@ -13,7 +13,6 @@
 
 **現在のフェーズ**: **フェーズ2（AI品質改善）+ コスト削減** — 2026-04-30 15:11 JST p003 巡回時点でコードセッション稼働なし（[Code]行 0件）
 **直近のPO指示** (2026-04-29): 「コスト最優先・プロダクト持続性」「基盤とプロダクト両軸でP003収益化まで走れ」「Dispatch/Coworkのトークンも節約」
-**最終更新**: 2026-04-30 15:11 JST p003 巡回（公開 topics.json 92件: keyPoint(>=100chars) **2.2%** (2/92) / 発端率(ac>=3) **9.5%** ✅ / aiGenerated 97.8%。health.json: keyPointRate 102.2% / status=ok / generatedAt 2026-04-30T05:35 JST。最大ギャップは依然 keyPoint 文字数不足 — T2026-0429-KP3 retry 追加 (07:25 JST commit 58f8fd6) + T237 backfill 拡張から ~32h 経過しても 2.2% 滞留。24h 目標(50%)・72h 目標(30%)未達。次手: ①Lambda CloudWatch logs で minLength=100 retry 発動回数を実測 ②proc_ai.py prompt 強化検討。[Code]新規起動はPO判断待ち（コスト関連変更あるため）。次優先タスク: T2026-0429-K(Bluesky品質)/M(SLI field gap CI)/N(PRテンプレ)）
 
 ---
 
@@ -102,4 +101,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Code] T-haiku-full full mode Haiku統一+プロンプト強化 | コスト削減/AI品質 | projects/P003-news-timeline/lambda/processor/proc_ai.py | 2026-04-30 15:42 JST | yes |
-| [Code] T2026-0429-K Bluesky投稿品質改善（24h重複・古トピック排除） | コード | scripts/bluesky_agent.py | 2026-04-30 15:38 | yes |
