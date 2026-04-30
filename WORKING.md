@@ -13,7 +13,7 @@
 
 **直近のPO指示** (2026-05-01): 「ユーザー体験周りの評価が弱い・改善が機能してるか不明・トピックが無難・表題に惹きがない」+「正確性/リーガル制約も加味」+「ジャンル/トピック単位プロンプト分岐」+「PR放置するな」
 
-**滞留PR triage (2026-05-01 01:55)**: #63 ✅ merged / #61 ✅ merged (auto-merge) / #65, #64 auto-merge enabled・update-branch 後 CI 待ち / #69 file-conflict guard 待ち (#64 merge 後に rebase 要否確認)
+**滞留PR triage (2026-05-01 02:05)**: #63 ✅ merged / #61 ✅ merged / #65, #64 auto-merge enabled・CI 待ち / #69 file-conflict guard 待ち / **#70 NEW** (T2026-0501-B 閲覧履歴クロスデバイス同期+続報バッジ・auto-merge enabled)
 
 **次のアクション（スケジューラー待ち）**: 05/01 05:30 JST→processor実行(keyPoint/perspectives効果測定) / 05/01 07:00 JST→UX/revenue-sli週次実行 / 05/01 08:03 JST→SLI朝チェック
 
@@ -107,5 +107,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-B 閲覧履歴クロスデバイス同期+続報バッジ | feat | frontend/js/*.js, lambda/, frontend/topic.html, frontend/index.html | 2026-05-01 01:55 | yes |
 
