@@ -382,9 +382,13 @@ def _emit_keypoint_metric(mode: str, keypoint, *, retried: bool) -> None:
 _VALID_STATUS_LABELS = ['発端', '進行中', '沈静化', '決着']
 
 
-def _build_story_schema(mode: str) -> dict:
+def _build_story_schema(mode: str, *, cnt: int = 1) -> dict:
     """Tool Use 用 JSON Schema を mode 別に構築。
     mode: 'minimal' | 'standard' | 'full'
+    cnt:  記事件数。minimal モードのときのみ参照する。
+          T2026-0430-G: minimal mode でも cnt>=2 (媒体が 2 つ以上) のときは
+          perspectives を生成する。watchPoints/timeline/statusLabel は引き続き
+          minimal regime では生成しない (1〜2 件では差分が薄い)。
     """
     # T2026-0428-J/E (2026-04-28): フィールド再設計（最終確定版）。
     # 「なぜ今か」はグラフ(記事数スパイク)が示すべきであり AI に語らせない。
@@ -406,8 +410,17 @@ def _build_story_schema(mode: str) -> dict:
     required = ['aiSummary', 'keyPoint', 'outlook', 'topicTitle', 'latestUpdateHeadline', 'isCoherent', 'topicLevel', 'genres']
 
     if mode == 'minimal':
-        # minimal は perspectives/timeline/watchPoints/statusLabel は無し (記事1〜2件では差分が出ない)
-        pass
+        # minimal は timeline/watchPoints/statusLabel は無し (記事1〜2件では差分が出ない)。
+        # T2026-0430-G (2026-04-30): cnt>=2 (媒体が 2 つ以上) のときは perspectives のみ
+        # 例外的に生成する。実測 ac=2 が aiGenerated 母集団の 49% を占め、minimal mode で
+        # perspectives=None 強制が perspectives 充填率を 45% に張り付かせていたため。
+        if cnt >= 2:
+            base_props['perspectives'] = {
+                'type': 'string',
+                'minLength': _PERSPECTIVES_MIN_CHARS,
+                'description': '2 媒体の見解を「[メディア名] は〜」の構文で並列列挙 (**60 字以上 必須**)。各社の本文 (ある場合) を根拠にし、推測ではなく実際の論調差を抽出する。論調差が薄い場合は「概ね同様の論調」と書く。',
+            }
+            required.append('perspectives')
     else:
         base_props['statusLabel'] = {
             'type': 'string',
@@ -464,7 +477,9 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
             'keyPointFallback':       bool(result.get('_kpFallback', False)),
             'statusLabel':            None,
             'watchPoints':            '',
-            'perspectives':           None,
+            # T2026-0430-G: minimal mode でも cnt>=2 で perspectives を生成する。
+            # AI が出さなかった場合は None のまま (空文字列ではなく None で観測上の差を残す)。
+            'perspectives':           result.get('perspectives') if isinstance(result.get('perspectives'), str) and result.get('perspectives').strip() else None,
             'outlook':                str(result.get('outlook') or '').strip(),
             'forecast':               '',
             'timeline':               [],
@@ -631,8 +646,13 @@ def _process_keypoint_quality(result: dict, articles: list, cnt: int,
 def _generate_story_minimal(articles: list) -> dict | None:
     """1〜2件: シンプルな1段落要約のみ生成（APIコスト最小）。Tool Use で structured output 強制。
     T2026-0428-AJ: 共通プロンプトは _SYSTEM_PROMPT に集約 (cache_control 対象)。
+    T2026-0430-G (2026-04-30): cnt>=2 のときは perspectives も生成 (2 媒体の論調差)。
+    watchPoints/timeline/statusLabel は引き続き minimal mode では出さない。
     """
     headlines, cnt = _build_headlines(articles, limit=2)
+    has_perspectives = cnt >= 2
+    # T2026-0430-G: cnt>=2 のときのみ媒体本文を取得 (上位 2 件)。
+    media_block = _build_media_comparison_block(articles, max_count=2) if has_perspectives else ''
     # T-keypoint-prompt (2026-04-30): keyPoint のフェーズ分岐を明示。
     # 記事 1 件 = 初動フェーズ (3 要素) / 2 件以上 = 変化フェーズ (4 文構成)。
     keypoint_phase_hint = (
@@ -640,19 +660,29 @@ def _generate_story_minimal(articles: list) -> dict | None:
         if cnt <= 1 else
         '【keyPoint のフェーズ判定】記事 2 件 = 変化フェーズ → 4 文構成（1文目=今回の変化 / 2文目=以前の状況 / 3文目=追加情報 / 4文目=意味・今後）。1 文目で「何が変わったか」を必ず明示する。\n'
     )
-    prompt = (
-        f'【今回のモード: minimal (記事 {cnt} 件)】\n'
+    schema_hint = (
+        'phase / timeline / statusLabel / watchPoints は schema 上存在しないため出力しない。\n'
+        'aiSummary・keyPoint・outlook・perspectives・topicTitle・latestUpdateHeadline・isCoherent・topicLevel・genres のみを schema に従って出力する。\n'
+        '【perspectives】2 媒体の見解を「[メディア名] は〜」の構文で並列列挙 (**60 字以上 必須**)。論調差が薄ければ「概ね同様の論調」と書く。1 社だけ詳述は禁止。\n'
+        if has_perspectives else
         'phase / timeline / perspectives / statusLabel / watchPoints は schema 上存在しないため出力しない。\n'
         'aiSummary・keyPoint・outlook・topicTitle・latestUpdateHeadline・isCoherent・topicLevel・genres のみを schema に従って出力する。\n'
+    )
+    prompt = (
+        f'【今回のモード: minimal (記事 {cnt} 件)】\n'
+        + schema_hint
         + keypoint_phase_hint
         + '\n'
         f'記事情報（{cnt}件）:\n{headlines}'
+        + (f'\n{media_block}' if media_block else '')
     )
     try:
-        schema = _build_story_schema('minimal')
+        schema = _build_story_schema('minimal', cnt=cnt)
+        # perspectives 生成時は出力 token を 600→900 に増量 (perspectives 60+ 字 + 余裕)
+        max_tokens = 900 if has_perspectives else 600
         result = _call_claude_tool(
             prompt, 'emit_topic_story', schema,
-            max_tokens=600, system=_SYSTEM_PROMPT,
+            max_tokens=max_tokens, system=_SYSTEM_PROMPT,
         )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
