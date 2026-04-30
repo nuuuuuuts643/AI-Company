@@ -107,4 +107,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0501-PR-TRIAGE 滞留PR triage と修正 | triage | (調査のみ・必要時 .github/workflows/) | 2026-05-01 06:15 JST | no |
 
