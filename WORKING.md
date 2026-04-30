@@ -11,13 +11,15 @@
 > 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**直近のPO指示** (2026-04-30): 「連続で稼働してくれ」「コストは上げないでくれよ」「改善してくれ！！」
+**直近のPO指示** (2026-04-30): 「継続稼働」「コスト上げるな」「改善」「小さな綻びを見落とすな」「収益化に向け引き続き頼む。評価する仕組みが(いる)」「フェーズタスク進行は任せる」
 
-**本日完了PR (2026-04-30)**: #46 Decimal修正 / #47 CI物理ガード / #48 freshness SLI / #49 velocityメーター / #50 storyPhase正規化 / #51 perspectives構造改善 / #52 fetcher 0件保存 2h検知 alarm (検知遅延 72h→2h) / #53+#54 T256 AIフィールド層抜けCI物理検出
+**本日完了PR (2026-04-30)**: #46-65 大量完了。主要: #61 keyPoint backfill先頭挿入修正(~87件1日消化) / #62 UX週次検証CI / #63 favicon.ico 404解消 / #64 perspectives min80字強制 / #65 収益計測インフラ(revenue_check.sh + revenue-log.md + revenue-sli.yml)
 
-**次のアクション（スケジューラー待ち）**: 23:00 JST→T256 landing 確認 ✅ (main run 25166642638 lint-lambda step pass / 13 tests OK / Verified-Effect: ci_pass:scripts/check_ai_fields_coverage.py:main:23:01 JST) / 03:00 JST→storyPhase効果検証 / 06:00 JST→perspectives効果検証(目標70%+) / 08:03 JST→SLI朝チェック
+**次のアクション（スケジューラー待ち）**: 05/01 05:30 JST→processor実行(keyPoint/perspectives効果測定) / 05/01 07:00 JST→UX/revenue-sli週次実行 / 05/01 08:03 JST→SLI朝チェック
 
-**現フェーズ**: フェーズ2 (AI品質) + 観測強化 — 実装タスクキュー空・効果が出るのを待ち中
+**T2026-0430-L 新規追加**: fresh24h=25.4% 根本調査完了。原因=fetcher の `_title_dedup_key` が NFKC 正規化していない + prefix 18字 dedup が同一イベントの異なる切り口記事を捕捉できない (rebound率1-2%)。新記事は新規 tid として湧き既存 AI topic が放置される構造。NFKC追加 + Jaccard類似度判定追加が必要。優先度🔴高。
+
+**現フェーズ**: フェーズ2 (AI品質) + 収益計測基盤 — keyPoint backfill自然消化中・freshness 構造改修待ち
 
 ---
 
