@@ -107,4 +107,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-A 「すべて」タブ + velocityScore カード表示 | UI | frontend/app.js, frontend/index.html, frontend/style.css, TASKS.md | 2026-05-01 01:15 | yes |
