@@ -454,9 +454,14 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
         # T219 修正 (2026-04-28): minimal モード (記事1-2件) は phase 概念が薄い
         # → 「発端」固定はユーザーに「フェーズ機能が機能していない」誤印象を与える
         # phase=None で返し、frontend 側の存在チェックで非表示にさせる
+        kp_minimal = str(result.get('keyPoint') or '').strip()[:400]
         return {
             'aiSummary':              str(result.get('aiSummary') or '').strip(),
-            'keyPoint':               str(result.get('keyPoint') or '').strip()[:400],
+            'keyPoint':               kp_minimal,
+            # T2026-0430-A: 品質メトリクスを output dict に伝搬し、proc_storage で DDB に保存する。
+            'keyPointLength':         len(kp_minimal),
+            'keyPointRetried':        bool(result.get('_kpRetried', False)),
+            'keyPointFallback':       bool(result.get('_kpFallback', False)),
             'statusLabel':            None,
             'watchPoints':            '',
             'perspectives':           None,
@@ -480,10 +485,15 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
     if raw_phase == '発端' and mode in ('standard', 'full'):
         raw_phase = '拡散'
     raw_status = result.get('statusLabel')
+    kp_full = str(result.get('keyPoint') or '').strip()[:400]
     out = {
         'aiSummary':              str(result.get('aiSummary') or '').strip(),
         # T2026-0428-J/E: keyPoint は 200〜300 字の物語形式に拡張。truncate は 400 字で安全側に。
-        'keyPoint':               str(result.get('keyPoint') or '').strip()[:400],
+        'keyPoint':               kp_full,
+        # T2026-0430-A: 品質メトリクスを output dict に伝搬し、proc_storage で DDB に保存する。
+        'keyPointLength':         len(kp_full),
+        'keyPointRetried':        bool(result.get('_kpRetried', False)),
+        'keyPointFallback':       bool(result.get('_kpFallback', False)),
         'statusLabel':            raw_status if raw_status in _VALID_STATUS_LABELS else None,
         'watchPoints':            str(result.get('watchPoints') or '').strip()[:200],
         'perspectives':           result.get('perspectives') if isinstance(result.get('perspectives'), str) else None,
@@ -503,10 +513,119 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
     return out
 
 
-# T2026-0429-J (2026-04-29): 旧 _retry_short_keypoint は撤去 (PO指示・コスト抑制)。
-# 「100 字未満なら 1 回再生成」は AI コール 2x 増 → コスト 2x 増のため許容しない。
-# 代替策: プロンプト強化 (worked example + 200 字目標明示) のみで品質改善を狙う。
-# 計測: _emit_keypoint_metric が CloudWatch ログに残し、verify_keypoint_length.py で外部観測する。
+# T2026-0430-A (2026-04-30): _retry_short_keypoint を新アーキテクチャで再導入。
+#
+# 経緯: T2026-0429-J で「コスト抑制のため retry 撤去」したが、本番 SLI では keyPoint ≥100 字
+# の充填率が 2.2% (2/92) のまま停滞 (2026-04-30 18:05 JST 観測)。プロンプト強化のみでは
+# Tool Use API が「タイトル風 30〜40 字」「空文字」を返し続けるパターンを抑制できなかった。
+#
+# 新アーキ:
+#   1) 初回 keyPoint が 100 字未満なら 1 回だけ再生成 (合計 2 回まで)。
+#   2) 再生成プロンプトは「前回が短すぎたので最低 100 字以上、具体数字・固有名詞を含めて拡張」を明示。
+#   3) keyPoint だけ生成する縮小スキーマ (max_tokens=400) でコストを最小化。
+#   4) 再生成も短ければ "SHORT_FALLBACK" フラグを立てて original または retry の長い方を保存
+#      (捨てない・空にしない)。
+#   5) keyPointLength / keyPointRetried / keyPointFallback を DynamoDB に記録。
+#   6) [KP_QUALITY] プレフィックスで CloudWatch Logs に出力し、後で集計・分析できるようにする。
+#
+# コスト試算: pendingAI=True なトピックは 1 サイクル ~30〜50 件、内 ~98% が短文
+# → +50 retry call/サイクル × 2 サイクル/日 = ~100 retry/日。Haiku 4.5 の retry は
+# system prompt cache hit + max_tokens=400 で 1 call ~$0.001 → +$0.10/日 ≒ +$3/月 で許容範囲。
+def _retry_short_keypoint(articles: list, cnt: int, mode: str,
+                          original_keypoint: str) -> str | None:
+    """T2026-0430-A: keyPoint が 100 字未満だった場合に 1 回だけ再生成する。
+
+    元の keyPoint を渡し、「短すぎたので最低 100 字以上で具体的な数字・固有名詞を含めて拡張」
+    と指示する。retry 専用の縮小スキーマ (keyPoint のみ) で max_tokens を抑え、
+    system prompt は同一文字列を渡すことで cache hit を維持する (Haiku 2048 tokens 必要)。
+
+    Returns:
+        新しい keyPoint (str) — 失敗時は None。
+    """
+    headlines, _ = _build_headlines(articles, limit=5)
+    original_len = len((original_keypoint or '').strip())
+    prompt = (
+        '【keyPoint 再生成リクエスト (T2026-0430-A)】\n'
+        f'前回の keyPoint は {original_len} 字と短すぎました (基準: 100 字以上)。\n'
+        '同じトピックに対し、最低 100 字以上で、**具体的な数字・固有名詞・変化**を含む内容に拡張してください。\n'
+        '一般論・抽象論・「〜が注目される」「動向に注目」のような曖昧表現は禁止。\n'
+        f'モード: {mode} (記事 {cnt} 件)。記事 1 件 = 初動フェーズ 3 要素 / 2 件以上 = 変化フェーズ 4 文構成。\n'
+        f'【元の (短すぎた) keyPoint】\n{original_keypoint}\n\n'
+        f'【記事情報 ({cnt} 件)】\n{headlines}\n'
+    )
+    schema = {
+        'type': 'object',
+        'properties': {
+            'keyPoint': {
+                'type': 'string',
+                'minLength': 0,
+                'description': 'トピックの注目ポイントを 100 字以上で具体的に書く。空文字は許容するが、'
+                               '書ける場合は必ず 100 字以上で固有名詞・数字を含める。',
+            },
+        },
+        'required': ['keyPoint'],
+    }
+    try:
+        result = _call_claude_tool(
+            prompt, 'emit_keypoint_retry', schema,
+            max_tokens=400, system=_SYSTEM_PROMPT,
+        )
+        if not result:
+            return None
+        new_kp = str(result.get('keyPoint') or '').strip()
+        return new_kp or None
+    except Exception as e:
+        print(f'[KP_QUALITY] retry_error mode={mode} err={e}')
+        return None
+
+
+def _process_keypoint_quality(result: dict, articles: list, cnt: int,
+                              mode: str, topic_id: str | None = None) -> None:
+    """T2026-0430-A: keyPoint 長さ検証 + 1 回 retry + SHORT_FALLBACK フラグ + KP_QUALITY ログ。
+
+    result を in-place で更新する:
+      - 必要なら result['keyPoint'] を retry 結果に差し替え
+      - result['_kpRetried']  : bool — retry を呼んだか
+      - result['_kpFallback'] : bool — retry 後も < 100 字 (フォールバック保存) か
+      - result['_kpLength']   : int  — 最終的に保存される keyPoint の文字数
+
+    CloudWatch には [KP_QUALITY] プレフィックスで 1 行出力 (後で集計分析できる固定フォーマット)。
+    既存の [METRIC] keypoint_len も維持する (互換性)。
+    """
+    original_kp = str(result.get('keyPoint') or '').strip()
+    original_len = len(original_kp)
+    retried = False
+    fallback = False
+
+    if _keypoint_too_short(original_kp):
+        retried = True
+        new_kp = _retry_short_keypoint(articles, cnt, mode, original_kp)
+        new_len = len((new_kp or '').strip())
+        if new_kp and not _keypoint_too_short(new_kp):
+            # retry 成功 (>= 100 字)
+            result['keyPoint'] = new_kp
+        else:
+            # retry も短い → fallback。長い方を残す (空文字より短文の方が情報量がある)。
+            if new_kp and new_len > original_len:
+                result['keyPoint'] = new_kp
+            fallback = True
+
+    final_kp = str(result.get('keyPoint') or '').strip()
+    final_len = len(final_kp)
+    result['_kpRetried']  = retried
+    result['_kpFallback'] = fallback
+    result['_kpLength']   = final_len
+
+    # KP_QUALITY ログ (CloudWatch 集計用・固定フォーマット)
+    tid_short = (topic_id[:8] + '...') if topic_id else 'n/a'
+    print(
+        f'[KP_QUALITY] mode={mode} cnt={cnt} topic={tid_short} '
+        f'orig_len={original_len} final_len={final_len} '
+        f'retried={1 if retried else 0} fallback={1 if fallback else 0} '
+        f'ge100={1 if final_len >= 100 else 0}'
+    )
+    # 互換: 既存の [METRIC] keypoint_len も残す
+    _emit_keypoint_metric(mode, result.get('keyPoint'), retried=retried)
 
 
 def _generate_story_minimal(articles: list) -> dict | None:
@@ -537,13 +656,8 @@ def _generate_story_minimal(articles: list) -> dict | None:
         )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
-        # T2026-0429-J: 再生成ロジックは廃止 (コスト抑制)。短い場合はメトリクスログで警告のみ。
-        if _keypoint_too_short(result.get('keyPoint')):
-            print(
-                f'[WARN] keypoint_short mode=minimal len='
-                f'{len((result.get("keyPoint") or "").strip())}'
-            )
-        _emit_keypoint_metric('minimal', result.get('keyPoint'), retried=False)
+        # T2026-0430-A: 100 字未満なら 1 回 retry + KP_QUALITY ログ + SHORT_FALLBACK フラグ。
+        _process_keypoint_quality(result, articles, cnt, 'minimal')
         return _normalize_story_result(result, 'minimal')
     except Exception as e:
         print(f'generate_story (minimal) error: {e}')
@@ -668,13 +782,8 @@ def _generate_story_standard(articles: list, cnt: int) -> dict | None:
         )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
-        # T2026-0429-J: 再生成ロジックは廃止 (コスト抑制)。短い場合はメトリクスログで警告のみ。
-        if _keypoint_too_short(result.get('keyPoint')):
-            print(
-                f'[WARN] keypoint_short mode=standard len='
-                f'{len((result.get("keyPoint") or "").strip())}'
-            )
-        _emit_keypoint_metric('standard', result.get('keyPoint'), retried=False)
+        # T2026-0430-A: 100 字未満なら 1 回 retry + KP_QUALITY ログ + SHORT_FALLBACK フラグ。
+        _process_keypoint_quality(result, articles, cnt, 'standard')
         return _normalize_story_result(result, 'standard')
     except Exception as e:
         print(f'generate_story (standard) error: {e}')
@@ -745,13 +854,8 @@ def _generate_story_full(articles: list, cnt: int) -> dict | None:
         )
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
-        # T2026-0429-J: 再生成ロジックは廃止 (コスト抑制)。短い場合はメトリクスログで警告のみ。
-        if _keypoint_too_short(result.get('keyPoint')):
-            print(
-                f'[WARN] keypoint_short mode=full len='
-                f'{len((result.get("keyPoint") or "").strip())}'
-            )
-        _emit_keypoint_metric('full', result.get('keyPoint'), retried=False)
+        # T2026-0430-A: 100 字未満なら 1 回 retry + KP_QUALITY ログ + SHORT_FALLBACK フラグ。
+        _process_keypoint_quality(result, articles, cnt, 'full')
         return _normalize_story_result(result, 'full')
     except Exception as e:
         print(f'generate_story (full) error: {e}')

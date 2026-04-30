@@ -1008,6 +1008,12 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
             if gen_story.get('keyPoint') and _can_write('keyPoint'):
                 update_expr += ', keyPoint = :kp'
                 expr_values[':kp'] = gen_story['keyPoint']
+                # T2026-0430-A: 品質メトリクスを永続化。後で集計・分析に使う。
+                # keyPoint と同時に書く (keyPoint が更新されないなら品質メタも古いままで OK)。
+                update_expr += ', keyPointLength = :kpLen, keyPointRetried = :kpRet, keyPointFallback = :kpFb'
+                expr_values[':kpLen'] = int(gen_story.get('keyPointLength') or len(gen_story['keyPoint']))
+                expr_values[':kpRet'] = bool(gen_story.get('keyPointRetried', False))
+                expr_values[':kpFb']  = bool(gen_story.get('keyPointFallback', False))
             # T2026-0428-J/E: 新フィールド statusLabel / watchPoints を永続化
             if gen_story.get('statusLabel') and _can_write('statusLabel'):
                 update_expr += ', statusLabel = :sl'
