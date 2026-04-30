@@ -101,6 +101,19 @@ BLUESKY_PENDING_PREFIX  = 'bluesky/pending/'
 DEBUT_MARKER_TTL_HOURS  = 24    # これより古いマーカーは破棄 (リトライ無限ループ防止)
 DEBUT_MAX_PER_RUN       = 1     # 1 cron tick で投稿する debut 件数の上限 (スパム回避)
 
+# T2026-0429-K: Bluesky 投稿品質改善
+# 同一 topicId を 24h 以内に再投稿しない (時間ベース重複ガード)。
+# 既存の近接窓 4 件ガード (get_recent_posted_ids) は連投回避が目的。
+# 高頻度 cron (30 分間隔) で 4 件超の枯渇時に同 topicId が再投稿される事故が
+# 発生していたため、明示的な時間窓ガードを追加して二重化する。
+DUP_GUARD_HOURS  = 24
+
+# トピックの「鮮度」カットオフ。lastUpdated/lastArticleAt が
+# 24h 超のトピックは「古いトピックの再掲」とみなし投稿候補から除外する。
+# post_morning は既に MORNING_RECENT_HOURS=24 で同等のフィルタを持っているが、
+# post_daily には未実装だった (T2026-0429-K で追加)。
+DAILY_TOPIC_FRESHNESS_HOURS = 24
+
 # ── AWS クライアント ───────────────────────────────────────────────────────────
 dynamodb = boto3.resource('dynamodb', region_name=REGION)
 s3       = boto3.client('s3', region_name=REGION)
@@ -248,6 +261,70 @@ def get_recent_posted_ids(mode: str, limit: int = 4) -> set:
     except Exception as e:
         print(f'[bluesky_agent] 直近{limit}件取得エラー（重複防止スキップ）: {e}')
         return set()
+
+
+def get_posted_ids_within_hours(mode: str, hours: int = DUP_GUARD_HOURS) -> set:
+    """指定 mode で直近 ``hours`` 時間以内に投稿された topicId のセットを返す。
+
+    時間ベースの厳密な重複ガード (T2026-0429-K)。
+    get_recent_posted_ids の近接窓ガード (件数ベース) と併用する:
+      - 近接窓 (件数) = 短い周期での連投回避が目的。候補枯渇時にすぐ解除される。
+      - 時間窓 (時間) = フォロワー視点で「同じネタを 1 日に複数回流さない」保証。
+
+    Returns:
+      ``hours`` 以内に投稿された topicId のセット。テーブル未作成・取得失敗時は
+      空集合 (安全側 = 既存挙動を壊さない)。
+    """
+    try:
+        table  = dynamodb.Table(BLUESKY_POSTS_TABLE)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        ids    = set()
+        kwargs = {}
+        while True:
+            resp = table.scan(**kwargs)
+            for item in resp.get('Items', []):
+                if item.get('mode') != mode:
+                    continue
+                pt = item.get('postedAt', '')
+                tid = item.get('topicId', '')
+                if not pt or not tid:
+                    continue
+                try:
+                    dt = datetime.fromisoformat(pt.replace('Z', '+00:00'))
+                except Exception:
+                    continue
+                if dt >= cutoff:
+                    ids.add(tid)
+            if not resp.get('LastEvaluatedKey'):
+                break
+            kwargs['ExclusiveStartKey'] = resp['LastEvaluatedKey']
+        return ids
+    except Exception as e:
+        print(f'[bluesky_agent] {hours}h以内投稿ID取得エラー（重複防止スキップ）: {e}')
+        return set()
+
+
+def topic_updated_within_hours(topic, hours: int) -> bool:
+    """トピックが直近 ``hours`` 時間以内に更新されているか判定する。
+
+    優先順位: lastUpdated → updatedAt → lastArticleAt(epoch)
+    どれも欠落 or 不正なら False (古いトピック扱いで除外側に倒す)。
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    upd = topic.get('lastUpdated') or topic.get('updatedAt') or ''
+    if isinstance(upd, str) and upd:
+        try:
+            dt = datetime.fromisoformat(upd.replace('Z', '+00:00'))
+            return dt >= cutoff
+        except Exception:
+            pass
+    last_at = topic.get('lastArticleAt')
+    if isinstance(last_at, (int, float)) and last_at > 0:
+        try:
+            return datetime.fromtimestamp(int(last_at), tz=timezone.utc) >= cutoff
+        except Exception:
+            pass
+    return False
 
 
 def get_last_post_time(mode: str):
@@ -464,26 +541,36 @@ def post_daily(client, dry_run=False):
 
     topics            = get_topics_from_s3(limit=50, sort_by='velocity')
     recent_posted_ids = get_recent_posted_ids('daily', limit=4)
+    posted_within_24h = get_posted_ids_within_hours('daily', hours=DUP_GUARD_HOURS)
 
-    # 注目度（velocityScore→score タイブレーク）降順で並んだ topics から
-    # 「lifecycle が active / cooling / 空」かつ「直近4件の daily 投稿に
-    #  含まれていない」最上位を選ぶ。
+    # 注目度（velocityScore→score タイブレーク）降順で並んだ topics から以下の
+    # フィルタ全てを満たす最上位を選ぶ:
+    #   1. lifecycle が active / cooling / 空
+    #   2. 直近4件の daily 投稿に含まれていない (近接窓ガード・連投回避)
+    #   3. 直近 DUP_GUARD_HOURS=24h 以内に投稿していない (時間ベース重複ガード)
+    #   4. lastUpdated/lastArticleAt が DAILY_TOPIC_FRESHNESS_HOURS=24h 以内 (古いトピック除外)
     #
     # NOTE: lifecycleStatus は 48h 以内→'active', 2-7日→'cooling'。
     # 'active' のみだと48h経過後に全件除外されて投稿ゼロになるため
     # codebase 全体の定義（proc_storage.py L396, fetcher/storage.py L186）に合わせて
     # 'active', 'cooling', '' を許容する。
     #
-    # 重複防止は近接窓4件のみ（30日全件除外しない）。
-    # ロングテールで再注目を集めたトピックは再投稿可とする。
+    # T2026-0429-K で 3 と 4 を追加。フォロワー視点で「同ネタの 1 日複数回投稿」
+    # と「24h 超の古ネタの再投稿」がスパムとして見える事故を防ぐ。
     candidates = [
         t for t in topics
         if t.get('lifecycleStatus', 'active') in ('active', 'cooling', '')
         and t.get('topicId') not in recent_posted_ids
+        and t.get('topicId') not in posted_within_24h
+        and topic_updated_within_hours(t, DAILY_TOPIC_FRESHNESS_HOURS)
     ]
 
     if not candidates:
-        print('[bluesky_agent] 投稿対象トピックなし（全件投稿済みまたはトピック不足）')
+        print(
+            f'[bluesky_agent] 投稿対象トピックなし'
+            f'（鮮度{DAILY_TOPIC_FRESHNESS_HOURS}h以内・'
+            f'過去{DUP_GUARD_HOURS}h未投稿の候補なし）'
+        )
         return
 
     # 静的HTMLが存在するトピックのみ投稿（OGPリンクカードが正しく表示される）
@@ -898,12 +985,14 @@ def post_morning(client, dry_run=False):
         return None
 
     recent_posted_ids = get_recent_posted_ids('morning', limit=3)
+    posted_within_24h = get_posted_ids_within_hours('morning', hours=DUP_GUARD_HOURS)
 
     fresh = []
     for t in topics:
         if t.get('lifecycleStatus', 'active') not in ('active', 'cooling', ''):
             continue
-        if t.get('topicId') in recent_posted_ids:
+        tid = t.get('topicId')
+        if tid in recent_posted_ids or tid in posted_within_24h:
             continue
         dt = _topic_updated_at(t)
         if dt is None or dt < cutoff:
