@@ -105,4 +105,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T264 stale worktrees cleanup | Code | `scripts/cleanup_stale_worktrees.sh` 新規, `scripts/session_bootstrap.sh`, `tests/test_cleanup_stale_worktrees.sh` 新規 | 2026-04-30 22:16 | yes |
