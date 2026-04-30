@@ -107,3 +107,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0501-C タイトルプロンプト改善+定性評価CI | feature | lambda/processor/proc_ai.py, scripts/qualitative_eval.sh, .github/workflows/qualitative-eval.yml, docs/quality-scores.md | 2026-05-01 01:30 JST | needs-push: yes |
