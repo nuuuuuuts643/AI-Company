@@ -466,11 +466,36 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
 .card-phase-badge.phase-peak   { color: #4EC9C0; background: rgba(78,201,192,0.2); font-weight: 700; }
 .card-phase-badge.phase-now    { color: #7DD8D2; background: rgba(78,201,192,0.1); }
 .card-phase-badge.phase-end    { color: #888; background: rgba(0,0,0,0.05); }
-.velocity-bar-wrap { height: 3px; background: rgba(0,0,0,0.06); border-radius: 2px; margin: 5px 0 7px; overflow: hidden; }
-.velocity-bar { height: 100%; border-radius: 2px; transition: width .3s; }
-.velocity-bar-wrap.rising .velocity-bar { background: #4EC9C0; }
-.velocity-bar-wrap.peak   .velocity-bar { background: rgba(78,201,192,0.6); }
-[data-theme="dark"] .velocity-bar-wrap { background: rgba(255,255,255,0.08); }
+/* T2026-0429-A: velocityScore 縦バーメーター（信号強度風 5本）。
+   旧 .velocity-bar-wrap (横バー) を置き換え。バー本数 1〜5 段階 + 段階別配色で
+   「勢い」を一目で読み取れるようにする。バー高さは右に向かって階段状に伸ばす。 */
+.velocity-meter {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  width: max-content;
+  height: 12px;
+  margin: 2px 0 6px;
+}
+.velocity-meter .vm-tick {
+  width: 3px;
+  background: rgba(0,0,0,0.10);
+  border-radius: 1px;
+  transition: background-color .2s;
+}
+[data-theme="dark"] .velocity-meter .vm-tick { background: rgba(255,255,255,0.12); }
+.velocity-meter .vm-tick:nth-child(1) { height: 30%; }
+.velocity-meter .vm-tick:nth-child(2) { height: 47%; }
+.velocity-meter .vm-tick:nth-child(3) { height: 64%; }
+.velocity-meter .vm-tick:nth-child(4) { height: 80%; }
+.velocity-meter .vm-tick:nth-child(5) { height: 100%; }
+/* 段階別配色: 1〜2=低 (gray) / 3=rising (cyan) / 4=high (orange) / 5=explode (red)。
+   後段ルールが前段を上書きする CSS 順序前提。具体性を揃えるため :nth-child(-n+N) を使う。 */
+.velocity-meter[data-level="1"] .vm-tick:nth-child(-n+1),
+.velocity-meter[data-level="2"] .vm-tick:nth-child(-n+2) { background: #94a3b8; }
+.velocity-meter[data-level="3"] .vm-tick:nth-child(-n+3) { background: #4EC9C0; }
+.velocity-meter[data-level="4"] .vm-tick:nth-child(-n+4) { background: #f97316; }
+.velocity-meter[data-level="5"] .vm-tick:nth-child(-n+5) { background: #dc2626; }
 .velocity-label { font-size: .68rem; font-weight: 600; border-radius: 20px; padding: 2px 8px; }
 .velocity-label.hot    { color: #4EC9C0; background: rgba(78,201,192,0.12); }
 .velocity-label.rising { color: #7DD8D2; background: rgba(78,201,192,0.08); }
