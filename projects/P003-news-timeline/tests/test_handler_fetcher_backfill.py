@@ -1,124 +1,142 @@
-"""T237 regression test: fetcher_trigger 経路で空き API budget を keyPoint backfill に使うロジックを物理ガード。
+"""T237 → T2026-0430-J: fetcher_trigger 経路で kp-rescue を pending **先頭** 挿入する物理ガード。
 
-背景 (2026-04-29):
-  scheduled cron は 1日2回 (08:00 + 17:00 JST) しか走らず、
-  fetcher_trigger は新規 topic だけ処理するため、ゴーストID率が高いと実処理対象が
-  0〜1 件に縮退して MAX_API_CALLS=10 の枠が大量に余る (実測 21:05/21:35/22:05 UTC で
-  指定 6〜9 件 → 処理対象 0〜1 件)。結果、aiGenerated=True の keyPoint < 100 字 topic
-  90/92 件 (97.83%) が滞留した。
+背景:
+  T237 (2026-04-29) は fetcher_trigger の空き API budget を keyPoint backfill に使う実装だったが、
+  pending **末尾** に追加していたため、API call budget (=10) で 5 topic 処理時点で loop break され
+  末尾 backfill が永久に処理されない bug があった。
+  結果: 短い keyPoint 87件 (本番 77.7%) が 2026-04-26〜29 から数日滞留。
 
-修正:
-  handler.py の topic_id_filter 経路で len(pending) < effective_max_api_calls なら
-  backfill_budget = effective_max_api_calls - len(pending) 件だけ get_pending_topics() の
-  優先度ソート結果から union する。コスト中立 (上限を変えず空き枠のみ活用)。
+T2026-0430-J 修正 (2026-04-30):
+  rescue 件数を KP_RESCUE_PER_RUN=2 に固定し、pending **先頭** に挿入する。
+  これにより 30 分ごとの fetcher_trigger run で確実に 2 件ずつ kp-missing が消化される
+  (48 runs/day × 2件 = 96件/day 上限 → 87件は ~1日で全消化)。
 
 このテストは以下を物理確認する:
-  - topic_ids が指定されかつ pending が effective 上限未満なら backfill が呼ばれる
-  - 指定 IDs と backfill 結果の重複は取り除かれる (existing_ids フィルタ)
-  - pending が既に上限を満たしているなら backfill は呼ばれない
-  - get_pending_topics が例外を吐いても backfill が握り潰し、本処理は継続する
+  - topic_id_filter 指定時は kp-rescue が pending 先頭に挿入される
+  - rescue 件数は KP_RESCUE_PER_RUN を超えない
+  - 指定 IDs と rescue 結果の重複は取り除かれる
+  - get_pending_topics 例外時も rescue を握り潰し本処理は継続する
+  - scheduled cron (topic_id_filter=None) では rescue を呼ばない
+  - rescue が空のときは pending は変化しない
 """
 import unittest
 
 
-class FetcherBackfillLogicTest(unittest.TestCase):
-    """handler.py の backfill 判定ロジックを純関数として再現したテスト。
+KP_RESCUE_PER_RUN = 2
+
+
+class FetcherKpRescueLogicTest(unittest.TestCase):
+    """handler.py の T2026-0430-J kp-rescue ロジックを純関数として再現したテスト。
 
     handler.py 全体は boto3 や Lambda context に依存するため、
-    本テストは backfill 部分だけ抽出した純関数で同じ判定を検証する。
-    実装の同期は CI の grep で担保する (FetcherBackfillLogicTest_GUARD)。
+    本テストは rescue 部分だけ抽出した純関数で同じ判定を検証する。
+    実装の同期は CI の grep guard (HandlerKpRescueSourceGuardTest) で担保する。
     """
 
     @staticmethod
-    def apply_backfill(topic_id_filter, pending_initial, backfill_pool, effective_max):
-        """handler.py 内の backfill ロジックを再現。
+    def apply_kp_rescue(topic_id_filter, pending_initial, rescue_pool, max_rescue=KP_RESCUE_PER_RUN):
+        """handler.py 内の T2026-0430-J kp-rescue ロジックを再現。
 
-        topic_id_filter が True かつ len(pending) < effective_max なら
-        backfill_pool の前から (effective_max - len(pending)) 件を union する。
-        重複は existing_ids で除外。
+        topic_id_filter が真なら rescue_pool 先頭から max_rescue 件を取り、
+        既存 IDs と重複しないものだけを pending **先頭** に挿入する。
         """
         pending = list(pending_initial)
-        if topic_id_filter and len(pending) < effective_max:
-            backfill_budget = effective_max - len(pending)
+        if topic_id_filter:
             try:
                 existing_ids = {p.get('topicId') for p in pending}
-                added = [b for b in backfill_pool
-                         if b.get('topicId') not in existing_ids][:backfill_budget]
-                pending.extend(added)
+                rescue_added = [r for r in rescue_pool
+                                if r.get('topicId') not in existing_ids][:max_rescue]
+                if rescue_added:
+                    pending = rescue_added + pending
             except Exception:
                 pass
         return pending
 
-    def test_backfill_fills_empty_slots(self):
-        """指定 IDs 1 件 / 上限 10 → 空き 9 件 を backfill で埋める"""
-        topic_ids = ['fetcher1']
+    def test_rescue_prepends_to_pending(self):
+        """指定 IDs 5 件 + rescue 2 件 → pending 先頭 2 件が rescue になる"""
+        pending = [{'topicId': f'fetcher{i}'} for i in range(5)]
+        pool = [{'topicId': f'kp{i}'} for i in range(10)]
+        result = self.apply_kp_rescue(True, pending, pool)
+        self.assertEqual(len(result), 7)
+        # 先頭 2 件は rescue
+        self.assertEqual([r['topicId'] for r in result[:2]], ['kp0', 'kp1'])
+        # 残りは fetcher 元順
+        self.assertEqual([r['topicId'] for r in result[2:]],
+                         [f'fetcher{i}' for i in range(5)])
+
+    def test_rescue_caps_at_kp_rescue_per_run(self):
+        """KP_RESCUE_PER_RUN=2 を超えて挿入しない (10 件あっても先頭 2 件のみ)"""
         pending = [{'topicId': 'fetcher1'}]
-        pool = [{'topicId': f'pend{i}'} for i in range(20)]
-        result = self.apply_backfill(True, pending, pool, 10)
-        self.assertEqual(len(result), 10)
-        self.assertEqual(result[0]['topicId'], 'fetcher1')
-        # 残り 9 件は pool 先頭から
-        self.assertEqual([r['topicId'] for r in result[1:]],
-                         [f'pend{i}' for i in range(9)])
+        pool = [{'topicId': f'kp{i}'} for i in range(10)]
+        result = self.apply_kp_rescue(True, pending, pool)
+        rescued = [r['topicId'] for r in result if r['topicId'].startswith('kp')]
+        self.assertEqual(len(rescued), 2)
+        self.assertEqual(rescued, ['kp0', 'kp1'])
 
-    def test_backfill_skips_when_full(self):
-        """pending が既に上限なら backfill は実行されない"""
-        topic_ids = ['fetcher1']
-        pending = [{'topicId': f'fetcher{i}'} for i in range(10)]
-        pool = [{'topicId': f'pend{i}'} for i in range(20)]
-        result = self.apply_backfill(True, pending, pool, 10)
-        self.assertEqual(len(result), 10)
-        # 全部 fetcher 由来で pool は触れていない
-        self.assertTrue(all(r['topicId'].startswith('fetcher') for r in result))
-
-    def test_backfill_dedups_against_filter(self):
-        """指定 IDs と pool が重複していたら重複は弾く"""
-        pending = [{'topicId': 'common'}]
-        pool = [{'topicId': 'common'}, {'topicId': 'pend0'}, {'topicId': 'pend1'}]
-        result = self.apply_backfill(True, pending, pool, 5)
+    def test_rescue_dedups_against_filter(self):
+        """指定 IDs と rescue が重複していたら重複は弾く"""
+        pending = [{'topicId': 'common'}, {'topicId': 'fetcher2'}]
+        pool = [{'topicId': 'common'}, {'topicId': 'kp0'}, {'topicId': 'kp1'}]
+        result = self.apply_kp_rescue(True, pending, pool)
         ids = [r['topicId'] for r in result]
-        self.assertEqual(ids.count('common'), 1)  # 重複は無し
-        self.assertIn('pend0', ids)
-        self.assertIn('pend1', ids)
+        self.assertEqual(ids.count('common'), 1)
+        # rescue は重複を飛ばして kp0 と kp1 を入れる
+        self.assertEqual(result[0]['topicId'], 'kp0')
+        self.assertEqual(result[1]['topicId'], 'kp1')
+        # その後ろに既存 pending
+        self.assertEqual([r['topicId'] for r in result[2:]], ['common', 'fetcher2'])
 
-    def test_backfill_skipped_for_scheduled_cron(self):
-        """topic_id_filter が None (scheduled cron) なら backfill は呼ばれない"""
+    def test_rescue_skipped_for_scheduled_cron(self):
+        """topic_id_filter が None (scheduled cron) なら rescue は呼ばれない"""
         pending = [{'topicId': f'pend{i}'} for i in range(3)]
-        pool = [{'topicId': f'extra{i}'} for i in range(10)]
-        result = self.apply_backfill(None, pending, pool, 30)
+        pool = [{'topicId': f'kp{i}'} for i in range(10)]
+        result = self.apply_kp_rescue(None, pending, pool)
         self.assertEqual([r['topicId'] for r in result],
                          ['pend0', 'pend1', 'pend2'])
 
-    def test_backfill_caps_at_budget(self):
-        """backfill_budget は (effective_max - len(pending)) を超えない"""
-        pending = [{'topicId': 'a'}, {'topicId': 'b'}]
-        pool = [{'topicId': f'p{i}'} for i in range(50)]
-        # effective_max=10 → budget 8
-        result = self.apply_backfill(True, pending, pool, 10)
-        self.assertEqual(len(result), 10)
-        backfilled = [r for r in result if r['topicId'].startswith('p')]
-        self.assertEqual(len(backfilled), 8)
+    def test_rescue_empty_pool_no_change(self):
+        """rescue_pool が空ならば pending は変化しない"""
+        pending = [{'topicId': f'fetcher{i}'} for i in range(3)]
+        result = self.apply_kp_rescue(True, pending, [])
+        self.assertEqual([r['topicId'] for r in result],
+                         ['fetcher0', 'fetcher1', 'fetcher2'])
+
+    def test_rescue_when_pending_already_full(self):
+        """pending が effective_max を超えていても rescue は先頭に挿入される
+        (後段の API call budget で loop break 時に rescue が確実に処理されるための変更)。
+        """
+        pending = [{'topicId': f'fetcher{i}'} for i in range(12)]
+        pool = [{'topicId': f'kp{i}'} for i in range(10)]
+        result = self.apply_kp_rescue(True, pending, pool)
+        self.assertEqual(len(result), 14)
+        # 先頭 2 件は rescue
+        self.assertEqual([r['topicId'] for r in result[:2]], ['kp0', 'kp1'])
+        # その後 fetcher 12 件が続く
+        self.assertEqual([r['topicId'] for r in result[2:]],
+                         [f'fetcher{i}' for i in range(12)])
 
 
-class HandlerBackfillSourceGuardTest(unittest.TestCase):
-    """handler.py の実コードに backfill ロジックが残っているかを grep で確認する物理ガード。
+class HandlerKpRescueSourceGuardTest(unittest.TestCase):
+    """handler.py の実コードに T2026-0430-J kp-rescue ロジックが残っているかを grep で確認する物理ガード。
 
-    リファクタで backfill が外れたら本テストが失敗する。
+    リファクタで rescue が外れたら本テストが失敗する。
     """
 
-    def test_handler_contains_backfill(self):
+    def test_handler_contains_kp_rescue(self):
         import os
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         path = os.path.join(root, 'lambda', 'processor', 'handler.py')
         with open(path, encoding='utf-8') as f:
             src = f.read()
-        # 最低限のキーフレーズ 3 つが揃っているか
-        self.assertIn('fetcher_trigger backfill', src,
-                      'handler.py から fetcher_trigger backfill ログが消えた (T237 リグレッション)')
-        self.assertIn('backfill_budget', src,
-                      'handler.py から backfill_budget が消えた (T237 リグレッション)')
-        self.assertIn('get_pending_topics(max_topics=backfill_budget)', src,
-                      'handler.py の backfill が get_pending_topics を呼ばなくなった')
+        # キーフレーズ 3 つが揃っているか確認
+        self.assertIn('KP_RESCUE_PER_RUN', src,
+                      'handler.py から KP_RESCUE_PER_RUN が消えた (T2026-0430-J リグレッション)')
+        self.assertIn('kp-rescue', src,
+                      'handler.py から kp-rescue ログが消えた (T2026-0430-J リグレッション)')
+        # 先頭挿入であることを確認 (extend ではなく rescue_added + pending)
+        self.assertIn('rescue_added + pending', src,
+                      'handler.py で rescue を pending 先頭に挿入していない '
+                      '(T2026-0430-J: 末尾 extend だと API budget 切れで永久に処理されない bug)')
 
 
 if __name__ == '__main__':
