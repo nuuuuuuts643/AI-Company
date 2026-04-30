@@ -15,6 +15,25 @@
   - **検証**: 構文 OK（ast.parse）/ CI 全 chk pass（16 pass + 5 skipping、0 failures: フロントエンド E2E / モバイル 375px / セキュリティ L1・L2 / Lambda 構文 / 横展開 landing 等）/ Verified: https://flotopic.com:200:2026-04-30T15:41+0900
   - **次回観測**: 次回 EventBridge cron 発火後、CloudWatch Logs `flotopic-bluesky` で「鮮度24h以内・過去24h未投稿の候補なし」 or 通常投稿が出るか確認。24h 後に同 topicId が再投稿されていないことを Bluesky タイムラインで目視。
 
+### 完了済み（2026-04-30 15:50 JST T-haiku-full full mode を Haiku 4.5 に統一 + プロンプト強化）
+
+- ✅ **PR [#38](https://github.com/nuuuuuuts643/AI-Company/pull/38) merged (commit dcbb7c8)** — `perf(T-haiku-full): full mode を Haiku に統一 + プロンプト強化`
+  - **背景**: PO指示「haikuで良い。多分プロンプトの質が低いんだと思うから」。`_generate_story_full` (記事 6 件以上のフルモード) のみが `model='claude-sonnet-4-6'` で走っており、minimal/standard は既に Haiku 4.5 だった。
+  - **コスト効果**: Sonnet 4.6 → Haiku 4.5 統一で full mode コスト **月 約\$42 → \$3.5（91% 削減 / 月 \$38 削減）**。
+  - **品質担保策（Haiku は Sonnet より指示追従が弱い前提）**:
+    - `_generate_story_full` の user prompt 先頭に「【最重要: 必ず守ること】」6 項目ブロックを追加
+      1. keyPoint はフェーズ判定遵守（記事1件=初動3要素 / 2件以上=変化4文構成）
+      2. 一般論・抽象論・「〜が注目される」「〜に影響を与える」「動向に注目」禁止
+      3. 具体的な固有名詞・数字・変化を必須
+      4. 書けない場合は空文字を返す（無理に埋めない）
+      5. perspectives は2〜3社を等しく扱う（1社だけ詳述禁止）
+      6. outlook / forecast 文末に [確信度:高/中/低] 必須
+    - `_SYSTEM_PROMPT` / `_STORY_PROMPT_RULES` には PR #36 でフェーズ判定が既に landing 済 — user prompt 先頭再強調で Haiku に確実に届かせる二重化。
+  - **変更ファイル**:
+    - `projects/P003-news-timeline/lambda/processor/proc_ai.py` — `_generate_story_full` から `model='claude-sonnet-4-6'` 削除（デフォルト Haiku 4.5 適用）+ user prompt 先頭に 6 項目ブロック追加 + docstring 更新（+14 / -6）
+  - **検証**: `pytest tests/ -v` → **214 passed** / CI 全 chk pass（CLAUDE.md 250行 / Lambda 構文 / フロントエンド E2E / モバイル 375px / 横展開 landing 物理検査 等 全 pass）
+  - **次の観察**: マージ後 GitHub Actions が Lambda を自動デプロイ → 次回 cron 実行で full mode を通る大型トピック (記事6件以上) の aiSummary/keyPoint/perspectives/outlook 品質を CloudWatch + 公開 topics.json で目視確認。翌日の Anthropic 課金 metric で Sonnet 入力/出力 token=0 を確認。Haiku で品質劣化が見える場合は user prompt をさらに追強化（フェーズ判定の例外パターンを増やす）または system prompt の cache prefix を更新する選択肢。
+
 ### 完了済み（2026-04-30 15:30 JST T-keypoint-prompt keyPoint プロンプトをフェーズ判定方式に転換）
 
 - ✅ **PR [#36](https://github.com/nuuuuuuts643/AI-Company/pull/36) merged (commit 78926c6)** — `feat(T-keypoint-prompt): keyPointプロンプトをフェーズ判定方式に転換`
