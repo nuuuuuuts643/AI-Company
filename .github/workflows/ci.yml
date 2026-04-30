@@ -110,6 +110,15 @@ jobs:
           echo "=== AI フィールドカタログ vs schema 突合 ==="
           python3 scripts/check_ai_fields_catalog.py
 
+      - name: AI フィールドの層抜け検出 (T256)
+        run: |
+          # T249 (2026-04-28) の再発防止: proc_ai が emit したフィールドが
+          # handler.ai_updates と proc_storage.update_topic_with_ai の両方で
+          # 参照されているか物理ガード。片方への propagate 忘れで CI を落とす。
+          echo "=== AI フィールド層抜け物理ガード ==="
+          python3 scripts/check_ai_fields_coverage.py
+          python3 -m unittest scripts.test_ai_fields_coverage -v
+
       - name: DDB-bound dict の Decimal ラップ漏れ検出 (T2026-0430-D)
         run: |
           # 2026-04-27 commit 59eaf649 で fetcher/handler.py:584 の
