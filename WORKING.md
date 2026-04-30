@@ -99,3 +99,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0430-F freshness <24h SLI 追加 | feat | .github/workflows/freshness-check.yml | 2026-04-30 20:14 | yes |
