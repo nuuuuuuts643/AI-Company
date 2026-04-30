@@ -107,3 +107,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T192 ジャンル戦略分析 | 調査 | docs/genre-strategy.md, TASKS.md | 2026-05-01 00:38 JST | yes |
