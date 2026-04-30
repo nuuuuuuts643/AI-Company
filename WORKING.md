@@ -105,3 +105,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0430-I Monitor禁止 物理化 | docs | CLAUDE.md | 2026-04-30 23:05 | yes |
+| [Code] T2026-0430-J keyPoint短文率 根本原因修正 | code | lambda/processor/proc_ai.py | 2026-04-30 23:05 | yes |
