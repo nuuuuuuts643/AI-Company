@@ -23,6 +23,7 @@
 
 | ID | 内容 | 確認方法 |
 |---|---|---|
+| ~~T256~~ | ~~AI フィールド層抜けを CI で物理検出 (T249 再発防止)~~ → **2026-04-30 23:01 JST main で landing 確認 (Verified-Effect: ci_pass:scripts/check_ai_fields_coverage.py:main:23:01 JST)** | PR #53 (feat) + #54 (done) merged。main run 25166642638 「Lambda 構文チェック」ジョブ内「AI フィールド層抜け物理ガード」step で `python3 scripts/check_ai_fields_coverage.py` + `python3 -m unittest scripts.test_ai_fields_coverage -v` (13 tests Ran / OK) 共に成功。 |
 
 #### 残りのフェーズ1 補強タスク（コード対応）
 

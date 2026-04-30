@@ -72,7 +72,7 @@
 
 | コンポーネント | 状態 | 最終更新 | 備考 |
 |---|---|---|---|
-| CI | ✅ 全テスト通過 | 2026-04-25 | `npm test` 42 件全パス必須 |
+| CI | ✅ 全テスト通過 | 2026-04-30 | `npm test` 42 件全パス必須。T256 (AI フィールド層抜け物理検出) main で landing 確認 (run 25166642638 / 13 tests OK / Verified-Effect: ci_pass:scripts/check_ai_fields_coverage.py:main:23:01 JST) |
 | processor AI 要約 | ✅ 稼働中 | 2026-04-27 | 4x/day JST 01:00/07:00/13:00/19:00。MAX_API_CALLS=200 |
 | [AUTO] AI 要約カバレッジ | ✅ FRESH | 2026-04-28 07:13 | 実測: 115 件中 aiGenerated=True 93 件 (**80.9%**)。T218 wallclock guard 反映後 24.6% → 80.9%。観測コマンドは `docs/sli-slo.md` SLI 3 |
 | [AUTO] keyPoint 充填率 | 🔴 半壊 | 2026-04-28 07:13 | **全体 10/115 = 8.7%**。aiGenerated=True なのに必須フィールド空 = success-but-empty。T255 修正済 (skip 条件) だが次 cycle (07/13/19 JST) 反映待ち。SLI 8 (`freshness-check.yml` ai_fields step)。フィールドカタログ: `docs/ai-fields-catalog.md` |
