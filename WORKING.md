@@ -100,3 +100,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] PII除去（公開リポからナオヤ個人情報削除） | security | CLAUDE.md done.sh scripts/*.sh scripts/*.py docs/*.md .gitignore .github/workflows/ci.yml frontend/admin.html | 2026-04-30 16:52 JST | yes |
