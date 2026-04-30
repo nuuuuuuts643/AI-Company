@@ -105,4 +105,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0430-H fetcher 連続2h 0件保存検知 Slack alarm | Lambda+CloudWatch | projects/P003-news-timeline/lambda/fetcher/handler.py, scripts/setup_fetcher_alarm.sh, .github/workflows/ci.yml | 2026-04-30 21:34 JST | needs-push: yes |
