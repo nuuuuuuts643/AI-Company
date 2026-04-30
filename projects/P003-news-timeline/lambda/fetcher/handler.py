@@ -358,6 +358,15 @@ def lambda_handler(event, context):
     if seen_urls and not new_urls:
         print('新規記事なし。DynamoDB 呼び出しをスキップします。')
         save_seen_articles(current_urls)
+        print('[FETCHER_HEALTH] ' + json.dumps({
+            'event': 'fetcher_health',
+            'status': 'run_complete',
+            'saved_articles': 0,
+            'new_topics': 0,
+            'fetched': len(all_articles),
+            'new_urls': 0,
+            'skipped': True,
+        }))
         return {'statusCode': 200,
                 'body': json.dumps({'articles': len(all_articles), 'new': 0, 'skipped': True})}
 
@@ -1098,6 +1107,14 @@ def lambda_handler(event, context):
 
     save_seen_articles(current_urls)
 
+    print('[FETCHER_HEALTH] ' + json.dumps({
+        'event': 'fetcher_health',
+        'status': 'run_complete',
+        'saved_articles': len(saved_ids),
+        'new_topics': len(new_pending),
+        'fetched': len(all_articles),
+        'new_urls': len(new_urls),
+    }))
     return {'statusCode': 200,
             'body': json.dumps({'articles': len(all_articles), 'new': len(new_urls),
                                 'topics': len(groups_sorted), 'ts': ts_key})}
