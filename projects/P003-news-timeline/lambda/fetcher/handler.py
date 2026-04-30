@@ -907,6 +907,15 @@ def lambda_handler(event, context):
             d = {k: v for k, v in t.items() if k not in _INTERNAL}
             if d.get('generatedSummary'):
                 d['generatedSummary'] = d['generatedSummary'][:120]
+            # T2026-0429-G: minimal regime (ac<=2 / summaryMode='minimal') の legacy storyPhase を None に正規化。
+            # 詳細は proc_storage.normalize_minimal_phase の docstring 参照 (fetcher は別 Lambda
+            # で proc_storage を import できないため、同等ロジックを inline で重複実装する)。
+            try:
+                _ac = int(d.get('articleCount', 0) or 0)
+            except (TypeError, ValueError):
+                _ac = 0
+            if (d.get('summaryMode') == 'minimal' or _ac <= 2) and d.get('storyPhase'):
+                d['storyPhase'] = None
             return d
         topics_public = [_pub(t) for t in topics_deduped]
 
