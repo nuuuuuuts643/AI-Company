@@ -101,4 +101,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T-keypoint-prompt keyPointプロンプト全面改修（フェーズ判定対応） | feat | projects/P003-news-timeline/lambda/processor/proc_ai.py | 2026-04-30 15:14 JST | yes |
+| [Code] T-keypoint-prompt PR #36 マージ + T2026-0429-I 完了マーク | merge+docs | TASKS.md, HISTORY.md | 2026-04-30 15:25 JST | no |
