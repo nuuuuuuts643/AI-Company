@@ -17,7 +17,9 @@
 
 **次のアクション（スケジューラー待ち）**: 05/01 05:30 JST→processor実行(keyPoint/perspectives効果測定) / 05/01 07:00 JST→UX/revenue-sli週次実行 / 05/01 08:03 JST→SLI朝チェック
 
-**現フェーズ**: フェーズ2 (AI品質) + 収益計測基盤 — keyPoint backfill自然消化中・効果待ち
+**T2026-0430-L 新規追加**: fresh24h=25.4% 根本調査完了。原因=fetcher の `_title_dedup_key` が NFKC 正規化していない + prefix 18字 dedup が同一イベントの異なる切り口記事を捕捉できない (rebound率1-2%)。新記事は新規 tid として湧き既存 AI topic が放置される構造。NFKC追加 + Jaccard類似度判定追加が必要。優先度🔴高。
+
+**現フェーズ**: フェーズ2 (AI品質) + 収益計測基盤 — keyPoint backfill自然消化中・freshness 構造改修待ち
 
 ---
 
@@ -105,4 +107,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0430-FRESH fresh24h=18.75% 根本調査 | 調査 | TASKS.md, scripts/* | 2026-04-30 23:48 | no |
