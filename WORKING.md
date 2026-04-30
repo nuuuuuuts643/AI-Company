@@ -101,3 +101,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] CW-haiku-verify Lambda モデル使用状況実測確認 | 調査(READ-ONLY) | なし(確認のみ) | 2026-04-30 15:30 JST | no |
