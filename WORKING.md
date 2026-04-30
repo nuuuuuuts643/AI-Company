@@ -105,4 +105,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T256 AI fields coverage CI guard | CI 物理ガード | `scripts/check_ai_fields_coverage.py` 新規, `.github/workflows/ci.yml`, `tests/test_ai_fields_coverage.py` 新規 | 2026-04-30 21:50 | yes |
