@@ -423,12 +423,17 @@ jobs:
 
       - name: 係数・パラメータ根拠 確認 (T2026-0429-N, WARNING のみ)
         if: github.event_name == 'pull_request'
+        env:
+          # NOTE: env 経由で渡すこと。${{ ... }} を `run:` に直接埋めると PR本文内の
+          # バッククォート/$()/" で command injection される (T2026-0429-N 初版で発生)。
+          PR_BODY_TEXT: ${{ github.event.pull_request.body }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           # PR本文 / 直近 commit に「このPRで答えられる問い」/「# measured:」/「# theoretical:」
           # のいずれかが含まれているかを確認。WARNING のみ・強制ブロックなし。
           # 将来「これは正しかったか」を判断するため、係数導入時の根拠を残す習慣を促す目的。
           PR_BODY_FILE="$(mktemp)"
-          printf '%s' "${{ github.event.pull_request.body }}" > "$PR_BODY_FILE"
-          PR_BODY_FILE="$PR_BODY_FILE" COMMIT_RANGE="origin/${{ github.base_ref }}..HEAD" \
+          printf '%s' "$PR_BODY_TEXT" > "$PR_BODY_FILE"
+          PR_BODY_FILE="$PR_BODY_FILE" COMMIT_RANGE="origin/$BASE_REF..HEAD" \
             bash scripts/check_param_basis.sh
           rm -f "$PR_BODY_FILE"
