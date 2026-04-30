@@ -45,6 +45,7 @@ fix_type:
   mobile_layout   [pages_csv]    375px 幅で横スクロール無し (PASS) — puppeteer 必要
   mobile                         mobile_layout の別名
   freshness       [topics_url]   topics.json updatedAt が 90 分以内 (PASS)
+  fresh24h        [topics_url]   aiGenerated=True 母集団の lastArticleAt 24h 以内率 >= 50%
   empty_topics    [base_url]     topics.json の detail JSON 欠損率 0% / articleCount<2 率 0%
   all                            ai_quality + freshness をまとめて実行 (mobile は除く)
 
@@ -231,6 +232,41 @@ case "$FIX_TYPE" in
     DIFF_MIN=$(( (NOW_EPOCH - UPDATED_EPOCH) / 60 ))
     PASS=$(awk -v d="$DIFF_MIN" -v t="$THRESHOLD_MIN" 'BEGIN{ if(d+0 <= t+0) print "PASS"; else print "FAIL" }')
     echo "Verified-Effect: freshness updatedAt=${UPDATED_AT} age_min=${DIFF_MIN} threshold_min=${THRESHOLD_MIN} ${PASS} @ ${JST_TS}"
+    [ "$PASS" = "PASS" ] || exit 1
+    exit 0
+    ;;
+
+  fresh24h)
+    # T2026-0430-L: aiGenerated=True 母集団のうち lastArticleAt が 24h 以内の比率を計測。
+    # 直近セッションでの観測値: 25.4% (31/122)。NFKC + Jaccard merge 修正後 24h 経過時点で
+    # 50% 以上を期待値とする (中間目標)。最終目標は 60% 以上。
+    URL="${1:-https://flotopic.com/api/topics.json}"
+    THRESHOLD_PCT="${FRESH24H_THRESHOLD_PCT:-50}"
+    if ! command -v jq >/dev/null 2>&1; then
+      echo "[verify_effect] jq 必要" >&2
+      exit 2
+    fi
+    TMP=$(mktemp)
+    trap 'rm -f "$TMP"' EXIT
+    if ! curl -fsSL -m 30 "$URL" -o "$TMP"; then
+      echo "[verify_effect] curl 失敗: $URL" >&2
+      exit 2
+    fi
+    NOW_EPOCH=$(date -u +%s)
+    CUTOFF=$(( NOW_EPOCH - 86400 ))
+    # aiGenerated=True 母集団に対する lastArticleAt >= cutoff の数を集計。
+    # lastArticleAt は epoch 秒 (number) 形式が標準。
+    AI_TOTAL=$(jq '[(.topics // .)[] | select(.aiGenerated == true)] | length' "$TMP" 2>/dev/null || echo 0)
+    if [ -z "$AI_TOTAL" ] || [ "$AI_TOTAL" = "null" ] || [ "$AI_TOTAL" = "0" ]; then
+      echo "Verified-Effect: fresh24h aiTopics=0 SKIP @ ${JST_TS}"
+      exit 0
+    fi
+    FRESH_COUNT=$(jq --argjson cutoff "$CUTOFF" \
+      '[(.topics // .)[] | select(.aiGenerated == true) | select((.lastArticleAt // 0) >= $cutoff)] | length' \
+      "$TMP" 2>/dev/null || echo 0)
+    PCT=$(awk -v a="$FRESH_COUNT" -v b="$AI_TOTAL" 'BEGIN{ if(b>0) printf "%.1f", a/b*100; else print "0.0" }')
+    PASS=$(awk -v p="$PCT" -v t="$THRESHOLD_PCT" 'BEGIN{ if(p+0 >= t+0) print "PASS"; else print "FAIL" }')
+    echo "Verified-Effect: fresh24h ai_fresh=${PCT}%(${FRESH_COUNT}/${AI_TOTAL}) threshold=${THRESHOLD_PCT}% ${PASS} @ ${JST_TS}"
     [ "$PASS" = "PASS" ] || exit 1
     exit 0
     ;;
