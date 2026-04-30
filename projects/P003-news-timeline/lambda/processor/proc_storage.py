@@ -1323,9 +1323,50 @@ _CARD_INCLUDE_KEYS = (
 )
 
 
+def normalize_minimal_phase(item: dict) -> dict:
+    """T2026-0429-G: minimal regime (articleCount<=2 or summaryMode=='minimal') の topic は
+    storyPhase 概念が薄いため、レガシー値が残っていれば None に正規化して返す。
+
+    背景:
+      T219 (2026-04-28) で minimal mode の AI 出力を phase=None に変更したが、
+      それ以前に「発端」固定で書き込まれた DDB 既存レコードが永続化していた。
+      AI 再生成は articleCount>=3 になるまで走らないため、ac=2 のままの 49 件が
+      「発端」のまま放置される構造（本番計測 2026-04-30: 全 126 件中 53/126=42.1%
+      が「発端」、うち 49 件が ac=2 + summaryMode=minimal）。
+
+    本関数は読み出しパス (S3 出力) で legacy 値を物理的に剥がす:
+      - articleCount <= 2 OR summaryMode == 'minimal' なら storyPhase=None
+      - それ以外 (articleCount>=3 の standard/full) は AI が正しい phase を保持
+
+    DDB 直接書き換えは避け、表示用 JSON 上だけで吸収する (idempotent・コスト 0)。
+    新記事到来で articleCount>=3 になれば既存の AI 再生成パスが正しい phase を上書きする。
+
+    Args:
+        item: topic dict (in-place 変更しない、コピーを返す)
+    Returns:
+        正規化済み dict (storyPhase が legacy minimal なら None に置換)
+    """
+    if not isinstance(item, dict):
+        return item
+    summary_mode = item.get('summaryMode')
+    try:
+        ac = int(item.get('articleCount', 0) or 0)
+    except (TypeError, ValueError):
+        ac = 0
+    is_minimal_regime = (summary_mode == 'minimal') or (ac <= 2)
+    if is_minimal_regime and item.get('storyPhase'):
+        out = dict(item)
+        out['storyPhase'] = None
+        return out
+    return item
+
+
 def generate_topics_card_json(topics_pub: list, updated_at: str) -> dict:
     """topics_pub (= _trim 済みの公開用 topics) から card 表示に必要な最小フィールドのみを
     抽出した payload dict を返す (api/topics-card.json の中身)。
+
+    T2026-0429-G: card 化する前に normalize_minimal_phase でレガシー minimal storyPhase
+    を剥がす。card payload の方が SLI 計測対象なので、ここで吸収するのが最も効率的。
 
     Args:
         topics_pub: handler.py で _PROC_INTERNAL を除外した公開用 topics の list
@@ -1333,7 +1374,8 @@ def generate_topics_card_json(topics_pub: list, updated_at: str) -> dict:
     Returns:
         {'topics': [...], 'updatedAt': str, 'count': int}
     """
-    cards = [{k: t[k] for k in _CARD_INCLUDE_KEYS if k in t} for t in topics_pub]
+    normalized = [normalize_minimal_phase(t) for t in topics_pub]
+    cards = [{k: t[k] for k in _CARD_INCLUDE_KEYS if k in t} for t in normalized]
     return {
         'topics':    cards,
         'updatedAt': updated_at,

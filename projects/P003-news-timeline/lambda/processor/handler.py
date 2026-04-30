@@ -31,6 +31,7 @@ from proc_storage import (
     generate_health_json,
     _is_keypoint_inadequate,
     _strip_title_markdown,
+    normalize_minimal_phase,
 )
 
 _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext', 'background'}
@@ -497,7 +498,8 @@ def lambda_handler(event, context):
             # 後段の文字数 cap は不要 (size 抑制目的なら他フィールドの方が効果大)。
             def _trim(t):
                 return {k: v for k, v in t.items() if k not in _PROC_INTERNAL}
-            topics_pub = [_trim(t) for t in topics]
+            # T2026-0429-G: minimal regime (ac<=2 / summaryMode='minimal') の legacy storyPhase を None に正規化
+            topics_pub = [normalize_minimal_phase(_trim(t)) for t in topics]
             full_payload = {
                 'topics':           topics_pub,
                 'trendingKeywords': trending_keywords,
