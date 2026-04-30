@@ -5,8 +5,8 @@ name: env-scripts dry-run（session_bootstrap.sh / triage_tasks.py）
 
 on:
   schedule:
-    # 毎日 JST 07:00 (= UTC 22:00) に走らせる
-    - cron: '0 22 * * *'
+    # 毎日 JST 06:00 (= UTC 21:00) に走らせる
+    - cron: '0 21 * * *'
   workflow_dispatch:
   push:
     paths:
@@ -26,6 +26,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: session_bootstrap.sh --dry-run smoke test
+        id: smoke
         env:
           REPO: ${{ github.workspace }}
           # CI では合成 WORKING.md で並走 ≥2 を意図的に作るため bypass
@@ -34,6 +35,16 @@ jobs:
           set -e
           out=$(bash scripts/session_bootstrap.sh --dry-run 2>&1)
           echo "$out"
+
+          # 終端マーカー [DRY-RUN OK] が出ていることを assert
+          echo "$out" | grep -q '\[DRY-RUN OK\]' \
+            || { echo "::error::expected '[DRY-RUN OK]' marker missing — dry-run validation failed"; exit 1; }
+
+          # 個別検証行 (REPO/JST/WORKING.md/git status/stale) がすべて [OK] であること
+          for label in 'REPO == git toplevel' 'JST timezone offset = +0900' 'WORKING.md exists' 'git status runs on working tree' 'stale entry detection'; do
+            echo "$out" | grep -q "\[OK\] $label" \
+              || { echo "::error::dry-run check missing or failed: $label"; exit 1; }
+          done
 
           # REPO 検出 / JST 表示 / DRY-RUN タグの存在を assert
           echo "$out" | grep -q "起動チェック完了" \
@@ -104,3 +115,27 @@ jobs:
           grep -q "repo not found" /tmp/out.log \
             || { echo "::error::expected 'repo not found' message"; exit 1; }
           echo "✅ negative test (missing REPO) passed: rc=$rc"
+
+      - name: Slack 通知 (失敗時のみ・SLACK_WEBHOOK_URL 設定時のみ)
+        if: failure() && github.event_name == 'schedule'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "SLACK_WEBHOOK 未設定 — スキップ (CI ログのみで通知)"
+            exit 0
+          fi
+          PAYLOAD=$(RUN_URL="$RUN_URL" python3 -c "
+          import json, os
+          text = (
+              '🚨 *env-scripts dry-run CI 失敗* (T2026-0428-K)\n'
+              f'• run: {os.environ[\"RUN_URL\"]}\n'
+              '• session_bootstrap.sh の REPO/JST/WORKING.md/git-status/stale 検出ロジックのいずれかが壊れた可能性\n'
+              '• 前回ハマった bug: session-id ハードコード / UTC を JST と誤ラベル\n'
+              '• 対応: ログを確認し scripts/session_bootstrap.sh を修正'
+          )
+          print(json.dumps({'text': text, 'username': 'env-scripts dry-run', 'icon_emoji': ':warning:'}))
+          ")
+          curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
