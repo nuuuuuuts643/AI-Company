@@ -1200,6 +1200,57 @@ function renderDiscovery(meta) {
       }
     }
 
+    // 5. T2026-0501-D: ジャンル + タイトル char-bigram 類似度フォールバック
+    //    フェーズ3「情報の地図」リンク密度強化。allTopics は既にキャッシュ済なので追加 fetch なし。
+    //    server 側で relatedTopics が空 (~88%) のトピックでも、最低 3 件は地図上の隣接ノードを保証する。
+    //    ステップ 1〜4 の高信頼リンクを優先し、不足分のみ同ジャンル・タイトル類似で補完。
+    const MIN_DENSITY = 3;
+    const MAX_ITEMS = 6;
+    if (items.length < MIN_DENSITY) {
+      const _bigrams = (s) => {
+        const t = String(s || '').replace(/\s+/g, '').toLowerCase();
+        const out = new Set();
+        for (let i = 0; i < t.length - 1; i++) out.add(t.slice(i, i + 2));
+        return out;
+      };
+      const _jac = (a, b) => {
+        if (!a.size || !b.size) return 0;
+        let inter = 0;
+        for (const x of a) if (b.has(x)) inter++;
+        return inter / (a.size + b.size - inter);
+      };
+      const myGenre = (meta.genre || '').toString();
+      const myGenres = Array.isArray(meta.genres) ? meta.genres : (myGenre ? [myGenre] : []);
+      const myBg = _bigrams(meta.generatedTitle || meta.title || '');
+
+      const candidates = [];
+      for (const t of allTopics) {
+        if (!t || t.topicId === curId || usedIds.has(t.topicId)) continue;
+        const status = t.lifecycleStatus || 'active';
+        if (status !== 'active' && status !== 'cooling') continue;
+        const otherTitle = t.generatedTitle || t.title || '';
+        if (!otherTitle) continue;
+        const otherGenres = Array.isArray(t.genres) ? t.genres : (t.genre ? [t.genre] : []);
+        const sameGenre = myGenres.some(g => g && otherGenres.includes(g));
+        const jac = _jac(myBg, _bigrams(otherTitle));
+        let score = jac * 10;
+        if (sameGenre) score += 2;
+        if (score < 1) continue;
+        candidates.push({ t, score });
+      }
+      candidates.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        const at = new Date(a.t.lastArticleAt || a.t.lastUpdated || 0).getTime() || 0;
+        const bt = new Date(b.t.lastArticleAt || b.t.lastUpdated || 0).getTime() || 0;
+        return bt - at;
+      });
+      for (const { t } of candidates) {
+        if (items.length >= MAX_ITEMS) break;
+        items.push({ t, badge: { label: '📂 同じ動き', cls: 'related' } });
+        usedIds.add(t.topicId);
+      }
+    }
+
     if (items.length === 0) {
       section.innerHTML = '';
       return;
