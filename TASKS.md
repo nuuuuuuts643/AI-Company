@@ -102,7 +102,6 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| T2026-0501-B | 🔴 高 | **閲覧履歴クラウド同期 + 続報グレーアウト解除** — PO実測バグ2件。①同一アカウントでログインしても閲覧履歴がデバイス間で共有されない（履歴が localStorage ローカル保存のみで DynamoDB に永続化・同期されていない）。②一度見たトピックに新記事が追加されても既読グレーアウトが解除されない（`lastArticleAt > lastViewedAt` 比較でリセットすべき）。修正方針: ①`frontend/mypage.js` or `app.js` の history 保存ロジックで、ログイン済みなら DynamoDB `flotopic-user-history`（または既存テーブル）に `PUT`、ページロード時に `GET` して localStorage にマージ。②既読判定を `topicViewedAt < topic.lastArticleAt` の場合はグレーアウト解除 + 「続報あり」バッジ表示。信用獲得の最優先バグ。 | `frontend/app.js`, `frontend/mypage.js`, `lambda/analytics/` or 新 Lambda | 2026-05-01 |
 | T2026-0428-AV | 中 | **トピックカードに注目スコアを表示する** — POフィードバック: スコアをカードに表示するアイデアが面白い。トップページのトピックカード (`frontend/app.js` の renderTopicCard 系) に、AI が計算した注目度スコア (`velocityScore` 等) を数値またはバーで表示する。フェーズ1 の足回り安定が完了してから着手 (UI 改善は後回し方針)。実装時は ①どのスコアを使うか (velocityScore / freshness / 記事数) を明確化 ②表示形式 (数値/バー/バッジ) を決定 ③モバイル 375px で崩れないこと を必須。 | `frontend/app.js`, `frontend/style.css` | 2026-04-28 |
 | T2026-0430-UX | 中 | **ユーザー体験ベースのUI/UX検証仕組み化** — 現在は SLI 数値（keyPoint 充填率・perspectives 等）のみ評価しているが、「実際にユーザーが使いやすいか」は数値だけでは測れない。①モバイル（375px）でのタップ操作・スクロール・情報読み取りのしやすさを定期スクリーンショット＋目視評価、②トピック読了後の次導線（関連トピック・catchup）がユーザーに見えているか確認、③ABテスト的に「新機能実装前後のファーストビュー変化」を記録するルールを追加。実装案: `scripts/ux_check.sh` がモバイルUAで本番URL 5ページを curl + html2text して情報密度を定量評価 → weekly report として Slack 通知。 | scripts/ux_check.sh 新設, .github/workflows/ux-check.yml 新設 | 2026-04-30 |
 
