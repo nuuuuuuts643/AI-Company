@@ -36,6 +36,7 @@ audit_pii() {
     | grep -v "^scripts/security_audit\.sh$" \
     | grep -v "^\.github/workflows/security-audit\.yml$" \
     | grep -v "^\.github/workflows/ci\.yml$" \
+    | grep -v "^done\.sh$" \
     | grep -v "^HISTORY\.md$" \
     || true)
   PII_HITS=$(echo -n "$PII_FILES" | grep -c '^' || true)

@@ -253,10 +253,14 @@ jobs:
         run: |
           # 公開リポジトリに owner の username/email が残らないよう物理ガード。
           # 検出パターン: murakaminaoya / mrkm.naoya / naoya643
-          # 除外: security_audit.sh は監査用に意図的にこれらを文字列リテラルで保持する。
+          # 除外（パターンを意図的に保持するファイル）:
+          #   - scripts/security_audit.sh — A1 監査の grep パターン
+          #   - done.sh — security 系タスクの PII grep
+          #   - .github/workflows/ci.yml — このチェック自体
           HITS=$(git ls-files \
             | xargs grep -lE "murakaminaoya|mrkm\\.naoya|naoya643" 2>/dev/null \
             | grep -v "^scripts/security_audit\.sh$" \
+            | grep -v "^done\.sh$" \
             | grep -v "^\.github/workflows/ci\.yml$" \
             || true)
           if [ -n "$HITS" ]; then
