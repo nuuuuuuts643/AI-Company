@@ -107,5 +107,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0430-UX UX定量評価CI | shell+yml | scripts/ux_check.sh, .github/workflows/ux-check.yml, docs/ux-scores.md | 2026-05-01 07:35 | yes |
 

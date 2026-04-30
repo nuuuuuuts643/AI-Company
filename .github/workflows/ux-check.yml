@@ -1,20 +1,27 @@
-name: UX 体験チェック (週次)
+name: UX 定量評価 (週次)
 
-# T2026-0430-UX: メトリクス(SLI)とは別系統で「実画面の体験」を機械的に検証する。
+# T2026-0430-UX: ユーザー体験 (情報密度 / 関連トピック密度 / モバイル表示 / 応答性) を週次で計測する。
+# 定性評価CI (qualitative-eval.yml) は AI 出力品質を見るが、こちらは「画面に何が出ているか」を見る。
+# コスト: API 呼び出しゼロ (curl + python3 のみ)。
 #
-# 目的: SLI は数値で健全性を見るが、「favicon が 404」「次トピック導線が消えた」
-#   みたいな UX の劣化はメトリクスに乗らない。週次で curl ベースに 8 項目チェックし、
-#   閾値割れがあれば Slack 通知 + job を赤くする。
-#
-# コスト: ubuntu-latest + curl + python3 のみ (AWS 不要)。週 1 で約 1 分。
+# 月曜 07:30 JST = 日曜 22:30 UTC。qualitative-eval と同時刻帯で Slack 通知をまとめる。
 
 on:
   schedule:
-    - cron: '0 22 * * 0'   # 日曜 22:00 UTC = 月曜 07:00 JST
+    - cron: '30 22 * * 0'   # 日曜 22:30 UTC = 月曜 07:30 JST
   workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'API base URL (テスト用)'
+        required: false
+        default: 'https://flotopic.com'
 
 permissions:
-  contents: read
+  contents: write   # docs/ux-scores.md を commit & push する
+
+concurrency:
+  group: ux-check
+  cancel-in-progress: false
 
 jobs:
   ux-check:
@@ -22,67 +29,138 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: ux_check.sh 実行 (JSON)
-        id: ux
+      - name: Python セットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 前週スコア取得 (前週比用)
+        id: prev
         shell: bash
         run: |
           set +e
-          OUT=$(bash scripts/ux_check.sh --json 2>&1)
+          # docs/ux-scores.md の最初の data 行 = 前回 (今回 commit 前) のスコア
+          if [ -f docs/ux-scores.md ]; then
+            # 行末の trailing | で NF が +1 されるので 末尾から 2 番目 = UXスコア列
+            PREV_LINE=$(grep -E '^\| 20[0-9]{2}-[0-9]{2}-[0-9]{2}' docs/ux-scores.md | head -1)
+            PREV_SCORE=$(echo "$PREV_LINE" | awk -F'|' '{print $(NF-1)}' | tr -d ' ')
+            echo "prev_score=${PREV_SCORE:-?}" >> "$GITHUB_OUTPUT"
+          else
+            echo "prev_score=?" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
+
+      - name: ux_check.sh 実行
+        id: ux
+        shell: bash
+        env:
+          BASE_URL: ${{ github.event.inputs.base_url || 'https://flotopic.com' }}
+        run: |
+          set +e
+          OUT=$(bash scripts/ux_check.sh --base-url "${BASE_URL}" 2>&1)
           rc=$?
-          # GITHUB_OUTPUT へ JSON を載せるとサイズ/エスケープで詰むので一旦ファイルに出して artifact なしで Step Summary に流す
-          echo "$OUT" > /tmp/ux.json
+          echo "$OUT"
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
 
           # Step Summary
-          echo "## UX 体験チェック結果" >> "$GITHUB_STEP_SUMMARY"
-          echo '```json' >> "$GITHUB_STEP_SUMMARY"
-          echo "$OUT" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-
-          # Slack 用に集計
-          PASSED=$(python3 -c "import json; d=json.load(open('/tmp/ux.json')); print(d['passed'])")
-          FAILED=$(python3 -c "import json; d=json.load(open('/tmp/ux.json')); print(d['failed'])")
-          FAIL_DETAIL=$(python3 -c "import json; d=json.load(open('/tmp/ux.json')); print('\n'.join(f\"- {f['check']}: {f['detail']}\" for f in d['fail']))")
           {
-            echo "passed=$PASSED"
-            echo "failed=$FAILED"
-            echo "fail_detail<<EOF"
-            echo "$FAIL_DETAIL"
-            echo "EOF"
+            echo "## UX 定量評価 結果"
+            echo ""
+            echo '```'
+            echo "$OUT" | tail -60
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Slack 用に主要メトリクスを抽出
+          UX_SCORE=$(echo "$OUT"   | grep -E '^UX 総合スコア:' | head -1 | sed 's/.*: *//' | awk '{print $1}')
+          KP100=$(echo "$OUT"      | grep -E 'keyPoint>=100字:' | head -1 | grep -oE '[0-9]+\.[0-9]+%' | head -1)
+          CHILD_AVG=$(echo "$OUT"  | grep -E 'childTopics 平均:' | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
+          DELTA=$(echo "$OUT"      | grep -E 'articleCountDelta>0:' | head -1 | grep -oE '[0-9]+\.[0-9]+%' | head -1)
+          INDEX_TIME=$(echo "$OUT" | grep -E '^    /             ' | head -1 | grep -oE '[0-9]+\.[0-9]+s' | head -1)
+          {
+            echo "ux_score=${UX_SCORE:-?}"
+            echo "kp100=${KP100:-?}"
+            echo "child_avg=${CHILD_AVG:-?}"
+            echo "delta_pct=${DELTA:-?}"
+            echo "index_time=${INDEX_TIME:-?}"
           } >> "$GITHUB_OUTPUT"
+          # rc=1 はレイアウト WARN (MD は書き込み済) — 続行して commit してから最後に exit 1
           exit 0
 
-      - name: Slack 通知 (失敗時のみ)
-        if: steps.ux.outputs.failed != '0'
+      - name: docs/ux-scores.md commit
+        if: always()
+        shell: bash
+        run: |
+          set -e
+          if git diff --quiet docs/ux-scores.md; then
+            echo "docs/ux-scores.md に差分なし (skip commit)"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/ux-scores.md
+          git commit -m "chore(T2026-0430-UX): UX 定量評価スコア更新 ($(date -u +%Y-%m-%d))
+
+          Verified: ux-check.yml:auto:$(date -u +%FT%TZ)"
+          git push origin HEAD:main || {
+            echo "::warning::main 直push失敗 (branch protection)。手動PRで反映してください。"
+          }
+
+      - name: Slack 通知
+        if: always()
         continue-on-error: true
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
-          PASSED: ${{ steps.ux.outputs.passed }}
-          FAILED: ${{ steps.ux.outputs.failed }}
-          FAIL_DETAIL: ${{ steps.ux.outputs.fail_detail }}
+          UX_SCORE:   ${{ steps.ux.outputs.ux_score }}
+          PREV_SCORE: ${{ steps.prev.outputs.prev_score }}
+          KP100:      ${{ steps.ux.outputs.kp100 }}
+          CHILD_AVG:  ${{ steps.ux.outputs.child_avg }}
+          DELTA_PCT:  ${{ steps.ux.outputs.delta_pct }}
+          INDEX_TIME: ${{ steps.ux.outputs.index_time }}
+          RC:         ${{ steps.ux.outputs.rc }}
         shell: bash
         run: |
           if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
-            echo "::warning::UX チェック失敗: pass=$PASSED fail=$FAILED"
-            echo "$FAIL_DETAIL"
+            echo "::warning::SLACK_WEBHOOK_URL 未設定 (notify skip)"
             exit 0
           fi
-          PAYLOAD=$(PASSED="$PASSED" FAILED="$FAILED" FAIL_DETAIL="$FAIL_DETAIL" python3 -c "
+          PAYLOAD=$(UX_SCORE="$UX_SCORE" PREV_SCORE="$PREV_SCORE" KP100="$KP100" CHILD_AVG="$CHILD_AVG" \
+                    DELTA_PCT="$DELTA_PCT" INDEX_TIME="$INDEX_TIME" RC="$RC" python3 -c "
           import json, os
+          rc = os.environ.get('RC', '0')
+          ux = os.environ.get('UX_SCORE', '?')
+          prev = os.environ.get('PREV_SCORE', '?')
+          delta_str = ''
+          try:
+              if ux != '?' and prev != '?':
+                  d = float(ux) - float(prev)
+                  arrow = '⬆' if d > 0.005 else ('⬇' if d < -0.005 else '→')
+                  delta_str = f' ({arrow}{d:+.2f} vs 前週 {prev})'
+          except ValueError:
+              pass
+          icon = ':bar_chart:' if rc == '0' else ':warning:'
+          status_label = 'OK' if rc == '0' else 'レイアウト WARN'
           text = (
-              '🎨 *Flotopic UX 体験チェック 失敗 (週次)*\n'
-              f'• pass: \`{os.environ[\"PASSED\"]}\` / fail: \`{os.environ[\"FAILED\"]}\`\n'
-              f'• 失敗項目:\n{os.environ[\"FAIL_DETAIL\"]}\n'
-              '\n_T2026-0430-UX scripts/ux_check.sh — メトリクス(SLI)では拾えない実画面の劣化を検出_'
+              f'{icon} *Flotopic UX 定量評価 (週次)*\n'
+              f'• 状態: \`{status_label}\`\n'
+              f'• UX スコア: \`{ux}/5\`{delta_str}\n'
+              f'• keyPoint≥100字: \`{os.environ.get(\"KP100\",\"?\")}\`\n'
+              f'• 関連トピック平均: \`{os.environ.get(\"CHILD_AVG\",\"?\")}件\`\n'
+              f'• 続報率: \`{os.environ.get(\"DELTA_PCT\",\"?\")}\`\n'
+              f'• TTFB(/): \`{os.environ.get(\"INDEX_TIME\",\"?\")}\`\n'
+              '• 詳細: docs/ux-scores.md\n'
+              '\n_T2026-0430-UX scripts/ux_check.sh — 情報密度・関連密度・モバイル表示・応答性の週次 SLI_'
           )
-          print(json.dumps({'text': text, 'username': 'Flotopic UX Monitor', 'icon_emoji': ':art:'}))
+          print(json.dumps({'text': text, 'username': 'Flotopic UX Monitor', 'icon_emoji': ':sparkles:'}))
           ")
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
 
-      - name: 失敗で job を赤くする
-        if: steps.ux.outputs.failed != '0'
+      - name: レイアウト WARN なら job を赤くする
+        if: steps.ux.outputs.rc != '0'
         shell: bash
         run: |
-          echo "::error::UX 体験チェック ${{ steps.ux.outputs.failed }} 件失敗"
+          echo "::error::ux_check rc=${{ steps.ux.outputs.rc }} (レイアウト健全性 WARN — docs/ux-scores.md 詳細を参照)"
           exit 1
