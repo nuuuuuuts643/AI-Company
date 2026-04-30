@@ -282,7 +282,10 @@ def lambda_handler(event, context):
         needs_title = (cnt >= MIN_ARTICLES_FOR_TITLE
                        and not (topic.get('aiGenerated') and gen_title))
         if needs_title:
-            new_title = generate_title(articles)
+            # T2026-0501-C: 既知ジャンル(再処理時)があれば角度ヒントとして渡す。
+            # 初回処理時 (gen_story 未生成) は None になり「総合」ヒントが使われる。
+            existing_genre = topic.get('genre') or (topic.get('genres') or [None])[0]
+            new_title = generate_title(articles, genre=existing_genre)
             api_calls += 1
             time.sleep(1.5)
             if new_title:

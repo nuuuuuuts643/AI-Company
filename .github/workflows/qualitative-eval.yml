@@ -1,0 +1,120 @@
+name: AI 定性評価 (週次)
+
+# T2026-0501-C: SLI(充填率) では拾えない「タイトルの惹き / keyPoint の深さ /
+# perspectives の独自性」を Claude Haiku に評価させ、スコア推移を記録する。
+# 改善が機能しているか/退化していないかを数値で見るためのループ。
+#
+# 月曜 07:30 JST = 日曜 22:30 UTC。UX チェック (07:00) の 30 分後に走らせて
+# Slack 通知を分散する。
+
+on:
+  schedule:
+    - cron: '30 22 * * 0'   # 日曜 22:30 UTC = 月曜 07:30 JST
+  workflow_dispatch:
+    inputs:
+      sample_n:
+        description: 'サンプル数 (デフォルト 10)'
+        required: false
+        default: '10'
+      base_url:
+        description: 'API base URL (テスト用)'
+        required: false
+        default: 'https://flotopic.com'
+
+permissions:
+  contents: write   # docs/quality-scores.md を commit & push する
+
+concurrency:
+  group: qualitative-eval
+  cancel-in-progress: false
+
+jobs:
+  qualitative-eval:
+    name: scripts/qualitative_eval.sh
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Python セットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: qualitative_eval.sh 実行
+        id: eval
+        shell: bash
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SAMPLE_N: ${{ github.event.inputs.sample_n || '10' }}
+          BASE_URL: ${{ github.event.inputs.base_url || 'https://flotopic.com' }}
+        run: |
+          set +e
+          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "::error::secrets.ANTHROPIC_API_KEY 未設定。GitHub Settings → Secrets で登録してください。"
+            exit 1
+          fi
+          OUT=$(bash scripts/qualitative_eval.sh --n "${SAMPLE_N}" --base-url "${BASE_URL}" 2>&1)
+          rc=$?
+          echo "$OUT"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+
+          # Step Summary に結果を貼る
+          echo "## AI 定性評価 結果" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "$OUT" | tail -40 >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          # Slack 用に総合スコア行を抽出
+          OVERALL=$(echo "$OUT" | grep -E '^総合スコア:' | head -1 | sed 's/.*: //')
+          echo "overall=${OVERALL}" >> "$GITHUB_OUTPUT"
+          exit "$rc"
+
+      - name: docs/quality-scores.md commit
+        if: success()
+        shell: bash
+        run: |
+          set -e
+          if git diff --quiet docs/quality-scores.md; then
+            echo "docs/quality-scores.md に差分なし (skip commit)"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/quality-scores.md
+          git commit -m "chore(T2026-0501-C): AI 定性評価スコア更新 ($(date -u +%Y-%m-%d))
+
+          Verified: qualitative-eval.yml:auto:$(date -u +%FT%TZ)"
+          git push origin HEAD:main || {
+            # main 直 push 不可の場合は失敗扱いにせず警告
+            echo "::warning::main 直push失敗。branch protection を回避するため scheduled task で対応してください。"
+          }
+
+      - name: Slack 通知
+        if: always()
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
+          OVERALL:  ${{ steps.eval.outputs.overall }}
+          STATUS:   ${{ job.status }}
+        shell: bash
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::warning::SLACK_WEBHOOK_URL 未設定 (notify skip)"
+            exit 0
+          fi
+          PAYLOAD=$(STATUS="$STATUS" OVERALL="$OVERALL" python3 -c "
+          import json, os
+          status = os.environ['STATUS']
+          icon = ':bar_chart:' if status == 'success' else ':warning:'
+          text = (
+              f'{icon} *Flotopic AI 定性評価 (週次)*\n'
+              f'• 状態: \`{status}\`\n'
+              f'• 総合スコア: \`{os.environ.get(\"OVERALL\",\"?\")}\`\n'
+              '• 詳細: docs/quality-scores.md\n'
+              '\n_T2026-0501-C scripts/qualitative_eval.sh — 充填率では拾えない「惹き・深さ・独自性」を Claude Haiku に評価させる_'
+          )
+          print(json.dumps({'text': text, 'username': 'Flotopic Quality Monitor', 'icon_emoji': ':sparkles:'}))
+          ")
+          curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
