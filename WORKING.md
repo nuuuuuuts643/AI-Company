@@ -105,5 +105,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-D 関連トピックリンク密度強化 (Ph3情報の地図) | 機能追加 | projects/P003-news-timeline/frontend/detail.js | 2026-05-01 03:25 JST | yes |
 
