@@ -101,3 +101,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T-keypoint-prompt keyPointプロンプト全面改修（フェーズ判定対応） | feat | projects/P003-news-timeline/lambda/processor/proc_ai.py | 2026-04-30 15:14 JST | yes |
