@@ -306,6 +306,22 @@ function renderBadges(t) {
 }
 
 /**
+ * velocityScore を 5段階の縦バーメーター用 tier (0〜5) に正規化する。
+ * 閾値は HOT_STRIP_MIN_VELOCITY=3 / hero=8 / explode=15 と揃える。
+ * 0 はメーター非表示、1〜5 はバーの本数兼配色グレード。
+ * @param {number} v - velocityScore
+ * @returns {number} 0〜5 の段階値
+ */
+function velocityTier(v) {
+  if (!Number.isFinite(v) || v <= 0) return 0;
+  if (v < 1) return 1;
+  if (v < 3) return 2;
+  if (v < 8) return 3;
+  if (v < 15) return 4;
+  return 5;
+}
+
+/**
  * RSS生タイトル末尾の「 - 媒体名」サフィックスを除去する。
  * AI解析前のトピックでフォールバック表示する際、見栄えを揃える。
  * 媒体名は別 srcLabel で出すので二重表示にもならない。
@@ -441,10 +457,12 @@ function renderTopicCard(t, i) {
     ? `<span class="card-phase-badge ${PHASE_CLASS[t.storyPhase] || ''}">${PHASE_BADGE[t.storyPhase]}</span>`
     : '';
 
+  // T2026-0429-A: velocityScore を 5段階の縦バーメーター（信号強度風）でカードに可視化する。
+  // 閾値は `HOT_STRIP_MIN_VELOCITY=3` / hero=8 / explode=15 と揃え、色は段階に応じて grade up する。
   const velocity = Number(t.velocityScore || 0);
-  const velPct = Math.min(100, Math.round(velocity * 5));
-  const velBarHtml = (displayStatus === 'rising' || displayStatus === 'peak') && velocity > 0
-    ? `<div class="velocity-bar-wrap ${displayStatus}"><div class="velocity-bar" style="width:${velPct}%"></div></div>`
+  const velLevel = (displayStatus === 'rising' || displayStatus === 'peak') ? velocityTier(velocity) : 0;
+  const velMeterHtml = velLevel > 0
+    ? `<div class="velocity-meter" data-level="${velLevel}" role="img" aria-label="勢い 5段階中 ${velLevel}" title="勢いスコア ${velocity.toFixed(1)}">${'<span class="vm-tick"></span>'.repeat(5)}</div>`
     : '';
 
   // 分岐ストーリーバー（親トピックのみ）
@@ -469,7 +487,7 @@ function renderTopicCard(t, i) {
         ${thumbHtml}
         <div class="card-body">
           <div class="topic-status ${displayStatus}">${STATUS_LABEL[displayStatus] || displayStatus}${coolingAgeHtml}${phaseHtml}</div>
-          ${velBarHtml}
+          ${velMeterHtml}
           <h3>${esc(t.topicTitle || t.generatedTitle || stripMediaSuffix(t.title))}</h3>
           ${t.latestUpdateHeadline ? `<p class="card-update-headline">${esc(t.latestUpdateHeadline)}</p>` : ''}
           ${renderCardMeta(t)}
