@@ -1,0 +1,88 @@
+name: UX 体験チェック (週次)
+
+# T2026-0430-UX: メトリクス(SLI)とは別系統で「実画面の体験」を機械的に検証する。
+#
+# 目的: SLI は数値で健全性を見るが、「favicon が 404」「次トピック導線が消えた」
+#   みたいな UX の劣化はメトリクスに乗らない。週次で curl ベースに 8 項目チェックし、
+#   閾値割れがあれば Slack 通知 + job を赤くする。
+#
+# コスト: ubuntu-latest + curl + python3 のみ (AWS 不要)。週 1 で約 1 分。
+
+on:
+  schedule:
+    - cron: '0 22 * * 0'   # 日曜 22:00 UTC = 月曜 07:00 JST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ux-check:
+    name: scripts/ux_check.sh
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ux_check.sh 実行 (JSON)
+        id: ux
+        shell: bash
+        run: |
+          set +e
+          OUT=$(bash scripts/ux_check.sh --json 2>&1)
+          rc=$?
+          # GITHUB_OUTPUT へ JSON を載せるとサイズ/エスケープで詰むので一旦ファイルに出して artifact なしで Step Summary に流す
+          echo "$OUT" > /tmp/ux.json
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+
+          # Step Summary
+          echo "## UX 体験チェック結果" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo "$OUT" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          # Slack 用に集計
+          PASSED=$(python3 -c "import json; d=json.load(open('/tmp/ux.json')); print(d['passed'])")
+          FAILED=$(python3 -c "import json; d=json.load(open('/tmp/ux.json')); print(d['failed'])")
+          FAIL_DETAIL=$(python3 -c "import json; d=json.load(open('/tmp/ux.json')); print('\n'.join(f\"- {f['check']}: {f['detail']}\" for f in d['fail']))")
+          {
+            echo "passed=$PASSED"
+            echo "failed=$FAILED"
+            echo "fail_detail<<EOF"
+            echo "$FAIL_DETAIL"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Slack 通知 (失敗時のみ)
+        if: steps.ux.outputs.failed != '0'
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
+          PASSED: ${{ steps.ux.outputs.passed }}
+          FAILED: ${{ steps.ux.outputs.failed }}
+          FAIL_DETAIL: ${{ steps.ux.outputs.fail_detail }}
+        shell: bash
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::warning::UX チェック失敗: pass=$PASSED fail=$FAILED"
+            echo "$FAIL_DETAIL"
+            exit 0
+          fi
+          PAYLOAD=$(PASSED="$PASSED" FAILED="$FAILED" FAIL_DETAIL="$FAIL_DETAIL" python3 -c "
+          import json, os
+          text = (
+              '🎨 *Flotopic UX 体験チェック 失敗 (週次)*\n'
+              f'• pass: \`{os.environ[\"PASSED\"]}\` / fail: \`{os.environ[\"FAILED\"]}\`\n'
+              f'• 失敗項目:\n{os.environ[\"FAIL_DETAIL\"]}\n'
+              '\n_T2026-0430-UX scripts/ux_check.sh — メトリクス(SLI)では拾えない実画面の劣化を検出_'
+          )
+          print(json.dumps({'text': text, 'username': 'Flotopic UX Monitor', 'icon_emoji': ':art:'}))
+          ")
+          curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
+
+      - name: 失敗で job を赤くする
+        if: steps.ux.outputs.failed != '0'
+        shell: bash
+        run: |
+          echo "::error::UX 体験チェック ${{ steps.ux.outputs.failed }} 件失敗"
+          exit 1
