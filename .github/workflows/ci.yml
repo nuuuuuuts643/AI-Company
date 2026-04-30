@@ -252,13 +252,14 @@ jobs:
       - name: PII 検査（個人情報のコード直書き禁止）
         run: |
           # 公開リポジトリに owner の username/email が残らないよう物理ガード。
-          # 検出パターン: OWNER / owner / owner643
+          # 検出パターン (character class escape — filter-repo safe):
+          #   m[u]rakaminaoya / mr[k]m\.naoya / n[a]oya643
           # 除外（パターンを意図的に保持するファイル）:
           #   - scripts/security_audit.sh — A1 監査の grep パターン
           #   - done.sh — security 系タスクの PII grep
           #   - .github/workflows/ci.yml — このチェック自体
           HITS=$(git ls-files \
-            | xargs grep -lE "OWNER|mrkm\\.naoya|owner643" 2>/dev/null \
+            | xargs grep -lE "m[u]rakaminaoya|mr[k]m\\.naoya|n[a]oya643" 2>/dev/null \
             | grep -v "^scripts/security_audit\.sh$" \
             | grep -v "^done\.sh$" \
             | grep -v "^\.github/workflows/ci\.yml$" \
