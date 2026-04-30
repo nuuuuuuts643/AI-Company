@@ -139,5 +139,44 @@ class TitlePromptQualityTest(unittest.TestCase):
         self.assertEqual(result, compelling)
 
 
+class PerspectiveActorHintTest(unittest.TestCase):
+    """T2026-0501-C-2: ジャンル別 perspectives アクター指定が user prompt に注入されること。"""
+
+    def test_actor_hint_for_politics(self):
+        block = proc_ai._build_perspective_actor_hint('政治')
+        self.assertIn('与党', block)
+        self.assertIn('野党', block)
+        self.assertIn('市民', block)
+        # 媒体名固定の落とし穴を回避していることを明示する文言
+        self.assertIn('最終手段', block)
+
+    def test_actor_hint_for_finance(self):
+        block = proc_ai._build_perspective_actor_hint('株・金融')
+        self.assertIn('機関投資家', block)
+        self.assertIn('中央銀行', block)
+
+    def test_actor_hint_for_tech(self):
+        block = proc_ai._build_perspective_actor_hint('テクノロジー')
+        self.assertIn('開発者', block)
+        self.assertIn('規制当局', block)
+        self.assertIn('エンドユーザー', block)
+
+    def test_actor_hint_falls_back_for_none(self):
+        block = proc_ai._build_perspective_actor_hint(None)
+        # 「総合」 actors にフォールバック
+        self.assertIn('当事者', block)
+        self.assertIn('関係省庁', block)
+
+    def test_actor_hint_falls_back_for_unknown_genre(self):
+        block = proc_ai._build_perspective_actor_hint('未知ジャンル')
+        self.assertIn('当事者', block)
+
+    def test_actor_hint_always_returns_block(self):
+        """空文字を返さない (空だと user prompt が崩れる)。"""
+        for g in (None, '', '政治', '不明', '株・金融'):
+            block = proc_ai._build_perspective_actor_hint(g)
+            self.assertTrue(len(block) > 50, f'genre={g!r} のブロックが短すぎる: {block!r}')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

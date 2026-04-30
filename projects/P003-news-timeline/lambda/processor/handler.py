@@ -345,7 +345,9 @@ def lambda_handler(event, context):
             except Exception as _e:
                 pass  # パース失敗時は通常処理
         if needs_story and api_calls < effective_max_api_calls:
-            new_story = generate_story(articles, article_count=cnt)
+            # T2026-0501-C-2: 既知ジャンル(再処理時)を perspectives アクター指定に渡す。
+            existing_genre = topic.get('genre') or (topic.get('genres') or [None])[0]
+            new_story = generate_story(articles, article_count=cnt, genre=existing_genre)
             api_calls += 1
             time.sleep(1.5)
             if new_story:
