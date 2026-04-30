@@ -1,15 +1,18 @@
-"""T2026-0428-E2-3: title 重複による tid 分裂 dedup 再発防止 boundary test。
+"""T2026-0428-E2-3 + T2026-0430-L: title 重複による tid 分裂 dedup 再発防止 boundary test。
 
 検証対象:
 1. fetcher/handler.py に `_resolve_tid_collisions_by_title` が存在し、
    group_tids 構築直後に呼ばれていること
-2. `_title_dedup_key` が punct/whitespace/速報プレフィックスを除いた
+2. `_title_dedup_key` が NFKC 正規化 + punct/whitespace/速報プレフィックスを除いた
    先頭18文字を返すこと (proc_storage `_dedup_topics` と整合)
 3. 既存 active/cooling かつ 直近14日 の topic と title 一致すれば既存 tid に再バインド
 4. archived/legacy はマップに入らない (古いゴミ topic への誤バインド防止)
 5. 14 日より古い lastArticleAt も除外
 6. 同 run 内で 2 group が同 tid に着地したら記事マージ + URL 重複排除
 7. existing_topics が空なら group_tids を素通し (運用初期の no-op 保証)
+8. **T2026-0430-L**: NFKC 正規化で `米ＧＤＰ`(全角) と `米GDP`(半角) が同一キー
+9. **T2026-0430-L**: Jaccard 類似度 >= 0.35 で既存 AI topic に再バインド
+10. **T2026-0430-L**: 別イベント (米GDP vs 米雇用統計) は merge しない (boundary)
 
 実行:
   cd projects/P003-news-timeline
@@ -19,6 +22,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -38,6 +42,14 @@ class TitleDedupGuardTest(unittest.TestCase):
                       'title 重複による tid 分裂 dedup が外れた可能性。')
         self.assertIn('def _title_dedup_key(', self.source,
                       '_title_dedup_key が削除されている。')
+        # T2026-0430-L: NFKC 正規化と Jaccard fallback が外れていないこと
+        self.assertIn("unicodedata.normalize('NFKC'", self.source,
+                      '_title_dedup_key の NFKC 正規化が消えている。'
+                      '半角/全角差で別 tid が生まれる退行リスク。')
+        self.assertIn('def _title_bigrams(', self.source,
+                      '_title_bigrams が削除されている。Jaccard fallback が動かない。')
+        self.assertIn('def _jaccard_title_sim(', self.source,
+                      '_jaccard_title_sim が削除されている。')
 
     def test_called_after_group_tids(self):
         """group_tids 構築直後に呼ばれていること (prefetch より前)。"""
@@ -66,15 +78,40 @@ class _FakeArticle(dict):
 _PUNCT_RE = re.compile(r'[「」【】・、。,!?！？\[\]()（）『』""\'\'#＃\s　]+')
 _LIVE_RE = re.compile(r'^(中継|速報|更新|独自|詳報|続報|緊急|号外)\s*')
 _INACTIVE = ('archived', 'legacy')
+_JACCARD_THRESHOLD = 0.35
 
 
 def _title_dedup_key(title):
     if not title:
         return ''
-    s = str(title).lower()
+    # T2026-0430-L: NFKC 正規化を入れることで `米ＧＤＰ` (全角) と `米GDP` (半角) を揃える
+    s = unicodedata.normalize('NFKC', str(title)).lower()
     s = _PUNCT_RE.sub('', s)
     s = _LIVE_RE.sub('', s)
     return s[:18]
+
+
+def _title_bigrams(title):
+    if not title:
+        return frozenset()
+    s = unicodedata.normalize('NFKC', str(title)).lower()
+    s = _PUNCT_RE.sub('', s)
+    s = _LIVE_RE.sub('', s)
+    if len(s) < 2:
+        return frozenset()
+    return frozenset(s[i:i+2] for i in range(len(s) - 1))
+
+
+def _jaccard_title_sim(a, b):
+    bg_a = _title_bigrams(a)
+    bg_b = _title_bigrams(b)
+    if not bg_a or not bg_b:
+        return 0.0
+    inter = bg_a & bg_b
+    union = bg_a | bg_b
+    if not union:
+        return 0.0
+    return len(inter) / len(union)
 
 
 def _extractive_title(articles):
@@ -91,6 +128,7 @@ def _resolve(group_tids, existing_topics, now_ts=None):
         now_ts = int(time.time())
     cutoff = now_ts - 14 * 86400
     title_to_tid = {}
+    ai_topic_candidates = []
     for t in existing_topics:
         tid_e = t.get('topicId', '')
         if not tid_e:
@@ -104,8 +142,16 @@ def _resolve(group_tids, existing_topics, now_ts=None):
             norm = _title_dedup_key(src_title)
             if norm and norm not in title_to_tid:
                 title_to_tid[norm] = tid_e
-    if not title_to_tid:
+        if t.get('aiGenerated'):
+            best_title = t.get('generatedTitle') or t.get('title') or ''
+            if best_title:
+                ai_topic_candidates.append((tid_e, best_title, last))
+    if not title_to_tid and not ai_topic_candidates:
         return group_tids
+    ai_topic_candidates.sort(key=lambda x: x[2], reverse=True)
+    ai_topic_bigrams = [
+        (tid_e, ttl, _title_bigrams(ttl)) for tid_e, ttl, _ in ai_topic_candidates[:200]
+    ]
     rebound_resolved = []
     for g, tid in group_tids:
         candidate = _extractive_title(g) or (g[0].get('title', '') if g else '')
@@ -113,6 +159,26 @@ def _resolve(group_tids, existing_topics, now_ts=None):
         target = title_to_tid.get(norm)
         if target and target != tid:
             tid = target
+        elif ai_topic_bigrams and candidate:
+            cand_bg = _title_bigrams(candidate)
+            if cand_bg:
+                best_sim = 0.0
+                best_tid = None
+                for tid_e, _ttl, ttl_bg in ai_topic_bigrams:
+                    if not ttl_bg:
+                        continue
+                    inter = cand_bg & ttl_bg
+                    if not inter:
+                        continue
+                    union = cand_bg | ttl_bg
+                    if not union:
+                        continue
+                    sim = len(inter) / len(union)
+                    if sim > best_sim:
+                        best_sim = sim
+                        best_tid = tid_e
+                if best_tid and best_sim >= _JACCARD_THRESHOLD and best_tid != tid:
+                    tid = best_tid
         rebound_resolved.append((g, tid))
     by_tid = {}
     order = []
@@ -152,6 +218,64 @@ class TitleDedupKeyTest(unittest.TestCase):
     def test_truncates_to_18_chars(self):
         long = 'あ' * 30
         self.assertEqual(len(_title_dedup_key(long)), 18)
+
+    def test_nfkc_full_width_alpha(self):
+        # T2026-0430-L: 全角 ＧＤＰ と半角 GDP が同一キーに揃うこと
+        self.assertEqual(
+            _title_dedup_key('米ＧＤＰ速報値発表'),
+            _title_dedup_key('米GDP速報値発表'),
+        )
+
+    def test_nfkc_full_width_digits(self):
+        # 全角数字 ２０２６ と半角 2026 も同じ
+        self.assertEqual(
+            _title_dedup_key('２０２６年予算審議'),
+            _title_dedup_key('2026年予算審議'),
+        )
+
+
+class JaccardTitleSimilarityTest(unittest.TestCase):
+    """T2026-0430-L: bigram Jaccard 類似度の boundary test。"""
+
+    def test_same_event_close_variation(self):
+        # 同イベント・近い言い回しは >= 0.35 (典型: 一方が他方の長い版)
+        sim = _jaccard_title_sim(
+            '米GDP速報値2.0%増',
+            '米GDP速報値2.0%増 1〜3月期',
+        )
+        self.assertGreaterEqual(sim, _JACCARD_THRESHOLD,
+                                f'近接同イベントなら >= {_JACCARD_THRESHOLD}: 実測 {sim:.3f}')
+
+    def test_distant_same_event_below_threshold(self):
+        # 注意: 同イベントでも切り口が大きく違うと bigram Jaccard では捕捉しきれない。
+        # 「米GDP速報値2.0%増 1〜3月期」vs「米GDP年率2.0%増 4四半期連続のプラス成長」
+        # = 0.226 < 0.35 で merge されない。これは false positive 抑制とのトレードオフ。
+        # 将来 entity-level 一致にアップグレードする余地あり (T2026-0430-L コメント)。
+        sim = _jaccard_title_sim(
+            '米GDP速報値2.0%増 1〜3月期',
+            '米GDP年率2.0%増 4四半期連続のプラス成長',
+        )
+        self.assertLess(sim, _JACCARD_THRESHOLD,
+                        f'参考値: {sim:.3f} (entity-level なら拾える)')
+
+    def test_different_events_low_sim(self):
+        # 別イベントは < 0.35 (boundary - merge してはいけない)
+        sim = _jaccard_title_sim(
+            '米GDP速報値2.0%増 1〜3月期',
+            '米雇用統計 非農業部門就業者数増加',
+        )
+        self.assertLess(sim, _JACCARD_THRESHOLD,
+                        f'別イベントなら < {_JACCARD_THRESHOLD}: 実測 {sim:.3f}')
+
+    def test_full_width_normalized(self):
+        # NFKC 後に bigram を作るので 全角/半角差は類似度を下げない
+        sim = _jaccard_title_sim('米ＧＤＰ速報値', '米GDP速報値')
+        self.assertEqual(sim, 1.0, '全角/半角差のみなら完全一致')
+
+    def test_empty_returns_zero(self):
+        self.assertEqual(_jaccard_title_sim('', '何か'), 0.0)
+        self.assertEqual(_jaccard_title_sim('何か', ''), 0.0)
+        self.assertEqual(_jaccard_title_sim(None, None), 0.0)
 
 
 class TidRebindBehaviorTest(unittest.TestCase):
@@ -258,6 +382,73 @@ class TidRebindBehaviorTest(unittest.TestCase):
         gt = [([_FakeArticle(url='u1', title='全然違うタイトル')], 'tid_new')]
         out = _resolve(gt, existing, self.now)
         self.assertEqual(out[0][1], 'tid_new')
+
+    def test_jaccard_rebinds_to_existing_ai_topic(self):
+        # T2026-0430-L: 完全一致しなくても Jaccard >= 0.35 で AI topic に再バインド。
+        # 「短い形」と「詳報を足した長い形」は典型的な高類似度ケース。
+        existing = [{
+            'topicId': 'tid_ai',
+            'title': '米GDP速報値2.0%増',
+            'generatedTitle': '米GDP速報値2.0%増',
+            'lastArticleAt': self.now - 3600,
+            'lifecycleStatus': 'active',
+            'aiGenerated': True,
+        }]
+        gt = [([_FakeArticle(url='new1',
+                             title='米GDP速報値2.0%増 1〜3月期')], 'tid_new')]
+        out = _resolve(gt, existing, self.now)
+        self.assertEqual(out[0][1], 'tid_ai',
+                         'Jaccard>=0.35 で既存 AI topic に再バインドされるべき')
+
+    def test_jaccard_does_not_rebind_to_non_ai_topic(self):
+        # aiGenerated=False の topic は Jaccard fallback の候補にしない。
+        # (一致したい先は AI 生成済 topic のみ — extractive topic への merge は
+        # 既存の完全一致 dedup でカバーされており、Jaccard で広げると誤マージリスク)
+        existing = [{
+            'topicId': 'tid_extractive',
+            'title': '米GDP速報値2.0%増',
+            'lastArticleAt': self.now - 3600,
+            'lifecycleStatus': 'active',
+            'aiGenerated': False,
+        }]
+        gt = [([_FakeArticle(url='new1',
+                             title='米GDP速報値2.0%増 1〜3月期')], 'tid_new')]
+        out = _resolve(gt, existing, self.now)
+        self.assertEqual(out[0][1], 'tid_new',
+                         'aiGenerated=False には Jaccard fallback で bind しない')
+
+    def test_jaccard_does_not_rebind_different_events(self):
+        # boundary: 別イベントは Jaccard < 0.35 で bind しない
+        existing = [{
+            'topicId': 'tid_gdp',
+            'title': '米GDP速報値2.0%増 1〜3月期',
+            'generatedTitle': '米GDP速報値2.0%増 1〜3月期',
+            'lastArticleAt': self.now - 3600,
+            'lifecycleStatus': 'active',
+            'aiGenerated': True,
+        }]
+        gt = [([_FakeArticle(url='new1',
+                             title='米雇用統計 非農業部門就業者数増加')], 'tid_new')]
+        out = _resolve(gt, existing, self.now)
+        self.assertEqual(out[0][1], 'tid_new',
+                         '別イベント (米GDP vs 米雇用統計) は merge してはいけない')
+
+    def test_jaccard_full_width_match(self):
+        # 全角/半角差のみなら NFKC 正規化により完全一致 dedup が走るが、
+        # 仮に prefix 18 字超の差で完全一致しない場合も Jaccard で救済される
+        existing = [{
+            'topicId': 'tid_zenkaku',
+            'title': '米ＧＤＰ速報値2.0％増 1〜3月期',
+            'generatedTitle': '米ＧＤＰ速報値2.0％増 1〜3月期',
+            'lastArticleAt': self.now - 3600,
+            'lifecycleStatus': 'active',
+            'aiGenerated': True,
+        }]
+        gt = [([_FakeArticle(url='new1',
+                             title='米GDP速報値2.0%増 1〜3月期')], 'tid_new')]
+        out = _resolve(gt, existing, self.now)
+        self.assertEqual(out[0][1], 'tid_zenkaku',
+                         'NFKC 正規化で全角/半角差は同一 tid に集約')
 
     def test_real_world_343_split_scenario(self):
         # 本番再現: 同じイベントに対し fingerprint 違いで別 tid が生まれた状況。
