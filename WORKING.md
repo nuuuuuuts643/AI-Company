@@ -101,3 +101,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T-haiku-full full mode Haiku統一+プロンプト強化 | コスト削減/AI品質 | projects/P003-news-timeline/lambda/processor/proc_ai.py | 2026-04-30 15:42 JST | yes |
