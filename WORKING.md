@@ -11,7 +11,7 @@
 > 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**現在のフェーズ**: **フェーズ2（AI品質改善）+ コスト削減** — 2026-04-30 18:10 JST p003 自律巡回: PII除去 完走済 (35f96c21) → アクティブ [Code] 行なし。SLI 実測 (topics.json updatedAt 18:05 JST): keyPoint >=100字 **2.2%** (2/92・据え置き) / 平均長 **35.6字** (据え置き) / perspectives **40.2%** (37/92・据え置き) / outlook **100%** / storyPhase発端率 **9.5%** (4/42・目標<10%達成✅維持)。processor 1 サイクル経過後も keyPoint 数値変化なし → proc_ai.py 側の構造的不具合（短文応答確定 / フォールバック切詰め / lengthガード未設定）が確定。次の最優先 = **T2026-0430-A keyPoint 平均長 200字超化**（実装は承認不要・proc_ai.py の length validation + retry + fallback マーク追加 / バルク再処理 forceRegenerateAll は ~$2.5 でPO承認後）。
+**現在のフェーズ**: **フェーズ2（AI品質改善）+ コスト削減** — 2026-04-30 19:01 JST scheduled keypoint-quality-check 自動観測: PR #36 (T-keypoint-prompt フェーズ判定方式) マージ済 → アクティブ [Code] T2026-0430-A 18:18 JST 起動中（needs-push: yes 滞留中）。SLI 実測 (topics.json): keyPoint >=100字 **2.2%** (2/92・据え置き) / 平均長 **35.6字** (据え置き) / >=50字 **6.5%** (6/92) / 空 **0%** / SLI目標 30% に対し 27.8pt 不足 = **🔴 10%未満の緊急基準該当**。Lambda 巡回 (毎時 :09) は 19:09 で発火予定 → 19:01 観測値は PR #36 反映前の可能性あり。次回観測 (20:09 以降) でも変化なければ T-keypoint-prompt-v2 (CloudWatch logs 確認 + プロンプト MUST/REQUIRED 強化 + schema min length 物理制約) 起票。次の最優先 = **T2026-0430-A keyPoint 平均長 200字超化**（[Code] セッション進行中、push 待ち）。
 **直近のPO指示** (2026-04-29): 「コスト最優先・プロダクト持続性」「基盤とプロダクト両軸でP003収益化まで走れ」「Dispatch/Coworkのトークンも節約」
 
 ---
