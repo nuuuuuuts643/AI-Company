@@ -107,4 +107,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0429-PR-CONFLICT PR conflict 体質予防ルール | CI追加 | scripts/check_pr_file_conflicts.sh, .github/workflows/pr-conflict-guard.yml | 2026-05-01 00:50 | needs-push: yes |
