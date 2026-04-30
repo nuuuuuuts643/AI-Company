@@ -107,3 +107,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0430-L fresh24h根本修正(NFKC+Jaccard) | AI品質 | projects/P003-news-timeline/lambda/fetcher/handler.py, cluster_utils.py, tests/test_title_dedup_guard.py, scripts/verify_effect.sh | 2026-04-30 23:57 JST | yes |
