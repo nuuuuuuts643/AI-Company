@@ -107,4 +107,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0501-B 閲覧履歴クロスデバイス同期+続報バッジ | feat | frontend/js/*.js, lambda/, frontend/topic.html, frontend/index.html | 2026-05-01 01:55 | yes |
 
