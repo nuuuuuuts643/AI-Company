@@ -1,0 +1,90 @@
+name: success-but-empty-scan (weekly)
+
+# T2026-0428-Q: success-but-empty 横展開スキャン (週次)
+#
+# scripts/scan_success_but_empty.py を実行し、SLI 単独では検知できない
+# 「処理は成功扱いだが結果が空」アンチパターンを 7 観点で同時検査する。
+#
+# 検査項目:
+#   ① fetcher articleCount=0 サイクル        — TODO (CloudWatch Logs 連携が必要)
+#   ② processor processed_topics=0 サイクル   — TODO (CloudWatch Logs 連携が必要)
+#   ③ topics.json: aiGenerated=True かつ keyPoint 空/短い
+#   ④ topics.json: aiGenerated=True かつ perspectives 空/短い
+#   ⑤ topics.json: lastArticleAt が 24h 以内 / 全 aiGenerated=True (freshness)
+#   ⑥ .github/workflows: `if: false` / `continue-on-error: true` 列挙
+#   ⑦ topics.json: aiGenerated=False の placeholder 風 (T260 改修事後検証)
+#
+# 出力: GitHub Actions Step Summary に表形式で書き出す。
+#       閾値割れ (NG) があれば Slack に通知 (continue-on-error 付き)。
+
+on:
+  schedule:
+    # 週1 月曜 06:00 JST (= 日曜 21:00 UTC)
+    - cron: '0 21 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: success-but-empty 横展開スキャン
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: scan
+        id: scan
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -u
+          OUT=$(mktemp)
+          python3 scripts/scan_success_but_empty.py | tee "$OUT"
+          {
+            echo "### success-but-empty 横展開スキャン結果"
+            echo ""
+            echo '```'
+            cat "$OUT"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # 閾値判定 (KEY=VALUE 形式で eval し、GITHUB_OUTPUT へ転記)
+          eval "$(python3 scripts/scan_success_but_empty.py --ci-status)"
+          {
+            echo "status=${STATUS}"
+            echo "kp_rate=${KP_RATE}"
+            echo "per_rate=${PER_RATE}"
+            echo "fresh_rate=${FRESH_RATE}"
+            echo "ci_hits=${CI_HITS}"
+            echo "placeholder=${PLACEHOLDER}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Slack 通知 (NG/WARN 時)
+        if: steps.scan.outputs.status == 'ng' || steps.scan.outputs.status == 'warn'
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
+          STATUS: ${{ steps.scan.outputs.status }}
+          KP_RATE: ${{ steps.scan.outputs.kp_rate }}
+          PER_RATE: ${{ steps.scan.outputs.per_rate }}
+          FRESH_RATE: ${{ steps.scan.outputs.fresh_rate }}
+          CI_HITS: ${{ steps.scan.outputs.ci_hits }}
+          PLACEHOLDER: ${{ steps.scan.outputs.placeholder }}
+        shell: bash
+        run: |
+          set -u
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::warning::SLACK_WEBHOOK_URL not set; skip notify"
+            exit 0
+          fi
+          MSG="success-but-empty-scan ${STATUS}: keyPoint short=${KP_RATE}% / perspectives short=${PER_RATE}% / fresh24h=${FRESH_RATE}% / CI skip hits=${CI_HITS} / placeholder=${PLACEHOLDER}"
+          curl -fsS -X POST -H 'Content-type: application/json' \
+            --data "$(python3 -c "import json,os; print(json.dumps({'text': os.environ['MSG']}))" )" \
+            "$SLACK_WEBHOOK_URL" || echo "::warning::Slack notify failed"
