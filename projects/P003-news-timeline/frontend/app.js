@@ -379,15 +379,17 @@ function renderCardMeta(t) {
   const phaseLabel = t._phaseChanged
     ? `<span class="phase-change-badge">🔄 展開</span>` : '';
 
-  // T2026-0429-A: velocityScore でカード単位「急上昇」バッジ。
-  // 閾値は CONFIG.HOT_STRIP_MIN_VELOCITY (=3) と揃え HOT ストリップの選定基準と一貫させる。
-  // 5×閾値以上は「爆発」表示にして注目度の段差を可視化する。
+  // T2026-0501-A: velocityScore を数値でカード表示（情報の地図の「高さ」を可視化）。
+  // 負値・0 は非表示（見た目を汚さない）。50以上は extreme クラスで強調。
+  // 旧仕様: ≥3=「🔥 急上昇」 / ≥15=「🔥 爆発」のラベル → 数値の方が情報量が多いため数値化。
   const velocity = Number(t.velocityScore || 0);
   let velocityBadge = '';
-  if (velocity >= CONFIG.HOT_STRIP_MIN_VELOCITY * 5) {
-    velocityBadge = `<span class="velocity-badge velocity-explode" title="急上昇度 ${velocity.toFixed(1)}">🔥 爆発</span>`;
-  } else if (velocity >= CONFIG.HOT_STRIP_MIN_VELOCITY) {
-    velocityBadge = `<span class="velocity-badge velocity-rising" title="急上昇度 ${velocity.toFixed(1)}">🔥 急上昇</span>`;
+  if (velocity > 0) {
+    const velCls = velocity >= 50 ? 'velocity-extreme'
+      : velocity >= CONFIG.HOT_STRIP_MIN_VELOCITY * 5 ? 'velocity-explode'
+      : velocity >= CONFIG.HOT_STRIP_MIN_VELOCITY ? 'velocity-rising'
+      : 'velocity-low';
+    velocityBadge = `<span class="velocity-badge ${velCls}" title="勢いスコア ${velocity.toFixed(1)}">🔥 ${Math.round(velocity)}</span>`;
   }
 
   // T191: カード単位の相対更新時刻バッジ。動き中（過去24h増加あり）は強調する。
@@ -396,7 +398,9 @@ function renderCardMeta(t) {
   const freshnessLabel = rel
     ? `<span class="freshness-badge${isActive ? ' freshness-active' : ''}" title="${esc(fmtDate(t.lastUpdated))}">${isActive ? '🔥 ' : '🕒 '}${rel}更新</span>`
     : '';
-  const genres = t.genres || [t.genre || '総合'];
+  // T2026-0501-A: '総合' はゴミ箱ジャンル扱いのため、カードのジャンルタグから除外。
+  // データ層には残るが UI には表示しない（タブからも消す）。
+  const genres = (t.genres || [t.genre || '総合']).filter(g => g && g !== '総合');
   return `
     <div class="topic-meta">
       <span class="article-count">📄 ${t.articleCount}件 · 約${readMins}分</span>${deltaLabel}
@@ -783,10 +787,11 @@ function buildFilters() {
     // 「総合」は常時表示、currentGenre も件数 0 でも残す（クリック直後に消えると体験が壊れる）。
     // 旧 genre (経済/教育/文化/環境) は新 genre にマージしてカウントする。
     // 純粋ロジックは frontend/js/build_filters.js に分離 (T2026-0428-BE 境界値テスト対応)。
+    // T2026-0501-A: 内部キー '総合' は「全件表示センチネル」として残しつつ、UI ラベルは「すべて」に置換。
     const visibleGenres = (typeof BuildFilters !== 'undefined' && BuildFilters.computeVisibleGenres)
       ? BuildFilters.computeVisibleGenres(allTopics, currentGenre, GENRES)
       : GENRES;
-    gbar.innerHTML = visibleGenres.map(g=>`<button class="filter-btn genre-btn ${currentGenre===g?'active':''}" data-genre="${g}">${g}</button>`).join('');
+    gbar.innerHTML = visibleGenres.map(g=>`<button class="filter-btn genre-btn ${currentGenre===g?'active':''}" data-genre="${g}">${g==='総合'?'すべて':g}</button>`).join('');
     gbar.querySelectorAll('.genre-btn').forEach(btn => btn.addEventListener('click', () => {
       gbar.querySelectorAll('.genre-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active'); currentGenre = btn.dataset.genre;

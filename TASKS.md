@@ -75,7 +75,7 @@
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
 | ~~T192~~ | ~~高~~ | ~~**ジャンル戦略: 全ジャンル対応から1-2ジャンル集中に絞る検討**~~ ✅ 2026-05-01 分析完了 → `docs/genre-strategy.md`。要点: 経済 PV/topic=2.71（最強・AI生成率100%）、政治1.04、株・金融0.055（過剰生産）。推奨は第一案「経済+政治」3週間試行。POの意思決定待ち → T232 で施策実行 | `docs/genre-strategy.md` | 2026-04-27 |
-| T2026-0501-A | 高 | **ジャンル戦略 第一案「経済+政治」3週間試行** — `docs/genre-strategy.md` の推奨アクション短期1-3 を実施: ①総合249件の自動再分類 ②株・金融の供給絞り (velocity_high≥50 以外スキップ) ③経済供給増 (RSS source 追加 + unknown→経済 分類精度向上)。施策後 about.html 文言変更・SLI で PV/topic と unique_users を観測。**PO 意思決定後着手** | `lambda/fetcher/`, `lambda/processor/proc_ai.py`, `frontend/about.html` | 2026-05-01 |
+| T2026-0501-A | 高 | **長期ビジョン: 情報の地図 + SNS化 — 全ジャンル維持 + 総合廃止 + 経済・政治強化** — 全ジャンルが揃った「地図」を作る（コンテンツは削らない）。短期: ①UI で「総合」タブを「すべて」に置換（最左・デフォルト・総合タブ削除） ②velocityScore をカードに数値表示（地図の高さの可視化） ③総合249件の自動再分類 ④経済供給増 (RSS source 追加 + unknown→経済 分類精度向上)。施策後 about.html 文言変更・SLI で PV/topic と unique_users を観測 | `frontend/app.js`, `frontend/style.css`, `lambda/fetcher/`, `lambda/processor/proc_ai.py`, `frontend/about.html` | 2026-05-01 |
 
 ### リーガル・コンプライアンス
 
@@ -101,6 +101,7 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
+| T2026-0501-B | 🔴 高 | **閲覧履歴クラウド同期 + 続報グレーアウト解除** — PO実測バグ2件。①同一アカウントでログインしても閲覧履歴がデバイス間で共有されない（履歴が localStorage ローカル保存のみで DynamoDB に永続化・同期されていない）。②一度見たトピックに新記事が追加されても既読グレーアウトが解除されない（`lastArticleAt > lastViewedAt` 比較でリセットすべき）。修正方針: ①`frontend/mypage.js` or `app.js` の history 保存ロジックで、ログイン済みなら DynamoDB `flotopic-user-history`（または既存テーブル）に `PUT`、ページロード時に `GET` して localStorage にマージ。②既読判定を `topicViewedAt < topic.lastArticleAt` の場合はグレーアウト解除 + 「続報あり」バッジ表示。信用獲得の最優先バグ。 | `frontend/app.js`, `frontend/mypage.js`, `lambda/analytics/` or 新 Lambda | 2026-05-01 |
 | T2026-0428-AV | 中 | **トピックカードに注目スコアを表示する** — POフィードバック: スコアをカードに表示するアイデアが面白い。トップページのトピックカード (`frontend/app.js` の renderTopicCard 系) に、AI が計算した注目度スコア (`velocityScore` 等) を数値またはバーで表示する。フェーズ1 の足回り安定が完了してから着手 (UI 改善は後回し方針)。実装時は ①どのスコアを使うか (velocityScore / freshness / 記事数) を明確化 ②表示形式 (数値/バー/バッジ) を決定 ③モバイル 375px で崩れないこと を必須。 | `frontend/app.js`, `frontend/style.css` | 2026-04-28 |
 | T2026-0430-UX | 中 | **ユーザー体験ベースのUI/UX検証仕組み化** — 現在は SLI 数値（keyPoint 充填率・perspectives 等）のみ評価しているが、「実際にユーザーが使いやすいか」は数値だけでは測れない。①モバイル（375px）でのタップ操作・スクロール・情報読み取りのしやすさを定期スクリーンショット＋目視評価、②トピック読了後の次導線（関連トピック・catchup）がユーザーに見えているか確認、③ABテスト的に「新機能実装前後のファーストビュー変化」を記録するルールを追加。実装案: `scripts/ux_check.sh` がモバイルUAで本番URL 5ページを curl + html2text して情報密度を定量評価 → weekly report として Slack 通知。 | scripts/ux_check.sh 新設, .github/workflows/ux-check.yml 新設 | 2026-04-30 |
 
