@@ -99,3 +99,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] PR#46 fetcher停滞 なぜなぜ分析 | docs+CI | docs/lessons-learned.md, scripts/check_decimal_wrap.sh, .github/workflows/ | 2026-04-30 19:43 JST | yes |
