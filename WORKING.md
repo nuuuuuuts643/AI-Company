@@ -99,3 +99,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] T2026-0430-D PR#46 fetcher Decimal修正 効果検証 | 観測のみ | TASKS.md, HISTORY.md | 2026-04-30 20:18 | yes |
