@@ -184,6 +184,102 @@ jobs:
           PY
 
       # =====================================================================
+      # <24h トピック比率 (SLI 12 / T2026-0430-F)
+      # 背景 (2026-04-30): PR #46 で fetcher の DDB 書き込み Decimal ラップ漏れを修正
+      #   するまで、3 日以上記事が DDB に保存されず topics-card.json の lastArticleAt が
+      #   全件 24h+ 古いという「success-but-stale」が観測できていなかった。
+      #   既存 SLI 1 (topics.json updatedAt) は publish の鮮度しか見ない → fetcher の
+      #   DDB 書き込みが silently 失敗してもメタの updatedAt は新しいまま素通り。
+      # 仕組み: topics-card.json の各 topic の lastArticleAt を見て、now - lastArticleAt
+      #   < 24h の topic の割合を計算する。10% 未満なら「新規記事が流入していない」状態 →
+      #   fetcher / processor のいずれかで silently fail している疑い。
+      # 閾値: <24h 比率 < 10% で Slack 警告。
+      #   通常運用 (健全な fetcher) では 24h 以内に 30〜50% のトピックが更新される想定。
+      #   10% は明らかな異常検出ライン (発生したら fetcher 停滞・RSS 全滅などを疑う)。
+      # =====================================================================
+      - name: <24h トピック比率 (SLI 12 / T2026-0430-F)
+        id: recent_ratio
+        continue-on-error: true
+        shell: bash
+        env:
+          CARD_URL: https://flotopic.com/api/topics-card.json
+          RECENT_RATIO_THRESHOLD: '10'
+        run: |
+          set -u
+          PAYLOAD=$(mktemp)
+          if ! curl -fsS --max-time 30 "$CARD_URL" -o "$PAYLOAD"; then
+            echo "::warning::recent_ratio: topics-card.json 取得失敗"
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 - "$PAYLOAD" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os, sys, time
+          d = json.load(open(sys.argv[1]))
+          topics = d.get('topics', d) if isinstance(d, dict) else d
+          topics = [t for t in topics if t.get('lifecycleStatus') != 'archived']
+          now = int(time.time())
+          recent = 0
+          missing = 0
+          for t in topics:
+              lat = t.get('lastArticleAt')
+              try:
+                  lat = int(lat or 0)
+              except (TypeError, ValueError):
+                  lat = 0
+              if lat <= 0:
+                  missing += 1
+                  continue
+              if now - lat < 86400:
+                  recent += 1
+          total = len(topics)
+          ratio = (recent * 100 / total) if total else 0.0
+          missing_ratio = (missing * 100 / total) if total else 0.0
+          print(f"### <24h トピック比率 (SLI 12)")
+          print(f"- 母数: {total} (archived 除外)")
+          print(f"- <24h トピック数: {recent}")
+          print(f"- <24h 比率: {ratio:.1f}% (閾値 {os.environ['RECENT_RATIO_THRESHOLD']}%)")
+          print(f"- lastArticleAt 欠損: {missing} ({missing_ratio:.1f}%)")
+          gh_out = os.environ.get('GITHUB_OUTPUT')
+          if gh_out:
+              with open(gh_out, 'a') as f:
+                  f.write(f"ratio={ratio:.1f}\n")
+                  f.write(f"recent={recent}\n")
+                  f.write(f"total={total}\n")
+                  f.write(f"missing={missing}\n")
+                  threshold = float(os.environ['RECENT_RATIO_THRESHOLD'])
+                  f.write(f"breached={'true' if (total > 0 and ratio < threshold) else 'false'}\n")
+          PY
+
+      - name: <24h トピック比率 閾値割れで警告 (Slack)
+        if: steps.recent_ratio.outputs.breached == 'true'
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
+          RATIO: ${{ steps.recent_ratio.outputs.ratio }}
+          RECENT: ${{ steps.recent_ratio.outputs.recent }}
+          TOTAL: ${{ steps.recent_ratio.outputs.total }}
+          MISSING: ${{ steps.recent_ratio.outputs.missing }}
+        shell: bash
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::warning::recent_ratio: <24h 比率 ${RATIO}% (閾値 10%) — fetcher 停滞疑い"
+            exit 0
+          fi
+          PAYLOAD=$(RATIO="$RATIO" RECENT="$RECENT" TOTAL="$TOTAL" MISSING="$MISSING" python3 -c "
+          import json, os
+          text = (
+              '🚨 *Flotopic <24h トピック比率 異常 (SLI 12)*\n'
+              f'• <24h トピック: \`{os.environ[\"RECENT\"]} / {os.environ[\"TOTAL\"]}\` = \`{os.environ[\"RATIO\"]}%\` (閾値 10%)\n'
+              f'• lastArticleAt 欠損: \`{os.environ[\"MISSING\"]}\` 件\n'
+              '• 新規記事が DDB に流入していない疑い (fetcher / processor の silent fail)\n'
+              '• 対処: ① CloudWatch p003-fetcher の最新ログ確認 ② DDB の lastArticleAt 分布を直接確認 ③ RSS フィード生存確認\n'
+              '\n_T2026-0430-F success-but-stale 検出 (PR #46 で発覚した 3日停滞 再発防止)_'
+          )
+          print(json.dumps({'text': text, 'username': 'Flotopic Recent Ratio Monitor', 'icon_emoji': ':rotating_light:'}))
+          ")
+          curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
+
+      # =====================================================================
       # age decay 健全性 (T2026-0429-J)
       # 背景: PR#34 で hasAI sort 消失 + lastUpdated パース失敗 → return 1.0 で
       #   古い topic がフルウェイトのまま上位に出る事故が発生。再発防止に

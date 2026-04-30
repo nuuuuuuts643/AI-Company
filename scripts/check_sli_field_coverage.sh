@@ -87,6 +87,7 @@ BUILDER_FIELDS = {
     'articleCount',     # トピック内記事数 (proc_storage / topic builder)
     'lifecycleStatus',  # active / archived / legacy
     'lastUpdated',      # 最終記事追加時刻
+    'lastArticleAt',    # 最新記事 published_ts (epoch sec) — fetcher/handler.py で META に書く非 AI フィールド
     'updatedAt',        # topic 単位の更新時刻 (トップレベルにもある)
     'score',
     'velocityScore',
