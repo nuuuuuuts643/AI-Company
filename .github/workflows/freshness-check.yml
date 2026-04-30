@@ -152,31 +152,26 @@ jobs:
           if full:
               kp = sum(1 for t in full if t.get('keyPoint'))
               persp = sum(1 for t in full if t.get('perspectives'))
-              bg = sum(1 for t in full if t.get('background') or t.get('backgroundContext'))
               kp_ratio = kp * 100 / len(full)
               persp_ratio = persp * 100 / len(full)
-              bg_ratio = bg * 100 / len(full)
           else:
-              kp_ratio = persp_ratio = bg_ratio = 0
+              kp_ratio = persp_ratio = 0
           # storyPhase 偏り
           phases = {}
           for t in topics:
               p = t.get('storyPhase') or 'unset'
               phases[p] = phases.get(p, 0) + 1
           start_ratio = phases.get('発端', 0) * 100 / max(len(topics), 1)
-          # 出力
+          # 出力 (background/backgroundContext は 2026-04-28 の 4軸再編で削除済 → SLI からも除外)
           print(f"### AI フィールド充填率 (articleCount>=3 のみ対象, n={len(full)})")
           print(f"- keyPoint:     {kp_ratio:.1f}% (閾値 70%)")
           print(f"- perspectives: {persp_ratio:.1f}% (閾値 60%)")
-          print(f"- background:   {bg_ratio:.1f}% (閾値 60%)")
           print(f"- storyPhase '発端' 比率: {start_ratio:.1f}% (閾値 50%)")
           warnings = []
           if kp_ratio < 70:
               warnings.append(f'keyPoint:{kp_ratio:.1f}%')
           if persp_ratio < 60:
               warnings.append(f'perspectives:{persp_ratio:.1f}%')
-          if bg_ratio < 60:
-              warnings.append(f'background:{bg_ratio:.1f}%')
           if start_ratio > 50:
               warnings.append(f"phase発端:{start_ratio:.1f}%")
           gh_out = os.environ.get('GITHUB_OUTPUT')
@@ -185,7 +180,6 @@ jobs:
                   f.write(f"warnings={','.join(warnings) if warnings else 'ok'}\n")
                   f.write(f"kp_ratio={kp_ratio:.1f}\n")
                   f.write(f"persp_ratio={persp_ratio:.1f}\n")
-                  f.write(f"bg_ratio={bg_ratio:.1f}\n")
                   f.write(f"start_ratio={start_ratio:.1f}\n")
           PY
 
@@ -280,24 +274,22 @@ jobs:
           WARNINGS: ${{ steps.ai_fields.outputs.warnings }}
           KP: ${{ steps.ai_fields.outputs.kp_ratio }}
           PERSP: ${{ steps.ai_fields.outputs.persp_ratio }}
-          BG: ${{ steps.ai_fields.outputs.bg_ratio }}
           START: ${{ steps.ai_fields.outputs.start_ratio }}
         shell: bash
         run: |
           if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
-            echo "::warning::AI フィールド半壊検出: $WARNINGS (kp=$KP%, persp=$PERSP%, bg=$BG%, 発端=$START%)"
+            echo "::warning::AI フィールド半壊検出: $WARNINGS (kp=$KP%, persp=$PERSP%, 発端=$START%)"
             exit 0
           fi
-          PAYLOAD=$(WARNINGS="$WARNINGS" KP="$KP" PERSP="$PERSP" BG="$BG" START="$START" python3 -c "
+          PAYLOAD=$(WARNINGS="$WARNINGS" KP="$KP" PERSP="$PERSP" START="$START" python3 -c "
           import json, os
           text = (
               '⚠️ *Flotopic AI フィールド半壊検出 (success-but-empty)*\n'
               f'• 警告: \`{os.environ[\"WARNINGS\"]}\`\n'
               f'• keyPoint 充填: \`{os.environ[\"KP\"]}%\` (閾値 70%)\n'
               f'• perspectives: \`{os.environ[\"PERSP\"]}%\` (閾値 60%)\n'
-              f'• background:   \`{os.environ[\"BG\"]}%\` (閾値 60%)\n'
               f'• storyPhase 発端: \`{os.environ[\"START\"]}%\` (閾値 50%)\n'
-              '\n_aiGenerated=True でも必須フィールドが空の半壊状態を検出 (SLI 8/9/10/4)_'
+              '\n_aiGenerated=True でも必須フィールドが空の半壊状態を検出 (SLI 8/9/4)_'
           )
           print(json.dumps({'text': text, 'username': 'Flotopic AI Fields Monitor', 'icon_emoji': ':warning:'}))
           ")
