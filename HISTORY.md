@@ -4,6 +4,17 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-30 15:50 JST T2026-0429-K Bluesky投稿品質改善 — 24h重複・古トピック排除）
+
+- ✅ **PR [#37](https://github.com/nuuuuuuts643/AI-Company/pull/37) merged (commit fbdb5a9)** — `fix(T2026-0429-K): Bluesky重複・古トピック投稿排除`
+  - **背景（UX観点）**: Bluesky 投稿が「同一トピックの重複」「古いトピックの再投稿」になりフォロワーから「同じネタを何度も投稿してくる迷惑アカウント」と認識される事故。
+  - **3 つの改善（`scripts/bluesky_agent.py` のみ・1PR1ファイル原則）**:
+    1. **24h 時間窓重複ガード（新規）**: `DUP_GUARD_HOURS=24` + `get_posted_ids_within_hours()` で同一 topicId の 24h 以内再投稿を物理ブロック。既存の近接窓 4 件ガード（件数ベース）と AND 併用で「件数+時間」の二重化。候補枯渇時に近接窓が緩んで同 topicId 再投稿される事故を塞ぐ。
+    2. **post_daily に古トピック除外（新規）**: `topic_updated_within_hours()` で `lastUpdated` / `lastArticleAt` が 24h 超のトピックを投稿候補から除外。`post_morning` 側は既存の `MORNING_RECENT_HOURS=24` で同等フィルタを持っていたが daily 側だけ未実装だった。
+    3. **post_morning にも 24h 時間窓ガード追加**: 二重化を morning にも適用。
+  - **検証**: 構文 OK（ast.parse）/ CI 全 chk pass（16 pass + 5 skipping、0 failures: フロントエンド E2E / モバイル 375px / セキュリティ L1・L2 / Lambda 構文 / 横展開 landing 等）/ Verified: https://flotopic.com:200:2026-04-30T15:41+0900
+  - **次回観測**: 次回 EventBridge cron 発火後、CloudWatch Logs `flotopic-bluesky` で「鮮度24h以内・過去24h未投稿の候補なし」 or 通常投稿が出るか確認。24h 後に同 topicId が再投稿されていないことを Bluesky タイムラインで目視。
+
 ### 完了済み（2026-04-30 15:30 JST T-keypoint-prompt keyPoint プロンプトをフェーズ判定方式に転換）
 
 - ✅ **PR [#36](https://github.com/nuuuuuuts643/AI-Company/pull/36) merged (commit 78926c6)** — `feat(T-keypoint-prompt): keyPointプロンプトをフェーズ判定方式に転換`
