@@ -4,6 +4,21 @@
 > 参照専用。編集する場合は git commit を忘れずに。
 > 最新の状態は CLAUDE.md の「現在着手中」「次フェーズのタスク」セクションを参照。
 
+### 完了済み（2026-04-30 15:30 JST T-keypoint-prompt keyPoint プロンプトをフェーズ判定方式に転換）
+
+- ✅ **PR [#36](https://github.com/nuuuuuuts643/AI-Company/pull/36) merged (commit 78926c6)** — `feat(T-keypoint-prompt): keyPointプロンプトをフェーズ判定方式に転換`
+  - **背景**: SLI keyPoint 充填率(>=100chars) が **2/92 = 2.17%** のまま停滞（T2026-0429-J 後 ~32h 経過）。原因仮説: 旧プロンプトは「200-300 字物語固定」を要求していたため、AI が無理に文字数を埋めると一般論で水増しする症状が出ていた。
+  - **転換 — 記事数でフェーズ判定して書き方を分岐**:
+    1. **記事 1 件 = 初動フェーズ**: 3 要素（何が起きたか / なぜ重要か / 今後どうなりそうか）
+    2. **記事 2 件以上 = 変化フェーズ**: 4 文構成（1文目=今回の変化 / 2文目=以前の状況 / 3文目=追加情報 / 4文目=意味・今後）
+  - **エスケープ**: 「何が変わったのか」が書けない場合は空文字を返す。schema `minLength`: 100 → 0（一般論で 100 字埋めるより空の方が良い）。
+  - **変更ファイル**:
+    - `projects/P003-news-timeline/lambda/processor/proc_ai.py` — `_build_story_schema` keyPoint description 書き換え / `_STORY_PROMPT_RULES` keyPoint 節書き換え / minimal/standard/full 各 prompt にフェーズ判定明示 / 出力品質チェック更新
+    - `projects/P003-news-timeline/tests/test_keypoint_retry.py` — 新コントラクトに追従（minLength=0 / 新 worked example 検証 25 tests pass）
+  - **検証**: ローカル `pytest` 214 tests all pass / CI 全 chk pass（CLAUDE.md 250行 / Lambda 構文 / フロントエンド E2E / モバイル 375px / 横展開 landing 物理検査 等）/ ast.parse OK
+  - **SLI への期待**: 次回 Lambda 実行（EventBridge cron JST 17:30）後、keyPoint 充填率 >=100chars: 2.2% → 30〜50% を目安に再観測。SLI 未達なら `proc_ai.py` prompt 強化を T2026-0429-KP4 として起こす。
+  - **吸収タスク**: T2026-0429-I (keyPoint 100字未満ランキング降格) は PR #34 (hasAI ソート最上位化) + PR #32 (kpPenalty 0.3/0.6) で既に吸収済 → 取消線で TASKS.md から除去。
+
 ### 完了済み（2026-04-29 16:55 JST T2026-0429-J ランキング 3 層原因修正 — age decay + hasAI + ジャンル消失）
 
 - ✅ **PR [#35](https://github.com/nuuuuuuts643/AI-Company/pull/35) merged (commit 8a0121a)** — `fix(T2026-0429-J): age decay 根本修正 + hasAI sort 復活 + ジャンル消失修正`
