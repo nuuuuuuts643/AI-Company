@@ -80,7 +80,7 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| T225 | 中 | **tokushoho.html 残存** — Cowork 範囲外 (FUSE マウントで物理削除不可)。Code セッションで `git rm projects/P003-news-timeline/frontend/tokushoho.html` + CloudFront キャッシュパージ + Search Console URL 削除リクエスト + CI に「frontend に tokushoho.html が存在しないこと」チェック追加。 | `frontend/tokushoho.html`（削除）, CI チェック | 2026-04-28 |
+| ~~T225~~ | ~~中~~ | ~~**tokushoho.html 残存** — Cowork 範囲外 (FUSE マウントで物理削除不可)。Code セッションで `git rm projects/P003-news-timeline/frontend/tokushoho.html` + CloudFront キャッシュパージ + Search Console URL 削除リクエスト + CI に「frontend に tokushoho.html が存在しないこと」チェック追加。~~ ✅ 2026-04-29 c9de70e5 で削除＋CI 二重ガード化済 / 2026-04-30 CloudFront invalidation `I6KD7X02A14S0DRSM9VF3MCYZO` (DIST_ID=E2Q21LM58UY0K8 /tokushoho.html) 発行完了 / Search Console URL 削除は PO 手動対応 | `frontend/tokushoho.html`（削除）, CI チェック | 2026-04-28 |
 
 ### セキュリティ・運用堅牢性
 
