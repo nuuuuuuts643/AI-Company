@@ -2140,3 +2140,12 @@ bash projects/P003-news-timeline/deploy.sh
 | ~~T2026-0428-L~~ | ~~🟢 低~~ | ~~**`scripts/security_headers_check.sh` 新設 + CI 化** — T251 検証で「2026-04-28 04:20 時点で全付与済」を確認したが、CloudFront response headers policy の drift を外部観測する仕組みが無い。GH Actions cron で毎日 `curl -sI https://flotopic.com/` を取得し HSTS / X-Frame-Options / Permissions-Policy / Referrer-Policy / X-Content-Type-Options が消えていれば Slack 警告。SLI 8 として登録。~~ ✅ 2026-04-29: `scripts/security_headers_check.sh` + `.github/workflows/security-headers-check.yml` 既に main 着地済 (#11/#12 マージ経由)。HEAD/Frame/Type/Referrer/Permissions の 5 ヘッダ毎日 03:17 JST 検査、欠落で exit 1。 | `scripts/security_headers_check.sh`, `.github/workflows/security-headers-check.yml`, `docs/sli-slo.md` SLI 7 | 2026-04-28 |
 
 </details>
+
+
+### 自動 triage: 2026-04-30 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T2026-0429-I~~ | ~~🔴 高~~ | ~~体験~~ | ~~**keyPoint 100字未満トピックのランキング降格** — PR #34 (T2026-0429-P) で `hasAI` ソート最上位キー化として吸収済。さらに PR #32 (T2026-0429-IL) で `kpPenalty(t)` (空→0.3 / <50字→0.6) が app.js:890 に landing 済 (commit 0a788ec)。HISTORY.md 36 行目参照。~~ | ~~frontend/app.js~~ | ~~2026-04-29~~ |
+
+</details>
