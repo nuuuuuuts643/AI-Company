@@ -109,5 +109,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-DOCSYNC PRテンプレ+CIで docs 同期強制 | infra | .github/pull_request_template.md, .github/workflows/docs-sync-check.yml, CLAUDE.md | 2026-05-01 12:08 | yes |
 
