@@ -112,3 +112,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | [Code] deploy-lambdas.yml YAML構文エラー修正 | fix | .github/workflows/deploy-lambdas.yml | 2026-05-01 13:30 | yes |
 
 
+| [Code] 旧スケジューラー削除+API禁止ルール | Code | CLAUDE.md, ~/Documents/Claude/Scheduled/ | 2026-05-01 14:00 JST | yes |
