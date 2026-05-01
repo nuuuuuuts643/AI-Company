@@ -53,6 +53,20 @@ _RSS10_NS = 'http://purl.org/rss/1.0/'
 _DC_NS    = 'http://purl.org/dc/elements/1.1/'
 
 
+def _dynamo_safe(obj):
+    """DynamoDB は float 非対応のため再帰的に float → Decimal 変換する。
+    外部から持ち込まれる float（mismergeDetail.maxGapDays / S3読み込み後の数値等）を
+    一括ガードする。add-hoc な個別修正より層防御として DynamoDB 書き込みパスに置く。
+    """
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    if isinstance(obj, dict):
+        return {k: _dynamo_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_dynamo_safe(v) for v in obj]
+    return obj
+
+
 def _parse_rss_items(root):
     """RSS 2.0 と RSS 1.0(RDF) の両方に対応してアイテムリストを返す。"""
     # RSS 2.0: 名前空間なし
@@ -979,7 +993,7 @@ def lambda_handler(event, context):
     def _write_dynamo_chunk(chunk):
         with table.batch_writer() as bw:
             for it in chunk:
-                bw.put_item(Item=it)
+                bw.put_item(Item=_dynamo_safe(it))
 
     _write_failures = 0
     with ThreadPoolExecutor(max_workers=20) as ex:
@@ -1062,6 +1076,9 @@ def lambda_handler(event, context):
             else:
                 topics_by_tid[item['topicId']] = item
         topics = list(topics_by_tid.values())
+        # T2026-0502-G: current_run_tids を lifecycle ループより先に定義する。
+        # 旧実装では行1224 で定義していたため、この行より先に参照するとUnboundLocalError。
+        current_run_tids = set(current_run_metas.keys())
 
         # T2026-0501-F2: 今回 run で更新されなかったトピックの lifecycle を
         # decayed velocity で再計算して topics dict を修正する (DDB 書き戻しなし・memory only)。

@@ -162,7 +162,7 @@ def detect_mismerge_signals(
         max_gap = max(pubs[i + 1] - pubs[i] for i in range(len(pubs) - 1))
         if max_gap > _MISMERGE_TIME_GAP_SECONDS * 1000:
             reasons.append('time_gap')
-            detail['maxGapDays'] = round(max_gap / (86400 * 1000), 1)
+            detail['maxGapDays'] = int(max_gap // (86400 * 1000))
 
     # ---- 2) entity_split ----
     if extract_entities_fn is not None and len(articles) >= 4:
