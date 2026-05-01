@@ -111,3 +111,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] T2026-0501-K _build_keypoint_genre_hint◎例追加 | Cowork | proc_ai.py, test_keypoint_retry.py | 2026-05-01 00:10 | yes |
