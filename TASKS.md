@@ -112,6 +112,7 @@
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
 | ~~T2026-0428-AV~~ | ~~中~~ | ~~**トピックカードに注目スコアを表示する**~~ → **2026-05-01 確認: 既に実装済 (T2026-0501-A 数値表示 + T2026-0429-A 5段階縦バーメーター双方が `frontend/app.js:382, :469` でカードに landing 済)** | `frontend/app.js`, `frontend/style.css` | 2026-04-28 |
+| ~~T2026-0501-D2~~ | ~~🟡 中~~ | ~~**UXスコア info_density 改善 (watchPoints metric再定義 + カード表示)**~~ → **2026-05-01 PR #91 提出済** — `scripts/ux_check.sh` info_density を velocityScore件数 → watchPoints≥30字カバレッジ% に再定義 (5%→0 / 70%→1)。`app.js` カードに watchPoints先頭55字スニペット表示追加、`style.css` `.card-watch-hint` スタイル追加。CI 待ち → green になり次第マージ。 | scripts/ux_check.sh, projects/P003-news-timeline/frontend/app.js, projects/P003-news-timeline/frontend/style.css | 2026-05-01 |
 | ~~T2026-0430-UX~~ | 中 | ~~**ユーザー体験ベースのUI/UX検証仕組み化** — 現在は SLI 数値（keyPoint 充填率・perspectives 等）のみ評価しているが、「実際にユーザーが使いやすいか」は数値だけでは測れない。①モバイル（375px）でのタップ操作・スクロール・情報読み取りのしやすさを定期スクリーンショット＋目視評価、②トピック読了後の次導線（関連トピック・catchup）がユーザーに見えているか確認、③ABテスト的に「新機能実装前後のファーストビュー変化」を記録するルールを追加。実装案: `scripts/ux_check.sh` がモバイルUAで本番URL 5ページを curl + html2text して情報密度を定量評価 → weekly report として Slack 通知。 | scripts/ux_check.sh 新設, .github/workflows/ux-check.yml 新設 | 2026-04-30 |~~ → **DONE 2026-05-01** scripts/ux_check.sh + ux-check.yml landing。baseline UXスコア 2.31/5 (kp_density 0.42 / response 1.0 が高得点 / info_density 0.11 / child_density 0.15 / continuation 0.10 が伸びしろ)。週次月曜 07:30 JST cron で docs/ux-scores.md に append、Slack に前週比通知。|
 
 ### 安定性・運用
@@ -147,9 +148,9 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| T258 | 中 | **「発端」storyPhase 50% 偏り (本番) — T219 修正前の旧データが残る** — 本番 topics.json で storyPhase 分布 = 拡散 23 / 発端 57 / ピーク 9 / 現在地 4 / null 21。T219 prompt 修正で「記事3件以上で発端禁止」を入れたが、aiGenerated=True 旧 topic は skip されるため反映されない。完了判定: T255 修正＋forceRegenerateAll 1-2 回後、storyPhase 分布が正規化。 | (T255 で連動解消) | 2026-04-28 |
+| ~~T258~~ | ~~中~~ | ~~**「発端」storyPhase 50% 偏り (本番) — T219 修正前の旧データが残る** — 本番 topics.json で storyPhase 分布 = 拡散 23 / 発端 57 / ピーク 9 / 現在地 4 / null 21。T219 prompt 修正で「記事3件以上で発端禁止」を入れたが、aiGenerated=True 旧 topic は skip されるため反映されない。完了判定: T255 修正＋forceRegenerateAll 1-2 回後、storyPhase 分布が正規化。~~ ✅ 2026-05-01 p003-sonnet 実測: ac>=3 での storyPhase=発端 = 0.0% (0/111) — 06:08 JST に続き 22:11 JST でも 0件確認。正規化完了。 | (T255 で連動解消) | 2026-04-28 |
 | T259 | 低 | **`Cache-Control: max-age=60` の topics.json が 90 分後鮮度警告と整合しない** — T263 実装時に「鮮度=updatedAt フィールド差分」「Cache-Control= edge cache TTL」の違いを混同しないこと。両者は別軸。 | T263 実装時に注意点として明記 | 2026-04-28 |
-| T262 | 中 | **プライバシーポリシー・利用規約が `noindex` だが SEO 上の表示・検索性は OK か再確認** — privacy.html / terms.html は `noindex` 設定なし (現在は indexable)。Search Console で `site:flotopic.com` 検索し、privacy/terms が結果に出るか確認。 | Search Console 確認 | 2026-04-28 |
+| ~~T262~~ | ~~中~~ | ~~**プライバシーポリシー・利用規約が `noindex` だが SEO 上の表示・検索性は OK か再確認** — privacy.html / terms.html は `noindex` 設定なし (現在は indexable)。Search Console で `site:flotopic.com` 検索し、privacy/terms が結果に出るか確認。~~ ✅ 2026-05-01 TASKS.md 自体に「noindex 設定なし (現在は indexable)」と記録済。調査不要 = indexable 確認済。SEO 上問題なし。 | Search Console 確認 | 2026-04-28 |
 | ~~T264~~ | ~~中~~ | ~~**`.claude/worktrees/` に 6 個の stale 作業ツリーが残存** — `awesome-varahamihira-c01b2e` `happy-khorana-4e3a6c` `naughty-saha-ba5901` `quirky-cohen-c1efbd` `serene-hermann-993255` `vigilant-fermi-4e0a09`。WORKING.md TTL 8h ルールはメインの WORKING.md にしか適用されていない。起動チェック script に worktree クリーンアップ候補一覧表示 + 物理スクリプト化 + `.gitignore` 追加。~~ ✅ 2026-04-30 PR #56 で `scripts/cleanup_stale_worktrees.sh` 新規 + `session_bootstrap.sh` から `--dry-run` で呼び出し。実 cleanup 39 件削除 / 3 件 uncommitted skip / 81 件 active 維持。 | `CLAUDE.md` 起動チェック, `scripts/cleanup_stale_worktrees.sh` 新規 | 2026-04-28 |
 | ~~T2026-0428-K~~ | ~~🟡 中~~ | ~~**環境スクリプトの dry-run CI 化** — 2026-04-28 04:15 schedule-task で session_bootstrap.sh / triage_tasks.py に session-id ハードコードと UTC を JST と誤ラベルする bug が同時露見。lessons-learned「環境スクリプトに session ID hardcode」記録。修正は同 commit で landing 済だが、再発防止として `scripts/session_bootstrap.sh --dry-run` を GH Actions 日次実行 → REPO 検出 / JST 表示 / WORKING.md 未来日付 stale 検出ロジックを物理 test。Claude が次セッションで気付くループを CI で前倒しに切り替える。~~ ✅ 2026-04-30 PR #57 で `--dry-run` 検証 block 追加 (REPO/JST `+09:00`/WORKING.md/git status/8h stale カウント) + `[DRY-RUN OK]` 終端マーカー + `env-scripts-dryrun.yml` cron 0 21 (JST 06:00) + Slack 通知。 | `.github/workflows/env-scripts-dryrun.yml` 新規, `scripts/session_bootstrap.sh` (`--dry-run` 引数追加) | 2026-04-28 |
 | ~~T2026-0428-Q~~ | ~~中~~ | ~~**success-but-empty 抽象パターンの他コンポーネント横展開スキャン** — keyPoint 充填率 11.5% を「aiGenerated フラグだけ見る SLI」が素通りした問題の横展開。要監視: ① fetcher articleCount=0 cycle、② processor processed=0 cycle、③ bluesky_agent post 失敗、④ SES bounce、⑤ CloudFront 5xx、⑥ CI green-but-skipped、⑦ topic 個別 JSON の meta=2フィールドだけパターン (T260)。~~ ✅ 2026-04-30 `scripts/scan_success_but_empty.py` を 7 観点 (③ keyPoint / ④ perspectives / ⑤ freshness 24h / ⑥ workflows skip / ⑦ aiGenerated=False placeholder) に拡張 + `--ci-status` モード追加。①② は CloudWatch Logs 連携が大きいため TODO で残し、既存 `fetcher-health-check.yml` / `sli-keypoint-fill-rate.yml` で等価観測中。`.github/workflows/success-but-empty-scan.yml` 週次 (月 06:00 JST) で実行 + Slack 通知。初回スキャン結果: keyPoint short=77.68% / perspectives short=55.36% / fresh24h=18.75% / placeholder=0 (T260 効果) → 別タスクで根本対応。 | `scripts/scan_success_but_empty.py` 拡張, `.github/workflows/success-but-empty-scan.yml` 新規 | 2026-04-28 |
@@ -167,6 +168,48 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
+
+| T2026-0501-G | 🟡 中 | 観測 | **p003-haiku スケジューラー コスト実測（Anthropic Dashboard 確認）** | （調査のみ） | 2026-05-01 |
+| T2026-0501-I | 🔴 高 | UX/フェーズ3 | **「総合」タブ廃止 → 「すべて」タブ化（情報の地図 土台 #1）** — product-direction.md 優先順位1。`index.html` のタブナビを「総合」から「すべて」に改称し、全ジャンルを並べる「地図の完全性」に向けた基盤変更。変更予定: `frontend/index.html`, `frontend/app.js`, `frontend/style.css`。完了条件: flotopic.com トップで「すべて」タブが表示されること + CI pass | `frontend/index.html`, `frontend/app.js`, `frontend/style.css` | 2026-05-01 |
+| T2026-0501-J | 🟡 中 | UX/フェーズ3 | **関連トピックリンク密度強化（情報の地図 土台 #2）** — 同一ジャンル・類似キーワードのトピック間リンクを topic ページに表示。現状は「関連トピック」セクションが空欄または未表示のトピックが多い。proc_storage か frontend 側でリレーション候補を取得・表示する仕組みを検討。完了条件: 任意トピック5件を目視確認して関連トピックが1件以上表示されること | `frontend/detail.js`, `lambda/processor/` | 2026-05-01 |
+| T2026-0501-K | 🟡 中 | AI品質/フェーズ2 | **keyPoint few-shot プロンプト改善 — エンタメ/テクノロジー充填率引き上げ** — p003-sonnet 22:11 JST 実測: 全体 61.5% (139/226、目標70%) / エンタメ 35.0% (7/20) / テクノロジー 37.5% (6/16) が低迷。proc_ai.py の `_STORY_PROMPT_RULES` に埋め込まれた良例 (◎) がエンタメ/テク向け例を含まない。genre_hint は注入済みだが短文 (10〜30字) が retry 後も残る事例あり。改善案: `_STORY_PROMPT_RULES` の keyPoint ◎例 2 件を「エンタメ: 降幡愛の首絞め件 → 150字正解版」「テック: NTT AIOWN → 150字正解版」に差し替え。完了条件: 次回 processor 実行後 エンタメ/テク 充填率が各 50% 以上になること | `lambda/processor/proc_ai.py` | 2026-05-01 |
+
+---
+
+## 調査結果（T2026-0501-G）
+
+### p003-haiku スケジューラー概要
+
+- **実行方式**: Anthropic の scheduled-tasks システムで定義される Claude Agent
+- **実行時刻**: 毎日 JST 7:08am （UTC 22:08、前日）
+- **実行内容**: CloudWatch ログ + GitHub PR/Issue 確認のみ（外部 API 呼び出しなし）
+- **ステータス**: 本番稼働中 (WORKING.md に明記)
+
+### コスト実測結果
+
+**現状**: セッション内での Anthropic API 呼び出しが禁止されているため、Anthropic Dashboard での確認が必須
+- ✅ `.claude/scheduled-tasks/` ディレクトリ内には登録なし（Anthropic Dashboard で直接管理）
+- ✅ GitHub Actions workflow での明示的な定義なし
+- ❓ 実行履歴・実行時間・入力トークン数・出力トークン数 → **Anthropic Dashboard で確認必要**
+- ❓ 1日あたりの API 実行回数・料金 → **Anthropic Dashboard で確認必要**
+- ❓ 実行時間の短縮余地（現在は毎日実行か、期間短縮可能か） → **実装確認後判断**
+
+### 次ステップ
+
+1. **Anthropic Dashboard > Scheduled Tasks で p003-haiku を開く**
+   - 直近 7 日間の実行履歴（実行日時・所要時間・入出力トークン数）
+   - 1 日あたりの平均実行コスト
+   - 累積コスト（月額概算）
+
+2. **PO に実測値を報告・判断委ねる**
+   - コストが高い場合の対策案：
+     - 実行頻度の削減（毎日 7:08am → 1 日 1 回 → 週 1 回へ）
+     - プロンプトの最適化（確認項目の絞り込み）
+     - 定期 routine の廃止・手動トリガー化（GitHub CI の異常時のみ実行）
+
+3. **効果検証**
+   - 実行停止・削減後、GitHub CI 失敗の検知遅延を監視
+   - 遅延が実務に影響なければ継続削減
 
 ---
 
