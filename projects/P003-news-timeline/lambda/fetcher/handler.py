@@ -24,6 +24,8 @@ from scoring import (
     record_filter_feedback,
 )
 from cluster_utils import topic_fingerprint, cluster
+from ai_merge_judge import AIMergeJudge
+from merge_audit import MergeAuditor, detect_mismerge_signals
 from score_utils import (
     calc_score, calc_velocity_score, apply_time_decay, apply_velocity_decay,
     source_diversity_score, compute_lifecycle_status,
@@ -34,7 +36,8 @@ from text_utils import (
     dominant_genres, dominant_lang, override_genre_by_title,
     extract_source_name, extract_rss_image,
     extract_trending_keywords,
-    extract_entities, find_related_topics, detect_topic_hierarchy,
+    extract_entities, extract_merge_entities,
+    find_related_topics, detect_topic_hierarchy,
     extractive_title, extractive_summary, is_extractive_summary,
     strip_title_markdown,
 )
@@ -210,8 +213,17 @@ def _title_dedup_key(title: str) -> str:
 # T2026-0430-L: title 完全一致 dedup を超える Jaccard 類似度マージ。
 # 「米GDP速報値2.0%増 1〜3月期」 vs 「米GDP年率2.0%増 4四半期連続のプラス成長」
 # のような同イベントの異なる切り口を既存 AI topic に紐付ける。
+#
+# T2026-0501-H: マージ判定に「エンティティ重複必須」ゲート + borderline Haiku 判定を追加。
+#   - 共有エンティティ無し                            → Jaccard に関わらず別事件 (例: 米国 vs 日本)
+#   - 共有エンティティあり + Jaccard >= 0.35           → マージ
+#   - 共有エンティティあり + 0.15 <= Jaccard < 0.35    → Haiku に「同一事件か」問う
+#   - その他                                          → 別トピック
+#   失敗時 / API key 未設定は failsafe = "別トピック" (現状挙動と同等)
 _JACCARD_TITLE_THRESHOLD = 0.35  # cluster_utils と同じ閾値
-_JACCARD_RECENT_TOPICS_MAX = 200  # 計算量上限 (200 * group数)
+_JACCARD_BORDERLINE_LOW = 0.15  # T2026-0501-H: borderline 下限 (Haiku 判定対象)
+_JACCARD_RECENT_TOPICS_MAX = 500  # T2026-0501-H: 14d→30d lookback 拡張に合わせて 200→500
+_TID_COLLISION_LOOKBACK_DAYS = 30  # T2026-0501-H: 14→30 で継続イベントの再分裂を抑える
 
 
 def _title_bigrams(title: str) -> frozenset:
@@ -239,30 +251,35 @@ def _jaccard_title_sim(a: str, b: str) -> float:
     return len(inter) / len(union)
 
 
-def _resolve_tid_collisions_by_title(group_tids, existing_topics):
+def _resolve_tid_collisions_by_title(group_tids, existing_topics, ai_judge=None, auditor=None):
     """title 完全一致で既存 tid に再バインドし、同 run 内 tid 衝突 group をマージする。
 
     背景:
       `topic_fingerprint(g)` はクラスタ内 top-5 単語に依存するため、RSS 記事構成が
       変わると同一イベントでも別 tid を生成する (本番計測 2026-04-29 PO調査:
       828 トピック中 343 件 = 41.43% が完全同一 title で別 tid に分裂)。
-      これが storyPhase「発端」率 20.17% (目標 10% 未満) の主因。
 
     解決:
       毎 run 頭で取得した `existing_topics` (S3 topics.json 由来 = active/cooling のみ)
-      を直近 14 日のものだけ filter し、title / generatedTitle の正規化キー →
+      を直近 30 日のものだけ filter し、title / generatedTitle の正規化キー →
       tid マップを構築する。新規 group の `extractive_title(g)` がキー一致したら、
       `topic_fingerprint` で生まれた新 tid を破棄して既存 tid を採用する。
-      AI 再生成は不要 (新 group の記事は既存 tid の SNAP に累積マージされる)。
 
-      同 run 内で複数 group が同 tid に着地した場合は、URL 重複排除で記事を
-      1 group にマージしてから main loop に渡す。
+    T2026-0501-H マージゲート (PO 指示「混入 > 分裂」):
+      1. **エンティティ重複必須**: 候補 group と既存 AI topic のタイトル両方から
+         `extract_merge_entities` で固有名詞 (人名/組織/地名/カタカナ語/英大文字 etc) を
+         抽出し、重複が無ければマージ対象から除外する。
+         例: 「関税引き上げ 米国」vs「関税引き上げ 日本」は別事件 → エンティティ重複なし。
+      2. 共有エンティティあり + Jaccard >= 0.35  → マージ (rebound_jaccard)
+      3. 共有エンティティあり + 0.15 <= Jac < 0.35 → Haiku に同一事件か判定 (rebound_haiku)
+      4. それ以外                                  → 別トピック維持
+      `ai_judge` が None または API key 未設定なら 3 はスキップして 2 のみ動作 (failsafe)。
     """
     if not existing_topics or not group_tids:
         return group_tids
 
     now_ts = int(time.time())
-    cutoff_ts = now_ts - 14 * 86400
+    cutoff_ts = now_ts - _TID_COLLISION_LOOKBACK_DAYS * 86400
     title_to_tid = {}
     # T2026-0430-L: AI 生成済 active topic を Jaccard fallback の候補として保持。
     # (tid, title, ts) の tuple list。直近の AI topic を優先するため
@@ -291,53 +308,152 @@ def _resolve_tid_collisions_by_title(group_tids, existing_topics):
 
     ai_topic_candidates.sort(key=lambda x: x[2], reverse=True)
     ai_topic_candidates = ai_topic_candidates[:_JACCARD_RECENT_TOPICS_MAX]
-    # bigram の事前計算 (タイトル別 1 回のみ)
-    ai_topic_bigrams = [
-        (tid_e, ttl, _title_bigrams(ttl)) for tid_e, ttl, _ in ai_topic_candidates
+    # T2026-0501-H: bigram と entity を事前計算 (タイトル別 1 回のみ)
+    ai_topic_meta = [
+        (tid_e, ttl, _title_bigrams(ttl), extract_merge_entities(ttl))
+        for tid_e, ttl, _ in ai_topic_candidates
     ]
 
     rebound = 0
     rebound_jaccard = 0
-    resolved = []
-    for g, tid in group_tids:
+    rebound_haiku = 0
+    skipped_no_entity = 0
+    # 第 1 パス: 完全一致 / Jaccard>=0.35 を確定し、borderline 候補を集める。
+    resolved: list = []
+    borderline_queue: list = []  # [(group_idx, candidate_title, cand_entities, [(tid_e, sim, ttl, ents)])]
+    for idx, (g, tid) in enumerate(group_tids):
         candidate = extractive_title(g) or (g[0].get('title', '') if g else '')
         norm = _title_dedup_key(candidate)
         target = title_to_tid.get(norm)
         if target and target != tid:
-            tid = target
+            resolved.append((g, target, idx))
             rebound += 1
-        elif ai_topic_bigrams and candidate:
-            # T2026-0430-L: 完全一致しなかった場合のみ Jaccard fallback で
-            # 既存 AI topic との類似度を確認。0.35 以上で再バインド。
-            cand_bg = _title_bigrams(candidate)
-            if cand_bg:
-                best_sim = 0.0
-                best_tid = None
-                for tid_e, _ttl, ttl_bg in ai_topic_bigrams:
-                    if not ttl_bg:
-                        continue
-                    inter = cand_bg & ttl_bg
-                    if not inter:
-                        continue
-                    union = cand_bg | ttl_bg
-                    if not union:
-                        continue
-                    sim = len(inter) / len(union)
-                    if sim > best_sim:
-                        best_sim = sim
-                        best_tid = tid_e
-                if best_tid and best_sim >= _JACCARD_TITLE_THRESHOLD and best_tid != tid:
-                    tid = best_tid
-                    rebound_jaccard += 1
-        resolved.append((g, tid))
+            if auditor is not None:
+                auditor.log(
+                    target_tid=target, source_tid=tid,
+                    jaccard=1.0,
+                    entity_overlap=sorted(extract_merge_entities(candidate)),
+                    haiku_used=False, haiku_verdict='skipped',
+                    confidence='low', title_a=candidate, title_b=candidate,
+                )
+            continue
+        if not ai_topic_meta or not candidate:
+            resolved.append((g, tid, idx))
+            continue
+        cand_bg = _title_bigrams(candidate)
+        if not cand_bg:
+            resolved.append((g, tid, idx))
+            continue
+        cand_entities = extract_merge_entities(candidate)
+        # 全候補を走査。 entity 重複あり + jac >= 0.35 を最優先。
+        # entity 重複あり + 0.15 <= jac < 0.35 を borderline 候補として収集。
+        best_hard_tid = None
+        best_hard_sim = 0.0
+        borderline_cands: list = []
+        for tid_e, ttl, ttl_bg, ttl_ents in ai_topic_meta:
+            if not ttl_bg:
+                continue
+            inter = cand_bg & ttl_bg
+            if not inter:
+                continue
+            union = cand_bg | ttl_bg
+            if not union:
+                continue
+            sim = len(inter) / len(union)
+            if sim < _JACCARD_BORDERLINE_LOW:
+                continue
+            shared_ents = cand_entities & ttl_ents
+            if not shared_ents:
+                # entity 重複なし → マージ対象外
+                if sim >= _JACCARD_TITLE_THRESHOLD:
+                    skipped_no_entity += 1
+                continue
+            if sim >= _JACCARD_TITLE_THRESHOLD:
+                if sim > best_hard_sim:
+                    best_hard_sim = sim
+                    best_hard_tid = tid_e
+            else:
+                borderline_cands.append((tid_e, ttl, ttl_ents, shared_ents, sim))
+        if best_hard_tid and best_hard_tid != tid:
+            resolved.append((g, best_hard_tid, idx))
+            rebound_jaccard += 1
+            # T2026-0501-H 監査ログ: 高 Jaccard + entity overlap の確定マージ
+            if auditor is not None:
+                # best_hard_* の元データを再取得 (entity overlap)
+                _hard_ents = next(
+                    (cand_entities & ttl_ents
+                     for tid_e, _ttl, _bg, ttl_ents in ai_topic_meta if tid_e == best_hard_tid),
+                    set()
+                )
+                _hard_title = next(
+                    (ttl for tid_e, ttl, _bg, _ents in ai_topic_meta if tid_e == best_hard_tid),
+                    ''
+                )
+                auditor.log(
+                    target_tid=best_hard_tid, source_tid=tid,
+                    jaccard=best_hard_sim,
+                    entity_overlap=sorted(_hard_ents),
+                    haiku_used=False, haiku_verdict='skipped',
+                    confidence='high',
+                    title_a=candidate, title_b=_hard_title,
+                )
+            continue
+        if borderline_cands:
+            # 最も類似度の高い候補のみ Haiku に問う (1 group につき 1 ペア)
+            borderline_cands.sort(key=lambda x: x[4], reverse=True)
+            tid_e, ttl, ttl_ents, shared_ents, sim = borderline_cands[0]
+            borderline_queue.append({
+                'group_idx': idx,
+                'group': g,
+                'orig_tid': tid,
+                'cand_tid': tid_e,
+                'jaccard': sim,
+                'pair': {
+                    'title_a': candidate,
+                    'title_b': ttl,
+                    'entities_a': sorted(cand_entities),
+                    'entities_b': sorted(ttl_ents),
+                    'shared_entities': sorted(shared_ents),
+                },
+            })
+            resolved.append((g, tid, idx))  # 仮置き。後で書き換える。
+        else:
+            resolved.append((g, tid, idx))
+
+    # 第 2 パス: borderline_queue を batch で Haiku に問う。
+    if borderline_queue and ai_judge is not None:
+        pairs = [b['pair'] for b in borderline_queue]
+        judgments = ai_judge.judge_pairs(pairs)
+        for b, p in zip(borderline_queue, pairs):
+            k = (p['title_a'], p['title_b']) if p['title_a'] <= p['title_b'] else (p['title_b'], p['title_a'])
+            same = bool(judgments.get(k))
+            if same:
+                # 同一事件と判定 → cand_tid に書き換える
+                resolved[b['group_idx']] = (b['group'], b['cand_tid'], b['group_idx'])
+                rebound_haiku += 1
+            if auditor is not None:
+                auditor.log(
+                    target_tid=b['cand_tid'], source_tid=b['orig_tid'],
+                    jaccard=b['jaccard'],
+                    entity_overlap=p['shared_entities'],
+                    haiku_used=True,
+                    haiku_verdict='yes' if same else 'no',
+                    confidence='medium' if same else 'low',
+                    title_a=p['title_a'], title_b=p['title_b'],
+                )
+
     if rebound:
         print(f'[title-dedup] {rebound}/{len(group_tids)} groups rebound to existing tids')
     if rebound_jaccard:
-        print(f'[title-dedup-jaccard] {rebound_jaccard}/{len(group_tids)} groups merged into AI topics by Jaccard>={_JACCARD_TITLE_THRESHOLD}')
+        print(f'[title-dedup-jaccard] {rebound_jaccard}/{len(group_tids)} groups merged into AI topics by Jaccard>={_JACCARD_TITLE_THRESHOLD} + entity overlap')
+    if rebound_haiku:
+        print(f'[title-dedup-haiku] {rebound_haiku}/{len(group_tids)} borderline groups merged after Haiku same-event judgment')
+    if skipped_no_entity:
+        print(f'[title-dedup-skip] {skipped_no_entity} high-Jaccard groups skipped due to entity mismatch (e.g. 米国 vs 日本)')
 
     by_tid: dict = {}
     order: list = []
-    for g, tid in resolved:
+    for g, tid, _idx in resolved:
         if tid in by_tid:
             existing_g = by_tid[tid]
             seen_urls = {a.get('url') for a in existing_g if a.get('url')}
@@ -364,10 +480,15 @@ def _fetch_ogp_group(tid, urls):
     return tid, None
 
 
-def _topic_cluster_dedup(topics):
+def _topic_cluster_dedup(topics, auditor=None):
     """同一イベントが複数topicIdに分裂した場合に統合する二次dedup。
     タイトルに cluster() と同じ Jaccard 閾値(0.35)を適用し、
     類似クラスタ内は velocityScore 最大のトピックを残す。
+
+    T2026-0501-H: cluster() でまとめられたグループ内で **entity 重複が無い**
+    トピックは別事件として分離する (例: 「関税引き上げ 米国」と「関税引き上げ 日本」が
+    Jaccard でクラスタ化されても entity 重複なしなら別トピックを維持)。
+    auditor が渡されればマージのたびに監査ログを残す。
     """
     if len(topics) < 2:
         return topics
@@ -377,16 +498,64 @@ def _topic_cluster_dedup(topics):
     ]
     groups = cluster(fake)
     result = []
+    split_by_entity = 0
     for group in groups:
         if len(group) == 1:
             result.append(topics[group[0]['_idx']])
-        else:
-            group_topics = [topics[a['_idx']] for a in group]
-            best = max(group_topics, key=lambda t: float(t.get('velocityScore', 0) or 0))
-            merged_count = len(group_topics)
+            continue
+        group_topics = [topics[a['_idx']] for a in group]
+        # T2026-0501-H entity gate: cluster 内で entity 重複が連結している部分のみマージ。
+        # union-find で「entity 共有つながり」を求め、subgroup ごとに best を選ぶ。
+        n = len(group_topics)
+        parent = list(range(n))
+        def _find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+        ents_list = [
+            extract_merge_entities(t.get('generatedTitle') or t.get('title', ''))
+            for t in group_topics
+        ]
+        for i in range(n):
+            for j in range(i + 1, n):
+                if _find(i) == _find(j):
+                    continue
+                if ents_list[i] & ents_list[j]:
+                    pi, pj = _find(i), _find(j)
+                    parent[pi] = pj
+        sub_groups: dict = {}
+        for i in range(n):
+            sub_groups.setdefault(_find(i), []).append(group_topics[i])
+        if len(sub_groups) > 1:
+            split_by_entity += len(sub_groups) - 1
+        for sub in sub_groups.values():
+            best = max(sub, key=lambda t: float(t.get('velocityScore', 0) or 0))
+            merged_count = len(sub)
             if merged_count > 1:
                 print(f'[dedup] 類似topicマージ {merged_count}件: {best.get("generatedTitle") or best.get("title", "")[:40]}')
+                if auditor is not None:
+                    target_tid = best.get('topicId', '')
+                    target_ttl = best.get('generatedTitle') or best.get('title', '')
+                    target_ents = extract_merge_entities(target_ttl)
+                    for other in sub:
+                        if other is best:
+                            continue
+                        other_tid = other.get('topicId', '')
+                        other_ttl = other.get('generatedTitle') or other.get('title', '')
+                        if not other_tid or other_tid == target_tid:
+                            continue
+                        auditor.log(
+                            target_tid=target_tid, source_tid=other_tid,
+                            jaccard=0.0,  # cluster() 経由なので個別 Jaccard 値を持たない
+                            entity_overlap=sorted(target_ents & extract_merge_entities(other_ttl)),
+                            haiku_used=False, haiku_verdict='skipped',
+                            confidence='medium',
+                            title_a=target_ttl, title_b=other_ttl,
+                        )
             result.append(best)
+    if split_by_entity:
+        print(f'[dedup-entity-split] {split_by_entity} 件のクラスタを entity 重複なしで分離 (例: 米国 vs 日本)')
     return result
 
 
@@ -460,16 +629,25 @@ def lambda_handler(event, context):
     groups_sorted = sorted(groups, key=lambda g: len({a['source'] for a in g}) * 10, reverse=True)
     group_tids    = [(g, topic_fingerprint(g)) for g in groups_sorted]
 
-    # T2026-0428-E2-3: title 重複による tid 分裂を解消する。
+    # T2026-0428-E2-3 / T2026-0501-H: title 重複による tid 分裂を解消する。
     # `topic_fingerprint` はクラスタ top-5 単語に依存するため、RSS 記事構成が
     # 変わると同一イベントでも別 tid を生成し、META 分裂が起きていた
     # (本番計測 2026-04-29: 343/828 = 41.43% が完全同一 title で別 tid)。
-    # 既存 topics.json (active/cooling・直近 14 日) を読み、title 完全一致なら
-    # 既存 tid に再バインドする。get_all_topics() は S3 topics.json を読むだけで
-    # DynamoDB scan しないため、後段の topics.json 構築 (line ~646) との重複読みは
-    # S3 GET 1 回分の追加コストのみ ($0.0004/月オーダー)。
+    # 既存 topics.json (active/cooling・直近 30 日 / lookback) を読み、title 完全一致 +
+    # entity 重複 + Jaccard / Haiku 判定で既存 tid に再バインドする。
+    # get_all_topics() は S3 topics.json を読むだけで DynamoDB scan しないため、
+    # 後段の topics.json 構築との重複読みは S3 GET 1 回分の追加コストのみ。
     _existing_topics_for_dedup = get_all_topics() if S3_BUCKET else []
-    group_tids = _resolve_tid_collisions_by_title(group_tids, _existing_topics_for_dedup)
+    # T2026-0501-H: borderline (Jaccard 0.15-0.35) ペアを Haiku に「同一事件か」問う。
+    # API key 未設定 / 失敗時は failsafe で merge せず (= 現状挙動)。
+    from config import ANTHROPIC_API_KEY as _ANTHROPIC_API_KEY  # noqa: E402  (ローカル import で依存最小化)
+    _ai_judge = AIMergeJudge(api_key=_ANTHROPIC_API_KEY) if _ANTHROPIC_API_KEY else None
+    # T2026-0501-H: マージ監査ログ (S3 JSONL)。1 run 終わりに flush_to_s3() でまとめて書き込む。
+    _merge_auditor = MergeAuditor(s3_client=s3 if S3_BUCKET else None, bucket=S3_BUCKET)
+    group_tids = _resolve_tid_collisions_by_title(
+        group_tids, _existing_topics_for_dedup,
+        ai_judge=_ai_judge, auditor=_merge_auditor,
+    )
 
     # Step 4: DynamoDB（hist + META）を全グループ並列プリフェッチ
     _t_pre = time.time()
@@ -703,6 +881,36 @@ def lambda_handler(event, context):
             item['trendsData'] = {k: int(v) for k, v in existing['trendsData'].items()}
         if existing.get('trendsUpdatedAt'):
             item['trendsUpdatedAt'] = existing['trendsUpdatedAt']
+        # T2026-0501-H: SNAP の articles を 1 度だけ計算 (mismerge 検知でも再利用)。
+        # publishedAt 昇順で並べる (古い→新しい)。PO 指示「同じ事象なら時系列で並べる」。
+        _merged_dict = {
+            **{prev['url']: prev for prev in get_latest_snap_articles(tid, max_articles=50) if prev.get('url')},
+            **{a['url']: {
+                'title':       a['title'], 'url': a['url'],
+                'source':      a['source'], 'pubDate': a['pubDate'],
+                'publishedAt': a.get('published_ts', 0),
+            } for a in g},
+        }
+        _merged_articles = sorted(
+            _merged_dict.values(),
+            key=lambda x: x.get('publishedAt') or x.get('published_ts') or 0,
+        )[-50:]  # 古い順なので上限超過時は新しい 50 件を残す
+        # T2026-0501-H: 誤マージ自動検知 (time gap / entity split / count spike)。
+        # `_merged_articles` は累積 50 件まで。シグナルが立てば item に suspectedMismerge=True を付与。
+        try:
+            _prev_ac = int(existing.get('articleCount', 0) or 0)
+        except (TypeError, ValueError):
+            _prev_ac = 0
+        _signals = detect_mismerge_signals(
+            _merged_articles, extract_entities_fn=extract_merge_entities,
+            prev_article_count=_prev_ac,
+        )
+        if _signals.get('suspectedMismerge'):
+            item['suspectedMismerge'] = True
+            item['mismergeReasons'] = _signals.get('reasons', [])
+            if _signals.get('detail'):
+                item['mismergeDetail'] = _signals['detail']
+            print(f'[mismerge] tid={tid} reasons={_signals["reasons"]} title="{(gen_title or g[0]["title"])[:50]}"')
         current_run_metas[tid] = item
         _dynamo_puts.append(item)
         _dynamo_puts.append({
@@ -716,14 +924,9 @@ def lambda_handler(event, context):
             'ttl':          int(time.time()) + SNAP_TTL_DAYS * 86400,
             # 累積マージ: 前回 SNAP の articles + 今回の articles を URL-dedup して保存
             # これで古い記事が RSS から消えても topic detail の履歴に残る (2026-04-27 履歴15件問題の根本修正)
-            'articles': sort_by_pubdate(list({
-                **{prev['url']: prev for prev in get_latest_snap_articles(tid, max_articles=50) if prev.get('url')},
-                **{a['url']: {
-                    'title':       a['title'], 'url': a['url'],
-                    'source':      a['source'], 'pubDate': a['pubDate'],
-                    'publishedAt': a.get('published_ts', 0),
-                } for a in g},
-            }.values()))[:50],  # cap=50: 全期間の累積上位50件を保持
+            # T2026-0501-H: 時系列で並べて保存 (古い順) — フロント detail.js が「古い順 / 新しい順」
+            # 切り替えできるが内部表現は publishedAt 昇順で安定。
+            'articles': _merged_articles,
         })
         saved_ids.append(tid)
 
@@ -954,7 +1157,8 @@ def lambda_handler(event, context):
 
         topics_deduped_all = sorted(dedup_long.values(), key=lambda x: int(x.get('score', 0) or 0), reverse=True)
         # 二次dedup: タイトル類似度クラスタリングで同一イベントの重複topicIdを統合
-        topics_deduped_all = _topic_cluster_dedup(topics_deduped_all)
+        # T2026-0501-H: auditor 経由でマージイベントを記録
+        topics_deduped_all = _topic_cluster_dedup(topics_deduped_all, auditor=_merge_auditor)
         # 2件以上の記事を持つトピックのみtopics.jsonに含める（1件=コアバリュー違反）
         # velocityScore降順でソートし上位500件に絞り込む
         # T211: 同一ドメインで複数記事が出るUGC・PR記事の混入を防ぐため、
@@ -1187,6 +1391,15 @@ def lambda_handler(event, context):
 
     save_seen_articles(current_urls)
 
+    # T2026-0501-H: マージ監査ログを S3 へ flush。1 run = 1 PUT (バッチ書き込み)。
+    try:
+        _merge_auditor.flush_to_s3()
+    except Exception as _ae:
+        print(f'[merge_audit] flush 失敗 ({type(_ae).__name__}: {_ae})')
+
+    # T2026-0501-H: suspectedMismerge カウントを FETCHER_HEALTH に出す (SLI 用)
+    _mismerge_count = sum(1 for it in current_run_metas.values() if it.get('suspectedMismerge'))
+
     print('[FETCHER_HEALTH] ' + json.dumps({
         'event': 'fetcher_health',
         'status': 'run_complete',
@@ -1194,6 +1407,10 @@ def lambda_handler(event, context):
         'new_topics': len(new_pending),
         'fetched': len(all_articles),
         'new_urls': len(new_urls),
+        'merge_audit_events': len(_merge_auditor.events),
+        'haiku_pairs_asked': getattr(_ai_judge, 'pairs_asked', 0) if _ai_judge else 0,
+        'haiku_pairs_yes': getattr(_ai_judge, 'pairs_yes', 0) if _ai_judge else 0,
+        'suspected_mismerge_count': _mismerge_count,
     }))
     return {'statusCode': 200,
             'body': json.dumps({'articles': len(all_articles), 'new': len(new_urls),
