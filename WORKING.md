@@ -110,4 +110,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T2026-0502-A 規則体系リライト Layer1/2 着地 (north-star + current-phase 新設) | Cowork | docs/north-star.md, docs/current-phase.md, .gitignore | 2026-05-02 00:37 | yes |
