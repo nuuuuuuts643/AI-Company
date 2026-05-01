@@ -206,6 +206,8 @@ kp_lengths = [len((t.get('keyPoint') or '').strip()) for t in topics if (t.get('
 kp_avg_len = round(statistics.mean(kp_lengths), 1) if kp_lengths else 0.0
 n_delta_pos = sum(1 for t in topics if (t.get('articleCountDelta') or 0) > 0)
 n_with_image = sum(1 for t in topics if (t.get('imageUrl') or '').startswith('http'))
+# 注目ポイント(watchPoints)カバレッジ: 30字以上で「実質あり」と判定
+n_watchpoints = sum(1 for t in topics if len((t.get('watchPoints') or '').strip()) >= 30)
 
 # 関連トピック密度
 child_counts = [len(t.get('childTopics') or []) for t in topics]
@@ -249,10 +251,12 @@ def perf_norm(t_sec):
 
 
 score_components = {
-    # 閾値は 2026-05-01 ベースライン (n_velocity_pos=39 / kp100=36.8% / child_avg=0.13 / delta=7.5%) を踏まえ、
+    # 閾値は 2026-05-01 ベースライン (watchPoints=?% / kp100=36.8% / child_avg=0.13 / delta=7.5%) を踏まえ、
     # 「baseline=0.3-0.4 / 改善目標=0.7-0.8 / 完成=1.0」になるよう設定。
-    # ベースラインが沈んで全部 0 では改善が見えないため、現状を 0 にしない範囲で設定する。
-    'info_density':   norm(n_velocity_pos, 20, 200),
+    # info_density: T2026-0501-D2 で velocityScore件数 → watchPoints カバレッジに再定義。
+    # 理由: velocityScore は UI 変更不可の純粋データ指標。watchPoints は AI生成コンテンツの充実度を測り
+    #       フロント表示改善と Lambda 生成品質の両軸で改善できる。範囲 0.05→0.70 (0%→65%+ が 0→1)。
+    'info_density':   norm((n_watchpoints / n_total) if n_total else 0.0, 0.05, 0.70),
     'kp_density':     norm((n_kp_100 / n_total) if n_total else 0.0, 0.20, 0.60),
     'child_density':  norm(child_avg, 0.05, 0.60),
     # T2026-0501-C: HTML nav 要素の有無をボーナス (+0.45) として加算
@@ -285,9 +289,11 @@ result = {
         'kp100': n_kp_100,
         'kp200': n_kp_200,
         'kp_avg_len': kp_avg_len,
-        'kp100_pct':       round(n_kp_100    / n_total * 100, 1) if n_total else 0.0,
-        'continuation_pct':round(n_delta_pos / n_total * 100, 1) if n_total else 0.0,
-        'with_image_pct':  round(n_with_image/ n_total * 100, 1) if n_total else 0.0,
+        'watchpoints': n_watchpoints,
+        'kp100_pct':         round(n_kp_100      / n_total * 100, 1) if n_total else 0.0,
+        'watchpoints_pct':   round(n_watchpoints  / n_total * 100, 1) if n_total else 0.0,
+        'continuation_pct':  round(n_delta_pos    / n_total * 100, 1) if n_total else 0.0,
+        'with_image_pct':    round(n_with_image   / n_total * 100, 1) if n_total else 0.0,
     },
     'related': {
         'child_avg':       child_avg,
@@ -316,6 +322,7 @@ print('  情報密度:')
 print(f'    total topics:        {n_total}')
 print(f'    velocity>0:          {n_velocity_pos}')
 print(f'    aiGenerated:         {n_ai}')
+print(f'    watchPoints>=30字:   {n_watchpoints} ({result["topics"]["watchpoints_pct"]}%)  ← info_density の根拠')
 print(f'    keyPoint>=100字:     {n_kp_100} ({result["topics"]["kp100_pct"]}%)')
 print(f'    keyPoint>=200字:     {n_kp_200}')
 print(f'    keyPoint 平均文字数: {kp_avg_len}')
@@ -369,8 +376,8 @@ header_block = (
     '> 週次 `.github/workflows/ux-check.yml` が自動実行し append する (毎週月曜 07:30 JST)。\n'
     '> ux_score は 5 点満点 (情報密度 / keyPoint 密度 / 関連密度 / 続報率 / レイアウト健全性 / 応答性 を 0-1 正規化平均)。\n\n'
     '## スコア推移 (新しいものが上)\n\n'
-    '| 日時 (JST) | total | velocity>0 | kp≥100% | kp平均 | child平均 | 続報% | layout | TTFB(s) | UXスコア |\n'
-    '|---|---:|---:|---:|---:|---:|---:|---|---:|---:|\n'
+    '| 日時 (JST) | total | velocity>0 | watchPts% | kp≥100% | kp平均 | child平均 | 続報% | layout | TTFB(s) | UXスコア |\n'
+    '|---|---:|---:|---:|---:|---:|---:|---:|---|---:|---:|\n'
 )
 
 existing_rows = []
@@ -384,7 +391,7 @@ if os.path.isfile(MD_OUT):
 layout_status = 'OK' if not layout_fail else 'WARN'
 new_row = (
     f'| {TODAY_TS} | {n_total} | {n_velocity_pos} | '
-    f'{result["topics"]["kp100_pct"]} | {kp_avg_len} | '
+    f'{result["topics"]["watchpoints_pct"]} | {result["topics"]["kp100_pct"]} | {kp_avg_len} | '
     f'{child_avg} | {result["topics"]["continuation_pct"]} | '
     f'{layout_status} | {INDEX_TIME:.2f} | {ux_score} |'
 )
@@ -395,7 +402,7 @@ detail_lines = [
     '### スコア内訳\n',
     '| 項目 | 値 (0-1) | 意味 |',
     '|---|---:|---|',
-    f'| info_density   | {score_components["info_density"]:.3f} | velocityScore>0 の topic 数 (20→200 で 0→1) |',
+    f'| info_density   | {score_components["info_density"]:.3f} | watchPoints≥30字 カバレッジ (5%→70% で 0→1) |',
     f'| kp_density     | {score_components["kp_density"]:.3f}   | keyPoint≥100字 比率 (0.20→0.60 で 0→1) |',
     f'| child_density  | {score_components["child_density"]:.3f} | childTopics 平均件数 (0.05→0.60 で 0→1) |',
     f'| continuation   | {score_components["continuation"]:.3f}  | articleCountDelta>0 比率 (0.05→0.30 で 0→1) |',
