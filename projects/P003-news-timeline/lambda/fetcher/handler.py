@@ -235,7 +235,7 @@ def _title_dedup_key(title: str) -> str:
 #   - その他                                          → 別トピック
 #   失敗時 / API key 未設定は failsafe = "別トピック" (現状挙動と同等)
 _JACCARD_TITLE_THRESHOLD = 0.35  # cluster_utils と同じ閾値
-_JACCARD_BORDERLINE_LOW = 0.15  # T2026-0501-H: borderline 下限 (Haiku 判定対象)
+_JACCARD_BORDERLINE_LOW = 0.10  # T2026-0501-H: borderline 下限 (T2026-0501-M: 0.15→0.10 entity guard で誤マージ防止)
 _JACCARD_RECENT_TOPICS_MAX = 500  # T2026-0501-H: 14d→30d lookback 拡張に合わせて 200→500
 _TID_COLLISION_LOOKBACK_DAYS = 30  # T2026-0501-H: 14→30 で継続イベントの再分裂を抑える
 
@@ -313,9 +313,11 @@ def _resolve_tid_collisions_by_title(group_tids, existing_topics, ai_judge=None,
             if norm and norm not in title_to_tid:
                 title_to_tid[norm] = tid_e
         if t.get('aiGenerated'):
-            best_title = t.get('generatedTitle') or t.get('title') or ''
-            if best_title:
-                ai_topic_candidates.append((tid_e, best_title, last))
+            # T2026-0501-M: generatedTitle と raw title 両方を候補に追加。
+            # extractive_title(new cluster) は生の記事見出しなので raw title との
+            # bigram Jaccard の方が generatedTitle より高くなる場合がある。
+            for cand_title in dict.fromkeys(filter(None, [t.get('generatedTitle'), t.get('title')])):
+                ai_topic_candidates.append((tid_e, cand_title, last))
 
     if not title_to_tid and not ai_topic_candidates:
         return group_tids
@@ -483,6 +485,123 @@ def _resolve_tid_collisions_by_title(group_tids, existing_topics, ai_judge=None,
     if merged:
         print(f'[title-dedup] {merged} same-run groups merged into existing tids')
     return [(by_tid[tid], tid) for tid in order]
+
+
+def _merge_within_run_duplicates(group_tids, existing_tids, ai_judge=None, auditor=None):
+    """同一 run 内の新クラスタ同士を重複チェックしてマージする。
+
+    T2026-0501-M: _resolve_tid_collisions_by_title は「新 vs 既存」を処理するが、
+    同一 run で生まれた別クラスタ（例: 欧州米軍削減 vs ドイツ米軍削減）は比較されない。
+    この関数で「新 vs 新」の重複を検出して統合する。
+
+    existing_tids: set of tids already in topics.json (these are already deduped, skip them)
+    """
+    if len(group_tids) < 2:
+        return group_tids
+
+    new_indices = [i for i, (_g, tid) in enumerate(group_tids) if tid not in existing_tids]
+    if len(new_indices) < 2:
+        return group_tids
+
+    cands = []
+    for i in new_indices:
+        g, tid = group_tids[i]
+        title = extractive_title(g) or (g[0].get('title', '') if g else '')
+        bg = _title_bigrams(title)
+        ents = extract_merge_entities(title)
+        cands.append((i, g, tid, title, bg, ents))
+
+    parent = {i: i for i, *_ in cands}
+    cand_by_idx = {i: (g, tid, title, bg, ents) for i, g, tid, title, bg, ents in cands}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(x, y):
+        px, py = find(x), find(y)
+        if px == py:
+            return
+        # 記事数が多い方を root にする
+        if len(cand_by_idx[px][0]) >= len(cand_by_idx[py][0]):
+            parent[py] = px
+        else:
+            parent[px] = py
+
+    borderline: list = []
+    hard_merged = 0
+
+    for a_pos, (i, _gi, _ti, title_i, bg_i, ents_i) in enumerate(cands):
+        for b_pos in range(a_pos + 1, len(cands)):
+            j, _gj, _tj, title_j, bg_j, ents_j = cands[b_pos]
+            if find(i) == find(j):
+                continue
+            if not bg_i or not bg_j:
+                continue
+            inter = bg_i & bg_j
+            if not inter:
+                continue
+            sim = len(inter) / len(bg_i | bg_j)
+            if sim < _JACCARD_BORDERLINE_LOW:
+                continue
+            shared_ents = ents_i & ents_j
+            if not shared_ents:
+                continue
+            if sim >= _JACCARD_TITLE_THRESHOLD:
+                union(i, j)
+                hard_merged += 1
+                if auditor:
+                    auditor.log(
+                        target_tid=group_tids[find(i)][1], source_tid=group_tids[j][1],
+                        jaccard=sim, entity_overlap=sorted(shared_ents),
+                        haiku_used=False, haiku_verdict='skipped', confidence='high',
+                        title_a=title_i, title_b=title_j,
+                    )
+            else:
+                borderline.append({'i': i, 'j': j, 'sim': sim,
+                                   'title_a': title_i, 'title_b': title_j,
+                                   'entities_a': sorted(ents_i), 'entities_b': sorted(ents_j),
+                                   'shared_entities': sorted(shared_ents)})
+
+    haiku_merged = 0
+    if borderline and ai_judge:
+        pairs = [{'title_a': p['title_a'], 'title_b': p['title_b'],
+                  'entities_a': p['entities_a'], 'entities_b': p['entities_b'],
+                  'shared_entities': p['shared_entities']}
+                 for p in borderline]
+        judgments = ai_judge.judge_pairs(pairs)
+        for p in borderline:
+            key = ai_judge._key(p['title_a'], p['title_b'])
+            if judgments.get(key):
+                union(p['i'], p['j'])
+                haiku_merged += 1
+
+    total_merged = hard_merged + haiku_merged
+    if total_merged == 0:
+        return group_tids
+
+    # Union-Find の結果を group_tids に反映: 非 root の記事を root にマージして削除
+    result = list(group_tids)
+    remove = set()
+    for i, _g, _tid, *_ in cands:
+        root = find(i)
+        if root == i:
+            continue
+        root_articles = result[root][0]
+        seen_urls = {a.get('url') for a in root_articles if a.get('url')}
+        for a in result[i][0]:
+            u = a.get('url')
+            if u and u not in seen_urls:
+                root_articles.append(a)
+                seen_urls.add(u)
+        remove.add(i)
+
+    out = [(g, tid) for idx, (g, tid) in enumerate(result) if idx not in remove]
+    print(f'[within-run-dedup] merged {total_merged} pairs '
+          f'(hard={hard_merged} haiku={haiku_merged}): {len(group_tids)}→{len(out)} groups')
+    return out
 
 
 def _fetch_ogp_group(tid, urls):
@@ -660,6 +779,12 @@ def lambda_handler(event, context):
     _merge_auditor = MergeAuditor(s3_client=s3 if S3_BUCKET else None, bucket=S3_BUCKET)
     group_tids = _resolve_tid_collisions_by_title(
         group_tids, _existing_topics_for_dedup,
+        ai_judge=_ai_judge, auditor=_merge_auditor,
+    )
+    # T2026-0501-M: 新 vs 新クラスタの重複を検出してマージ（同一 run 内分裂対策）
+    _existing_tids = {t.get('topicId') for t in _existing_topics_for_dedup if t.get('topicId')}
+    group_tids = _merge_within_run_duplicates(
+        group_tids, _existing_tids,
         ai_judge=_ai_judge, auditor=_merge_auditor,
     )
 
