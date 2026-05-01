@@ -115,3 +115,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] T2026-0502-E session_bootstrap.sh §1c tmp_obj_* 自動退避追加 (恒久対処) | Cowork | scripts/session_bootstrap.sh | 2026-05-02 01:30 | yes |
