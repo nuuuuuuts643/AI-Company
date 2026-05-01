@@ -26,6 +26,8 @@
 - 次回 fetcher cron (~17:33 UTC = 02:33 JST): topics.json updatedAt が更新されるはず
 - freshness-check.yml (18:23 UTC tick) で success を確認してから done.sh T2026-0502-G を実行
 
+**⚠️ p003-haiku alert (2026-05-02 22:13 UTC)**: flotopic-lifecycle Lambda で `ValidationException: Filter Expression can only contain non-primary key attributes: Primary key attribute: SK` が直近24hで複数回発生 (handler.py:64 delete_snaps / :93 delete_old_snaps)。SK は KeyConditionExpression で指定すべきところ FilterExpression に入っている。修正タスクを TASKS.md に起票要 (他5 Lambda は ERROR ゼロ)。
+
 **次セッション (Dispatch または p003-haiku で確認後) でやること** (PR→CI→merge→done.sh 必須):
 1. **T2026-0502-G 完了確認**: `curl -s https://flotopic.com/api/topics.json | python3 -c "import json,sys,datetime;d=json.load(sys.stdin);print(d['updatedAt'])"` で updatedAt < 90分を確認 → `bash done.sh T2026-0502-G https://flotopic.com/api/topics.json`
 2. **T2026-0501-K** 🔴 (フェーズ2 直撃) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` 内 keyPoint ◎例をエンタメ + テックに差し替え
