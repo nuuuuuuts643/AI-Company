@@ -107,3 +107,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] PR #94/#95/#96/#98 CI修正 + 冗長説明調査 | Code | .github/ lambda/ frontend/ | 2026-05-01T11:00:00+09:00 | yes |
