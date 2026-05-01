@@ -60,3 +60,4 @@ projects/P003-news-timeline/lambda/fetcher/*.so
 # 個人情報・ローカル専用ファイル（公開リポに置かない）
 .claude/settings.json
 HISTORY.md
+AI-COMPANY/
