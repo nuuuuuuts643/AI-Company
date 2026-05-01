@@ -1,0 +1,46 @@
+# T2026-0501-N: PR auto-merge (squash) — CI 全 green になったら GitHub が自動 squash merge
+#
+# 背景:
+#   Code セッションが PR を作っても auto-merge が有効化されていなかったため、毎回手動マージが必要だった。
+#   この workflow が `pull_request` イベントで `gh pr merge --auto --squash --delete-branch` を発動し、
+#   GitHub の native auto-merge を ON にする。required checks が全 green になった瞬間に GitHub が squash merge する。
+#
+# スコープ (安全条件):
+#   - draft PR は除外
+#   - PR 作成者がリポジトリ owner と一致する PR のみ (= 外部コラボ・dependabot は無視)
+#   - リポジトリ設定 `allow_auto_merge: true` 必須 (2026-05-02 確認済 = true)
+#
+# 失敗時の挙動:
+#   - required checks 未設定の場合 `gh pr merge --auto` は 422 で失敗する → workflow も赤くなる (気付き機能)
+#   - その他のエラーは continue-on-error せず明示的に fail させる (黙殺禁止)
+#
+# 参照: TASKS.md T2026-0501-N / CLAUDE.md「Dispatch 絶対禁止パターン」`gh pr create` 後の自動マージ
+name: Auto-merge PRs (squash when CI green)
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-auto-merge:
+    name: enable squash auto-merge
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.login == github.repository_owner
+    steps:
+      - name: Enable auto-merge (squash + delete branch)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -euo pipefail
+          echo "PR #${PR_NUMBER} by ${PR_AUTHOR} → ${PR_URL}"
+          gh pr merge "$PR_URL" --auto --squash --delete-branch
+          echo "✅ auto-merge enabled (squash, delete-branch)"
