@@ -404,8 +404,8 @@ fi
 # 広範囲変更が含まれるタスク定義を起動時に検出して、着手前に分割を促す。
 # PR #86 で一度に 22 箇所変更が発生した根本原因: 「タスク定義に広範囲変更が含まれていて、
 # 誰も気付かない」ことへの仕組み的対策。
-LARGE_TASKS=$(grep -c '\[scope:large\]' TASKS.md 2>/dev/null || echo 0)
-if [ "$LARGE_TASKS" -gt 0 ]; then
+LARGE_TASKS=$(grep -c '\[scope:large\]' TASKS.md 2>/dev/null | tr -d ' \n' || echo "0")
+if [ "$LARGE_TASKS" != "0" ] && [ "$LARGE_TASKS" -gt 0 ]; then
   echo "  ⚠️  [SCOPE-LARGE] TASKS.md に [scope:large] タグが ${LARGE_TASKS} 件あります。着手前に分割を検討してください。"
   grep '\[scope:large\]' TASKS.md | head -5
 fi
