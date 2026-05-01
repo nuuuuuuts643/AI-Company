@@ -17,6 +17,14 @@
 > **選定基準**: ユーザー体験に直結・安定性・AI品質・収益に近い順。
 > **整理日**: 2026-04-28 PM (T2026-0428-AX で実装済タスク除去 + フェーズ1 新規完了条件タスク追加)
 
+### 🆘 緊急対処（Action-Required・即時着手・最優先）
+
+<!-- 2026-05-02 01:45 JST 起票・Cowork セッション T2026-0502-F が GitHub Actions failure を発見した記録 -->
+
+| ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
+|---|---|---|---|---|
+| T2026-0502-G | 🔴 最優先 | **fetcher Lambda 停止 — ニュース取得が 2h 以上 0 件 / topics.json が 407 分 (6.7h) stale = ユーザーに古い情報を見せ続けている**。鮮度モニタ + fetcher-health-check.yml が 3 連続 failure。CloudWatch メトリクス `FetcherSavedArticles` と Lambda 実行ログを確認 → 根本原因特定 → 恒久対処（リトライ・タイムアウト・依存サービス障害切り分け）。完了条件: topics.json 鮮度 < 90 分 + fetcher-health-check.yml 連続 success 2 回。Verified-Effect: 鮮度モニタ run が success に戻る | `lambda/fetcher/handler.py` + CloudWatch 調査 | 2026-05-02 |
+
 ### フェーズ1 完了条件タスク（2026-04-28 PM 完了）
 
 > **状態**: 全項目 landing 完了。フェーズ1 完了 → フェーズ2 着手可能。

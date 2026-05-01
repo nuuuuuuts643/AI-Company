@@ -116,4 +116,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] T2026-0502-F PII検査failure修正 (cowork_commit.py docstring) + T2026-0502-G fetcher停止緊急タスク起票 | Cowork | scripts/cowork_commit.py, TASKS.md | 2026-05-02 01:48 | yes |
 | [Cowork] CI fix: PII 違反解消 (affd1ba8 PII 検査 fail / sk-ant-/個人メール マスク) | Cowork | docs/rules-rewrite-proposal-2026-05-01.md | 2026-05-02 01:25 | yes |
