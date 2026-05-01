@@ -1,0 +1,11 @@
+name: No inline logic in YAML
+
+on: [push, pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject inline python3 -c in workflow YAML
+        run: bash scripts/ci_check_yaml_no_inline_logic.sh

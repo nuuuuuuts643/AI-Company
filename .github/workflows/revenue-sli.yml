@@ -48,13 +48,13 @@ jobs:
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
 
           # 数値抽出 (parse 失敗は -1 として扱う)
-          PV=$(python3 -c "import json; d=json.load(open('/tmp/rev.json')); print(d['pv']['totalPv7d'])" 2>/dev/null || echo -1)
-          PV_ST=$(python3 -c "import json; d=json.load(open('/tmp/rev.json')); print(d['pv']['status'])" 2>/dev/null || echo error)
-          DDB_TOTAL=$(python3 -c "import json; d=json.load(open('/tmp/rev.json')); print(d['ddb']['topicTotal'])" 2>/dev/null || echo -1)
-          DDB_AI7D=$(python3 -c "import json; d=json.load(open('/tmp/rev.json')); print(d['ddb']['aiGenerated7d'])" 2>/dev/null || echo -1)
-          LOG_ST=$(python3 -c "import json; d=json.load(open('/tmp/rev.json')); print(d['revenueLog']['status'])" 2>/dev/null || echo missing)
-          LOG_DATE=$(python3 -c "import json; d=json.load(open('/tmp/rev.json')); print(d['revenueLog']['latestDate'])" 2>/dev/null || echo "")
-          LOG_AGE=$(python3 -c "import json; d=json.load(open('/tmp/rev.json')); print(d['revenueLog']['ageDays'])" 2>/dev/null || echo -1)
+          PV=$(python3 scripts/ci_json_extract.py /tmp/rev.json pv.totalPv7d -1)
+          PV_ST=$(python3 scripts/ci_json_extract.py /tmp/rev.json pv.status error)
+          DDB_TOTAL=$(python3 scripts/ci_json_extract.py /tmp/rev.json ddb.topicTotal -1)
+          DDB_AI7D=$(python3 scripts/ci_json_extract.py /tmp/rev.json ddb.aiGenerated7d -1)
+          LOG_ST=$(python3 scripts/ci_json_extract.py /tmp/rev.json revenueLog.status missing)
+          LOG_DATE=$(python3 scripts/ci_json_extract.py /tmp/rev.json revenueLog.latestDate "")
+          LOG_AGE=$(python3 scripts/ci_json_extract.py /tmp/rev.json revenueLog.ageDays -1)
 
           {
             echo "pv=$PV"
@@ -103,16 +103,5 @@ jobs:
             exit 0
           fi
           ICON=$([ "$LOG_ST" = "overdue" ] || [ "$LOG_ST" = "missing" ] && echo ':rotating_light:' || echo ':warning:')
-          PAYLOAD=$(LOG_ST="$LOG_ST" LOG_DATE="$LOG_DATE" LOG_AGE="$LOG_AGE" PV="$PV" PV_ST="$PV_ST" ICON="$ICON" python3 -c "
-          import json, os
-          text = (
-              '💰 *Flotopic 収益ログ転記滞留*\n'
-              f'• log_status: \`{os.environ[\"LOG_ST\"]}\` (最終: {os.environ[\"LOG_DATE\"] or \"未記録\"} / {os.environ[\"LOG_AGE\"]}日前)\n'
-              f'• 今週の PV(7d): \`{os.environ[\"PV\"]}\` ({os.environ[\"PV_ST\"]})\n'
-              '• 対処: 忍者AdMax (https://admax.ninja/) を開いて先週分を docs/revenue-log.md に転記\n'
-              '• なぜ重要: 品質改善 (keyPoint/perspectives) が収益に繋がってるか測れなくなる\n'
-              '\n_T2026-0430-REV scripts/revenue_check.sh — 週次収益SLI_'
-          )
-          print(json.dumps({'text': text, 'username': 'Flotopic Revenue Monitor', 'icon_emoji': os.environ['ICON']}))
-          ")
+          PAYLOAD=$(LOG_ST="$LOG_ST" LOG_DATE="$LOG_DATE" LOG_AGE="$LOG_AGE" PV="$PV" PV_ST="$PV_ST" ICON="$ICON" python3 scripts/ci_slack_revenue_sli.py)
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
