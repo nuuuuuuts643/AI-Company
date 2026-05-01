@@ -111,3 +111,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 |---|---|---|---|---|
 | [Code] deploy-lambdas.yml YAML構文エラー修正 | fix | .github/workflows/deploy-lambdas.yml | 2026-05-01 13:30 | yes |
 
+
+| [Code] YAMLロジック→scripts移行 | Code | .github/workflows/*.yml, scripts/ci_*.py, scripts/ci_*.sh | $(date '+%Y-%m-%d %H:%M') JST | yes |
