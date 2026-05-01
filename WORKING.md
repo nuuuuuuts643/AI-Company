@@ -107,3 +107,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0501-F2 stale48h SLI修正 | Code | score_utils.py, handler.py, tests/ | 2026-05-01 17:45 | yes |
