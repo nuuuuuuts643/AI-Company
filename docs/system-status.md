@@ -78,6 +78,7 @@
 | [AUTO] keyPoint 充填率 | 🔴 半壊 | 2026-04-28 07:13 | **全体 10/115 = 8.7%**。aiGenerated=True なのに必須フィールド空 = success-but-empty。T255 修正済 (skip 条件) だが次 cycle (07/13/19 JST) 反映待ち。SLI 8 (`freshness-check.yml` ai_fields step)。フィールドカタログ: `docs/ai-fields-catalog.md` |
 | [AUTO] perspectives 充填率 | 🔴 半壊 | 2026-04-28 07:13 | 23/115 = 20.0% (全体)。SLI 9 |
 | [AUTO] storyPhase 偏り | ⚠️ 警告寸前 | 2026-04-28 07:13 | 「発端」 54/115 = 47.0% (閾値 50%)。クラスタ過分割 (T212) と相関。SLI 4 |
+| [AUTO] 誤マージ疑い率 | ⚠️ 信頼度低 | 2026-05-01 18:00 | 3件/213トピック (1.4%) だが sample=3 < min_sample=10。フォールスネガティブ 30-40% 推定。改善提案: `docs/mismerge-metrics-audit.md` 参照 |
 | [AUTO] topics.json 鮮度 | ✅ FRESH | 2026-04-28 07:13 | 実測 07:13 JST: updatedAt 22:05 UTC = 07:05 JST、diff 約 8 分。閾値 90 分 (`docs/sli-slo.md` SLI 1)。外部観測 `freshness-check.yml` 1h cron (T263) |
 | [AUTO] topics.json サイズ | ✅ 閾値内 | 2026-04-28 07:13 | 実測 213 KB (Content-Length=213045) / アラート閾値 250 KB (T2026-0428-F)。前回 312KB 記載は誤記訂正。Step1 (topics-card.json 二系統化) 未着手 |
 | DynamoDB SNAP | 📉 改善中 | 2026-04-26 | lifecycle 週次で削除中。TTL(7日) ENABLED |
