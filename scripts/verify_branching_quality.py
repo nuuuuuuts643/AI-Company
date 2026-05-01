@@ -142,6 +142,18 @@ def collect_branched_pairs(topics: list[dict]) -> tuple[list[dict], int, int]:
     return pairs, branched_total, orphans
 
 
+def extract_entities(text: str) -> set[str]:
+    """テキストから単語（エンティティ）を抽出する簡易実装。
+
+    空白および句読点を区切り文字として、2文字以上の連続文字列を単語として抽出。
+    """
+    import re
+    # 空白・句読点を区切り文字として分割
+    words = re.split(r'[\s、。「」『』・…ー\-()（）\[\]［］]+', text)
+    # 2文字以上の単語のみを返す
+    return {w for w in words if len(w) >= 2}
+
+
 def evaluate_branching(
     topics: list[dict],
     *,
@@ -151,13 +163,15 @@ def evaluate_branching(
     fb_threshold: float = 20.0,
     fm_threshold: float = 15.0,
 ) -> dict:
-    """topics 全体を評価して dict を返す純粋関数 (テスト用)。
+    """topics 全体を評価して dict を返す純粋関数。
+
+    全件スキャンを実行（サンプリング廃止）。
 
     verdict は以下のいずれか:
-      - 'PASS'              : sample >= min_sample かつ fb/fm 両方が閾値以下
-      - 'FAIL'              : sample >= min_sample かつ fb/fm のどちらかが閾値超過
+      - 'PASS'              : fb/fm 両方が閾値以下
+      - 'FAIL'              : fb/fm のどちらかが閾値超過
       - 'SKIP_NO_BRANCH'    : 評価対象ペアがゼロ (まだ branching が起きていない)
-      - 'SKIP_SMALL_SAMPLE' : 評価対象ペアが min_sample 未満 (信頼区間が広く判定不能)
+      - 'SKIP_SMALL_SAMPLE' : ペア数が min_sample 未満 (メトリクスは計算するが判定しない)
     """
     pairs, branched_total, orphans = collect_branched_pairs(topics)
     total = len(topics)
@@ -185,13 +199,8 @@ def evaluate_branching(
         base["verdict"] = "SKIP_NO_BRANCH"
         return base
 
-    rng = random.Random(seed)
-    if len(pairs) > sample_size:
-        sampled = rng.sample(pairs, sample_size)
-    else:
-        sampled = list(pairs)
-
-    results = [evaluate_pair(p["parent"], p["child"]) for p in sampled]
+    # 全件スキャン（サンプリング廃止）
+    results = [evaluate_pair(p["parent"], p["child"]) for p in pairs]
     n = len(results)
     fb = sum(1 for r in results if r["verdict"] == "suspect_false_branch")
     fm = sum(1 for r in results if r["verdict"] == "suspect_false_merge")
@@ -222,7 +231,12 @@ def evaluate_branching(
 
 
 def evaluate_pair(parent: dict, child: dict) -> dict:
-    """1 ペアの分岐判定を評価。"""
+    """1 ペアの分岐判定を評価。
+
+    誤マージ判定を強化：
+      - sim < 0.15 かつ entity 重複=0 → 誤マージ疑い
+      - sim < 0.2 → 誤マージ疑い（従来判定）
+    """
     p_title = parent.get("title") or parent.get("generatedTitle") or ""
     c_title = child.get("title") or child.get("generatedTitle") or ""
     p_bg = char_bigrams(p_title)
@@ -236,8 +250,15 @@ def evaluate_pair(parent: dict, child: dict) -> dict:
         # title と keyPoint の最大値を採用（片方でも内容が一致していれば類似と扱う）
         sim = max(sim, sim_kp)
 
+    # entity 重複を集計（誤マージ判定補強用）
+    p_entities = extract_entities(p_title)
+    c_entities = extract_entities(c_title)
+    entity_overlap = len(p_entities & c_entities)
+
     if sim >= 0.6:
         verdict = "suspect_false_branch"  # 似すぎなのに分岐 → 誤分岐疑い
+    elif sim < 0.15 and entity_overlap == 0:
+        verdict = "suspect_false_merge"   # 非常に違う＆エンティティ重複ゼロ → 誤マージ疑い
     elif sim < 0.2:
         verdict = "suspect_false_merge"   # 違いすぎなのに親子 → 誤マージ疑い
     else:
@@ -249,6 +270,7 @@ def evaluate_pair(parent: dict, child: dict) -> dict:
         "parent_title": p_title,
         "child_title": c_title,
         "similarity": round(sim, 3),
+        "entity_overlap": entity_overlap,
         "verdict": verdict,
     }
 
@@ -291,8 +313,9 @@ def main() -> int:
     if args.verbose and summary["results"]:
         print("=== 個別ペア ===")
         for r in summary["results"]:
+            entity_overlap = r.get("entity_overlap", 0)
             print(
-                f"[{r['verdict']:>22s}] sim={r['similarity']:.3f} "
+                f"[{r['verdict']:>22s}] sim={r['similarity']:.3f} ent_overlap={entity_overlap} "
                 f"P={r['parent_title'][:40]} | C={r['child_title'][:40]}"
             )
         print()
