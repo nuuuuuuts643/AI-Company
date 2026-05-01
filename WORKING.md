@@ -74,18 +74,23 @@
 ## ⚠️ セッション役割分担（恒久定義・2026-04-28 制定）
 
 **Code（Claude Code）がやること**:
-- `lambda/`・`frontend/`・`scripts/`・`.github/` のコード変更
-- テスト実行・Lambda手動invoke・デプロイ確認
+- `lambda/`・`frontend/`・`scripts/`・`.github/` のコード変更（Mac ファイルシステム依存）
+- ローカルテスト実行 (pytest / npm test)
+- デプロイ確認・gh CLI 操作
 - TASKS.md のステータス更新（実装完了後）
 
 **Cowork がやること**:
 - `CLAUDE.md`・`WORKING.md`・`TASKS.md`・`HISTORY.md` のドキュメント更新
-- CloudWatch確認・S3データ参照・ステータス報告
+- **AWS MCP 経由 (`mcp__awslabs_aws-mcp-server__call_aws`) で AWS 運用操作** (Lambda/CloudWatch/DynamoDB/S3/EventBridge)
+  - 障害調査 (logs filter-log-events / metrics get-metric-statistics / lambda get-function-configuration)
+  - 効果検証 (Errors/Invocations 集計・SLI 実測)
+  - 設定確認 (events list-rules / lambda list-functions)
+  - **禁止**: `update-function-code` / `delete-*` / 不可逆な write 操作 → Eng Claude 領域
 - POとの会話・分析・計画立案
 - **コードファイルの編集もOK**（WORKING.mdに [Cowork] 行を明記してから着手）
-- **git操作もOK** — push前に `rm -f .git/index.lock .git/HEAD.lock` を実行してから git add/commit/push する
+- **git操作もOK** — FUSE で `git CLI` が詰まる場合は `scripts/cowork_commit.py` で GitHub API 経由 PR
 
-> Coworkが実装からpushまで完結できる。lockファイル削除で競合を回避する。
+> Coworkが運用観測〜PR作成まで完結できる。AWS MCP + cowork_commit.py で FUSE 制約を物理的に迂回する。
 
 ---
 
@@ -122,5 +127,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] T2026-0502-N AWS MCP 発見によるルール更新 (役割分担表 / プロンプト / lessons-learned) | Cowork | CLAUDE.md, WORKING.md, scripts/gen_dispatch_prompt.sh, docs/lessons-learned.md | 2026-05-02 02:15 | yes |
 | [Cowork] T2026-0502-F PII検査failure修正 (cowork_commit.py docstring) + T2026-0502-G fetcher停止緊急タスク起票 | Cowork | scripts/cowork_commit.py, TASKS.md | 2026-05-02 01:48 | yes |
 | [Cowork] CI fix: PII 違反解消 (affd1ba8 PII 検査 fail / sk-ant-/個人メール マスク) | Cowork | docs/rules-rewrite-proposal-2026-05-01.md | 2026-05-02 01:25 | yes |
