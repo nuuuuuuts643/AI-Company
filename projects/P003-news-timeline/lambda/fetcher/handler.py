@@ -1089,8 +1089,12 @@ def lambda_handler(event, context):
         for t in topics:
             t['relatedTopics'] = related_map.get(t.get('topicId', ''), [])
 
+        # T2026-0501-E: extract_entities は ENTITY_PATTERNS (~30件) のみ。大半の日本語
+        # トピックでエンティティ空 → shared_ents=0 → 親子化不可 が low child_density の根本原因。
+        # extract_merge_entities はカタカナ3文字以上・英大文字語・漢字固有名詞も抽出するため、
+        # ほぼすべてのトピックでエンティティを検出でき、親子化候補が大幅に増える。
         topic_entities_map = {
-            t['topicId']: extract_entities(t.get('generatedTitle') or t.get('title', ''))
+            t['topicId']: extract_merge_entities(t.get('generatedTitle') or t.get('title', ''))
             for t in topics_active
         }
         parent_map = detect_topic_hierarchy(topics_active, topic_entities_map)

@@ -688,12 +688,17 @@ def detect_topic_hierarchy(topics: list, topic_entities: dict) -> dict:
             # 旧: shared_ents>=1 OR shared_kws>=2 → これだと有名人物名 1 件で誤マッチ
             # 新: (shared_ents>=2) OR (shared_ents>=1 AND shared_kws>=2)
             #     1 entity だけだと弱いので追加の kw シグナルを要求する
+            # T2026-0501-E: extract_merge_entities 切替に合わせ kw>=3 fallback を追加。
+            # entity 0 でも 3 つ以上のキーワード重複 + content_sim>=0.20 なら親子化 OK。
+            # content_sim ガードが残るため false-positive リスクは低い。
             shared_ents = entities_a & entities_b
             shared_kws  = kw_a & kw_b
             if len(shared_ents) >= 2:
                 pass  # 強い entity overlap → OK
             elif len(shared_ents) >= 1 and len(shared_kws) >= 2:
                 pass  # 1 entity + 補強 kw → OK
+            elif len(shared_kws) >= 3:
+                pass  # entity なしでも強い kw overlap (content_sim ガードで保護) → OK
             else:
                 continue
 
