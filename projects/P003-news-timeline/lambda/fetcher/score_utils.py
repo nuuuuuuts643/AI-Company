@@ -308,14 +308,17 @@ def sort_by_pubdate(articles):
 
 
 def compute_lifecycle_status(score: int, last_article_ts: int, velocity_score: int, total_articles: int) -> str:
+    # T2026-0501-F2: 旧実装は 48h〜7日を無条件 cooling にしていたため、velocity=0 のトピックが
+    # 最大7日間 topics.json に残り stale48h SLI を悪化させていた。
+    # 修正: 72h 超 + velocity=0 で archived に即移行する。
+    # 48〜72h は新記事が来やすい移行期として grace period (cooling を維持)。
     now = int(time.time())
     hours_since = (now - last_article_ts) / 3600
-    days_since  = hours_since / 24
 
     if hours_since < 48:
         return 'active'
-    elif days_since < 7:
-        return 'cooling'
+    elif hours_since < 72:
+        return 'cooling'  # 48〜72h は grace period
     elif velocity_score <= 0:
         return 'archived'
     else:
