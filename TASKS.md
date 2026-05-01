@@ -31,6 +31,7 @@
 
 | ID | 優先 | 軸 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|---|
+| T2026-0501-N | 🔴 高 | Dispatch運用 | **PR作成時auto-merge未設定の恒久対処** — CodeセッションがPRを作る際にauto-mergeが有効化されていない（毎回手動マージが必要になっている）。根本対処: `gh pr create` 後に `gh pr merge --auto --squash` を実行するルールをCLAUDE.mdに追記、またはGitHub Actions workflow（CI全green時に自動squash merge）を追加。どちらが適切か調査・実装・動作確認まで完結させる。 | CLAUDE.md or `.github/workflows/auto-merge.yml` | 2026-05-01 |
 
 ### AI 品質・体験（フェーズ2/3）
 
