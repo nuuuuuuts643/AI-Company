@@ -27,6 +27,8 @@ jobs:
       FRESHNESS_URL: https://flotopic.com/api/topics.json
       FRESHNESS_THRESHOLD_MIN: '90'
     steps:
+      - uses: actions/checkout@v4
+
       - name: fetch topics.json と updatedAt 解析
         id: probe
         shell: bash
