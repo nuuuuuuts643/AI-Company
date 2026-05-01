@@ -107,4 +107,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] session_bootstrap broken worktree 自動クリーンアップ追加 | Code | scripts/session_bootstrap.sh | 2026-05-01 12:00 | yes |
