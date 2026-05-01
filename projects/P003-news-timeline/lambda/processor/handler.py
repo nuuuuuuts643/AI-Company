@@ -429,6 +429,7 @@ def lambda_handler(event, context):
             'summaryMode':          gen_story['summaryMode']          if gen_story else None,
             'perspectives':         gen_story.get('perspectives')      if gen_story else None,
             'outlook':              gen_story.get('outlook')           if gen_story else None,
+            'causalChain':          gen_story.get('causalChain')       if gen_story else None,
             'topicTitle':           gen_story.get('topicTitle')              if gen_story else None,
             'latestUpdateHeadline': gen_story.get('latestUpdateHeadline')    if gen_story else None,
             'topicCoherent':        gen_story.get('isCoherent', True)        if gen_story else None,

@@ -347,5 +347,296 @@ class OutlookActorHintTest(unittest.TestCase):
         self.assertIn('海外', captured['prompt'])
 
 
+class CausalChainTest(unittest.TestCase):
+    """T2026-0501-OL2: causalChain (outlook の根拠因果チェーン) と
+    `_build_causal_outlook_hint` / `_GENRE_IMPACT_TARGETS` の物理ガード。
+
+    PO 指摘 (2026-05-01): outlook が 1 次効果で止まり 2 次/3 次連鎖まで踏み込めない。
+    波及先 (impact targets) を明示し、構造化フィールド (causalChain) で因果根拠を強制する。
+    Flotopic ビジョン「情報の地図」の核 — トピックは孤立せず別の市場・政策に接続する。
+    """
+
+    def test_impact_targets_cover_all_valid_genres(self):
+        """_GENRE_IMPACT_TARGETS が _VALID_GENRE_SET 全てをカバーしている。
+        欠落するとフォールバック発生で波及先が薄まるため物理ガード。"""
+        for g in proc_ai._VALID_GENRE_SET:
+            self.assertIn(g, proc_ai._GENRE_IMPACT_TARGETS,
+                          f'_GENRE_IMPACT_TARGETS に {g!r} が欠落')
+            impacts = proc_ai._GENRE_IMPACT_TARGETS[g]
+            self.assertIsInstance(impacts, list)
+            self.assertGreaterEqual(len(impacts), 3, f'{g} の波及先候補が 3 件未満')
+
+    def test_causal_outlook_hint_for_finance_includes_impact_targets(self):
+        """株・金融 ジャンルで波及先 (関連株/為替/長期金利) と「2次・3次の連鎖」が hint に含まれる。"""
+        block = proc_ai._build_causal_outlook_hint('株・金融')
+        # 波及先候補が文字列として注入されている
+        self.assertTrue(any(t in block for t in ('関連セクター', '為替', '長期金利')),
+                        '株・金融 の波及先候補が hint に含まれていない')
+        # 連鎖深度の指示
+        self.assertIn('2 次', block)
+        self.assertIn('3 次', block)
+        # 1 次効果禁止
+        self.assertIn('1 次効果', block)
+        # causalChain フィールドの指示
+        self.assertIn('causalChain', block)
+
+    def test_causal_outlook_hint_for_international_targets_japan_impact(self):
+        """国際 ジャンルで日本への波及 (輸出入/円相場/エネルギー) が hint に含まれる。"""
+        block = proc_ai._build_causal_outlook_hint('国際')
+        self.assertTrue(any(t in block for t in ('日本への輸出入', '円相場', 'エネルギー')),
+                        '国際 の波及先候補 (日本への影響軸) が hint に含まれていない')
+
+    def test_causal_outlook_hint_falls_back_for_none_and_unknown(self):
+        """genre=None / 未知のとき総合フォールバックが効いている (空文字を返さない)。"""
+        for g in (None, '', '未知ジャンル'):
+            block = proc_ai._build_causal_outlook_hint(g)
+            self.assertGreater(len(block), 200, f'genre={g!r} の hint が短すぎる')
+            # 総合フォールバックの語彙
+            self.assertIn('causalChain', block)
+
+    def test_causal_outlook_hint_demands_concrete_numbers_and_deadlines(self):
+        """構文「もし〜なら N週/Nヶ月以内に〜する」と数値・期限の名指しを要求している。"""
+        block = proc_ai._build_causal_outlook_hint('政治')
+        self.assertIn('もし', block)
+        # 時間軸要求
+        self.assertTrue(any(t in block for t in ('N週', 'N ヶ月', 'Nヶ月', 'N 週')),
+                        '時間軸の構文指示が欠落')
+        # リスクテイク許可
+        self.assertIn('外れる', block)
+
+    def test_causal_outlook_hint_includes_judge_prediction_safety_net(self):
+        """大胆に外れることを許す根拠 (judge_prediction による事後判定) が示されている。"""
+        block = proc_ai._build_causal_outlook_hint('ビジネス')
+        self.assertIn('judge_prediction', block)
+
+    def test_schema_includes_causal_chain_field_in_all_modes(self):
+        """_build_story_schema が minimal/standard/full 全モードで causalChain を含む。"""
+        for mode in ('minimal', 'standard', 'full'):
+            schema = proc_ai._build_story_schema(mode, cnt=5)
+            self.assertIn('causalChain', schema['properties'],
+                          f'mode={mode} で causalChain プロパティが欠落')
+            self.assertIn('causalChain', schema['required'],
+                          f'mode={mode} で causalChain が required ではない')
+
+    def test_schema_causal_chain_item_required_fields(self):
+        """causalChain.items.required に from/to/mechanism/confidence が全て揃っている。"""
+        schema = proc_ai._build_story_schema('full')
+        chain = schema['properties']['causalChain']
+        self.assertEqual(chain['type'], 'array')
+        item = chain['items']
+        self.assertEqual(item['type'], 'object')
+        for field in ('from', 'to', 'mechanism', 'confidence'):
+            self.assertIn(field, item['required'],
+                          f'causalChain.items.required に {field} が欠落')
+            self.assertIn(field, item['properties'])
+        # confidence は number 型で 0〜1 を意図
+        self.assertEqual(item['properties']['confidence']['type'], 'number')
+        # mechanism は string 型 (相関/因果チェック用に空でないこと)
+        self.assertEqual(item['properties']['mechanism']['type'], 'string')
+
+    def test_schema_causal_chain_min_items_constraint(self):
+        """minItems=2 が物理ガードとして設定されている (1 ステップだけの軽い予想を抑制)。"""
+        for mode in ('minimal', 'standard', 'full'):
+            schema = proc_ai._build_story_schema(mode, cnt=5)
+            chain = schema['properties']['causalChain']
+            self.assertEqual(chain.get('minItems'), 2,
+                             f'mode={mode} で causalChain.minItems が 2 ではない')
+            self.assertGreaterEqual(chain.get('maxItems', 0), 6,
+                                    f'mode={mode} で causalChain.maxItems が 6 未満')
+
+    def test_sanitize_causal_chain_filters_invalid_steps(self):
+        """_sanitize_causal_chain が欠落フィールド・型違反・confidence 範囲外を除外/クランプ。"""
+        raw = [
+            {'from': 'A', 'to': 'B', 'mechanism': 'a→b', 'confidence': 0.8},
+            {'from': '', 'to': 'B', 'mechanism': 'm', 'confidence': 0.5},   # from 空 → 除外
+            {'from': 'C', 'to': '', 'mechanism': 'm', 'confidence': 0.5},   # to 空 → 除外
+            {'from': 'D', 'to': 'E', 'mechanism': '',  'confidence': 0.5},  # mechanism 空 → 除外
+            {'from': 'F', 'to': 'G', 'mechanism': 'm', 'confidence': 'bad'},# 数値変換不可 → 除外
+            {'from': 'H', 'to': 'I', 'mechanism': 'm', 'confidence': 1.5},  # クランプ → 1.0
+            {'from': 'J', 'to': 'K', 'mechanism': 'm', 'confidence': -0.3}, # クランプ → 0.0
+            'not-a-dict',  # → 除外
+        ]
+        out = proc_ai._sanitize_causal_chain(raw)
+        # 残るのは A→B, H→I (1.0), J→K (0.0) の 3 件
+        self.assertEqual(len(out), 3)
+        self.assertEqual(out[0]['from'], 'A')
+        self.assertAlmostEqual(out[0]['confidence'], 0.8)
+        self.assertAlmostEqual(out[1]['confidence'], 1.0)
+        self.assertAlmostEqual(out[2]['confidence'], 0.0)
+
+    def test_sanitize_causal_chain_handles_non_list(self):
+        """非 list (None/dict/str) は空配列を返す (落ちない)。"""
+        for raw in (None, {}, 'string', 42):
+            self.assertEqual(proc_ai._sanitize_causal_chain(raw), [])
+
+    def test_sanitize_causal_chain_respects_max_items(self):
+        """max_items 超過分は切り詰め。"""
+        raw = [{'from': f'A{i}', 'to': f'B{i}', 'mechanism': 'm', 'confidence': 0.5}
+               for i in range(20)]
+        out = proc_ai._sanitize_causal_chain(raw, max_items=8)
+        self.assertEqual(len(out), 8)
+        self.assertEqual(out[0]['from'], 'A0')
+        self.assertEqual(out[-1]['from'], 'A7')
+
+    def test_normalize_passes_causal_chain_through_minimal(self):
+        """minimal mode の normalize で causalChain が伝搬する。"""
+        raw_result = {
+            'aiSummary': 'ダミー',
+            'keyPoint': 'a' * 110,
+            'outlook': '個人投資家から見れば、来週中に〜となる可能性が高い [確信度:中]',
+            'causalChain': [
+                {'from': 'X', 'to': 'Y', 'mechanism': 'X→Y の経路', 'confidence': 0.7},
+                {'from': 'Y', 'to': 'Z', 'mechanism': 'Y→Z の経路', 'confidence': 0.6},
+            ],
+            'topicTitle': 'ダミー',
+            'latestUpdateHeadline': 'ダミーが発表した',
+            'isCoherent': True,
+            'topicLevel': 'detail',
+            'genres': ['株・金融'],
+        }
+        out = proc_ai._normalize_story_result(raw_result, 'minimal')
+        self.assertIn('causalChain', out)
+        self.assertEqual(len(out['causalChain']), 2)
+        self.assertEqual(out['causalChain'][0]['from'], 'X')
+
+    def test_normalize_passes_causal_chain_through_standard(self):
+        """standard mode の normalize で causalChain が伝搬する。"""
+        raw_result = {
+            'aiSummary': 'ダミー',
+            'keyPoint': 'a' * 110,
+            'outlook': 'ビジネス側から見れば、3ヶ月以内に〜となる可能性が高い [確信度:中]',
+            'causalChain': [
+                {'from': 'A', 'to': 'B', 'mechanism': 'A→B の経路', 'confidence': 0.8},
+                {'from': 'B', 'to': 'C', 'mechanism': 'B→C の経路', 'confidence': 0.7},
+                {'from': 'C', 'to': 'D', 'mechanism': 'C→D の経路', 'confidence': 0.6},
+            ],
+            'topicTitle': 'ダミー',
+            'latestUpdateHeadline': 'ダミーが発表した',
+            'isCoherent': True,
+            'topicLevel': 'sub',
+            'genres': ['ビジネス'],
+            'statusLabel': '進行中',
+            'watchPoints': '①〜 ②〜 ③〜',
+            'perspectives': '与党は〜、野党は〜',
+            'phase': '拡散',
+            'timeline': [],
+        }
+        out = proc_ai._normalize_story_result(raw_result, 'standard')
+        self.assertIn('causalChain', out)
+        self.assertEqual(len(out['causalChain']), 3)
+
+    def test_causal_outlook_hint_injected_in_minimal_prompt(self):
+        """_generate_story_minimal が user prompt に causal outlook hint を注入している。"""
+        captured = {}
+
+        def fake_call_tool(prompt, tool_name, schema, **kw):
+            captured['prompt'] = prompt
+            return {
+                'aiSummary': 'ダミー',
+                'keyPoint': 'a' * 110,
+                'outlook': '個人投資家から見れば、来週中に〜となる可能性が高い [確信度:中]',
+                'causalChain': [
+                    {'from': 'A', 'to': 'B', 'mechanism': 'A→B', 'confidence': 0.8},
+                    {'from': 'B', 'to': 'C', 'mechanism': 'B→C', 'confidence': 0.7},
+                ],
+                'topicTitle': 'ダミー',
+                'latestUpdateHeadline': 'ダミーが発表した',
+                'isCoherent': True,
+                'topicLevel': 'detail',
+                'genres': ['株・金融'],
+            }
+
+        with mock.patch('proc_ai._call_claude_tool', side_effect=fake_call_tool):
+            with mock.patch('proc_ai._process_keypoint_quality'):
+                proc_ai._generate_story_minimal(
+                    [{'title': '日経平均が上昇', 'pubDate': '2026-05-01'}],
+                    genre='株・金融',
+                )
+        prompt = captured.get('prompt', '')
+        self.assertIn('outlook 生成ルール (T2026-0501-OL2', prompt)
+        self.assertIn('causalChain', prompt)
+        # 株・金融 の波及先候補のいずれかが含まれている
+        self.assertTrue(any(t in prompt for t in ('関連セクター', '為替', '長期金利')),
+                        '株・金融 の波及先候補が prompt に注入されていない')
+
+    def test_causal_outlook_hint_injected_in_standard_prompt(self):
+        """_generate_story_standard が user prompt に causal outlook hint を注入している。"""
+        captured = {}
+
+        def fake_call_tool(prompt, tool_name, schema, **kw):
+            captured['prompt'] = prompt
+            return {
+                'aiSummary': 'ダミー',
+                'keyPoint': 'b' * 110,
+                'outlook': 'ビジネス側から見れば、3ヶ月以内に〜となる可能性が高い [確信度:中]',
+                'causalChain': [
+                    {'from': 'X', 'to': 'Y', 'mechanism': 'X→Y', 'confidence': 0.8},
+                    {'from': 'Y', 'to': 'Z', 'mechanism': 'Y→Z', 'confidence': 0.7},
+                ],
+                'topicTitle': 'ダミー',
+                'latestUpdateHeadline': 'ダミーが発表した',
+                'isCoherent': True,
+                'topicLevel': 'sub',
+                'genres': ['政治'],
+                'statusLabel': '進行中',
+                'watchPoints': '①〜 ②〜 ③〜',
+                'perspectives': '与党は〜、野党は〜',
+                'phase': '拡散',
+                'timeline': [],
+            }
+
+        with mock.patch('proc_ai._call_claude_tool', side_effect=fake_call_tool):
+            with mock.patch('proc_ai._process_keypoint_quality'):
+                with mock.patch('proc_ai._build_media_comparison_block', return_value=''):
+                    proc_ai._generate_story_standard(
+                        [{'title': f'政治記事 {i}', 'pubDate': '2026-05-01'} for i in range(4)],
+                        cnt=4, genre='政治',
+                    )
+        prompt = captured.get('prompt', '')
+        self.assertIn('outlook 生成ルール (T2026-0501-OL2', prompt)
+        self.assertIn('causalChain', prompt)
+
+    def test_causal_outlook_hint_injected_in_full_prompt(self):
+        """_generate_story_full が user prompt に causal outlook hint を注入している。"""
+        captured = {}
+
+        def fake_call_tool(prompt, tool_name, schema, **kw):
+            captured['prompt'] = prompt
+            return {
+                'aiSummary': 'ダミー',
+                'keyPoint': 'c' * 110,
+                'outlook': '日本の輸出企業から見れば、3ヶ月以内に〜となる可能性が高い [確信度:中]',
+                'causalChain': [
+                    {'from': 'A', 'to': 'B', 'mechanism': 'A→B', 'confidence': 0.8},
+                    {'from': 'B', 'to': 'C', 'mechanism': 'B→C', 'confidence': 0.7},
+                ],
+                'topicTitle': '国際情勢',
+                'latestUpdateHeadline': '関税が再強化された',
+                'isCoherent': True,
+                'topicLevel': 'major',
+                'genres': ['国際'],
+                'statusLabel': '進行中',
+                'watchPoints': '①〜 ②〜 ③〜',
+                'perspectives': '当事国は〜',
+                'phase': '拡散',
+                'timeline': [],
+                'forecast': 'ダミー予想 [確信度:中]',
+            }
+
+        with mock.patch('proc_ai._call_claude_tool', side_effect=fake_call_tool):
+            with mock.patch('proc_ai._process_keypoint_quality'):
+                with mock.patch('proc_ai._build_media_comparison_block', return_value=''):
+                    proc_ai._generate_story_full(
+                        [{'title': f'国際記事 {i}', 'pubDate': '2026-05-01'} for i in range(7)],
+                        cnt=7, genre='国際',
+                    )
+        prompt = captured.get('prompt', '')
+        self.assertIn('outlook 生成ルール (T2026-0501-OL2', prompt)
+        self.assertIn('causalChain', prompt)
+        # 国際 の波及先候補
+        self.assertTrue(any(t in prompt for t in ('日本への輸出入', '円相場', 'エネルギー')),
+                        '国際 の波及先候補が prompt に注入されていない')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

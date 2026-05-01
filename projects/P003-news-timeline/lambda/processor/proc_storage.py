@@ -1063,6 +1063,24 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
                     expr_values[':prs'] = 'pending'
             else:
                 print(f"[AI_FIELD_GAP] outlook empty topic={tid}")
+            # T2026-0501-OL2: outlook の根拠となる因果チェーン (波及先・連鎖深度の根拠)。
+            # DynamoDB は float を直接保存できないため confidence は Decimal に変換する。
+            # S3 (topics.json/topics-card.json) には含めない (サイズ節約)。DDB 専用。
+            cchain = gen_story.get('causalChain')
+            if isinstance(cchain, list) and cchain and _can_write('causalChain'):
+                ddb_chain = []
+                for step in cchain:
+                    if not isinstance(step, dict):
+                        continue
+                    ddb_chain.append({
+                        'from':       str(step.get('from') or ''),
+                        'to':         str(step.get('to') or ''),
+                        'mechanism':  str(step.get('mechanism') or ''),
+                        'confidence': Decimal(str(step.get('confidence', 0))),
+                    })
+                if ddb_chain:
+                    update_expr += ', causalChain = :cchain'
+                    expr_values[':cchain'] = ddb_chain
             if gen_story.get('topicTitle') and _can_write('topicTitle'):
                 update_expr += ', topicTitle = :ttitle'
                 expr_values[':ttitle'] = gen_story['topicTitle']
