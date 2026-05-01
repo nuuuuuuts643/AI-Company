@@ -14,19 +14,21 @@
 **直近のPO指示** (2026-05-02 00:00〜01:00 JST):
 「規則体系のリライト・違反全パターン物理化・自走 Lv2 化・組織として動く Claude・セキュリティ監査強化。プロダクト完成にブレないようにして欲しい」
 
-**今セッション (Cowork Dispatch / 引き継ぎ #2) で完了** (2026-05-02 01:37〜01:50 JST):
-- ✅ session_bootstrap.sh 起動チェック実施 (broken worktree 6件自動削除 / tmp_obj_ 22件退避 / CLAUDE.md + north-star + current-phase = フェーズ2 確認)
-- ✅ 残存していた `.git/MERGE_HEAD`・`MERGE_MSG`・`index.lock` を `_garbage/` に退避（FUSE rm 不可は再発する。bootstrap §1b では一部のみ落ちる）
-- ✅ main の CI 直近10件すべて success を確認（PII fix a6ed463e 以降のドリフトなし）
-- ✅ **T2026-0502-G の SLI 実測**: `https://flotopic.com/api/topics.json` の `updatedAt = 2026-05-01T09:36:19Z` → 現時点 (2026-05-02 01:40 JST = 2026-05-01 16:40 UTC) で **staleness = 424 分 / 7.1 時間**。閾値 90 分の 4.7 倍。**インシデント継続中**
-- ✅ freshness-check.yml: 直近3連続 failure (16:15 / 12:07 / 08:30 UTC)。fetcher-health-check.yml: 直近3連続 failure。最後の success は freshness 00:09 UTC・fetcher-health 21:42 UTC
+**今セッション (Eng Claude / Code セッション・T2026-0502-G) で完了** (2026-05-02 01:55〜02:10 JST):
+- ✅ session_bootstrap.sh + merge conflict 解消 (WORKING.md + cowork_commit.py)
+- ✅ CloudWatch Logs 調査: `[dynamo-batch] Float types are not supported` (7/8 chunks) + `UnboundLocalError: current_run_tids` の2連鎖バグを特定
+- ✅ 恒久対処実装: `_dynamo_safe(obj)` 層防御 + `current_run_tids` 早期定義 + `merge_audit.py` float排除
+- ✅ PR #114 作成 + auto-merge 設定済み。CI通過後 Lambda デプロイ → 次の 30分 cron で修復予定
+- ✅ lessons-learned.md T2026-0502-G Why1〜Why5 + 横展開チェックリスト追記
 
-**🚨 本番インシデント (継続中・最優先・コードセッション必須):**
-- topics.json が 7h+ stale。fetcher Lambda 系統が無音。Cowork (Dispatch) の権限では CloudWatch Logs を直接見られないため、**Eng Claude (Sonnet) コードセッション** での調査・修正が必須
+**🔄 T2026-0502-G 完了待ち (自動デプロイ後の確認が必要):**
+- PR #114 auto-merge: CI通過後に squash merge → GitHub Actions が Lambda デプロイ
+- 次回 fetcher cron (~17:33 UTC = 02:33 JST): topics.json updatedAt が更新されるはず
+- freshness-check.yml (18:23 UTC tick) で success を確認してから done.sh T2026-0502-G を実行
 
-**次セッション (Eng Claude / コードセッション・Sonnet・1セッション1タスク) でやること** (PR→CI→merge→done.sh 必須):
-1. **🚨 T2026-0502-G 緊急: fetcher Lambda 復旧** — `aws logs tail /aws/lambda/p003-news-fetcher --since 24h`・`aws logs tail /aws/lambda/p003-news-processor --since 24h` を確認。EventBridge スケジュール起動有無 (`aws events list-rules` / `list-targets-by-rule`) / Lambda メトリクス Invocations・Errors (`aws cloudwatch get-metric-statistics`) / S3 publish (`aws s3api head-object --bucket … --key topics.json`) を切り分ける。**根本原因 → 恒久対処 (リトライ・タイムアウト・依存サービス切り分け) → PR**。完了条件: topics.json updatedAt が再び 90 分以内 + freshness-check.yml が次の cron tick で success + Verified-Effect 行付き commit
-2. **T2026-0501-K** 🔴 (フェーズ2 直撃) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` 内 keyPoint ◎例をエンタメ + テックに差し替え。完了条件: 次回 processor 後 エンタメ/テク 各 50%+ 充填
+**次セッション (Dispatch または p003-haiku で確認後) でやること** (PR→CI→merge→done.sh 必須):
+1. **T2026-0502-G 完了確認**: `curl -s https://flotopic.com/api/topics.json | python3 -c "import json,sys,datetime;d=json.load(sys.stdin);print(d['updatedAt'])"` で updatedAt < 90分を確認 → `bash done.sh T2026-0502-G https://flotopic.com/api/topics.json`
+2. **T2026-0501-K** 🔴 (フェーズ2 直撃) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` 内 keyPoint ◎例をエンタメ + テックに差し替え
 3. **T2026-0501-M** 🔴 (UX 直撃) — 重複トピック検出・マージ
 4. **T2026-0501-N** 🔴 (Dispatch運用) — `gh pr merge --auto --squash` ルール landing
 5. (フェーズ2 完了条件達成までフェーズ3/4/5 タスクは凍結)
@@ -122,4 +124,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 |---|---|---|---|---|
 | [Cowork] T2026-0502-F PII検査failure修正 (cowork_commit.py docstring) + T2026-0502-G fetcher停止緊急タスク起票 | Cowork | scripts/cowork_commit.py, TASKS.md | 2026-05-02 01:48 | yes |
 | [Cowork] CI fix: PII 違反解消 (affd1ba8 PII 検査 fail / sk-ant-/個人メール マスク) | Cowork | docs/rules-rewrite-proposal-2026-05-01.md | 2026-05-02 01:25 | yes |
-| [Code] T2026-0502-G fetcher Lambda 恒久対処 | Code | projects/P003-news-timeline/lambda/fetcher/handler.py, projects/P003-news-timeline/lambda/processor/handler.py | 2026-05-02 01:55 | yes |
