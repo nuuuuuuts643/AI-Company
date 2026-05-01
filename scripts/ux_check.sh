@@ -255,7 +255,9 @@ score_components = {
     'info_density':   norm(n_velocity_pos, 20, 200),
     'kp_density':     norm((n_kp_100 / n_total) if n_total else 0.0, 0.20, 0.60),
     'child_density':  norm(child_avg, 0.05, 0.60),
-    'continuation':   norm((n_delta_pos / n_total) if n_total else 0.0, 0.05, 0.30),
+    # T2026-0501-C: HTML nav 要素の有無をボーナス (+0.45) として加算
+    'continuation':   round(min(1.0, (0.45 if 'topic-continuation-section' in topic_html else 0.0)
+                                   + norm((n_delta_pos / n_total) if n_total else 0.0, 0.05, 0.30)), 3),
     'layout_health':  1.0 if (not layout_fail and has_viewport) else 0.5,
     'response_perf':  perf_norm(INDEX_TIME),
 }
