@@ -11,15 +11,16 @@
 > 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**直近のPO指示** (2026-05-01): 「ルールより仕組み」「なぜなぜを先にやれ」「広範囲変更はダメ」「PR放置するな」「アドホックAPI禁止」「UX改善プロセスを回してくれ」
+**直近のPO指示** (2026-05-01 夜): 「ルール守って動いてくれたらいい」「結果確認して改善すすめてほしい」
 
-**次のアクション**: T2026-0501-C (continuation 0.10→改善) UX次アクションセッション起動 / p003-haiku 翌朝7:08amでPR #89 CIチェック+マージ+SLI再測
+**p003-sonnet 完了** (2026-05-01 22:11 JST):
+- SLI実測: keyPoint>=100字 **61.5% (139/226)**（06:08 35.7% → +25.8pt大幅改善）/ storyPhase発端 0.0% ✅ / 新トピック 299件（06:08 213件 → +86件増加中）
+- T258/T262 完了化・T2026-0501-K（keyPoint few-shot 改善）追加
+- 70% 目標まで残り 8.5pt。低迷ジャンル: エンタメ 35% / テクノロジー 37.5%
 
-**直近完了**: T2026-0501-B 誤マージメトリクス信頼性検証 完了（フォールスネガティブ 30-40% 推定）/ PR #89 提出済(keyPointフック型プロンプト改修・CI待ち) / PR #86-88 マージ済 / なぜなぜ分析→lessons-learned / CI scope-check (≥10ファイル→exit1) / Bluesky 4回/日に削減
+**次のアクション**: 次 Dispatch → T2026-0501-I（すべてタブ化🔴高）を Sonnet コードセッションで着手。T2026-0501-K（keyPoint few-shot）は T2026-0501-I 完了後。翌朝 p003-haiku → CI/SLI 確認。
 
-**直近 SLI**: keyPoint>=100字 充填率 **41.1%** (直近測定) — フェーズ2 完了条件 70% まで -28.9pt / UX continuation **0.10** (baseline 2026-05-01)
-
-**実在スケジューラー**: p003-haiku (7:08am daily, CloudWatch+GitHub only, no API) / p003-sonnet (手動のみ)
+**⚠️ 次セッション必読**: `docs/dispatch-reflection-2026-05-01.md`（やらかし5件）/ T2026-0501-I（すべてタブ化・🔴高・最優先）
 
 ---
 
@@ -107,4 +108,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-SLI-MISMERGE verify_branching_quality.py 修正（全件スキャン + Jaccard シグナル強化） | Code | scripts/verify_branching_quality.py, tests/test_verify_branching.py | 2026-05-01 18:15 JST | yes |
