@@ -108,3 +108,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Code] deploy-lambdas.yml YAML構文エラー修正 | fix | .github/workflows/deploy-lambdas.yml | 2026-05-01 13:30 | yes |
+| [Code] T2026-0501-B PR scope check CI警告+テンプレチェック追加 | feat | .github/workflows/pr-scope-check.yml, .github/pull_request_template.md, scripts/ci_check_pr_scope.sh | 2026-05-01 14:14 | yes |
