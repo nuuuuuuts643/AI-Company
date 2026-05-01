@@ -86,5 +86,5 @@ jobs:
           fi
           MSG="success-but-empty-scan ${STATUS}: keyPoint short=${KP_RATE}% / perspectives short=${PER_RATE}% / fresh24h=${FRESH_RATE}% / CI skip hits=${CI_HITS} / placeholder=${PLACEHOLDER}"
           curl -fsS -X POST -H 'Content-type: application/json' \
-            --data "$(python3 -c "import json,os; print(json.dumps({'text': os.environ['MSG']}))" )" \
+            --data "$(MSG="$MSG" python3 scripts/ci_slack_simple_text.py)" \
             "$SLACK_WEBHOOK_URL" || echo "::warning::Slack notify failed"

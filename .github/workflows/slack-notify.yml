@@ -31,11 +31,4 @@ jobs:
             TEXT="【AI-Company】$COMMIT_AUTHOR がpushしました\n$COMMIT_MSG\n\n変更ファイル: $CHANGED_FILES"
           fi
 
-          python3 -c "
-          import urllib.request, json, sys, os
-          text = sys.argv[1]
-          webhook = os.environ['SLACK_WEBHOOK_URL']
-          data = json.dumps({'text': text}).encode('utf-8')
-          req = urllib.request.Request(webhook, data=data, headers={'Content-Type': 'application/json'})
-          urllib.request.urlopen(req)
-          " "$TEXT"
+          python3 scripts/ci_slack_send.py "$TEXT"

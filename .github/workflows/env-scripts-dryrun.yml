@@ -127,15 +127,5 @@ jobs:
             echo "SLACK_WEBHOOK 未設定 — スキップ (CI ログのみで通知)"
             exit 0
           fi
-          PAYLOAD=$(RUN_URL="$RUN_URL" python3 -c "
-          import json, os
-          text = (
-              '🚨 *env-scripts dry-run CI 失敗* (T2026-0428-K)\n'
-              f'• run: {os.environ[\"RUN_URL\"]}\n'
-              '• session_bootstrap.sh の REPO/JST/WORKING.md/git-status/stale 検出ロジックのいずれかが壊れた可能性\n'
-              '• 前回ハマった bug: session-id ハードコード / UTC を JST と誤ラベル\n'
-              '• 対応: ログを確認し scripts/session_bootstrap.sh を修正'
-          )
-          print(json.dumps({'text': text, 'username': 'env-scripts dry-run', 'icon_emoji': ':warning:'}))
-          ")
+          PAYLOAD=$(RUN_URL="$RUN_URL" python3 scripts/ci_slack_env_dryrun.py)
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true

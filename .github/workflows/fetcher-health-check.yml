@@ -38,7 +38,7 @@ jobs:
           set -u
           END_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           START_TIME=$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
-            || python3 -c "import datetime as dt; print((dt.datetime.utcnow()-dt.timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M:%SZ'))")
+            || python3 scripts/ci_utc_2h_ago.py)
 
           RESULT=$(aws cloudwatch get-metric-statistics \
             --namespace P003/Fetcher \
@@ -49,15 +49,7 @@ jobs:
             --statistics Sum \
             --output json 2>/dev/null || echo '{"Datapoints":[]}')
 
-          SUM=$(echo "$RESULT" | python3 -c "
-          import json, sys
-          d = json.load(sys.stdin)
-          pts = d.get('Datapoints', [])
-          if not pts:
-              print(-1)  # メトリクスゼロ件 = MetricFilter 未設定 or 一切走ってない
-          else:
-              print(int(sum(p['Sum'] for p in pts)))
-          ")
+          SUM=$(echo "$RESULT" | python3 scripts/ci_cw_sum_datapoints.py)
 
           if [ "$SUM" = "-1" ]; then
             STATUS=no_data
@@ -93,21 +85,7 @@ jobs:
           fi
           LOG_URL='https://ap-northeast-1.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252Fp003-fetcher'
           ALARM_URL='https://ap-northeast-1.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#alarmsV2:alarm/P003-Fetcher-Zero-Articles-2h'
-          PAYLOAD=$(STATUS="$STATUS" SUM="$SUM" START_TIME="$START_TIME" END_TIME="$END_TIME" LOG_URL="$LOG_URL" ALARM_URL="$ALARM_URL" python3 -c "
-          import json, os
-          status = os.environ['STATUS']
-          headline = '🚨 *Flotopic fetcher が 2 時間 0 件保存*' if status == 'zero_articles' else '⚠️ *Flotopic fetcher メトリクス欠損*'
-          text = (
-              f'{headline}\n'
-              f'• status: \`{status}\`\n'
-              f'• 過去2h saved_articles 合計: \`{os.environ[\"SUM\"]}\` 件\n'
-              f'• 観測窓: {os.environ[\"START_TIME\"]} 〜 {os.environ[\"END_TIME\"]}\n'
-              f'• fetcher ログ: {os.environ[\"LOG_URL\"]}\n'
-              f'• Alarm: {os.environ[\"ALARM_URL\"]}\n'
-              '\n_T2026-0430-H fetcher-health-check.yml からの通知 (CloudWatch Alarm と並走)_'
-          )
-          print(json.dumps({'text': text, 'username': 'Flotopic Fetcher Monitor', 'icon_emoji': ':rotating_light:'}))
-          ")
+          PAYLOAD=$(STATUS="$STATUS" SUM="$SUM" START_TIME="$START_TIME" END_TIME="$END_TIME" LOG_URL="$LOG_URL" ALARM_URL="$ALARM_URL" python3 scripts/ci_slack_fetcher_health.py)
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
 
       - name: zero_articles 判定で job を赤くする

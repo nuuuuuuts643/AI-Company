@@ -104,17 +104,5 @@ jobs:
             echo "::warning::SLACK_WEBHOOK_URL 未設定 (notify skip)"
             exit 0
           fi
-          PAYLOAD=$(STATUS="$STATUS" OVERALL="$OVERALL" python3 -c "
-          import json, os
-          status = os.environ['STATUS']
-          icon = ':bar_chart:' if status == 'success' else ':warning:'
-          text = (
-              f'{icon} *Flotopic AI 定性評価 (週次)*\n'
-              f'• 状態: \`{status}\`\n'
-              f'• 総合スコア: \`{os.environ.get(\"OVERALL\",\"?\")}\`\n'
-              '• 詳細: docs/quality-scores.md\n'
-              '\n_T2026-0501-C scripts/qualitative_eval.sh — 充填率では拾えない「惹き・深さ・独自性」を Claude Haiku に評価させる_'
-          )
-          print(json.dumps({'text': text, 'username': 'Flotopic Quality Monitor', 'icon_emoji': ':sparkles:'}))
-          ")
+          PAYLOAD=$(STATUS="$STATUS" OVERALL="$OVERALL" python3 scripts/ci_slack_qualitative_eval.py)
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
