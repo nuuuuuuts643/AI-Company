@@ -27,21 +27,22 @@ const _toMs = (typeof toMs === 'function') ? toMs : function (v) {
 const _warnBadTsLocal = (typeof _warnBadTs === 'function') ? _warnBadTs : function () { return false; };
 
 function getNextUpdateTime() {
-  // 実機 EventBridge cron: 0 16,22,4,10 UTC = JST 01:00 / 07:00 / 13:00 / 19:00 (4x/day)
+  // 実機 EventBridge cron: cron(30 20,8 * * ? *) UTC = JST 05:30 / 17:30 (2x/day 朝刊・夕刊)
   // 「N時間後」「N分後」の相対表示も付与してユーザーが待ち時間を直感的に分かるように(2026-04-27)
   const now = new Date();
   const jstNow = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000);
-  const hours = [1, 7, 13, 19];
+  const hours = [{ h: 5, m: 30 }, { h: 17, m: 30 }];
   const currentMin = jstNow.getHours() * 60 + jstNow.getMinutes();
-  let nextH = hours.find(h => h * 60 > currentMin);
+  const fmt = (h, m) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  const next = hours.find(({ h, m }) => h * 60 + m > currentMin);
   let absStr;
   let waitMin;
-  if (nextH !== undefined) {
-    waitMin = nextH * 60 - currentMin;
-    absStr = `${nextH}:00 JST`;
+  if (next) {
+    waitMin = next.h * 60 + next.m - currentMin;
+    absStr = `${fmt(next.h, next.m)} JST`;
   } else {
-    waitMin = (24 + 1) * 60 - currentMin;
-    absStr = '翌 01:00 JST';
+    waitMin = (24 + hours[0].h) * 60 + hours[0].m - currentMin;
+    absStr = `翌 ${fmt(hours[0].h, hours[0].m)} JST`;
   }
   const relStr = waitMin < 60
     ? `${waitMin}分後`
