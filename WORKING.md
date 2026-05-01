@@ -109,5 +109,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-H トピックマージ閾値緩和（同事象=同トピック） | コード変更 | projects/P003-news-timeline/lambda/fetcher/config.py, handler.py, processor/proc_storage.py | 2026-05-01 12:38 JST | yes |
 
