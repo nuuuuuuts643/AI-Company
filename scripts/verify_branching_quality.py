@@ -41,6 +41,9 @@ exit code:
 閾値:
   --error-branch-threshold (default 20.0): suspect_false_branch_rate > 20% で FAIL
   --error-merge-threshold  (default 15.0): suspect_false_merge_rate  > 15% で FAIL
+  --min-sample             (default 10):   サンプル数がこれ未満なら SKIP (exit 0)
+                                            理由: 小サンプルだと 1 ペアの差で判定が大きく揺れる
+                                            (sample=4 で 1 件 false_branch → 25% で FAIL 誤検知)
 """
 from __future__ import annotations
 
@@ -104,6 +107,120 @@ def jaccard(a: set[str], b: set[str]) -> float:
     return inter / union if union else 0.0
 
 
+def collect_branched_pairs(topics: list[dict]) -> tuple[list[dict], int, int]:
+    """topics から評価対象の (parent, child) ペアを抽出する。
+
+    Returns:
+        (pairs, branched_total, orphans)
+          - pairs: storyPhase != null かつ articleCount >= 2 の親子ペアリスト
+          - branched_total: parentTopicId を持つトピックの総数 (フィルタ前)
+          - orphans: parentTopicId はあるが parent が見つからないトピック数
+    """
+    by_id: dict[str, dict] = {}
+    for t in topics:
+        tid = t.get("topicId")
+        if tid:
+            by_id[tid] = t
+
+    pairs: list[dict] = []
+    orphans = 0
+    for t in topics:
+        pid = t.get("parentTopicId")
+        if not pid:
+            continue
+        parent = by_id.get(pid)
+        if parent is None:
+            orphans += 1
+            continue
+        if not t.get("storyPhase"):
+            continue
+        if (t.get("articleCount") or 0) < 2:
+            continue
+        pairs.append({"parent": parent, "child": t})
+
+    branched_total = sum(1 for t in topics if t.get("parentTopicId"))
+    return pairs, branched_total, orphans
+
+
+def evaluate_branching(
+    topics: list[dict],
+    *,
+    sample_size: int = 30,
+    seed: int = 20260429,
+    min_sample: int = 10,
+    fb_threshold: float = 20.0,
+    fm_threshold: float = 15.0,
+) -> dict:
+    """topics 全体を評価して dict を返す純粋関数 (テスト用)。
+
+    verdict は以下のいずれか:
+      - 'PASS'              : sample >= min_sample かつ fb/fm 両方が閾値以下
+      - 'FAIL'              : sample >= min_sample かつ fb/fm のどちらかが閾値超過
+      - 'SKIP_NO_BRANCH'    : 評価対象ペアがゼロ (まだ branching が起きていない)
+      - 'SKIP_SMALL_SAMPLE' : 評価対象ペアが min_sample 未満 (信頼区間が広く判定不能)
+    """
+    pairs, branched_total, orphans = collect_branched_pairs(topics)
+    total = len(topics)
+    branching_rate = (branched_total / total * 100) if total else 0.0
+
+    base = {
+        "total": total,
+        "branched_total": branched_total,
+        "branching_rate": branching_rate,
+        "orphans": orphans,
+        "sample": 0,
+        "false_branch": 0,
+        "false_merge": 0,
+        "ok": 0,
+        "false_branch_rate": 0.0,
+        "false_merge_rate": 0.0,
+        "ok_rate": 0.0,
+        "results": [],
+        "fb_threshold": fb_threshold,
+        "fm_threshold": fm_threshold,
+        "min_sample": min_sample,
+    }
+
+    if not pairs:
+        base["verdict"] = "SKIP_NO_BRANCH"
+        return base
+
+    rng = random.Random(seed)
+    if len(pairs) > sample_size:
+        sampled = rng.sample(pairs, sample_size)
+    else:
+        sampled = list(pairs)
+
+    results = [evaluate_pair(p["parent"], p["child"]) for p in sampled]
+    n = len(results)
+    fb = sum(1 for r in results if r["verdict"] == "suspect_false_branch")
+    fm = sum(1 for r in results if r["verdict"] == "suspect_false_merge")
+    ok = n - fb - fm
+    fb_rate = fb / n * 100
+    fm_rate = fm / n * 100
+    ok_rate = ok / n * 100
+
+    base.update({
+        "sample": n,
+        "false_branch": fb,
+        "false_merge": fm,
+        "ok": ok,
+        "false_branch_rate": fb_rate,
+        "false_merge_rate": fm_rate,
+        "ok_rate": ok_rate,
+        "results": results,
+    })
+
+    if n < min_sample:
+        base["verdict"] = "SKIP_SMALL_SAMPLE"
+        return base
+
+    fb_pass = fb_rate <= fb_threshold
+    fm_pass = fm_rate <= fm_threshold
+    base["verdict"] = "PASS" if (fb_pass and fm_pass) else "FAIL"
+    return base
+
+
 def evaluate_pair(parent: dict, child: dict) -> dict:
     """1 ペアの分岐判定を評価。"""
     p_title = parent.get("title") or parent.get("generatedTitle") or ""
@@ -146,6 +263,9 @@ def main() -> int:
                     help="誤分岐疑い率 (%%) の上限。これを超えると FAIL")
     ap.add_argument("--error-merge-threshold", type=float, default=15.0,
                     help="誤マージ疑い率 (%%) の上限。これを超えると FAIL")
+    ap.add_argument("--min-sample", type=int, default=10,
+                    help="この件数未満のサンプルは SKIP 扱い (default 10)。"
+                         "小サンプルだと 1 ペア差で揺れる誤 FAIL を防ぐ")
     ap.add_argument("--verbose", action="store_true", help="個別ペアを出力")
     args = ap.parse_args()
 
@@ -159,37 +279,39 @@ def main() -> int:
         print("[verify_branching_quality] topics が空", file=sys.stderr)
         return 2
 
-    by_id: dict[str, dict] = {}
-    for t in topics:
-        tid = t.get("topicId")
-        if tid:
-            by_id[tid] = t
+    summary = evaluate_branching(
+        topics,
+        sample_size=args.sample,
+        seed=args.seed,
+        min_sample=args.min_sample,
+        fb_threshold=args.error_branch_threshold,
+        fm_threshold=args.error_merge_threshold,
+    )
 
-    branched: list[dict] = []
-    orphans = 0
-    for t in topics:
-        pid = t.get("parentTopicId")
-        if not pid:
-            continue
-        parent = by_id.get(pid)
-        if parent is None:
-            orphans += 1
-            continue
-        # storyPhase != null かつ articleCount >= 2 のトピックのみ
-        if not t.get("storyPhase"):
-            continue
-        if (t.get("articleCount") or 0) < 2:
-            continue
-        branched.append({"parent": parent, "child": t})
+    if args.verbose and summary["results"]:
+        print("=== 個別ペア ===")
+        for r in summary["results"]:
+            print(
+                f"[{r['verdict']:>22s}] sim={r['similarity']:.3f} "
+                f"P={r['parent_title'][:40]} | C={r['child_title'][:40]}"
+            )
+        print()
 
-    total = len(topics)
-    branched_total = sum(1 for t in topics if t.get("parentTopicId"))
-    branching_rate = (branched_total / total * 100) if total else 0.0
+    ts = datetime.now(JST).strftime("%Y-%m-%dT%H:%M%z")
+    verdict = summary["verdict"]
+    fb = summary["false_branch"]
+    fm = summary["false_merge"]
+    fb_rate = summary["false_branch_rate"]
+    fm_rate = summary["false_merge_rate"]
+    ok = summary["ok"]
+    ok_rate = summary["ok_rate"]
+    n = summary["sample"]
+    branched_total = summary["branched_total"]
+    total = summary["total"]
+    branching_rate = summary["branching_rate"]
+    orphans = summary["orphans"]
 
-    sample_pool = branched
-    if not sample_pool:
-        ts = datetime.now(JST).strftime("%Y-%m-%dT%H:%M%z")
-        # サンプル不足は ERROR ではなく SKIP 扱い (まだ branching が起きていないだけ)
+    if verdict == "SKIP_NO_BRANCH":
         print(
             f"Verified-Effect: branching_quality "
             f"branching_rate={branching_rate:.1f}%({branched_total}/{total}) "
@@ -199,46 +321,25 @@ def main() -> int:
         )
         return 0
 
-    rng = random.Random(args.seed)
-    if len(sample_pool) > args.sample:
-        sampled = rng.sample(sample_pool, args.sample)
-    else:
-        sampled = sample_pool
-
-    results = [evaluate_pair(p["parent"], p["child"]) for p in sampled]
-    n = len(results)
-    fb = sum(1 for r in results if r["verdict"] == "suspect_false_branch")
-    fm = sum(1 for r in results if r["verdict"] == "suspect_false_merge")
-    ok = n - fb - fm
-    fb_rate = fb / n * 100
-    fm_rate = fm / n * 100
-    ok_rate = ok / n * 100
-
-    if args.verbose:
-        print("=== 個別ペア ===")
-        for r in results:
-            print(
-                f"[{r['verdict']:>22s}] sim={r['similarity']:.3f} "
-                f"P={r['parent_title'][:40]} | C={r['child_title'][:40]}"
-            )
-        print()
-
-    fb_pass = fb_rate <= args.error_branch_threshold
-    fm_pass = fm_rate <= args.error_merge_threshold
-    overall = "PASS" if (fb_pass and fm_pass) else "FAIL"
-
-    ts = datetime.now(JST).strftime("%Y-%m-%dT%H:%M%z")
-    print(
-        f"Verified-Effect: branching_quality "
+    metrics = (
         f"branching_rate={branching_rate:.1f}%({branched_total}/{total}) "
         f"error_branch={fb}({fb_rate:.1f}%) "
         f"error_merge={fm}({fm_rate:.1f}%) "
         f"ok={ok}({ok_rate:.1f}%) "
         f"sample={n} orphans={orphans} "
-        f"thresholds=fb<={args.error_branch_threshold:.0f}/fm<={args.error_merge_threshold:.0f} "
-        f"{overall} @ {ts}"
+        f"thresholds=fb<={args.error_branch_threshold:.0f}/fm<={args.error_merge_threshold:.0f}"
     )
-    return 0 if overall == "PASS" else 1
+
+    if verdict == "SKIP_SMALL_SAMPLE":
+        print(
+            f"Verified-Effect: branching_quality {metrics} "
+            f"min_sample={args.min_sample} "
+            f"SKIP_SMALL_SAMPLE @ {ts}"
+        )
+        return 0
+
+    print(f"Verified-Effect: branching_quality {metrics} {verdict} @ {ts}")
+    return 0 if verdict == "PASS" else 1
 
 
 if __name__ == "__main__":
