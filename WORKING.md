@@ -11,14 +11,16 @@
 > 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**直近のPO指示** (2026-05-01): 「継続対応して」
+**直近のPO指示** (2026-05-01): 「CI失敗調査・修正・全PRマージ」
 
-**Cowork完了** (2026-05-01):
-- T2026-0501-K: `_build_keypoint_genre_hint()` にエンタメ/テクノロジー◎例追加 + テスト修正 → PR#104 作成済、CI走行中
-- PR#102: Close推奨 (0ファイル差分)
-- PR#100/#101: CI green ✅ → Squash merge ready
+**全PR処理完了** (2026-05-01):
+- PR#99 ✅ merged (soft language fix + lessons-learned追記)
+- PR#100 ✅ merged (keyPoint③構造的背景修正)
+- PR#101 ✅ merged (DynamoDB fix)
+- PR#102 ✅ closed (0ファイル差分)
+- PR#104 ✅ merged (エンタメ/テクノロジー◎例追加)
 
-**次のアクション**: PR#102 close → #100 Squash merge → #101 Squash merge → PR#104 CI green確認後 Squash merge。翌朝p003-haiku → SLI確認。
+**次のアクション**: 翌朝p003-haiku → SLI確認。エンタメ/テクノロジー充填率50%以上達成を検証。
 
 **実在スケジューラー**: p003-haiku (7:08am daily, CloudWatch+GitHub only) / p003-sonnet (手動のみ)
 
