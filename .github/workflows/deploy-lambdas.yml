@@ -57,13 +57,8 @@ jobs:
           EXISTING_ENV=$(aws lambda get-function-configuration \
             --function-name p003-fetcher --region ap-northeast-1 \
             --query 'Environment.Variables' --output json)
-          MERGED_ENV=$(python3 -c "
-import json, os, sys
-env = json.loads(os.environ.get('EXISTING_ENV') or '{}') or {}
-env['ANTHROPIC_API_KEY'] = os.environ.get('ANTHROPIC_API_KEY', '')
-# AWS CLI の --environment Variables 引数は key=value をカンマ区切りで取る形式
-print(','.join(f'{k}={v}' for k, v in env.items()))
-" EXISTING_ENV="$EXISTING_ENV")
+          # AWS CLI の --environment Variables 引数は key=value をカンマ区切りで取る形式
+          MERGED_ENV=$(EXISTING_ENV="$EXISTING_ENV" python3 -c "import json,os; env=json.loads(os.environ.get('EXISTING_ENV') or '{}') or {}; env['ANTHROPIC_API_KEY']=os.environ.get('ANTHROPIC_API_KEY',''); print(','.join(f'{k}={v}' for k,v in env.items()))")
           aws lambda update-function-configuration \
             --function-name p003-fetcher \
             --environment "Variables={${MERGED_ENV}}" \
