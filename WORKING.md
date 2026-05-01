@@ -107,3 +107,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0501-SCOPE-CHECK session_bootstrap に [scope:large] 検出警告追加 | Code | scripts/session_bootstrap.sh | 14:25 | yes |
