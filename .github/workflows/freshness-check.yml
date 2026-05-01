@@ -40,23 +40,14 @@ jobs:
             echo "::warning::topics.json 取得失敗 ($FRESHNESS_URL)"
             exit 0
           fi
-          UPDATED_AT=$(python3 -c "import json,sys; d=json.load(open('$PAYLOAD')); print(d.get('updatedAt',''))")
+          UPDATED_AT=$(python3 scripts/ci_json_field.py "$PAYLOAD" updatedAt "")
           if [ -z "$UPDATED_AT" ]; then
             echo "status=no_updated_at_field" >> "$GITHUB_OUTPUT"
             echo "diff_min=-1" >> "$GITHUB_OUTPUT"
             echo "updated_at=missing" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          DIFF_MIN=$(UPDATED_AT="$UPDATED_AT" python3 -c "
-          import datetime as dt, os
-          ua = os.environ['UPDATED_AT']
-          try:
-              t = dt.datetime.fromisoformat(ua.replace('Z', '+00:00'))
-              now = dt.datetime.now(dt.timezone.utc)
-              print(int((now - t).total_seconds() // 60))
-          except Exception:
-              print(-1)
-          ")
+          DIFF_MIN=$(UPDATED_AT="$UPDATED_AT" python3 scripts/ci_freshness_diff_min.py)
           if [ "$DIFF_MIN" -lt 0 ]; then
             STATUS=parse_failed
           elif [ "$DIFF_MIN" -gt "$FRESHNESS_THRESHOLD_MIN" ]; then
@@ -85,33 +76,9 @@ jobs:
             echo "SLACK_WEBHOOK 未設定。CI ログのみで通知"
             exit 0
           fi
-          NEXT_JST=$(python3 -c "
-          import datetime as dt
-          jst = dt.timezone(dt.timedelta(hours=9))
-          now = dt.datetime.now(jst)
-          for h in (1, 7, 13, 19, 25):
-              hh = h % 24
-              target = now.replace(hour=hh, minute=0, second=0, microsecond=0)
-              if h >= 24:
-                  target = target + dt.timedelta(days=1)
-              if target > now:
-                  print(target.isoformat())
-                  break
-          ")
+          NEXT_JST=$(python3 scripts/ci_next_jst_schedule.py)
           INVOKE_LOG_URL='https://ap-northeast-1.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252Fp003-news-processor'
-          PAYLOAD=$(STATUS="$STATUS" DIFF_MIN="$DIFF_MIN" UPDATED_AT="$UPDATED_AT" NEXT_JST="$NEXT_JST" INVOKE_LOG_URL="$INVOKE_LOG_URL" python3 -c "
-          import json, os
-          text = (
-              '🚨 *Flotopic topics.json 鮮度警告*\n'
-              f'• status: \`{os.environ[\"STATUS\"]}\`\n'
-              f'• 最終 updatedAt: \`{os.environ[\"UPDATED_AT\"]}\`\n'
-              f'• 経過: \`{os.environ[\"DIFF_MIN\"]} 分\` (閾値 90 分)\n'
-              f'• 次回スケジュール JST: {os.environ[\"NEXT_JST\"]}\n'
-              f'• processor ログ: {os.environ[\"INVOKE_LOG_URL\"]}\n'
-              '\n_governance worker とは別系統の外部観測 (T263 / freshness-check.yml) からの通知_'
-          )
-          print(json.dumps({'text': text, 'username': 'Flotopic Freshness Monitor', 'icon_emoji': ':warning:'}))
-          ")
+          PAYLOAD=$(STATUS="$STATUS" DIFF_MIN="$DIFF_MIN" UPDATED_AT="$UPDATED_AT" NEXT_JST="$NEXT_JST" INVOKE_LOG_URL="$INVOKE_LOG_URL" python3 scripts/ci_slack_freshness_stale.py)
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
 
       - name: stale 判定で job を赤くする (Slack 未設定でも GH Actions UI で気付ける)
@@ -265,18 +232,7 @@ jobs:
             echo "::warning::recent_ratio: <24h 比率 ${RATIO}% (閾値 10%) — fetcher 停滞疑い"
             exit 0
           fi
-          PAYLOAD=$(RATIO="$RATIO" RECENT="$RECENT" TOTAL="$TOTAL" MISSING="$MISSING" python3 -c "
-          import json, os
-          text = (
-              '🚨 *Flotopic <24h トピック比率 異常 (SLI 12)*\n'
-              f'• <24h トピック: \`{os.environ[\"RECENT\"]} / {os.environ[\"TOTAL\"]}\` = \`{os.environ[\"RATIO\"]}%\` (閾値 10%)\n'
-              f'• lastArticleAt 欠損: \`{os.environ[\"MISSING\"]}\` 件\n'
-              '• 新規記事が DDB に流入していない疑い (fetcher / processor の silent fail)\n'
-              '• 対処: ① CloudWatch p003-fetcher の最新ログ確認 ② DDB の lastArticleAt 分布を直接確認 ③ RSS フィード生存確認\n'
-              '\n_T2026-0430-F success-but-stale 検出 (PR #46 で発覚した 3日停滞 再発防止)_'
-          )
-          print(json.dumps({'text': text, 'username': 'Flotopic Recent Ratio Monitor', 'icon_emoji': ':rotating_light:'}))
-          ")
+          PAYLOAD=$(RATIO="$RATIO" RECENT="$RECENT" TOTAL="$TOTAL" MISSING="$MISSING" python3 scripts/ci_slack_freshness_ratio.py)
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
 
       # =====================================================================
@@ -350,16 +306,7 @@ jobs:
             echo "::warning::topics.json サイズ超過: ${KB}KB (閾値 250KB)。topics-card.json 切替を検討"
             exit 0
           fi
-          PAYLOAD=$(KB="$KB" python3 -c "
-          import json, os
-          text = (
-              '⚠️ *Flotopic topics.json サイズ超過*\n'
-              f'• 現在: \`{os.environ[\"KB\"]} KB\` (閾値 250 KB)\n'
-              '• モバイル初回表示帯域コスト増加。topics-card.json 切替 (T2026-0428-F Step2) 着手検討\n'
-              '\n_T2026-0428-F freshness-check.yml サイズ観測_'
-          )
-          print(json.dumps({'text': text, 'username': 'Flotopic Size Monitor', 'icon_emoji': ':warning:'}))
-          ")
+          PAYLOAD=$(KB="$KB" python3 scripts/ci_slack_freshness_size.py)
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
 
       - name: AI フィールド半壊で警告 (Slack)
@@ -377,18 +324,7 @@ jobs:
             echo "::warning::AI フィールド半壊検出: $WARNINGS (kp=$KP%, persp=$PERSP%, 発端=$START%)"
             exit 0
           fi
-          PAYLOAD=$(WARNINGS="$WARNINGS" KP="$KP" PERSP="$PERSP" START="$START" python3 -c "
-          import json, os
-          text = (
-              '⚠️ *Flotopic AI フィールド半壊検出 (success-but-empty)*\n'
-              f'• 警告: \`{os.environ[\"WARNINGS\"]}\`\n'
-              f'• keyPoint 充填: \`{os.environ[\"KP\"]}%\` (閾値 70%)\n'
-              f'• perspectives: \`{os.environ[\"PERSP\"]}%\` (閾値 60%)\n'
-              f'• storyPhase 発端: \`{os.environ[\"START\"]}%\` (閾値 50%)\n'
-              '\n_aiGenerated=True でも必須フィールドが空の半壊状態を検出 (SLI 8/9/4)_'
-          )
-          print(json.dumps({'text': text, 'username': 'Flotopic AI Fields Monitor', 'icon_emoji': ':warning:'}))
-          ")
+          PAYLOAD=$(WARNINGS="$WARNINGS" KP="$KP" PERSP="$PERSP" START="$START" python3 scripts/ci_slack_freshness_ai_fields.py)
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
 
       # =====================================================================
@@ -466,17 +402,7 @@ jobs:
             echo "::warning::sitemap_reach NG: $NG/$TOTAL"
             exit 0
           fi
-          PAYLOAD=$(OK="$OK" NG="$NG" TOTAL="$TOTAL" python3 -c "
-          import json, os
-          text = (
-              '🚨 *Flotopic sitemap URL 到達性 NG (SLI 11)*\n'
-              f'• sample: {os.environ[\"TOTAL\"]} / OK: {os.environ[\"OK\"]} / NG: {os.environ[\"NG\"]}\n'
-              '• news-sitemap.xml に書いた topics/{tid}.html が 200 を返していない\n'
-              '• Google Search Console でクロールエラー多発 → Google News 信頼度低下リスク\n'
-              '• 対処: processor regenerateStaticHtml を invoke / S3 lifecycle ログ確認'
-          )
-          print(json.dumps({'text': text, 'username': 'Flotopic Sitemap Monitor', 'icon_emoji': ':rotating_light:'}))
-          ")
+          PAYLOAD=$(OK="$OK" NG="$NG" TOTAL="$TOTAL" python3 scripts/ci_slack_freshness_sitemap.py)
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
 
       # SLI-keypoint-fill-rate は別ワークフロー (sli-keypoint-fill-rate.yml) へ分離 (T2026-0428-BI)。

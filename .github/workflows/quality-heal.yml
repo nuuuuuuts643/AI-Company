@@ -73,13 +73,5 @@ jobs:
             echo "::warning::SLACK_WEBHOOK 未設定"
             exit 0
           fi
-          PAYLOAD=$(python3 -c "
-          import json
-          text = (
-              '🚨 *quality_heal job 失敗*\n'
-              '• .github/workflows/quality-heal.yml\n'
-              '• 詳細: GitHub Actions ログ参照\n'
-          )
-          print(json.dumps({'text': text, 'username': 'Quality Heal Monitor', 'icon_emoji': ':rotating_light:'}))
-          ")
+          PAYLOAD=$(python3 scripts/ci_slack_quality_heal.py)
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
