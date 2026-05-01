@@ -37,6 +37,7 @@
 - 2026-04-30 fetcher 0 件保存が 3 日間検知されず（SLI 周期 12h × updatedAt 差分のみ × Lambda Errors しか拾えない）— SLI 周期が壊れの平均寿命より長かった（T2026-0430-H / PR #52）
 - 2026-04-30 AI フィールド層忘れ CI 物理ガードの landing — T249 (keyPoint / backgroundContext merge 漏れ) の構造ガードが 2 日間 ❌ で滞留していた件の解消（T256 / PR #53）
 - 2026-05-01 PR #86 22箇所一括変更がなぜなぜなし・物理ガードをすり抜けたか（PRテンプレ条件分岐の穴・check_lessons_landings.sh 入口ガード不在・scope:large 検査不在）
+- 2026-05-01 監視→対処フローのギャップ（p003-haiku スケジューラー未実装・ルールテキストのみで仕組み欠落）
 
 ---
 
@@ -1377,4 +1378,50 @@ T2026-0501-E は「GitHub Actions YAML 内の `python3 -c` インラインロジ
 - **「バグ修正のみ」という条件分岐が「影響範囲の大きい変更」を素通りさせる**。なぜなぜの必要性はバグ/非バグではなく変更の影響範囲に依存する。変更ファイル数・変更行数・依存システム数を物理的な閾値として CI に組み込む
 - **出口ガードは入口ガードの代わりにならない**。`check_lessons_landings.sh` は「書いた対策が存在するか」を検査するが、「対策を書いていない」こと自体は検出できない。新規 CI ガード / 新規なぜなぜエントリが必要な状況を「入口で強制」する別スクリプトが必要
 - **新規 CI ガードはガード追加時点の既存コードに対して即時検証する**。「将来の違反を防ぐ」だけでなく「現在の状態が clean である」ことを PR でアサートしないと、既存違反を隠したまま CI が green になる
+
+---
+
+## 監視→対処フローのギャップ（2026-05-01 制定・ルール実装漏れ）
+
+**起きたこと**: CLAUDE.md に「p003-haiku（朝7時1回。CloudWatch エラー確認・未マージPR確認。外部API呼び出しなし）」と明記されているが、実装スクリプトが存在せず、実際には「CloudWatch エラーを定期的に確認してアラートを出す仕組み」が稼働していない。4/27 の `_GENRES_PROMPT` NameError（数十回発生）も CloudWatch には記録されているが、朝チェックルーチンが起動されず、エラーの存在が翌朝以降まで認識されなかった。
+
+| Why | 答え |
+|---|---|
+| **Why1** なぜ p003-haiku スクリプトが実装されていない？ | CLAUDE.md では「スケジューラートask p003-haiku」と仕様として書かれているが、実装の対象（「誰が」「どのコードで」「どのファイルに」実装するか）が明示されていなかった |
+| **Why2** なぜ実装担当が曖昧だった？ | CLAUDE.md の「時間待ち確認はスケジューラーに渡す」セクションに「p003-haiku のやることリスト」は書かれているが、「これは Cowork が mcp__scheduled-tasks__create_scheduled_task で登録する」or「Code セッションが `.claude/scheduled-tasks/` ディレクトリ配下に SKILL.md として配置する」という実装方法が指定されていなかった |
+| **Why3** なぜ方法が指定されなかった？ | スケジュールタスクの登録・運用方法が 2026-04-28 に初めて CLAUDE.md に追記され、当時の文書化が「仕様」のレベルで止まり、「実装担当・方法・検証フロー」の詳細化が行われなかった |
+| **Why4** なぜ詳細化しなかった？ | 「仕組みを書く = CLAUDE.md に記述する」という浅い理解で、「ルール文書の記述 ≠ 実装 ≠ 動作確認」の3段階が混同されていた |
+| **Why5** なぜそう混同されるのか | ルールが「テキスト形式（思想）」か「実装コード（物理）」かの分類が CLAUDE.md 表に存在しても、「テキストは意思表示に過ぎず、実装・検証を伴わない」ことを各タスク開始時に強制する入口ガードが無い |
+
+**仕組み的対策:**
+
+1. **スケジュールタスクの実装・検証ルール明文化 + テンプレ化**:
+   - CLAUDE.md に「schedule-task の 3 ステップ」を追記:
+     - STEP1: `mcp__scheduled-tasks__create_scheduled_task` または `mcp__scheduled-tasks__update_scheduled_task` で実際に登録する
+     - STEP2: `mcp__scheduled-tasks__list_scheduled_tasks` で登録を確認する
+     - STEP3: 次の実行予定日時に実際に動作したか CloudWatch ログ / git commit / TASKS.md 更新で検証する
+   - テンプレ例を `.claude/templates/schedule-task-template.md` として配置
+
+2. **スケジュールタスクの landing チェック機能を scripts/session_bootstrap.sh に追加**:
+   - `mcp__scheduled-tasks__list_scheduled_tasks` を起動スクリプトで実行 → CLAUDE.md で「実在スケジューラー」セクションに列挙されているタスク ID が全て登録されているか照合 → 未登録があれば WARNING を出す
+   - 失敗例: `[SCHEDULE_TASK_MISSING] p003-haiku が登録されていません。mcp__scheduled-tasks__create_scheduled_task で登録してください`
+
+3. **schedule-task commit メッセージに [Schedule-KPI] 行を強制**:
+   - PR テンプレに「新規 schedule-task 登録・更新の場合のみ: commit メッセージに `[Schedule-KPI] created=1 implemented=1` など統計行を含める」チェックボックスを追加
+   - git hook で commit メッセージをチェック (schedule-task 関連の commits にのみ [Schedule-KPI] 行を要求)
+   - 実装ファイル: `.husky/prepare-commit-msg`, `.github/workflows/ci.yml`
+
+### 横展開チェックリスト
+
+| 対策名 | 適用対象 | 実装ファイル | 状態 |
+|---|---|---|---|
+| schedule-task 3 ステップルール明文化 | CLAUDE.md 「時間待ち」セクション | CLAUDE.md | ✗ 次セッション |
+| schedule-task landing チェック (session_bootstrap.sh) | 全コードセッション起動時 | `scripts/session_bootstrap.sh` | ✗ 次セッション |
+| schedule-task commit hook ([Schedule-KPI]) | schedule-task 新規・更新 PR | `.husky/prepare-commit-msg`, PR テンプレ | ✗ 次セッション |
+
+### メタ教訓
+
+- **ルール文書 ≠ 実装 ≠ 動作確認**。「CLAUDE.md に書いた」は「仕込んだ」であって「動いている」ではない。特に人間が手で実行するスケジュールタスク・外部ツール登録は「その日に実際に動作したか」を確認するまでが１セット
+- **ゼロの状態（実装されていない）は何度でも繰り返される**。「朝 7 時チェック」という仕様は存在しても実装スクリプトが無ければ、毎日ゼロが続く。ゼロが許容される期間（「仕様段階」「検証段階」）と許容されない期間（「本番稼働」）の定義を明示する
+- **CloudWatch ログは存在しても「検知→通知→対応」がループしなければ観測可能性の意味がない**。「ログが出ている」と「朝チェックで検知している」は別の事象。SLI 周期が運用者のチェック周期より長いと、エラーが埋もれたまま次の巡回まで放置される
 

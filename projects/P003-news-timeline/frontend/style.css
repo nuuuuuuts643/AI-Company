@@ -507,10 +507,22 @@ main.container { padding-top: 22px; padding-bottom: 56px; }
   margin-bottom: 8px;
   color: var(--text-primary);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   letter-spacing: -.01em;
+  text-overflow: ellipsis;
+  position: relative;
+}
+/* グラデーション省略記号（3行目下端）*/
+.topic-card h3::after {
+  content: '...';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, var(--surface) 60%);
+  padding-left: 0.5em;
+  color: var(--text-primary);
 }
 
 .card-summary {
