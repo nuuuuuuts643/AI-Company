@@ -85,6 +85,24 @@ else
     [ "$found_any" -eq 0 ] && break
     sleep 1
   done
+
+  # ---- 1c. tmp_obj_* 自動退避 (T2026-0502-E 恒久対処) ----
+  # FUSE 環境では git の内部 tmp ファイル (.git/objects/<hash>/tmp_obj_*)
+  # が unlink できず累積する。Cowork セッション 1 回の commit で数件、
+  # 1500 件超えで内部処理が遅延し始める。
+  # 既存 §1 lock 退避と同じ mv → _garbage パターンで自動解消 (J-6 パターン再利用)。
+  # 「気づいて自動で消す」 = session_bootstrap 起動のたびに実行 = 恒久対処。
+  TMP_OBJ_FILES=$(find .git/objects -name "tmp_obj_*" 2>/dev/null)
+  if [ -n "$TMP_OBJ_FILES" ]; then
+    TMP_OBJ_DEST=".git/_garbage/tmp_objs-$(date +%s%N)"
+    mkdir -p "$TMP_OBJ_DEST" 2>/dev/null
+    TMP_OBJ_COUNT=$(echo "$TMP_OBJ_FILES" | wc -l | tr -d ' ')
+    echo "$TMP_OBJ_FILES" | while read f; do
+      [ -n "$f" ] && mv "$f" "$TMP_OBJ_DEST/" 2>/dev/null || true
+    done
+    REMAINING=$(find .git/objects -name "tmp_obj_*" 2>/dev/null | wc -l | tr -d ' ')
+    echo "🧹 tmp_obj_* 自動退避: ${TMP_OBJ_COUNT} 件 → _garbage/ (残: ${REMAINING})"
+  fi
 fi
 
 # ---- 1b. broken worktree 自動クリーンアップ ----
