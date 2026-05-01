@@ -109,4 +109,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] schedule-fix スケジュール定数 2x/day 05:30/17:30 修正 | Cowork | detail.js, handler.py, system-status.md, .github/workflows/schedule-consistency-check.yml | 2026-05-01 11:57 | yes |
 
