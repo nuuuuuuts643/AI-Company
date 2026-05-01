@@ -1155,6 +1155,7 @@ function renderDetail(data) {
   } catch(e) { console.error('storyEl/related rendering error:', e); }
 
   renderDiscovery(meta);
+  renderContinuationNav(meta);
 }
 
 // ===== Discovery: 深掘り & 拡張 =====
@@ -1358,6 +1359,55 @@ function renderDiscovery(meta) {
           }).join('')}
         </div>
         ${smLink}
+      </div>`;
+  });
+}
+
+// ===== T2026-0501-C: 次に読む誘導ナビ =====
+function renderContinuationNav(meta) {
+  const nav = document.getElementById('continuation-nav');
+  if (!nav) return;
+
+  fetchAllTopicsOnce().then(allTopics => {
+    const curId = meta.topicId;
+    const myGenres = Array.isArray(meta.genres) ? meta.genres : (meta.genre ? [meta.genre] : []);
+
+    const candidates = allTopics
+      .filter(t => t && t.topicId !== curId && (t.velocityScore || 0) > 0)
+      .map(t => {
+        const otherGenres = Array.isArray(t.genres) ? t.genres : (t.genre ? [t.genre] : []);
+        const sameGenre = myGenres.some(g => g && otherGenres.includes(g));
+        return { t, score: (t.velocityScore || 0) + (sameGenre ? 100 : 0) };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(({ t }) => t);
+
+    if (candidates.length === 0) return;
+
+    nav.innerHTML = `
+      <div class="card cnt-nav-wrapper">
+        <h2>📖 次に読む</h2>
+        <div class="cnt-nav-list">
+          ${candidates.map(t => {
+            const title = t.generatedTitle || t.title || '';
+            const genre = (Array.isArray(t.genres) ? t.genres[0] : t.genre) || '';
+            const rawImg = t.imageUrl || '';
+            const safeThumb = rawImg ? esc(typeof safeImgUrl === 'function' ? safeImgUrl(rawImg) : rawImg.replace(/['"<>]/g, '')) : '';
+            const thumbHtml = safeThumb
+              ? `<img class="cnt-nav-thumb" src="${safeThumb}" alt="" loading="lazy" referrerpolicy="origin-when-cross-origin" onerror="this.style.display='none'">`
+              : `<div class="cnt-nav-thumb cnt-nav-thumb-placeholder"></div>`;
+            return `
+              <a href="topic.html?id=${esc(t.topicId)}" class="cnt-nav-item">
+                ${thumbHtml}
+                <div class="cnt-nav-body">
+                  ${genre ? `<span class="cnt-nav-genre">${esc(genre)}</span>` : ''}
+                  <div class="cnt-nav-title">${esc(title)}</div>
+                </div>
+              </a>`;
+          }).join('')}
+        </div>
+        <a href="index.html" class="cnt-nav-more">すべてのトピックを見る →</a>
       </div>`;
   });
 }
