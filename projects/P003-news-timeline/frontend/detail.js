@@ -1,6 +1,30 @@
 // ===== 詳細ページ =====
 // app.js が先にロードされていること前提（esc, fmtDate, apiUrl, genreEmoji 等を参照）
+// js/timestamp.js が先にロードされていること前提（toMs / _warnBadTs を window から参照）。
+//   timestamp.js が無い環境（古い HTML キャッシュ等）でも detail.js が落ちないよう
+//   minimal フォールバックを置く。
 let chartInstance = null, viewsChartInstance = null;
+const _toMs = (typeof toMs === 'function') ? toMs : function (v) {
+  if (v == null || v === '') return 0;
+  if (v instanceof Date) { const t = v.getTime(); return isNaN(t) ? 0 : t; }
+  if (typeof v === 'number') {
+    if (!isFinite(v) || v <= 0) return 0;
+    if (v > 1e9 && v < 1e12) return v * 1000;
+    if (v >= 1e12) return v;
+    return 0;
+  }
+  const s = String(v).trim();
+  if (!s) return 0;
+  if (/^-?\d+(\.\d+)?$/.test(s)) {
+    const n = Number(s);
+    if (n > 1e9 && n < 1e12) return n * 1000;
+    if (n >= 1e12) return n;
+    return 0;
+  }
+  const t = new Date(s).getTime();
+  return isNaN(t) ? 0 : t;
+};
+const _warnBadTsLocal = (typeof _warnBadTs === 'function') ? _warnBadTs : function () { return false; };
 
 function getNextUpdateTime() {
   // 実機 EventBridge cron: 0 16,22,4,10 UTC = JST 01:00 / 07:00 / 13:00 / 19:00 (4x/day)
@@ -98,8 +122,9 @@ function updateOGP(meta) {
     const iso = (ts) => {
       if (!ts) return new Date().toISOString();
       try {
-        // Unix seconds → milliseconds (integers under 2e10 are seconds, not ms)
-        const ms = typeof ts === 'number' && ts < 2e10 ? ts * 1000 : ts;
+        const ms = _toMs(ts);
+        _warnBadTsLocal('jsonld.iso', ts, ms);
+        if (!ms) return new Date().toISOString();
         return new Date(ms).toISOString();
       } catch { return new Date().toISOString(); }
     };
@@ -448,7 +473,9 @@ function renderDetail(data) {
       const predBadge = predictionResult && PREDICTION_BADGE[predictionResult]
         ? `<span class="ai-prediction-badge ${PREDICTION_BADGE[predictionResult].cls}">${PREDICTION_BADGE[predictionResult].icon} ${PREDICTION_BADGE[predictionResult].text}</span>`
         : '';
-      const predTimeHint = predictionMadeAt ? `<span class="ai-prediction-time">${esc(new Date(predictionMadeAt).toLocaleString('ja-JP', {year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}))} 時点</span>` : '';
+      const _predMs = _toMs(predictionMadeAt);
+      _warnBadTsLocal('predictionMadeAt', predictionMadeAt, _predMs);
+      const predTimeHint = (predictionMadeAt && _predMs > 0) ? `<span class="ai-prediction-time">${esc(new Date(_predMs).toLocaleString('ja-JP', {year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}))} 時点</span>` : '';
       // forecast (full mode 2文) があればそれを優先、無ければ outlook (1文)
       const predictionText = forecast || outlook;
       const sectOl = predictionText ? `
@@ -577,7 +604,11 @@ function renderDetail(data) {
         _chartRange = rangeHours;
         const now = Date.now();
         const cutoff = rangeHours ? now - rangeHours * 3600 * 1000 : 0;
-        const filtered = rangeHours ? timeline.filter(s => new Date(s.timestamp).getTime() >= cutoff) : timeline;
+        const filtered = rangeHours ? timeline.filter(s => {
+          const ms = _toMs(s.timestamp);
+          _warnBadTsLocal('snap.timestamp(filter)', s.timestamp, ms);
+          return ms >= cutoff;
+        }) : timeline;
         // T2026-0428-AJ: 1 点でも描画する。range フィルタで 0 件になったら全期間にフォールバック。
         const src = filtered.length >= 1 ? filtered : timeline;
 
@@ -615,7 +646,10 @@ function renderDetail(data) {
         if (aggregate) {
           const byDay = {};
           src.forEach(s => {
-            const d = new Date(s.timestamp);
+            const _ms = _toMs(s.timestamp);
+            _warnBadTsLocal('snap.timestamp(aggregate)', s.timestamp, _ms);
+            if (!_ms) return;
+            const d = new Date(_ms);
             const day     = `${String(d.getFullYear()).slice(2)}/${d.getMonth()+1}/${d.getDate()}`;
             const dateKey = d.toISOString().slice(0, 10).replace(/-/g, '');
             if (!byDay[day]) byDay[day] = {scores:[], media:[], hatenas:[], dateKey, snaps:[]};
@@ -850,8 +884,8 @@ function renderDetail(data) {
           );
           // Grayout buttons for ranges that exceed available data
           const _firstSeenMs = meta.firstArticleAt
-            ? meta.firstArticleAt * 1000
-            : (timeline.length > 0 ? Math.min(...timeline.map(s => new Date(s.timestamp).getTime())) : Date.now());
+            ? _toMs(meta.firstArticleAt)
+            : (timeline.length > 0 ? Math.min(...timeline.map(s => _toMs(s.timestamp)).filter(t => t > 0)) : Date.now());
           const _elapsedH = (Date.now() - _firstSeenMs) / 3600000;
           const _RANGE_H = { '1d': 24, '3d': 72, '7d': 168, '1m': 720, '3m': 2160, '6m': 4320, '1y': 8760 };
           document.querySelectorAll('.tr-btn[data-range]').forEach(btn => {
@@ -911,7 +945,7 @@ function renderDetail(data) {
         }
       });
     });
-    allArticles.sort((a, b) => new Date(b._snapTs) - new Date(a._snapTs));
+    allArticles.sort((a, b) => _toMs(b._snapTs) - _toMs(a._snapTs));
 
     // 全スナップのarticlesが空の場合（旧形式SNAPまたはSNAP期限切れ）はプレースホルダー表示
     // T2026-0428-AJ: カード自体は消さない（「常にグラフ／要約／流れを見せる」要件）
@@ -926,23 +960,33 @@ function renderDetail(data) {
     const totalCount = allArticles.length;
     let timelineOrder = 'desc';
     const fmtTl = (ts) => {
-      const d = new Date(ts);
+      const ms = _toMs(ts);
+      _warnBadTsLocal('fmtTl', ts, ms);
+      if (!ms) return '';
+      const d = new Date(ms);
       return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     };
     const ARTICLES_PER_DAY = 5;
     const DAYS_INITIAL     = 14;
     const WDAY = ['日','月','火','水','木','金','土'];
     const fmtDay = (ts) => {
-      const d = new Date(typeof ts === 'number' && ts < 1e11 ? ts * 1000 : ts);
+      const ms = _toMs(ts);
+      _warnBadTsLocal('fmtDay', ts, ms);
+      if (!ms) return '';
+      const d = new Date(ms);
       return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${WDAY[d.getDay()]}）`;
     };
 
     const renderTimeline = () => {
       const dayMap = {};
       allArticles.forEach(a => {
-        const _pubMs = a.publishedAt ? a.publishedAt * 1000 : (a.pubDate ? new Date(a.pubDate).getTime() : 0);
-        const ts  = _pubMs || new Date(a._snapTs).getTime();
-        const key = fmtDay(new Date(ts));
+        const _pubMs = _toMs(a.publishedAt) || _toMs(a.pubDate);
+        _warnBadTsLocal('article.publishedAt', a.publishedAt, _pubMs);
+        const _snapMs = _toMs(a._snapTs);
+        const ts = _pubMs || _snapMs;
+        if (!ts) return;
+        const key = fmtDay(ts);
+        if (!key) return;
         if (!dayMap[key]) dayMap[key] = { ts, articles: [] };
         dayMap[key].articles.push({ ...a, _ts: ts });
       });
@@ -972,7 +1016,7 @@ function renderDetail(data) {
                   <div class="timeline-time">${dayKey}<span class="day-article-count"> · ${g.articles.length}件</span></div>
                   <div class="day-articles">
                     ${shown.map(a => {
-                      const _artMs = a.publishedAt ? a.publishedAt * 1000 : (a.pubDate ? new Date(a.pubDate).getTime() : 0);
+                      const _artMs = _toMs(a.publishedAt) || _toMs(a.pubDate);
                       const isNew = _artMs && (Date.now() - _artMs) < 6 * 3600 * 1000;
                       // T2026-0428-AN: 一次情報バッジ（バックエンドの isPrimary フラグを信頼）
                       // 著作権法32条「引用」として利用、出典明示必須（source 名+リンクで遵守）
@@ -1019,9 +1063,12 @@ function renderDetail(data) {
     {
       const _dm = {};
       allArticles.forEach(a => {
-        const _ms = a.publishedAt ? a.publishedAt * 1000 : (a.pubDate ? new Date(a.pubDate).getTime() : 0);
-        const _ts = _ms || new Date(a._snapTs).getTime();
-        const key = fmtDay(new Date(_ts));
+        const _ms = _toMs(a.publishedAt) || _toMs(a.pubDate);
+        const _snapMs = _toMs(a._snapTs);
+        const _ts = _ms || _snapMs;
+        if (!_ts) return;
+        const key = fmtDay(_ts);
+        if (!key) return;
         if (!_dm[key]) _dm[key] = [];
         _dm[key].push({ url: a.url, _ts });
       });
@@ -1056,8 +1103,8 @@ function renderDetail(data) {
         const usedSources = new Set();
         // 最新順でソート
         const sorted = [...candidates].sort((a, b) => {
-          const ta = a.publishedAt ? a.publishedAt * 1000 : new Date(a._snapTs).getTime();
-          const tb = b.publishedAt ? b.publishedAt * 1000 : new Date(b._snapTs).getTime();
+          const ta = _toMs(a.publishedAt) || _toMs(a._snapTs);
+          const tb = _toMs(b.publishedAt) || _toMs(b._snapTs);
           return tb - ta;
         });
         for (const a of sorted) {
@@ -1124,11 +1171,15 @@ function fmtElapsed(isoOrTs) {
   if (!isoOrTs && isoOrTs !== 0) return '';
   if (isoOrTs === 0 || isoOrTs === '0') return '';
   try {
-    const d = typeof isoOrTs === 'number' ? new Date(isoOrTs * 1000) : new Date(isoOrTs);
+    const ms = _toMs(isoOrTs);
+    if (!ms) return '';
+    _warnBadTsLocal('fmtElapsed', isoOrTs, ms);
+    const d = new Date(ms);
     if (isNaN(d)) return '';
     // 1970-01-01 近辺の epoch値ガード (1990年以前は誤った値とみなす)
     if (d.getFullYear() < 1990) return '';
-    const diff = (Date.now() - d.getTime()) / 1000;
+    const diff = (Date.now() - ms) / 1000;
+    if (diff < 0) return '';   // 未来日付は無効扱い
     if (diff < 3600)   return `${Math.floor(diff / 60)}分前`;
     if (diff < 86400)  return `${Math.floor(diff / 3600)}時間前`;
     if (diff < 604800) return `${Math.floor(diff / 86400)}日前`;
@@ -1240,8 +1291,8 @@ function renderDiscovery(meta) {
       }
       candidates.sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
-        const at = new Date(a.t.lastArticleAt || a.t.lastUpdated || 0).getTime() || 0;
-        const bt = new Date(b.t.lastArticleAt || b.t.lastUpdated || 0).getTime() || 0;
+        const at = _toMs(a.t.lastArticleAt || a.t.lastUpdated || 0);
+        const bt = _toMs(b.t.lastArticleAt || b.t.lastUpdated || 0);
         return bt - at;
       });
       for (const { t } of candidates) {

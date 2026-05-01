@@ -109,5 +109,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-TS detail.js timestamp 統一 + SLI 物理ガード | バグ修正 | projects/P003-news-timeline/frontend/detail.js, frontend/js/timestamp.js, tests/unit/timestamp.test.js, scripts/sli_timestamp_check.sh, .github/workflows/timestamp-sli.yml, TASKS.md | 2026-05-01 11:25 JST | yes |
 
