@@ -1468,3 +1468,37 @@ T2026-0501-E は「GitHub Actions YAML 内の `python3 -c` インラインロジ
 | `detect_mismerge_signals` float排除 | mismergeDetail.maxGapDays | `projects/P003-news-timeline/lambda/fetcher/merge_audit.py` | ✅ 本コミット |
 | processor Lambda の DynamoDB 書き込みにも `_dynamo_safe` 相当を適用 | proc_storage.py の DynamoDB 書き込みパス | `projects/P003-news-timeline/lambda/processor/proc_storage.py` | ✗ 次セッション |
 
+---
+
+## なぜなぜ: SLI workflow が `actions/checkout` なしで `scripts/` を呼び出していた (T2026-0502-A / 2026-05-02)
+
+**症状**: `freshness-check.yml` と `fetcher-health-check.yml` が連続 failure。Lambda・CloudWatch・topics.json はすべて健全。`python3 scripts/ci_*.py` が `[Errno 2] No such file or directory` で終了。
+
+| ステップ | 内容 |
+|---|---|
+| **Why1** なぜ `No such file or directory`？ | GitHub Actions runner 上にリポジトリがクローンされていない状態で `scripts/` 内の Python スクリプトを呼んだため |
+| **Why2** なぜリポジトリがない？ | 両 workflow に `- uses: actions/checkout@v4` ステップが存在しなかったため。GitHub Actions は自動でリポジトリをチェックアウトしない |
+| **Why3** なぜ `checkout` を入れ忘れた？ | 当初 workflow をコピー新設した際、AWS credentials ステップだけ移植して checkout を含めなかった。ローカル手動実行では `scripts/` が当然存在するため気付かなかった |
+| **Why4** なぜ CI 追加時にレビューで気付かなかった？ | 「新規 workflow の最低要件チェックリスト」が存在しなかった。checkout が必要かどうかは「scripts/ を使うかどうか」でのみ判断できるが、PR レビュー時にコードを実行せず構造だけ眺めた |
+| **Why5** なぜ長期間放置された？ | `continue-on-error: true` + Slack 未設定でジョブが赤くなるだけで通知が来ず、Lambda 自体は健全だったため「false alarm」として処理された。狼少年状態が定着した |
+
+**仕組み的対策:**
+
+1. **`actions/checkout@v4` を両 workflow の最初のステップに追加** (本コミット実装済み):
+   - `.github/workflows/freshness-check.yml` — `steps:` の最初に追加
+   - `.github/workflows/fetcher-health-check.yml` — `steps:` の最初に追加
+
+2. **新規 workflow 作成時のチェックリスト（思想ルール）**:
+   - `scripts/` や `src/` のファイルを呼ぶ場合は `actions/checkout@v4` が必須
+   - AWS credentials だけの workflow でも `scripts/` 呼び出しがあれば checkout 必要
+
+3. **SLI workflow の false-failure を可視化**:
+   - 少なくとも job 失敗時は GitHub Actions UI で赤バッジが立つことを確認してから merge する
+
+### 横展開チェックリスト
+
+| 対策名 | 適用対象 | 実装ファイル | 状態 |
+|---|---|---|---|
+| `actions/checkout@v4` 追加 | freshness-check SLI | `.github/workflows/freshness-check.yml` | ✅ 本コミット |
+| `actions/checkout@v4` 追加 | fetcher-health-check SLI | `.github/workflows/fetcher-health-check.yml` | ✅ 本コミット |
+
