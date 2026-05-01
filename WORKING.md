@@ -107,4 +107,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-E child_density改善 | Code | lambda/fetcher/handler.py, lambda/fetcher/text_utils.py | 2026-05-01 14:55 JST | yes |
