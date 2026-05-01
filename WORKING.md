@@ -13,12 +13,15 @@
 
 **直近のPO指示** (2026-05-01): 「P003 K起動　継続対応して」
 
-**Cowork Dispatch 完了** (2026-05-01 22:46 JST):
-- T2026-0501-K: keyPoint few-shot をエンタメ(降幡愛)/テクノロジー(NTT AIOWN)例に差し替え → PR #103 提出済
-- 変更: proc_ai.py + test_keypoint_retry.py (35 pass) / テスト全通過確認済
-- keyPoint>=100字 **61.5%** (直近実測) — 目標70%まで残り 8.5pt
+**Code Sonnet 完了** (2026-05-02 00:00 JST):
+- T2026-0501-K: エンタメ/テクノロジー◎例差し替え + _GENRE_KEYPOINT_HINTS整合 + 事実羅列型✗例追加
+- T2026-0501-G: keyPoint③「なぜこうなったか・構造的背景」修正統合 (PR#100内容)
+- PR#102 rebase完了 (main整合・Squash merge可能)
+- PR#100 rebase完了 (main整合・Squash merge可能)
+- PR#101 rebase完了 (main整合・Squash merge可能)
+- 全84テスト PASS / feat/T2026-0501-K-keypoint-fewshot push済み (PR#103更新)
 
-**次のアクション**: PR #103 CI通過後マージ → 翌朝 p003-haiku(7:08) でエンタメ/テク充填率を再実測。
+**次のアクション**: PR#102 → #100 → #101 の順でSquash merge。PR#103はその後。翌朝p003-haiku → SLI確認。
 
 **実在スケジューラー**: p003-haiku (7:08am daily, CloudWatch+GitHub only) / p003-sonnet (手動のみ)
 
@@ -108,4 +111,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-K keyPoint品質改善 + PR #100/#101/#102 rebase | Code | lambda/processor/proc_ai.py | 2026-05-01T23:10:00+09:00 | yes |
