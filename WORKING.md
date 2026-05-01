@@ -107,4 +107,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| p003-haiku 監視フロー実態確認 + カードタイトル省略修正 | Code | style.css, docs/lessons-learned.md | 17:55 | yes |
