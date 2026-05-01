@@ -40,6 +40,8 @@ jobs:
       # ----------------------------------------------------------------
       - name: fetcher Lambda をデプロイ
         id: deploy_fetcher
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           cd projects/P003-news-timeline/lambda/fetcher
           zip -q function.zip *.py
@@ -50,7 +52,24 @@ jobs:
           aws lambda wait function-updated \
             --function-name p003-fetcher \
             --region ap-northeast-1
-          echo "[OK] fetcher デプロイ完了"
+          # T2026-0501-H: borderline トピックマージ判定 (Haiku) 用に ANTHROPIC_API_KEY を追加。
+          # 既存の env (SLACK_WEBHOOK 等) を保持するため、現在値を取得して ANTHROPIC_API_KEY のみ追記する。
+          EXISTING_ENV=$(aws lambda get-function-configuration \
+            --function-name p003-fetcher --region ap-northeast-1 \
+            --query 'Environment.Variables' --output json)
+          MERGED_ENV=$(python3 -c "
+import json, os, sys
+env = json.loads(os.environ.get('EXISTING_ENV') or '{}') or {}
+env['ANTHROPIC_API_KEY'] = os.environ.get('ANTHROPIC_API_KEY', '')
+# AWS CLI の --environment Variables 引数は key=value をカンマ区切りで取る形式
+print(','.join(f'{k}={v}' for k, v in env.items()))
+" EXISTING_ENV="$EXISTING_ENV")
+          aws lambda update-function-configuration \
+            --function-name p003-fetcher \
+            --environment "Variables={${MERGED_ENV}}" \
+            --region ap-northeast-1 > /dev/null
+          aws lambda wait function-updated --function-name p003-fetcher --region ap-northeast-1
+          echo "[OK] fetcher デプロイ完了（ANTHROPIC_API_KEY設定済み・既存env保持）"
 
       # ----------------------------------------------------------------
       # processor Lambda（Pillow + NotoSansJP フォント同梱でOGP画像生成対応）

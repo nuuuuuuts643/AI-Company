@@ -959,7 +959,9 @@ function renderDetail(data) {
     }
 
     const totalCount = allArticles.length;
-    let timelineOrder = 'desc';
+    // T2026-0501-H: デフォルトを古い順 (時系列昇順) に変更。PO 指示「同じ事象なら時系列で並べる」。
+    // ユーザーは「新しい順 ▾」ボタンで切り替え可能。
+    let timelineOrder = 'asc';
     const fmtTl = (ts) => {
       const ms = _toMs(ts);
       _warnBadTsLocal('fmtTl', ts, ms);
@@ -1008,7 +1010,10 @@ function renderDetail(data) {
           <div class="article-total-count">全${totalCount}件の記事 · ${totalDays}日間</div>
           <div class="story-timeline-wrap">
             ${visibleDays.map(([dayKey, g]) => {
-              const sorted = [...g.articles].sort((a, b) => b._ts - a._ts);
+              // T2026-0501-H: 日内記事も timelineOrder に従ってソート
+              const sorted = [...g.articles].sort((a, b) =>
+                timelineOrder === 'asc' ? a._ts - b._ts : b._ts - a._ts
+              );
               const shown  = sorted.slice(0, ARTICLES_PER_DAY);
               const rest   = sorted.slice(ARTICLES_PER_DAY);
               return `<div class="timeline-item">
