@@ -14,19 +14,16 @@
 **直近のPO指示** (2026-05-02 00:00〜01:00 JST):
 「規則体系のリライト・違反全パターン物理化・自走 Lv2 化・組織として動く Claude・セキュリティ監査強化。プロダクト完成にブレないようにして欲しい」
 
-**今セッション (Cowork Dispatch / P003 自走) で実機検証完了** (2026-05-02 08:04〜08:15 JST):
-- ✅ **T2026-0502-G 本体は復旧確認** — topics.json 鮮度 27.7分 (90分閾値内) / FetcherSavedArticles 過去3h 7datapoints (22-31件/run, sum=178件) / 30min cron 6回連続 healthy。**ユーザー被害解消 ✅**
-- ✅ PR #114 (Eng Claude 02:10 JST 実装) → auto-merge.yml により 02:06 UTC squash merge → Lambda 自動デプロイ済み
-- ⚠️ **新規発見**: freshness-check.yml + fetcher-health-check.yml が **false-failure** を返す。手動 dispatch (08:07 JST) でも再現。CloudWatch メトリクス・topics.json 共に健全だが SLI workflow が赤い → **新規 T2026-0502-A 起票** (Eng Claude エスカレーション)
-- ⚠️ p003-haiku alert: lifecycle Lambda SK FilterExpression error → **新規 T2026-0502-B 起票**
-- ✅ T2026-0501-N (auto-merge.yml) は実装済 (PR #110 merged) と確認 → TASKS.md 取消線
+**今セッション (Code) で完了** (2026-05-02 08:43〜 JST):
+- ✅ **T2026-0502-A** — PR #122 作成。両 SLI workflow (`freshness-check.yml` / `fetcher-health-check.yml`) の `steps:` 先頭に `actions/checkout@v4` を追加。根本原因: checkout なしで `scripts/*.py` を呼んでいた。merge 後の schedule run 2 連続 success で完了確認
+- ✅ **T2026-0501-M** — PR #118 (within-run dedup + entity pattern + Jaccard) は CI 待ち中 → auto-merge 待ち
+- ✅ **PR branch 更新問題** — `auto-update-branches.yml` で恒久対処済み
 
 **次セッション (Dispatch / Code 問わず) でやること**:
-1. **T2026-0502-A** 🟠 (フェーズ1 観測基盤) — Eng Claude が `gh run view --log 25237008550` / `25237009244` で SLI workflow false-failure の根本原因特定 → script 修正 PR
-2. **T2026-0502-B** 🟡 (lifecycle Lambda 健全性) — handler.py:64/:93 の SK 引数を FilterExpression → KeyConditionExpression に修正
-3. **T2026-0501-K** 🔴 (フェーズ2 直撃 = メインタスク) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` 内 keyPoint ◎例 をエンタメ + テック差し替え。**ただし T2026-0502-A 解決後に着手** (effect 検証に SLI が必須のため)
-4. **T2026-0501-M** 🔴 (UX 直撃) — 重複トピック検出・マージ。WORKING.md に [Code] 行あり (本セッション中も継続)
-5. (フェーズ2 完了条件達成までフェーズ3/4/5 タスクは凍結)
+1. **T2026-0502-A** 🟠 PR #122 merge 後 — schedule run (毎時 07分 / 23分) 2 連続 success を確認してタスク完了処理
+2. **T2026-0502-B** 🟡 (lifecycle Lambda 健全性) — `handler.py:64/:93` の SK 引数を FilterExpression → KeyConditionExpression に修正
+3. **T2026-0501-K** 🟡 (フェーズ2) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` keyPoint ◎例 をエンタメ+テック差し替え。T2026-0502-A 解消後に着手
+4. (フェーズ2 完了条件達成までフェーズ3/4/5 タスクは凍結)
 
 **実在スケジューラー**: p003-haiku (7:08am daily) / p003-sonnet (手動のみ) / security-audit.yml (週次)
 **FUSE 環境メモ**: Cowork セッションでは git CLI が index.lock を unlink できない場合がある。`scripts/cowork_commit.py "msg" file...` で GitHub API 直接コミットに迂回可能（.git/config の token 自動取得）。
@@ -123,4 +120,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Cowork] T2026-0502-G 実機検証 + T2026-0502-A/B 起票 (docs only) | Cowork | WORKING.md, TASKS.md, HISTORY.md | 2026-05-02 08:04 | no |
-| [Code] T2026-0502-A SLI false-failure 修正 | Code | .github/workflows/freshness-check.yml, .github/workflows/fetcher-health-check.yml, scripts/ci_freshness_diff_min.py, scripts/ci_cw_sum_datapoints.py | 2026-05-02 08:43 JST | yes |
