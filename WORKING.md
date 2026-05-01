@@ -109,4 +109,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0501-E verify_branching_quality 小サンプル誤FAIL対策 | fix | scripts/verify_branching_quality.py, tests/test_verify_branching_quality.py | 2026-05-01 09:35 | yes |
 
