@@ -109,5 +109,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-OL2 outlook 影響先マッピング+causalChain | AI品質 | projects/P003-news-timeline/lambda/processor/proc_ai.py, proc_storage.py, tests/test_outlook_prompt.py | 2026-05-01 11:50 | yes |
 
