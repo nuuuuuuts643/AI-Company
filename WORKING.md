@@ -123,3 +123,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Cowork] T2026-0502-G 実機検証 + T2026-0502-A/B 起票 (docs only) | Cowork | WORKING.md, TASKS.md, HISTORY.md | 2026-05-02 08:04 | no |
+| [Code] T2026-0502-A SLI false-failure 修正 | Code | .github/workflows/freshness-check.yml, .github/workflows/fetcher-health-check.yml, scripts/ci_freshness_diff_min.py, scripts/ci_cw_sum_datapoints.py | 2026-05-02 08:43 JST | yes |
