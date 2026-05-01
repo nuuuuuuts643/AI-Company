@@ -2368,6 +2368,16 @@ details[open] .day-more-btn::before { content: '▼ '; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.card-watch-hint {
+  font-size: .73rem;
+  color: var(--accent-teal, #4EC9C0);
+  margin: 0 0 5px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: .85;
+}
 .card-new-dot-badge {
   position: absolute;
   top: 12px;

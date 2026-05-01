@@ -171,6 +171,7 @@ def evaluate_branching(
       - 'PASS'              : fb/fm 両方が閾値以下
       - 'FAIL'              : fb/fm のどちらかが閾値超過
       - 'SKIP_NO_BRANCH'    : 評価対象ペアがゼロ (まだ branching が起きていない)
+      - 'SKIP_SMALL_SAMPLE' : ペア数が min_sample 未満 (メトリクスは計算するが判定しない)
     """
     pairs, branched_total, orphans = collect_branched_pairs(topics)
     total = len(topics)
@@ -218,6 +219,10 @@ def evaluate_branching(
         "ok_rate": ok_rate,
         "results": results,
     })
+
+    if n < min_sample:
+        base["verdict"] = "SKIP_SMALL_SAMPLE"
+        return base
 
     fb_pass = fb_rate <= fb_threshold
     fm_pass = fm_rate <= fm_threshold
