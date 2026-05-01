@@ -107,3 +107,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0501-C continuation改善 | Code | topic.html, detail.js, style.css, ux_check.sh | 2026-05-01 | yes |
