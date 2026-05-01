@@ -23,10 +23,11 @@ bash ~/ai-company/scripts/session_bootstrap.sh
 
 ```
 1. WORKING.md の「Dispatch継続性」セクションを読む（状態把握）
-2. WORKING.md の [Code] 行を数える → 1件以上あれば新規コードセッション起動禁止
-3. 前セッション報告に ERROR/WARN 残存があれば先に解消させる
-4. コードセッションへのプロンプトに「PR→CI→merge→done.sh」を必ず明記
-5. 完了後: WORKING.md Dispatch継続性セクションを最新状態に書き換えて push
+2. `cat WORKING.md | grep "\[Code\]"` で [Code] 行を確認 → 1件以上あれば新規コードセッション起動禁止
+3. `gh run list --branch main --limit 3` で直近 CI がすべて green であることを確認 → 失敗があれば先に修正セッションを起動してから次タスクへ
+4. 前セッション報告に ERROR/WARN 残存があれば先に解消させる
+5. コードセッションへのプロンプトに「PR→CI→merge→done.sh」を必ず明記
+6. 完了後: WORKING.md Dispatch継続性セクションを最新状態に書き換えて push
 ```
 
 ---
