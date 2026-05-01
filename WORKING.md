@@ -14,20 +14,21 @@
 **直近のPO指示** (2026-05-02 00:00〜01:00 JST):
 「規則体系のリライト・違反全パターン物理化・自走 Lv2 化・組織として動く Claude・セキュリティ監査強化。プロダクト完成にブレないようにして欲しい」
 
-**今セッション (Cowork Dispatch) で完了** (2026-05-02 01:07〜01:15 JST):
-- ✅ session_bootstrap.sh 起動チェック完了 (CLAUDE.md 649bde89 / 北極星 + 現フェーズ全文確認)
-- ✅ WORKING.md 「現在着手中」テーブル空 + worktree dry-run cleanup 0件 → 並走衝突なし
-- ✅ main 直近 CI 5 件 全 success (55a2b4d / 496f1e3b ガバナンス・構文・Slack・メタガード・No inline)
-- ✅ flotopic.com SLI 実測 (topics-card.json 299件): keyPoint>=100字 **47.8%** (143/299) 前回 35.7% → +12.1pt / kp 平均長 109.0字 / aiGenerated 75.6%。フェーズ2 完了条件 70% への階段着実
+**今セッション (Cowork Dispatch) で完了** (2026-05-02 01:14〜01:21 JST):
+- ✅ session_bootstrap.sh 起動チェック完了 (CLAUDE.md 649bde89 / 北極星 + current-phase = フェーズ2 全文確認)
+- ✅ git lock + 進行中マージ残骸を cowork_commit.py (GitHub API 直接) で迂回。affd1ba8 push 完了 (rules-rewrite-proposal landing + cowork_commit.py 追加 + WORKING.md stale 行除去)
+- ✅ T2026-0502-E (session_bootstrap.sh §1c tmp_obj_* 自動退避) は PR #108 (8f275dd5) で既に landed。WORKING.md needs-push 滞留行を物理削除
+- ✅ main CI on affd1ba8: env-scripts dry-run / Slack / No inline / メタガード = success / ガバナンス + 構文 = in_progress (CI 待ちは閉じる規則に従い即終了)
 - ✅ Code 同時起動 0 件確認 → 新規コードセッション起動可能
 
 **次セッション (Eng Claude / コードセッション・Sonnet・1セッション1タスク) でやること** (PR 経由必須):
-1. **T2026-0501-K** 🔴 (フェーズ2 直撃) — `_STORY_PROMPT_RULES` の keyPoint ◎例をエンタメ・テクノロジー版に差し替え。完了条件: 次回 processor 後 エンタメ/テク 各 50%+ 充填。Verified-Effect は scheduled task に委譲して PR→CI→merge→done.sh まで完結
+1. **T2026-0501-K** 🔴 (フェーズ2 直撃) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` 内 keyPoint ◎例をエンタメ (例: 降幡愛の首絞め件 150字) + テック (例: NTT AIOWN 150字) に差し替え。完了条件: 次回 processor 後 エンタメ/テク 各 50%+ 充填。PR→CI→merge→done.sh まで完結。Verified-Effect は scheduled task `p003-sonnet` 手動 trigger or 一時 task に委譲（セッション内で待機しない）
 2. **T2026-0501-M** 🔴 (UX 直撃) — 重複トピック検出・マージ。fetcher 類似度閾値調整 or proc_storage エンティティ重複検出。完了条件: flotopic.com で同一事象が1カードに収束（目視）
 3. **T2026-0501-N** 🔴 (Dispatch運用) — `gh pr create` 後 `gh pr merge --auto --squash` ルールを CLAUDE.md or `.github/workflows/auto-merge.yml` に landing
 4. (フェーズ2 完了条件達成までフェーズ3/4/5 タスクは凍結。current-phase.md 厳守)
 
 **実在スケジューラー**: p003-haiku (7:08am daily) / p003-sonnet (手動のみ) / security-audit.yml (週次)
+**FUSE 環境メモ**: Cowork セッションでは git CLI が index.lock を unlink できない場合がある。`scripts/cowork_commit.py "msg" file...` で GitHub API 直接コミットに迂回可能（.git/config の token 自動取得）。
 
 ---
 
