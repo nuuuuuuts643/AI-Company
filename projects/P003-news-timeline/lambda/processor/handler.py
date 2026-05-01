@@ -2,8 +2,8 @@
 lambda/processor/handler.py
 ─────────────────────────────────────────────────────────────────────────────
 Stage 2: バッチAI処理 Lambda
-  スケジュール: 1日2回 JST 08:00/17:00 (2026-04-29 コスト削減のため日中2回に変更)
-  EventBridge: cron(0 23,8 * * ? *)  ← UTC 23:00/08:00
+  スケジュール: 1日2回 JST 05:30/17:30 (2026-04-29 T2026-0429-P コスト削減・朝刊夕刊タイミング)
+  EventBridge: cron(30 20,8 * * ? *)  ← UTC 20:30/08:30
   即時処理:    fetcher が新規トピック作成時に invoke (maxApiCalls=10 で少量処理)
 
 依存モジュール:
@@ -52,7 +52,7 @@ def lambda_handler(event, context):
     # 仕組み: 残り Lambda 実行時間が WALLCLOCK_GUARD_MS を切ったら主ループを break。
     #         break 後の S3 書き戻し (update_topic_s3_files_parallel + topics.json 生成 +
     #         sitemap/RSS 生成) には ~100s 程度必要なので 120s 残す。
-    # 観測: forceRegenerateAll は次回スケジュール (4x/day) で続きを処理するため、
+    # 観測: forceRegenerateAll は次回スケジュール (2x/day) で続きを処理するため、
     #       単発 invoke 上限 ≠ 全件処理の制約にならない。
     WALLCLOCK_GUARD_MS = 120_000  # 120秒残し: S3書き戻し + topics.json生成 + sitemap
     def _wallclock_remaining_ms():
@@ -154,7 +154,7 @@ def lambda_handler(event, context):
         est_cost_usd = round(reset_count * 0.0023, 3)
         print(f'[Processor] forceRegenerateAll: {reset_count} 件を pendingAI=True にリセット → 推定コスト ${est_cost_usd}。通常処理ルートに合流して MAX_API_CALLS={int(MAX_API_CALLS)} 件まで処理')
         # リセット後は通常のスケジュール処理ルートに合流して MAX_API_CALLS まで処理
-        # 続きは次回手動 invoke or 次回スケジュール (4x/day)で
+        # 続きは次回手動 invoke or 次回スケジュール (2x/day)で
 
     # 特殊モード: サイトマップ・RSS・静的JSON再生成のみ（AI呼び出しなし）
     if event.get('regenerateSitemap'):
@@ -556,7 +556,7 @@ def lambda_handler(event, context):
     # 対象数を JUDGE_MAX で抑制し、wallclock guard も尊重する。
     #
     # 2026-04-29 案D: コスト削減のため、judge_prediction は 1 日 1 回 (UTC 13:00 = JST 22:00 前後) のみ実行。
-    # fetcher_trigger 経由 (即時処理) でも skip。新スケジュール cron(0 23,8) には UTC 13 起動はないが、
+    # fetcher_trigger 経由 (即時処理) でも skip。新スケジュール cron(30 20,8) には UTC 13 起動はないが、
     # fetcher は 30 分毎に走るため UTC 13 台に fetcher_trigger が来た場合のみ判定が走る。
     pred_judged = 0
     pred_skipped = 0

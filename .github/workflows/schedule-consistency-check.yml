@@ -1,0 +1,78 @@
+name: Schedule Consistency Check
+
+# T2026-0501 schedule-fix: deploy.sh の cron と detail.js の hours 定義 / handler.py
+# コメント / docs/system-status.md の表記が一致していることを物理ガード。
+# 過去に EventBridge を変更したのに detail.js / コメントが旧値のまま放置された再発防止。
+
+on:
+  push:
+    paths:
+      - 'projects/P003-news-timeline/frontend/detail.js'
+      - 'projects/P003-news-timeline/deploy.sh'
+      - 'projects/P003-news-timeline/lambda/processor/handler.py'
+      - 'docs/system-status.md'
+      - '.github/workflows/schedule-consistency-check.yml'
+  pull_request:
+    paths:
+      - 'projects/P003-news-timeline/frontend/detail.js'
+      - 'projects/P003-news-timeline/deploy.sh'
+      - 'projects/P003-news-timeline/lambda/processor/handler.py'
+      - 'docs/system-status.md'
+      - '.github/workflows/schedule-consistency-check.yml'
+  schedule:
+    - cron: '0 1 * * 1'  # 月曜 10:00 JST
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check schedule consistency
+        run: |
+          set -e
+          DEPLOY_SH="projects/P003-news-timeline/deploy.sh"
+          DETAIL_JS="projects/P003-news-timeline/frontend/detail.js"
+          HANDLER_PY="projects/P003-news-timeline/lambda/processor/handler.py"
+          STATUS_MD="docs/system-status.md"
+
+          # processor 用の cron 行を抽出 (p003-processor-schedule の直後の schedule-expression)
+          CRON_LINE=$(awk '/p003-processor-schedule/{found=1} found && /schedule-expression/{print; exit}' "$DEPLOY_SH")
+          echo "deploy.sh cron: $CRON_LINE"
+
+          HOURS_LINE=$(grep 'const hours' "$DETAIL_JS" || true)
+          echo "detail.js hours: $HOURS_LINE"
+
+          # 期待値: cron(30 20,8 ...) = JST 05:30 / 17:30
+          if ! echo "$CRON_LINE" | grep -q "cron(30 20,8"; then
+            echo "ERROR: deploy.sh の cron が期待値 cron(30 20,8 * * ? *) と一致しない"
+            echo "  抽出値: $CRON_LINE"
+            exit 1
+          fi
+          if ! echo "$HOURS_LINE" | grep -q "h: 5, m: 30" || ! echo "$HOURS_LINE" | grep -q "h: 17, m: 30"; then
+            echo "ERROR: detail.js の hours 定義が期待値 [{h:5,m:30},{h:17,m:30}] と一致しない"
+            echo "  抽出値: $HOURS_LINE"
+            exit 1
+          fi
+          if ! grep -q "cron(30 20,8" "$HANDLER_PY"; then
+            echo "ERROR: handler.py の先頭コメント cron が cron(30 20,8) と一致しない"
+            grep -n "EventBridge:" "$HANDLER_PY" | head -3
+            exit 1
+          fi
+          if ! grep -q "JST 05:30/17:30\|JST 05:30 / 17:30" "$STATUS_MD"; then
+            echo "ERROR: docs/system-status.md に JST 05:30/17:30 の表記が見つからない"
+            grep -n "processor AI 要約" "$STATUS_MD" | head -3
+            exit 1
+          fi
+
+          # 旧 4x/day 表記が残っていないこと (processor schedule のみ対象)
+          if grep -E "4x/day JST 01:00/07:00/13:00/19:00" "$STATUS_MD"; then
+            echo "ERROR: docs/system-status.md に旧 4x/day 表記が残っている"
+            exit 1
+          fi
+          if grep -E "cron\(0 23,8" "$DEPLOY_SH" "$HANDLER_PY"; then
+            echo "ERROR: 旧 cron(0 23,8) 表記が残っている"
+            exit 1
+          fi
+
+          echo "OK: スケジュール定数一致確認 (deploy.sh / detail.js / handler.py / system-status.md)"
