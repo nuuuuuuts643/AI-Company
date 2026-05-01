@@ -7,7 +7,7 @@ from collections import Counter
 
 from config import (
     MEDIA_NS, SOURCE_NAME_MAP, GENRE_KEYWORDS, GENRE_STRONG_KEYWORDS,
-    GENRE_PRIORITY, ENTITY_PATTERNS,
+    GENRE_PRIORITY, ENTITY_PATTERNS, SYNONYMS,
 )
 
 
@@ -344,6 +344,87 @@ def extract_entities(text: str) -> set:
         if re.search(pattern, text):
             canonical = pattern.split('|')[0]
             entities.add(canonical)
+    return entities
+
+
+# T2026-0501-H: トピックマージ判定用のエンティティ抽出 (固有名詞のみ・PO 指示でシンプル化)。
+# 「混入 > 分裂」原則で merge gate に使う。エンティティ重複が無ければ
+# Jaccard 値に関わらずマージしない (例:「関税引き上げ 米国」vs「関税引き上げ 日本」は
+# 関税 が共有されても国が異なるので別事件)。
+#
+# 抽出ソース (シンプルに固有名詞のみ):
+#  - ENTITY_PATTERNS canonical (米国/中国/トランプ/プーチン 等の正規化済みキー)
+#  - カタカナ 3 文字以上 (汎用語除く) - 人名/組織名/サービス名
+#  - 英大文字始まり 2 文字以上 (Apple/OpenAI/NASA 等)
+#  - 国名漢字 (日本/韓国/北朝鮮/台湾 等のうち ENTITY_PATTERNS に無いもの) を補完
+#
+# **漢字一般語の抽出はしない** (関税 / 政策 / 制度 等の policy ワードが entity 重複に紛れ込み、
+# 「関税引き上げ 米国」と「関税引き上げ 日本」を誤判定するため)。
+_MERGE_ENTITY_KATAKANA = re.compile(r'[ァ-ヴー]{3,}')
+_MERGE_ENTITY_LATIN    = re.compile(r'[A-Z][A-Za-z0-9]{1,}')
+# ENTITY_PATTERNS に未登録の漢字固有名詞 (国名/著名人名/政党) を補完。
+# canonical キーで返す (例: '日本' は 日本/邦/和 を吸収)。
+_MERGE_ENTITY_KANJI_SUPPLEMENT = [
+    ('日本', re.compile(r'日本')),
+    ('英国', re.compile(r'英国|イギリス')),
+    ('独国', re.compile(r'ドイツ|独国')),
+    ('仏国', re.compile(r'フランス|仏国')),
+    ('沖縄', re.compile(r'沖縄')),
+    ('北海道', re.compile(r'北海道')),
+    ('東京', re.compile(r'東京')),
+    ('大阪', re.compile(r'大阪')),
+    ('自民党', re.compile(r'自民党|自由民主党')),
+    ('立憲民主党', re.compile(r'立憲民主党')),
+    ('公明党', re.compile(r'公明党')),
+    ('共産党', re.compile(r'共産党')),
+    ('維新の会', re.compile(r'維新の会|日本維新')),
+    ('国民民主党', re.compile(r'国民民主党')),
+]
+# 主体性が薄く merge gate のシグナルにならない汎用語
+_MERGE_ENTITY_STOP = {
+    'ニュース', '速報', '最新', '話題', '注目', '動画', '写真', '記事', '中継',
+    '動向', '影響', '情勢', '問題', '対応', '状況', '関係', '活動', '実施', '開催',
+    '発表', '報告', '内容', '結果', '方針', '対策', '検討', '確認', '実現', '推進',
+    '強化', '改善', '整備', '支援', '提供', '拡大', '展開', '継続', '協力', '連携',
+    '取り組み', '見通し', '増加', '減少', '上昇', '下落', '変化', '今後', '今回',
+    '課題', '議論', '対立', '会議', '調査', '研究', '報道', '声明', '決定',
+    '方向', '制度', '政策', '関連', '情報', '開始', '終了',
+    '社会', '世界', '政府', '当局', '地域', '国内', '海外',
+    # 短すぎて識別力ない英語汎用語
+    'AI', 'IT', 'EC', 'PC', 'PR', 'GDP', 'CEO', 'CTO', 'COO', 'CFO',
+    'The', 'This', 'That', 'News', 'Update',
+}
+
+
+def extract_merge_entities(text: str) -> set:
+    """トピックマージ判定用のエンティティ抽出 (固有名詞のみ・シンプル)。
+
+    重複していれば「同じ事件の可能性」、なければ「別事件」と判断するためのシグナル。
+    PO 指示「混入 > 分裂」を守るため、policy ワード (関税/政策/制度 等) は意図的に拾わない。
+    返す集合は SYNONYMS 正規化済み。
+    """
+    if not text:
+        return set()
+    cleaned = re.sub(r'\s*[|｜].*$', '', str(text))
+    cleaned = re.sub(r'^【[^】]*】', '', cleaned)
+    entities = set()
+    # ENTITY_PATTERNS canonical (米国/中国/トランプ/プーチン 等)
+    for pattern in ENTITY_PATTERNS:
+        if re.search(pattern, cleaned):
+            entities.add(pattern.split('|')[0])
+    # 補完: ENTITY_PATTERNS に無い国名/政党などの漢字固有名詞
+    for canonical, regex in _MERGE_ENTITY_KANJI_SUPPLEMENT:
+        if regex.search(cleaned):
+            entities.add(canonical)
+    # カタカナ
+    for m in _MERGE_ENTITY_KATAKANA.findall(cleaned):
+        norm = SYNONYMS.get(m, m)
+        if norm not in _MERGE_ENTITY_STOP:
+            entities.add(norm)
+    # 英大文字始まり (Apple/OpenAI/NASA 等)
+    for m in _MERGE_ENTITY_LATIN.findall(cleaned):
+        if m not in _MERGE_ENTITY_STOP and len(m) >= 2:
+            entities.add(m)
     return entities
 
 
