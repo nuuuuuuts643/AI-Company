@@ -107,3 +107,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0501-SLI-MISMERGE verify_branching_quality.py 修正（全件スキャン + Jaccard シグナル強化） | Code | scripts/verify_branching_quality.py, tests/test_verify_branching.py | 2026-05-01 18:15 JST | yes |
