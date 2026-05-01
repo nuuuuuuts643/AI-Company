@@ -71,6 +71,24 @@ class KeyPointDescriptionHookTest(unittest.TestCase):
         schema = proc_ai._build_story_schema('standard')
         self.assertEqual(schema['properties']['keyPoint'].get('minLength'), 0)
 
+    def test_no_future_outlook_in_keypoint_description(self):
+        """T2026-0501-G: keyPoint description に「今後どうなりそうか」が含まれないこと。
+
+        outlook フィールドと内容重複するため keyPoint から除外した。
+        """
+        desc = self._get_kp_desc()
+        self.assertNotIn('今後どうなりそうか', desc)
+
+    def test_structural_background_in_keypoint_description(self):
+        """T2026-0501-G: 初動③が「なぜこうなったか・構造的背景」になっていること。"""
+        desc = self._get_kp_desc()
+        self.assertIn('なぜこうなったか・構造的背景', desc)
+
+    def test_outlook_role_prohibition_in_description(self):
+        """T2026-0501-G: keyPoint description に outlook の役割禁止文が含まれること。"""
+        desc = self._get_kp_desc()
+        self.assertIn('outlook の役割', desc)
+
     def test_all_modes_have_hook_description(self):
         """minimal/standard/full 全モードで同じフック型 description が含まれる。"""
         for mode in ('minimal', 'standard', 'full'):
@@ -96,6 +114,18 @@ class StoryPromptRulesHookTest(unittest.TestCase):
     def test_change_phase_4th_line_is_reader_impact(self):
         """変化フェーズの 4 文目が「読者への影響」になっていること。"""
         self.assertIn('4 文目: 読者への影響', proc_ai._STORY_PROMPT_RULES)
+
+    def test_no_future_outlook_in_rules_phase1(self):
+        """T2026-0501-G: _STORY_PROMPT_RULES の初動③が outlook と重複する文言を含まないこと。"""
+        self.assertNotIn('③ 今後どうなりそうか', proc_ai._STORY_PROMPT_RULES)
+
+    def test_structural_background_in_rules(self):
+        """T2026-0501-G: _STORY_PROMPT_RULES の初動③が「構造的背景」になっていること。"""
+        self.assertIn('③ なぜこうなったか・構造的背景', proc_ai._STORY_PROMPT_RULES)
+
+    def test_outlook_role_prohibition_in_rules(self):
+        """T2026-0501-G: 禁止（共通）に「outlook の役割」が含まれること。"""
+        self.assertIn('outlook の役割', proc_ai._STORY_PROMPT_RULES)
 
 
 class GenreHintsHookTest(unittest.TestCase):
