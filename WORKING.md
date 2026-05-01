@@ -109,4 +109,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] PR #74/#75/#76 滞留マージ | merge | - (PR squash merge のみ) | 2026-05-01 11:30 | no |
 
