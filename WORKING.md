@@ -109,4 +109,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] CI fix / causalChain フィールド同期 | Code | docs/ai-fields-catalog.md | 2026-05-01 13:00 | no |
 
