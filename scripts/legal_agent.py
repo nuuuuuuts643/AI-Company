@@ -103,7 +103,7 @@ def call_claude(prompt: str, max_tokens: int = 800) -> str:
     if not ANTHROPIC_API_KEY:
         return "(ANTHROPIC_API_KEY 未設定 → Claude呼び出しスキップ)"
     payload = json.dumps({
-        "model": "claude-opus-4-6",
+        "model": "claude-sonnet-4-6",
         "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": prompt}],
     }).encode()

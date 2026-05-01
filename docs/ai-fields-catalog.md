@@ -33,6 +33,7 @@
 | `statusLabel` | ✅ (standard/full) | ✅ (enum 矯正) | ✅ | ✅ | ✅ | ✅ chip | ✅ | T2026-0428-J/E: 発端 / 進行中 / 沈静化 / 決着 (読者向け 4 値) |
 | `watchPoints` | ✅ (standard/full) | ✅ (200字 cap) | ✅ | ✅ | ✅ | — | ✅ | T2026-0428-J/E: ① ② ③ 番号付きの観察視点 |
 | `outlook` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ 末尾 | ✅ | 文末に [確信度:高/中/低] 必須。T2026-0428-PRED で当否自動判定 |
+| `causalChain` | ✅ (standard/full) | ✅ | ✅ | ✅ | ✅ | — | ✅ | outlook の根拠。T2026-0501-OL2: 必須化（3〜6ステップの因果連鎖） |
 | `forecast` | ✅ (full のみ) | ✅ | ✅ | ⛔ `_PROC_INTERNAL` で除外 | ✅ | — | ✅ | 文末確信度ラベル必須 |
 | `perspectives` | ✅ (standard/full) | ✅ | ✅ | ✅ | ✅ | — | ✅ | 各社の懸念・着目点（並列列挙） |
 | `timeline` | ✅ (standard/full) | ✅ (max 6 / 3) | → `storyTimeline` | ⛔ `_PROC_INTERNAL` で除外 | ✅ | — | ✅ | 因果タイムライン (subfields: `date`/`event`/`transition`) |
@@ -44,7 +45,6 @@
 | `parentTopicTitle` | ✅ | ✅ (30字 cap) | ✅ | ✅ | ✅ | — | — | 親テーマ |
 | `relatedTopicTitles` | ✅ (max 3) | ✅ | ✅ | ✅ | ✅ | — | ✅ | 関連トピック |
 | `genres` | ✅ (enum array) | ✅ (validate) | ✅ + `genre` | ✅ + `genre` | ✅ + `genre` | ✅ chip | ✅ | enum 違反は除外 |
-| `summaryMode` | — (computed) | — | ✅ | ✅ | ✅ | — | (filter) | minimal/standard/full |
 
 ---
 
