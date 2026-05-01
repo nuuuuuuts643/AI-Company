@@ -107,4 +107,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] Bluesky daily投稿頻度 2.5h→8h クールタイム修正 | fix | scripts/bluesky_agent.py | 2026-05-01 14:25 | no |
