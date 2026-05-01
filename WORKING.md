@@ -11,13 +11,13 @@
 > 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**直近のPO指示** (2026-05-01): 「ルールより仕組み」「なぜなぜを先にやれ」「広範囲変更はダメ」「PR放置するな」「アドホックAPI禁止」
+**直近のPO指示** (2026-05-01): 「ルールより仕組み」「なぜなぜを先にやれ」「広範囲変更はダメ」「PR放置するな」「アドホックAPI禁止」「UX改善プロセスを回してくれ」
 
-**次のアクション**: p003-haiku 翌朝7:08am→SLI再測（keyPoint充填率 41.1% vs 70%目標）/ 3つの仕組み的対策タスク起票（local_436fe87c なぜなぜ結果）
+**次のアクション**: T2026-0501-C (continuation 0.10→改善) UX次アクションセッション起動 / p003-haiku 翌朝7:08amでPR #89 CIチェック+マージ+SLI再測
 
-**直近完了**: PR #86 マージ済(YAML→scripts/移行+lint-yaml-logic.yml) / 旧スケジューラー10件削除 / API禁止ルールCLAUDE.md追加 / なぜなぜ分析→lessons-learned.md追記完了
+**直近完了**: PR #89 提出済(keyPointフック型プロンプト改修・CI待ち) / PR #86-88 マージ済 / なぜなぜ分析→lessons-learned / CI scope-check (≥10ファイル→exit1) / Bluesky 4回/日に削減
 
-**直近 SLI**: keyPoint>=100字 充填率 **41.1%** (直近測定) — フェーズ2 完了条件 70% まで -28.9pt 残
+**直近 SLI**: keyPoint>=100字 充填率 **41.1%** (直近測定) — フェーズ2 完了条件 70% まで -28.9pt / UX continuation **0.10** (baseline 2026-05-01)
 
 **実在スケジューラー**: p003-haiku (7:08am daily, CloudWatch+GitHub only, no API) / p003-sonnet (手動のみ)
 
@@ -107,4 +107,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-B keyPoint フック型プロンプト改修 | Code | lambda/processor/proc_ai.py, tests/test_keypoint_hook_prompt.py | 2026-05-01 14:32 JST | yes |
