@@ -24,6 +24,7 @@
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
 | T2026-0502-G | 🔴 最優先 | **fetcher Lambda 停止 — ニュース取得が 2h 以上 0 件 / topics.json が 407 分 (6.7h) stale = ユーザーに古い情報を見せ続けている**。鮮度モニタ + fetcher-health-check.yml が 3 連続 failure。CloudWatch メトリクス `FetcherSavedArticles` と Lambda 実行ログを確認 → 根本原因特定 → 恒久対処（リトライ・タイムアウト・依存サービス障害切り分け）。完了条件: topics.json 鮮度 < 90 分 + fetcher-health-check.yml 連続 success 2 回。Verified-Effect: 鮮度モニタ run が success に戻る | `lambda/fetcher/handler.py` + CloudWatch 調査 | 2026-05-02 |
+| T2026-0502-O | 🟡 高 (PO承認待ち) | **AWS IAM Deny ポリシー追加 (思想ルールの物理化)** — Cowork IAM ユーザー (`arn:aws:iam::946554699567:user/Claude`) に以下 Deny を追加: `lambda:UpdateFunctionCode` `lambda:DeleteFunction` `dynamodb:DeleteTable` `dynamodb:DeleteBackup` `s3:DeleteBucket` `ec2:TerminateInstances` `rds:DeleteDBInstance` `iam:DeletePolicy` `iam:CreateAccessKey`。CLAUDE.md「思想ルール (Cowork は不可逆操作禁止)」を IAM 物理ルールに変換。完了条件: `aws lambda update-function-code` を Cowork から試して AccessDenied 確認。Verified-Effect: AccessDenied で reject されるログ。**PO 承認 + AWS Console 操作必要**（私が直接実行は危険）。policy 文書: `docs/rules/cowork-aws-policy.md` Section 4 | AWS IAM Console (Cowork ユーザー policy) | 2026-05-02 |
 
 ### フェーズ1 完了条件タスク（2026-04-28 PM 完了）
 
