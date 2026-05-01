@@ -1,8 +1,0 @@
-# Flotopic Security Policy (RFC 9116)
-# 脆弱性報告ルートを明示し、悪意ある探索者ではなく善意の研究者・bug bounty hunter
-# が SNS 公開などより先に運営者へ連絡できるようにします。
-Contact: mailto:contact@flotopic.com
-Expires: 2027-12-31T23:59:59Z
-Preferred-Languages: ja, en
-Canonical: https://flotopic.com/.well-known/security.txt
-Policy: https://flotopic.com/privacy.html
