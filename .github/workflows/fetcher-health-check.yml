@@ -14,7 +14,10 @@ name: Fetcher health (連続2h 0件保存検知)
 
 on:
   schedule:
-    - cron: '23 * * * *'   # 毎時 23 分 UTC（他の workflow と被らない時刻）
+    # 15 分ごと、ただし JST 23-07（UTC 14-21）は コアタイム のため除外
+    # 検知レイテンシ最大 60 分 → 最大 15 分に短縮（gen_dispatch_prompt.sh のコアタイム定義準拠）
+    # freshness-check (07,22,37,52) と被らないよう 8 分オフセット
+    - cron: '8,23,38,53 0-13,22-23 * * *'
   workflow_dispatch:
 
 permissions:
