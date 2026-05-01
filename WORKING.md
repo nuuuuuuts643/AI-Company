@@ -13,14 +13,12 @@
 
 **直近のPO指示** (2026-05-01): 「継続対応して」
 
-**Dispatch確認** (2026-05-01現在):
-- PR#102: 0ファイル差分 (rebase後no-op)、PR File Conflict Guard 失敗 → **Close推奨**
-- PR#100: 全CI green ✅ → Squash merge ready (proc_ai.py keyPoint③修正)
-- PR#101: 全CI green ✅ → Squash merge ready (DynamoDB fix)
-- PR#99: 思想ドリフト CI failure → 調査必要
-- PR#103: Close済 (未merge)、feat/T2026-0501-K-keypoint-fewshot ブランチに変更残存 → rebase後再PR必要
+**Cowork完了** (2026-05-01):
+- T2026-0501-K: `_build_keypoint_genre_hint()` にエンタメ/テクノロジー◎例追加 + テスト修正 → PR#104 作成済、CI走行中
+- PR#102: Close推奨 (0ファイル差分)
+- PR#100/#101: CI green ✅ → Squash merge ready
 
-**次のアクション**: PO確認後 → PR#102 close → #100 Squash merge → #101 Squash merge → #103 rebase再PR (Codeセッション)
+**次のアクション**: PR#102 close → #100 Squash merge → #101 Squash merge → PR#104 CI green確認後 Squash merge。翌朝p003-haiku → SLI確認。
 
 **実在スケジューラー**: p003-haiku (7:08am daily, CloudWatch+GitHub only) / p003-sonnet (手動のみ)
 
