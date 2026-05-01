@@ -195,6 +195,32 @@ _GENRE_IMPACT_TARGETS = {
 }
 
 
+# T2026-0501-KPG: ジャンル別の keyPoint 角度ヒント。
+# 背景: 2026-05-01 UX 計測 (docs/ux-scores.md) で keyPoint>=100字 充填率がジャンル間で
+# 大きく乖離: 健康 0% (0/7) / テクノロジー 12.5% (2/16) / 株・金融 76.5% (13/17)。
+# keyPoint の system prompt は「初動 3 要素 / 変化 4 文構成」のテンプレを与えているが、
+# どの「角度」(数字・対立・性能差・有効率 等) が読者にとってのキーかはジャンル依存。
+# `_GENRE_TITLE_HINTS` と同じく「軸を出すための切り口」を 1 行で与え、
+# `_build_keypoint_genre_hint(genre)` 経由で user prompt に挿入する。
+# system prompt は変更しないため prompt cache は維持される (T2026-0428-AJ 設計を踏襲)。
+_GENRE_KEYPOINT_HINTS = {
+    '政治':         '票差・支持率変動・政策決定のスピード・与野党の対立軸を keyPoint の中心数値/固有名詞に据える',
+    'ビジネス':     '業績インパクト・市場シェア・買収/提携・売上前年比 を keyPoint の中心数値/固有名詞に据える',
+    '株・金融':     '価格%変動・予想とのギャップ・出来高・市場の織り込み を keyPoint の中心数値/固有名詞に据える',
+    'テクノロジー': '性能差 (既存比)・採用速度・規制リスク・競合製品名 を keyPoint の中心数値/固有名詞に据える',
+    '科学':         '発見の意外性・既存学説への影響・実用化の時間軸 を keyPoint の中心数値/固有名詞に据える',
+    '健康':         '有効率・副作用率・対象患者数・既存治療との比較・保険適用の有無 を keyPoint の中心数値/固有名詞に据える',
+    '国際':         '対立軸・力学変化・経済波及 (為替/サプライチェーン)・周辺国の反応 を keyPoint の中心数値/固有名詞に据える',
+    '社会':         '当事者の状況・影響範囲 (件数/世帯)・行政対応の遅速 を keyPoint の中心数値/固有名詞に据える',
+    'スポーツ':     '記録・タイトル獲得確率・ライバル関係・賞金/契約金 を keyPoint の中心数値/固有名詞に据える',
+    'エンタメ':     '話題性・興行成績・反響規模・関係者の反応 を keyPoint の中心数値/固有名詞に据える',
+    'くらし':       '対象世帯数・コスト変動 (月額/年額)・行政の対応時期 を keyPoint の中心数値/固有名詞に据える',
+    'グルメ':       '価格・予約難易度 (倍率)・行列規模・独自性 を keyPoint の中心数値/固有名詞に据える',
+    'ファッション': 'トレンド・価格帯・ブランド戦略・販売数 を keyPoint の中心数値/固有名詞に据える',
+    '総合':         '事実の意外性・連鎖反応・予想とのギャップ を keyPoint の中心数値/固有名詞に据える',
+}
+
+
 # T2026-0501-C: ジャンル別の角度ヒント。将来ジャンル別プロンプト分岐の足場。
 # 現状は単一プロンプト本体に追加注入する形。新ジャンルを増やすときはここに 1 行追加。
 _GENRE_TITLE_HINTS = {
@@ -382,6 +408,36 @@ _GENRES_PROMPT = (
     '「日米首脳会談」→ 国際 (相手国動向が中心) または 政治 (日本側政策決定が中心) を主語で判定。\n'
     '- 主題と関係ないジャンルは混ぜない (例: 米中外交トピックに『スポーツ』を付けない)。\n\n'
 )
+
+
+def _build_keypoint_genre_hint(genre):
+    """T2026-0501-KPG: genre に応じた keyPoint 角度ヒントを user prompt に注入。
+
+    背景: ux-scores.md の keyPoint>=100字 充填率がジャンル間で大きく乖離していた
+    (健康 0% / テクノロジー 12.5% / 株・金融 76.5%)。system prompt の「初動 3 要素 /
+    変化 4 文構成」テンプレは構造を与えているが、どの「角度」(数字・対立・有効率 等)
+    に踏み込むべきかはジャンル依存のため、汎用テンプレでは健康/テックの数字踏み込みが弱くなる。
+
+    本関数はユーザープロンプトに「ジャンル別の中心数値/固有名詞ヒント」を 1 ブロック追加する。
+    `_SYSTEM_PROMPT` (cache 対象) は変更しないため prompt cache は維持される。
+    `_build_perspective_actor_hint` / `_build_outlook_actor_hint` と同じ設計パターン。
+
+    Args:
+        genre: トピックの主ジャンル文字列 (例: '政治', '健康')。None or 未知は『総合』扱い。
+
+    Returns:
+        str: ユーザープロンプトに直結するブロック。空文字を返さず必ず 1 ブロック返す。
+    """
+    hint = _GENRE_KEYPOINT_HINTS.get(genre or '', _GENRE_KEYPOINT_HINTS['総合'])
+    return (
+        '【keyPoint 角度ヒント (T2026-0501-KPG)】★必ず従うこと\n'
+        f'このトピックは【{genre or "総合"}】系。汎用テンプレ (初動3要素 / 変化4文構成) を守りつつ、\n'
+        f'  → このジャンルでは: {hint}\n'
+        '★ 上記の「中心数値/固有名詞」を keyPoint 1 文目もしくは 2 文目に必ず織り込むこと。\n'
+        '★ 「動向に注目」「影響が懸念される」「今後の展開が焦点」のような数字なし汎用文は禁止。\n'
+        '★ 記事内に該当の数字/固有名詞がない場合は「(記事内に明示なし)」と書き、捏造はしない。\n'
+        '\n'
+    )
 
 
 def _build_perspective_actor_hint(genre):
@@ -1062,10 +1118,13 @@ def _generate_story_minimal(articles: list, genre: str | None = None) -> dict | 
     outlook_actor_hint = _build_outlook_actor_hint(genre)
     # T2026-0501-OL2: 波及先マッピング + 因果連鎖深度 + causalChain 必須化 hint。
     causal_outlook_hint = _build_causal_outlook_hint(genre)
+    # T2026-0501-KPG: ジャンル別 keyPoint 角度ヒント (健康/テックの kp≥100% 低迷対策)。
+    keypoint_genre_hint = _build_keypoint_genre_hint(genre)
     prompt = (
         f'【今回のモード: minimal (記事 {cnt} 件)】\n'
         + schema_hint
         + keypoint_phase_hint
+        + keypoint_genre_hint
         + perspective_actor_hint
         + outlook_actor_hint
         + causal_outlook_hint
@@ -1197,12 +1256,15 @@ def _generate_story_standard(articles: list, cnt: int, genre: str | None = None)
     outlook_actor_hint = _build_outlook_actor_hint(genre)
     # T2026-0501-OL2: 波及先マッピング + 因果連鎖深度 + causalChain 必須化 hint。
     causal_outlook_hint = _build_causal_outlook_hint(genre)
+    # T2026-0501-KPG: ジャンル別 keyPoint 角度ヒント。
+    keypoint_genre_hint = _build_keypoint_genre_hint(genre)
     prompt = (
         f'【今回のモード: standard (記事 {cnt} 件)】\n'
         'phase は「拡散 / ピーク / 現在地 / 収束」のみ (発端は禁止)。timeline は最大3件。\n'
         'forecast は schema に存在しないため出力しない (full モードのみ)。\n'
         # T-keypoint-prompt (2026-04-30): 記事 2 件以上は変化フェーズ。
         '【keyPoint のフェーズ判定】記事 2 件以上 = 変化フェーズ → 4 文構成（1文目=今回の変化 / 2文目=以前の状況 / 3文目=追加情報 / 4文目=意味・今後）。1 文目で「何が変わったか」を必ず明示する。書けない場合は空文字を返す。\n\n'
+        + keypoint_genre_hint
         + perspective_actor_hint
         + outlook_actor_hint
         + causal_outlook_hint
@@ -1266,6 +1328,8 @@ def _generate_story_full(articles: list, cnt: int, genre: str | None = None) -> 
     outlook_actor_hint = _build_outlook_actor_hint(genre)
     # T2026-0501-OL2: 波及先マッピング + 因果連鎖深度 + causalChain 必須化 hint。
     causal_outlook_hint = _build_causal_outlook_hint(genre)
+    # T2026-0501-KPG: ジャンル別 keyPoint 角度ヒント。
+    keypoint_genre_hint = _build_keypoint_genre_hint(genre)
     prompt = (
         '【最重要: 必ず守ること】\n'
         '1. keyPoint は必ずフェーズ判定に従って書く（記事1件=初動3要素 / 2件以上=変化4文構成）。\n'
@@ -1281,6 +1345,7 @@ def _generate_story_full(articles: list, cnt: int, genre: str | None = None) -> 
         'forecast は必ず出力する (確信度タグ必須)。\n'
         # T-keypoint-prompt (2026-04-30): 記事 2 件以上は変化フェーズ。
         '【keyPoint のフェーズ判定】記事 2 件以上 = 変化フェーズ → 4 文構成（1文目=今回の変化 / 2文目=以前の状況 / 3文目=追加情報 / 4文目=意味・今後）。1 文目で「何が変わったか」を必ず明示する。書けない場合は空文字を返す。\n\n'
+        + keypoint_genre_hint
         + perspective_actor_hint
         + outlook_actor_hint
         + causal_outlook_hint
