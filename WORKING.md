@@ -109,4 +109,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0501-E ジャンル別 keyPoint angle hint 注入 (健康/テック kp≥100% 0%/12.5% 改善) | AI品質 | projects/P003-news-timeline/lambda/processor/proc_ai.py, projects/P003-news-timeline/tests/test_keypoint_genre_hint.py | 2026-05-01 12:30 | yes |
 
