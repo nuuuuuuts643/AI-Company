@@ -109,4 +109,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0501-F ジャンル誤分類調査 + 人名略称制約追加 | バグ修正+品質 | projects/P003-news-timeline/lambda/processor/proc_ai.py, projects/P003-news-timeline/lambda/fetcher/*.py (genre logic) | 2026-05-01 10:00 | yes |
 
