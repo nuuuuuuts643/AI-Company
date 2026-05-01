@@ -464,6 +464,12 @@ _KEYPOINT_MIN_CHARS = 100
 _PERSPECTIVES_MIN_CHARS = 80
 _WATCHPOINTS_MIN_CHARS = 80   # ① 〇〇 ② △△ の 2 項目分 (各 40 字目安) の合計
 _OUTLOOK_MIN_CHARS = 60
+# T2026-0501-D (2026-05-01): retry 専用 keyPoint minLength。メイン schema は PO 指示で
+# minLength=0 を維持するが、retry は「初回生成が <100 字で再要求」という強い文脈のため
+# 最低 60 字を物理ガード (SLI keyPoint>=50字 閾値 + 10字バッファ)。
+# 旧設計 (minLength=0) では Tool Use API がスキーマ強制を効かせず、retry も短文を返し続け
+# 本番 SLI で keyPoint>=50字 充填率 38.6% で停滞 → 物理ガードで構造解消する。
+_KEYPOINT_RETRY_MIN_CHARS = 60
 
 
 def _keypoint_too_short(s) -> bool:
@@ -678,14 +684,25 @@ def _retry_short_keypoint(articles: list, cnt: int, mode: str,
         f'【元の (短すぎた) keyPoint】\n{original_keypoint}\n\n'
         f'【記事情報 ({cnt} 件)】\n{headlines}\n'
     )
+    # T2026-0501-D (2026-05-01): retry schema を `minLength: 60` で物理ガード化。
+    # 旧設計 (minLength: 0) では Tool Use API のスキーマ強制が効かず、retry でも
+    # 10〜30 字の短文が返り続けて SHORT_FALLBACK で永続化される構造的バグがあった。
+    # 本番 SLI で keyPoint>=50字 充填率 38.6% (228 件中 88 件) で停滞 (2026-05-01 朝)。
+    # 60 字 = SLI 警告閾値 (50 字) + 10 字バッファ。outlook (_OUTLOOK_MIN_CHARS=60)、
+    # perspectives (80)、watchPoints (80) と同じ物理ガード方式。
+    # メイン schema の minLength=0 は PO 指示「書けない場合は生成しない」物理化のため維持
+    # (test_keypoint_retry.SchemaMinLengthTest で landing 検証済)。retry は
+    # 「すでに不十分と判断した topic に対する強化リクエスト」のため軟化文言は不要。
     schema = {
         'type': 'object',
         'properties': {
             'keyPoint': {
                 'type': 'string',
-                'minLength': 0,
-                'description': 'トピックの注目ポイントを 100 字以上で具体的に書く。空文字は許容するが、'
-                               '書ける場合は必ず 100 字以上で固有名詞・数字を含める。',
+                'minLength': _KEYPOINT_RETRY_MIN_CHARS,
+                'description': f'トピックの注目ポイントを {_KEYPOINT_MIN_CHARS} 字以上で具体的に書く。'
+                               f'最低 {_KEYPOINT_RETRY_MIN_CHARS} 字必須 (物理ガード)。'
+                               '固有名詞・数字・変化を含めること。一般論・抽象論・'
+                               '「〜が注目される」「動向に注目」のような曖昧表現は禁止。',
             },
         },
         'required': ['keyPoint'],
