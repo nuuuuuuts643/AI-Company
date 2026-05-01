@@ -112,6 +112,7 @@
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
 | ~~T2026-0428-AV~~ | ~~中~~ | ~~**トピックカードに注目スコアを表示する**~~ → **2026-05-01 確認: 既に実装済 (T2026-0501-A 数値表示 + T2026-0429-A 5段階縦バーメーター双方が `frontend/app.js:382, :469` でカードに landing 済)** | `frontend/app.js`, `frontend/style.css` | 2026-04-28 |
+| ~~T2026-0501-D2~~ | ~~🟡 中~~ | ~~**UXスコア info_density 改善 (watchPoints metric再定義 + カード表示)**~~ → **2026-05-01 PR #91 提出済** — `scripts/ux_check.sh` info_density を velocityScore件数 → watchPoints≥30字カバレッジ% に再定義 (5%→0 / 70%→1)。`app.js` カードに watchPoints先頭55字スニペット表示追加、`style.css` `.card-watch-hint` スタイル追加。CI 待ち → green になり次第マージ。 | scripts/ux_check.sh, projects/P003-news-timeline/frontend/app.js, projects/P003-news-timeline/frontend/style.css | 2026-05-01 |
 | ~~T2026-0430-UX~~ | 中 | ~~**ユーザー体験ベースのUI/UX検証仕組み化** — 現在は SLI 数値（keyPoint 充填率・perspectives 等）のみ評価しているが、「実際にユーザーが使いやすいか」は数値だけでは測れない。①モバイル（375px）でのタップ操作・スクロール・情報読み取りのしやすさを定期スクリーンショット＋目視評価、②トピック読了後の次導線（関連トピック・catchup）がユーザーに見えているか確認、③ABテスト的に「新機能実装前後のファーストビュー変化」を記録するルールを追加。実装案: `scripts/ux_check.sh` がモバイルUAで本番URL 5ページを curl + html2text して情報密度を定量評価 → weekly report として Slack 通知。 | scripts/ux_check.sh 新設, .github/workflows/ux-check.yml 新設 | 2026-04-30 |~~ → **DONE 2026-05-01** scripts/ux_check.sh + ux-check.yml landing。baseline UXスコア 2.31/5 (kp_density 0.42 / response 1.0 が高得点 / info_density 0.11 / child_density 0.15 / continuation 0.10 が伸びしろ)。週次月曜 07:30 JST cron で docs/ux-scores.md に append、Slack に前週比通知。|
 
 ### 安定性・運用
