@@ -109,5 +109,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-G outlook プロンプト抜本改修 (視点+条件付き予想) | feat | projects/P003-news-timeline/lambda/processor/proc_ai.py, projects/P003-news-timeline/tests/test_title_prompt_quality.py | 2026-05-01 11:15 | yes |
+| [Code] PR #74/#75/#76 滞留マージ | merge | - (PR squash merge のみ) | 2026-05-01 11:30 | no |
 

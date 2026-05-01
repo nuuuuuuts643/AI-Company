@@ -132,6 +132,15 @@ jobs:
           python3 scripts/check_decimal_wrap.py
           python3 -m unittest scripts.test_decimal_wrap -v
 
+      - name: 分岐品質スクリプトの単体テスト (T2026-0501-E)
+        run: |
+          # verify_branching_quality.py の純粋関数 (collect_branched_pairs /
+          # evaluate_pair / evaluate_branching) を fixture で検証する。
+          # T2026-0501-E: sample=4 で 1 件の差で fb=25%/fm=75% 揺れる誤 FAIL を
+          # SKIP_SMALL_SAMPLE で抑制したため、判定切替を壊さないように物理ガード。
+          echo "=== verify_branching_quality 単体テスト ==="
+          python3 -m unittest scripts.test_verify_branching_quality -v
+
       - name: 危険パターン検出
         run: |
           echo "=== 危険パターン検出 ==="
