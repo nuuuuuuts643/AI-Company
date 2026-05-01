@@ -474,6 +474,10 @@ function renderTopicCard(t, i) {
     ? `<div class="velocity-meter" data-level="${velLevel}" role="img" aria-label="勢い 5段階中 ${velLevel}" title="勢いスコア ${velocity.toFixed(1)}">${'<span class="vm-tick"></span>'.repeat(5)}</div>`
     : '';
 
+  // 注目ポイント (T2026-0501-D2): watchPoints>=30字 があれば先頭55字をカードに表示
+  const _wp = ((t.watchPoints || '').trim());
+  const watchHint = _wp.length >= 30 ? _wp.slice(0, 55) + (_wp.length > 55 ? '…' : '') : '';
+
   // 分岐ストーリーバー（親トピックのみ）
   const childTopics = Array.isArray(t.childTopics) ? t.childTopics : [];
   const storyBarHtml = childTopics.length > 0
@@ -499,6 +503,7 @@ function renderTopicCard(t, i) {
           ${velMeterHtml}
           <h3>${esc(t.topicTitle || t.generatedTitle || stripMediaSuffix(t.title))}</h3>
           ${t.latestUpdateHeadline ? `<p class="card-update-headline">${esc(t.latestUpdateHeadline)}</p>` : ''}
+          ${watchHint ? `<p class="card-watch-hint">👁 ${esc(watchHint)}</p>` : ''}
           ${renderCardMeta(t)}
           ${renderReliabilitySignal(t)}
         </div>
