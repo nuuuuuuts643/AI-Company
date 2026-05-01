@@ -263,6 +263,58 @@ class SchemaMinLengthTest(unittest.TestCase):
         self.assertEqual(schema['properties']['keyPoint'].get('minLength'), 0)
 
 
+class RetrySchemaMinLengthTest(unittest.TestCase):
+    """T2026-0501-D (2026-05-01): retry 専用 schema は minLength=60 で物理ガード化。
+
+    メイン schema の minLength=0 は PO 指示「書けない場合は生成しない」維持。
+    retry schema は「初回が <100 字で再要求」という強い文脈のため、Tool Use API で
+    最低文字数を物理強制する。これにより本番 SLI keyPoint>=50字 充填率 38.6% 停滞の
+    構造的バグ (retry でも 10〜30 字を返し続け SHORT_FALLBACK で永続化) を解消する。"""
+
+    def test_retry_min_chars_constant_value(self):
+        """_KEYPOINT_RETRY_MIN_CHARS = 60 (SLI 警告閾値 50 + 10 字バッファ)。"""
+        self.assertEqual(proc_ai._KEYPOINT_RETRY_MIN_CHARS, 60)
+
+    def test_retry_min_chars_matches_outlook(self):
+        """retry minLength は outlook (60) と同じ値 = 「短すぎないが書ける範囲」の共通閾値。"""
+        self.assertEqual(proc_ai._KEYPOINT_RETRY_MIN_CHARS, proc_ai._OUTLOOK_MIN_CHARS)
+
+    def test_retry_calls_claude_with_minlength_schema(self):
+        """_retry_short_keypoint は keyPoint.minLength=60 を含む schema で _call_claude_tool を呼ぶ。"""
+        captured = {}
+
+        def _capture(*args, **kwargs):
+            # _call_claude_tool(prompt, tool_name, input_schema, ...)
+            captured['schema'] = args[2] if len(args) >= 3 else kwargs.get('input_schema')
+            return {'keyPoint': _RETRY_LONG_KP}
+
+        with mock.patch('proc_ai._call_claude_tool', side_effect=_capture):
+            proc_ai._retry_short_keypoint(_DUMMY_ARTICLES, cnt=3, mode='standard',
+                                          original_keypoint=_SHORT_KP)
+        self.assertIn('schema', captured)
+        kp_schema = captured['schema']['properties']['keyPoint']
+        self.assertEqual(
+            kp_schema.get('minLength'),
+            proc_ai._KEYPOINT_RETRY_MIN_CHARS,
+            'retry schema は keyPoint.minLength=_KEYPOINT_RETRY_MIN_CHARS で物理ガードする',
+        )
+
+    def test_retry_schema_description_drops_softening(self):
+        """retry description から「空文字は許容するが」軟化文言が除去されていること。"""
+        captured = {}
+
+        def _capture(*args, **kwargs):
+            captured['schema'] = args[2] if len(args) >= 3 else kwargs.get('input_schema')
+            return {'keyPoint': _RETRY_LONG_KP}
+
+        with mock.patch('proc_ai._call_claude_tool', side_effect=_capture):
+            proc_ai._retry_short_keypoint(_DUMMY_ARTICLES, cnt=3, mode='standard',
+                                          original_keypoint=_SHORT_KP)
+        desc = captured['schema']['properties']['keyPoint'].get('description', '')
+        self.assertNotIn('空文字は許容', desc, 'retry では空文字許容の軟化文言を出さない')
+        self.assertNotIn('書ける場合は', desc, 'retry では「書ける場合は」エスケープ文言を出さない')
+
+
 class PromptHardRequirementTest(unittest.TestCase):
     """_SYSTEM_PROMPT / _STORY_PROMPT_RULES にフェーズ判定とハード要件の文言が含まれていること。"""
 
