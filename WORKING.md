@@ -11,17 +11,16 @@
 > 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**直近のPO指示** (2026-05-01): 「P003 K起動　継続対応して」
+**直近のPO指示** (2026-05-01): 「継続対応して」
 
-**Code Sonnet 完了** (2026-05-02 00:00 JST):
-- T2026-0501-K: エンタメ/テクノロジー◎例差し替え + _GENRE_KEYPOINT_HINTS整合 + 事実羅列型✗例追加
-- T2026-0501-G: keyPoint③「なぜこうなったか・構造的背景」修正統合 (PR#100内容)
-- PR#102 rebase完了 (main整合・Squash merge可能)
-- PR#100 rebase完了 (main整合・Squash merge可能)
-- PR#101 rebase完了 (main整合・Squash merge可能)
-- 全84テスト PASS / feat/T2026-0501-K-keypoint-fewshot push済み (PR#103更新)
+**Dispatch確認** (2026-05-01現在):
+- PR#102: 0ファイル差分 (rebase後no-op)、PR File Conflict Guard 失敗 → **Close推奨**
+- PR#100: 全CI green ✅ → Squash merge ready (proc_ai.py keyPoint③修正)
+- PR#101: 全CI green ✅ → Squash merge ready (DynamoDB fix)
+- PR#99: 思想ドリフト CI failure → 調査必要
+- PR#103: Close済 (未merge)、feat/T2026-0501-K-keypoint-fewshot ブランチに変更残存 → rebase後再PR必要
 
-**次のアクション**: PR#102 → #100 → #101 の順でSquash merge。PR#103はその後。翌朝p003-haiku → SLI確認。
+**次のアクション**: PO確認後 → PR#102 close → #100 Squash merge → #101 Squash merge → #103 rebase再PR (Codeセッション)
 
 **実在スケジューラー**: p003-haiku (7:08am daily, CloudWatch+GitHub only) / p003-sonnet (手動のみ)
 
@@ -111,4 +110,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T2026-0501-K _build_keypoint_genre_hint◎例追加 | Cowork | proc_ai.py, test_keypoint_retry.py | 2026-05-01 00:10 | yes |
