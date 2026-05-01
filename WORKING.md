@@ -11,16 +11,17 @@
 > 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**直近のPO指示** (2026-05-01 夜): 「ルール守って動いてくれたらいい」「結果確認して改善すすめてほしい」
+**直近のPO指示** (2026-05-01): 「セッション起動プロンプトを仕組みにして欲しい」「ルール守って動いてくれたらいい」
 
-**p003-sonnet 完了** (2026-05-01 22:11 JST):
-- SLI実測: keyPoint>=100字 **61.5% (139/226)**（前回 35.7% → +25.8pt 大幅改善）/ storyPhase発端 0.0% ✅ / 新トピック 299件（+86件増加中）
-- T258/T262 完了化・T2026-0501-K（keyPoint few-shot 改善）追加
-- 70% 目標まで残り 8.5pt。低迷ジャンル: エンタメ 35% / テクノロジー 37.5%
+**Cowork Dispatch 完了** (2026-05-01 深夜):
+- 実機確認 flotopic.com ✅ (Chrome MCP) / T2026-0501-I ✅完了 / T2026-0501-J ✅完了
+- gen_dispatch_prompt.sh 作成（`bash scripts/gen_dispatch_prompt.sh | pbcopy` でプロンプト自動生成）
+- dispatch-session-start.md 更新・browser確認ルール追加 / git merge + push 完了
+- keyPoint>=100字 **61.5%** (p003-sonnet 22:11 JST 実測) — 目標70%まで残り 8.5pt
 
-**次のアクション**: 次 Dispatch → T2026-0501-I か T2026-0501-K を Sonnet コードセッションで着手。翌朝 p003-haiku → CI/SLI 確認。
+**次のアクション**: T2026-0501-K (keyPoint few-shot 改善) を Sonnet コードセッションで着手。翌朝 p003-haiku(7:08) → CI/SLI確認。
 
-**実在スケジューラー**: p003-haiku (7:08am daily, CloudWatch+GitHub only, no API) / p003-sonnet (手動のみ)
+**実在スケジューラー**: p003-haiku (7:08am daily, CloudWatch+GitHub only) / p003-sonnet (手動のみ)
 
 ---
 
