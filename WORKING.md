@@ -109,5 +109,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] CI fix / causalChain フィールド同期 | Code | docs/ai-fields-catalog.md | 2026-05-01 13:00 | no |
+| [Code] T2026-0430-REV 収益計測 + なぜなぜ記録 | Code | scripts/revenue_check.sh, docs/revenue-log.md, .github/workflows/revenue-sli.yml, docs/lessons-learned.md | 2026-05-01 13:10 | yes |
 
