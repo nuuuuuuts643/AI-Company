@@ -13,7 +13,9 @@ name: 鮮度モニタ (topics.json freshness SLI)
 
 on:
   schedule:
-    - cron: '7 * * * *'   # 毎時 07 分 UTC。governance worker と被らない時刻に分散
+    # 15 分ごと、ただし JST 23-07（UTC 14-21）は コアタイム のため除外
+    # 検知レイテンシ最大 60 分 → 最大 15 分に短縮（gen_dispatch_prompt.sh のコアタイム定義準拠）
+    - cron: '7,22,37,52 0-13,22-23 * * *'
   workflow_dispatch:
 
 permissions:

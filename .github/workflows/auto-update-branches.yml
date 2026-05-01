@@ -1,0 +1,56 @@
+# main に push があったら全オープン PR ブランチを自動で最新化する。
+# 「ブランチを更新」ボタンを手動で押す必要がなくなる。
+#
+# 背景:
+#   required_status_checks.strict=true のため PR ブランチが main より古いとマージ不可になる。
+#   Cowork/Code の両セッションが並走して main に頻繁にコミットするため、
+#   PR 作成後すぐにブランチが stale になって手動更新が必要な状態が常態化していた。
+#
+# 動作:
+#   push to main → 全オープン (non-draft) PR に対して gh pr update-branch を実行。
+#   コンフリクト時はスキップして続行 (他の PR への影響なし)。
+name: Auto-update PR branches on main push
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-branches:
+    name: update open PR branches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update all open non-draft PR branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          pr_numbers=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --json number,isDraft \
+            --jq '.[] | select(.isDraft == false) | .number')
+
+          if [ -z "$pr_numbers" ]; then
+            echo "オープン PR なし、スキップ"
+            exit 0
+          fi
+
+          updated=0
+          skipped=0
+          for pr in $pr_numbers; do
+            if gh pr update-branch "$pr" --repo "${{ github.repository }}" 2>/dev/null; then
+              echo "✅ PR #$pr 更新完了"
+              updated=$((updated + 1))
+            else
+              echo "⏭️  PR #$pr スキップ (最新済み or コンフリクト)"
+              skipped=$((skipped + 1))
+            fi
+          done
+
+          echo "完了: 更新=${updated}件 スキップ=${skipped}件"
