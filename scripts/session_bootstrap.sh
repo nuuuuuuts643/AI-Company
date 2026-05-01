@@ -362,6 +362,13 @@ if [ -n "$ABSTRACT_TITLES" ]; then
   echo "     ✅ 例: 「CI 構文チェック fix」「T2026-0428-BD 形骸化 grep CI」"
   echo "     ❌ 例: 「調査」「作業」「タスク」「対応」"
 fi
+# WORKING.md 自己宣言リマインダー (T2026-0430-REV): [Code]=0 の場合、
+# このセッション自身がまだ宣言していない可能性があるため、毎回 REMIND を出す。
+# 「宣言なしで着手できない」物理ブロックはないが、見落とし率を下げる目的。
+if [ "${CODE_CONCURRENT:-0}" -eq 0 ]; then
+  echo "  📋 REMIND: WORKING.md に [Code] 行を追記してから着手すること"
+  echo "     | [Code] <タスクID> <タスク名> | Code | <変更予定ファイル> | <開始JST> | yes |"
+fi
 # Dispatch 並走ルール: [Code] が同時 2 件以上は ERROR (T2026-0428-BB)
 if [ "${CODE_CONCURRENT:-0}" -ge 2 ]; then
   echo "  ❌ ERROR: WORKING.md [Code] セッションが ${CODE_CONCURRENT} 件並走中 (≥2)"
