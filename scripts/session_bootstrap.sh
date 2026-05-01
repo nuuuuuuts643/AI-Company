@@ -87,6 +87,34 @@ else
   done
 fi
 
+# ---- 1b. broken worktree 自動クリーンアップ ----
+# gitdir ポインタが存在しないエントリを検出して削除する。
+# git worktree prune では検出できない「ポインタ先が消えた孤児」を対象とする。
+_cleanup_broken_worktrees() {
+  local wt_dir
+  wt_dir="$(git rev-parse --git-dir 2>/dev/null)/worktrees"
+  [ -d "$wt_dir" ] || return 0
+  local count=0
+  for entry in "$wt_dir"/*/; do
+    local gitdir_file="$entry/gitdir"
+    [ -f "$gitdir_file" ] || continue
+    local target
+    target=$(cat "$gitdir_file")
+    # 相対パスの場合は entry ディレクトリからの相対として解決
+    if [[ "$target" != /* ]]; then
+      target="$entry/$target"
+    fi
+    if [ ! -e "$target" ]; then
+      rm -rf "$entry"
+      count=$((count + 1))
+    fi
+  done
+  [ $count -gt 0 ] && echo "🧹 broken worktree ${count}件 自動削除"
+}
+if [ "$DRY_RUN" = "0" ]; then
+  _cleanup_broken_worktrees || true
+fi
+
 # ---- 2. sync commit & pull --no-rebase & push ----
 # rebase 系の中断を作らないため pull は merge 戦略で固定。
 #
