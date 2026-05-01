@@ -22,6 +22,25 @@ import sys
 import traceback
 from typing import Any
 
+# コールドスタート時に1回だけテーブル存在確認・作成する
+_table_initialized = False
+
+
+def _init_table() -> None:
+    global _table_initialized
+    if _table_initialized:
+        return
+    _table_initialized = True
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from _governance_check import ensure_agent_status_table_exists  # type: ignore
+        ensure_agent_status_table_exists()
+    except Exception as e:
+        print(f'[flotopic-bluesky] テーブル初期化スキップ: {e}')
+
+
+_init_table()
+
 
 def _resolve_mode(event: dict | None) -> str:
     """イベント or 環境変数から mode を解決する。"""
