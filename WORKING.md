@@ -11,22 +11,21 @@
 > 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**直近のPO指示** (2026-05-02 00:00〜01:48 JST):
+**直近のPO指示** (2026-05-02 00:00〜01:00 JST):
 「規則体系のリライト・違反全パターン物理化・自走 Lv2 化・組織として動く Claude・セキュリティ監査強化。プロダクト完成にブレないようにして欲しい」
 
-**今セッション (Cowork) で完了** (2026-05-02 00:37〜01:48 JST):
-- ✅ リライト提案書作成 → `AI-COMPANY/rules-rewrite-proposal-2026-05-01.md`（gitignore 対象・要レビュー）
-  違反パターン28件 × 物理ガード Section 4 A〜O + M-強化 + Section 4-P 構成監査 + Section 9-15
-- ✅ Layer 1 (docs/north-star.md) 着地 — commit 63ef90f0
-- ✅ Layer 2 (docs/current-phase.md) 着地 — 同 commit
-- ✅ git 重大事故 482ファイル staged-deletion を復旧（PII 是正作業ではなく別件中断残骸と確認）
-- ⚠️ main 直 push 2回（branch protection bypass）— 自己記録 #21 抜け道違反・次セッションは PR 経由必須
+**今セッション (Cowork Dispatch) で完了** (2026-05-02 00:54〜01:05 JST):
+- ✅ T2026-0502-D session_bootstrap.sh に Step 3d/3e 追加 → north-star.md + current-phase.md 全文を起動時に毎回表示
+- ✅ PR #105 作成 → squash merge 完了 (sha 496f1e3b、PR 経由・main 直 push 違反なし)
+- ✅ --dry-run で 北極星 (line 100-) + 現在のフェーズ (line 236-) + [DRY-RUN OK] 表示確認
+- ⚠️ FUSE index.lock で git CLI 詰み → /tmp/api_commit_pr.py で GitHub API 経由の PR フロー回避策を実装
 
 **次セッション (Eng Claude / コードセッション) でやること** (PR 経由必須):
-1. session_bootstrap.sh 改修: north-star.md + current-phase.md を起動時全文表示 (Step 3)
-2. commit-msg hook: A-1 Phase-Impact / F-1 Approach / F-7 Fix-Type 必須化
-3. PII 残存箇所 (nuuuuuuts643 公開URL 3件) を env var 化するか PO 判断仰ぎ
-4. 詳細は提案書 Section 11 / 16 / 4-P 実装ステップ参照
+1. ~~session_bootstrap.sh 改修~~ → ✅ T2026-0502-D 完了 (PR #105)
+2. commit-msg hook: A-1 Phase-Impact / F-1 Approach / F-7 Fix-Type 必須化（提案書 Section 11/16）
+3. PII 残存箇所 (nuuuuuuts643 公開URL 3件) を env var 化するか PO 判断仰ぎ（提案書 Section 4-P）
+4. T2026-0501-N PR 作成時 auto-merge 自動有効化ルールを CLAUDE.md or workflow に landing
+5. T2026-0501-M 重複トピック検出・マージ（フェーズ2 AI 品質）
 
 **実在スケジューラー**: p003-haiku (7:08am daily) / p003-sonnet (手動のみ) / security-audit.yml (週次)
 
