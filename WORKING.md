@@ -109,5 +109,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0430-REV 収益計測 + なぜなぜ記録 | Code | scripts/revenue_check.sh, docs/revenue-log.md, .github/workflows/revenue-sli.yml, docs/lessons-learned.md | 2026-05-01 13:10 | yes |
 
