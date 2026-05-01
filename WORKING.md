@@ -14,18 +14,18 @@
 **直近のPO指示** (2026-05-02 00:00〜01:00 JST):
 「規則体系のリライト・違反全パターン物理化・自走 Lv2 化・組織として動く Claude・セキュリティ監査強化。プロダクト完成にブレないようにして欲しい」
 
-**今セッション (Cowork Dispatch) で完了** (2026-05-02 00:54〜01:05 JST):
-- ✅ T2026-0502-D session_bootstrap.sh に Step 3d/3e 追加 → north-star.md + current-phase.md 全文を起動時に毎回表示
-- ✅ PR #105 作成 → squash merge 完了 (sha 496f1e3b、PR 経由・main 直 push 違反なし)
-- ✅ --dry-run で 北極星 (line 100-) + 現在のフェーズ (line 236-) + [DRY-RUN OK] 表示確認
-- ⚠️ FUSE index.lock で git CLI 詰み → /tmp/api_commit_pr.py で GitHub API 経由の PR フロー回避策を実装
+**今セッション (Cowork Dispatch) で完了** (2026-05-02 01:07〜01:15 JST):
+- ✅ session_bootstrap.sh 起動チェック完了 (CLAUDE.md 649bde89 / 北極星 + 現フェーズ全文確認)
+- ✅ WORKING.md 「現在着手中」テーブル空 + worktree dry-run cleanup 0件 → 並走衝突なし
+- ✅ main 直近 CI 5 件 全 success (55a2b4d / 496f1e3b ガバナンス・構文・Slack・メタガード・No inline)
+- ✅ flotopic.com SLI 実測 (topics-card.json 299件): keyPoint>=100字 **47.8%** (143/299) 前回 35.7% → +12.1pt / kp 平均長 109.0字 / aiGenerated 75.6%。フェーズ2 完了条件 70% への階段着実
+- ✅ Code 同時起動 0 件確認 → 新規コードセッション起動可能
 
-**次セッション (Eng Claude / コードセッション) でやること** (PR 経由必須):
-1. ~~session_bootstrap.sh 改修~~ → ✅ T2026-0502-D 完了 (PR #105)
-2. commit-msg hook: A-1 Phase-Impact / F-1 Approach / F-7 Fix-Type 必須化（提案書 Section 11/16）
-3. PII 残存箇所 (nuuuuuuts643 公開URL 3件) を env var 化するか PO 判断仰ぎ（提案書 Section 4-P）
-4. T2026-0501-N PR 作成時 auto-merge 自動有効化ルールを CLAUDE.md or workflow に landing
-5. T2026-0501-M 重複トピック検出・マージ（フェーズ2 AI 品質）
+**次セッション (Eng Claude / コードセッション・Sonnet・1セッション1タスク) でやること** (PR 経由必須):
+1. **T2026-0501-K** 🔴 (フェーズ2 直撃) — `_STORY_PROMPT_RULES` の keyPoint ◎例をエンタメ・テクノロジー版に差し替え。完了条件: 次回 processor 後 エンタメ/テク 各 50%+ 充填。Verified-Effect は scheduled task に委譲して PR→CI→merge→done.sh まで完結
+2. **T2026-0501-M** 🔴 (UX 直撃) — 重複トピック検出・マージ。fetcher 類似度閾値調整 or proc_storage エンティティ重複検出。完了条件: flotopic.com で同一事象が1カードに収束（目視）
+3. **T2026-0501-N** 🔴 (Dispatch運用) — `gh pr create` 後 `gh pr merge --auto --squash` ルールを CLAUDE.md or `.github/workflows/auto-merge.yml` に landing
+4. (フェーズ2 完了条件達成までフェーズ3/4/5 タスクは凍結。current-phase.md 厳守)
 
 **実在スケジューラー**: p003-haiku (7:08am daily) / p003-sonnet (手動のみ) / security-audit.yml (週次)
 
