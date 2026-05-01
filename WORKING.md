@@ -11,15 +11,14 @@
 > 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**直近のPO指示** (2026-05-01): 「セッション起動プロンプトを仕組みにして欲しい」「ルール守って動いてくれたらいい」
+**直近のPO指示** (2026-05-01): 「P003 K起動　継続対応して」
 
-**Cowork Dispatch 完了** (2026-05-01 深夜):
-- 実機確認 flotopic.com ✅ (Chrome MCP) / T2026-0501-I ✅完了 / T2026-0501-J ✅完了
-- gen_dispatch_prompt.sh 作成（`bash scripts/gen_dispatch_prompt.sh | pbcopy` でプロンプト自動生成）
-- dispatch-session-start.md 更新・browser確認ルール追加 / git merge + push 完了
-- keyPoint>=100字 **61.5%** (p003-sonnet 22:11 JST 実測) — 目標70%まで残り 8.5pt
+**Cowork Dispatch 完了** (2026-05-01 22:46 JST):
+- T2026-0501-K: keyPoint few-shot をエンタメ(降幡愛)/テクノロジー(NTT AIOWN)例に差し替え → PR #103 提出済
+- 変更: proc_ai.py + test_keypoint_retry.py (35 pass) / テスト全通過確認済
+- keyPoint>=100字 **61.5%** (直近実測) — 目標70%まで残り 8.5pt
 
-**次のアクション**: T2026-0501-K (keyPoint few-shot 改善) を Sonnet コードセッションで着手。翌朝 p003-haiku(7:08) → CI/SLI確認。
+**次のアクション**: PR #103 CI通過後マージ → 翌朝 p003-haiku(7:08) でエンタメ/テク充填率を再実測。
 
 **実在スケジューラー**: p003-haiku (7:08am daily, CloudWatch+GitHub only) / p003-sonnet (手動のみ)
 
@@ -109,4 +108,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T2026-0501-K keyPoint few-shot改善 | Cowork | lambda/processor/proc_ai.py | 2026-05-01 22:37 JST | yes |
+| [Code] T2026-0501-K keyPoint品質改善 + PR #100/#101/#102 rebase | Code | lambda/processor/proc_ai.py | 2026-05-01T23:10:00+09:00 | yes |
