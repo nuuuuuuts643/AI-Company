@@ -329,9 +329,12 @@ class PromptWorkedExampleTest(unittest.TestCase):
     """T-keypoint-prompt (2026-04-30): _STORY_PROMPT_RULES に新しい worked example が埋め込まれていること。"""
 
     def test_story_rules_contains_good_example_initial_phase(self):
+        # T-keypoint-prompt (2026-04-30): 汎用 ◎例 (政治/関税テーマ) がそのまま残ること
+        # ジャンル別◎例は _build_keypoint_genre_hint() 経由で注入するため _STORY_PROMPT_RULES は変更しない
         self.assertIn('60%の追加関税', proc_ai._STORY_PROMPT_RULES)
 
     def test_story_rules_contains_good_example_change_phase(self):
+        # T-keypoint-prompt (2026-04-30): 汎用 ◎例 (日銀利上げテーマ) がそのまま残ること
         self.assertIn('利上げ幅を0.25%から0.5%', proc_ai._STORY_PROMPT_RULES)
 
     def test_story_rules_contains_bad_example_marker(self):
@@ -393,6 +396,47 @@ class EmitKeypointMetricTest(unittest.TestCase):
             proc_ai._emit_keypoint_metric('full', '', retried=False)
         out = buf.getvalue()
         self.assertIn('len=0', out)
+
+
+class GenreKeypointExamplesTest(unittest.TestCase):
+    """T2026-0501-K: ジャンル別◎例が _build_keypoint_genre_hint() に含まれること。
+
+    エンタメ・テクノロジーは充填率が低い (35%/37.5%) ため、
+    _GENRE_KEYPOINT_EXAMPLES に worked example を追加して prompt 品質を改善した。
+    このテストでその注入を保護する。
+    """
+
+    def test_entertainment_genre_hint_contains_example(self):
+        result = proc_ai._build_keypoint_genre_hint('エンタメ')
+        self.assertIn('◎', result)
+        # 反響規模数値の例（エンタメの核心）が含まれること
+        self.assertIn('興行収入', result)
+
+    def test_entertainment_genre_hint_contains_bad_example(self):
+        result = proc_ai._build_keypoint_genre_hint('エンタメ')
+        # ×悪い例もセットで含まれること（what NOT to do）
+        self.assertIn('× 悪い例', result)
+
+    def test_technology_genre_hint_contains_example(self):
+        result = proc_ai._build_keypoint_genre_hint('テクノロジー')
+        self.assertIn('◎', result)
+        # 性能比数値の例（テクノロジーの核心）が含まれること
+        self.assertIn('消費電力', result)
+
+    def test_technology_genre_hint_contains_bad_example(self):
+        result = proc_ai._build_keypoint_genre_hint('テクノロジー')
+        self.assertIn('× 悪い例', result)
+
+    def test_other_genre_no_example_block(self):
+        # 例が用意されていないジャンルはヒント本体だけが返ること
+        result = proc_ai._build_keypoint_genre_hint('政治')
+        self.assertIn('keyPoint', result)
+        # ◎例ブロックは注入されない（ただしエラーにはならない）
+        self.assertNotIn('◎ 良い例', result)
+
+    def test_none_genre_falls_back_gracefully(self):
+        result = proc_ai._build_keypoint_genre_hint(None)
+        self.assertIn('総合', result)
 
 
 if __name__ == '__main__':
