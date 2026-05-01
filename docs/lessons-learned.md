@@ -38,6 +38,7 @@
 - 2026-04-30 AI フィールド層忘れ CI 物理ガードの landing — T249 (keyPoint / backgroundContext merge 漏れ) の構造ガードが 2 日間 ❌ で滞留していた件の解消（T256 / PR #53）
 - 2026-05-01 PR #86 22箇所一括変更がなぜなぜなし・物理ガードをすり抜けたか（PRテンプレ条件分岐の穴・check_lessons_landings.sh 入口ガード不在・scope:large 検査不在）
 - 2026-05-01 監視→対処フローのギャップ（p003-haiku スケジューラー未実装・ルールテキストのみで仕組み欠落）
+- 2026-05-02 fetcher Lambda 停止 — float→DynamoDB TypeError + UnboundLocalError（`_dynamo_safe` 層防御 + `current_run_tids` 早期定義）（T2026-0502-G）
 
 ---
 
@@ -1425,4 +1426,45 @@ T2026-0501-E は「GitHub Actions YAML 内の `python3 -c` インラインロジ
 - **ルール文書 ≠ 実装 ≠ 動作確認**。「CLAUDE.md に書いた」は「仕込んだ」であって「動いている」ではない。特に人間が手で実行するスケジュールタスク・外部ツール登録は「その日に実際に動作したか」を確認するまでが１セット
 - **ゼロの状態（実装されていない）は何度でも繰り返される**。「朝 7 時チェック」という仕様は存在しても実装スクリプトが無ければ、毎日ゼロが続く。ゼロが許容される期間（「仕様段階」「検証段階」）と許容されない期間（「本番稼働」）の定義を明示する
 - **CloudWatch ログは存在しても「検知→通知→対応」がループしなければ観測可能性の意味がない**。「ログが出ている」と「朝チェックで検知している」は別の事象。SLI 周期が運用者のチェック周期より長いと、エラーが埋もれたまま次の巡回まで放置される
+
+---
+
+## fetcher Lambda 停止 — float→DynamoDB TypeError + UnboundLocalError（2026-05-02 T2026-0502-G）
+
+**起きたこと**: `topics.json` の `updatedAt` が 7h+ stale。`freshness-check.yml` / `fetcher-health-check.yml` が連続3回 failure。CloudWatch Logs を確認すると `[dynamo-batch] chunk write 失敗: Float types are not supported. Use Decimal types instead.` が 7/8 チャンクで発生し、続いて `[ERROR] UnboundLocalError: cannot access local variable 'current_run_tids'` でLambda がクラッシュ。S3 topics.json publish が一切走らず updatedAt が更新されなかった。
+
+| Why | 答え |
+|---|---|
+| **Why1** なぜ S3 publish が走らなかった？ | Lambda が `UnboundLocalError` でクラッシュしたため。`handler.py` の `if S3_BUCKET:` ブロック内で `current_run_tids` を行1072 で参照しているが、定義は行1224 以降だった |
+| **Why2** なぜ `current_run_tids` が定義前参照になったか？ | T2026-0501-F2 (lifecycle 再計算ループ) を実装した際、`current_run_tids` の使用箇所と定義箇所が離れてしまい、Python の「実行時まで未定義変数エラーは出ない」特性で単体テストなし→本番で初めて判明した |
+| **Why3** なぜ DynamoDB チャンク書き込みが 7/8 失敗していた？ | T2026-0501-H で追加された `detect_mismerge_signals` が `detail['maxGapDays'] = round(max_gap / (86400 * 1000), 1)` で Python `float` を返し、`item['mismergeDetail']` に格納後 DynamoDB に書き込もうとしたため |
+| **Why4** なぜ float が混入した？ | DynamoDB では boto3 が `float` を拒否して `Decimal` を要求するが、`detect_mismerge_signals` は DynamoDB 非依存の純粋な計算関数として実装されており、返り値型に DynamoDB の制約を意識していなかった |
+| **Why5** なぜ個別修正で済ませず恒久対処が必要か？ | T2026-0430-C でも同じ Float 問題が発生し個別修正済みだったが、新機能追加ごとに再発している。float の混入経路は「外部関数の返り値」「S3 JSON読み込み後の数値」「既存フィールドのコピー」と複数あり、個別発見→個別修正では再発を防げない。DynamoDB 書き込みパス全体に層防御が必要 |
+
+**仕組み的対策:**
+
+1. **`_dynamo_safe(obj)` 関数を DynamoDB 書き込みパスに追加** (本コミット実装済み):
+   - `handler.py` に再帰的 float→Decimal 変換関数 `_dynamo_safe` を追加
+   - `_write_dynamo_chunk` で各 item を `_dynamo_safe(it)` に通してから `put_item`
+   - これにより mismergeDetail / storyTimeline / S3 読み込み後の数値など、今後追加される任意のフィールドの float も自動変換される
+   - 実装ファイル: `projects/P003-news-timeline/lambda/fetcher/handler.py`
+
+2. **`current_run_tids` を使用箇所より前に定義** (本コミット実装済み):
+   - lifecycle ループ（T2026-0501-F2）の直前 (行~1082) で `current_run_tids = set(current_run_metas.keys())` を定義
+   - 既存の行1241 の定義（ghost除去後に更新）は velocity decay ループ用として保持
+   - 実装ファイル: `projects/P003-news-timeline/lambda/fetcher/handler.py`
+
+3. **`detect_mismerge_signals` の数値フィールドを `int` に統一**:
+   - `detail['maxGapDays']` を `round(..., 1)` (float) から `int(max_gap // 86400000)` (日数int) に変更
+   - 精度は維持しつつ float を排除。`_dynamo_safe` との二重防御
+   - 実装ファイル: `projects/P003-news-timeline/lambda/fetcher/merge_audit.py` ← **TODO: 次セッション**
+
+### 横展開チェックリスト
+
+| 対策名 | 適用対象 | 実装ファイル | 状態 |
+|---|---|---|---|
+| `_dynamo_safe` 層防御 (float→Decimal 再帰変換) | fetcher Lambda DynamoDB 書き込みパス | `projects/P003-news-timeline/lambda/fetcher/handler.py` | ✅ 本コミット |
+| `current_run_tids` 早期定義 | lifecycle 再計算ループ前 | `projects/P003-news-timeline/lambda/fetcher/handler.py` | ✅ 本コミット |
+| `detect_mismerge_signals` float排除 | mismergeDetail.maxGapDays | `projects/P003-news-timeline/lambda/fetcher/merge_audit.py` | ✅ 本コミット |
+| processor Lambda の DynamoDB 書き込みにも `_dynamo_safe` 相当を適用 | proc_storage.py の DynamoDB 書き込みパス | `projects/P003-news-timeline/lambda/processor/proc_storage.py` | ✗ 次セッション |
 
