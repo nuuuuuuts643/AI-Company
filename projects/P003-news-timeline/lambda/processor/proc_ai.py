@@ -172,6 +172,29 @@ _GENRE_READER_PERSONAS = {
 }
 
 
+# T2026-0501-OL2: ジャンル別の「波及先 (impact targets)」定義。outlook 生成で
+# 「このトピックがどこに飛び火するか」を AI に明示し、2 次・3 次の連鎖まで踏み込んだ
+# 予想を出させる。Flotopic ビジョン「情報の地図」の核 — ニュースは孤立せず、
+# 必ず別の市場・政策・社会変化に接続する。その接続先を辞書で硬く与える。
+# キーは _VALID_GENRE_SET と一致させる (フォールバックで取り出すため)。
+_GENRE_IMPACT_TARGETS = {
+    '政治':         ['内閣支持率・与党支持率', '規制対象業界・補助金対象業界', '次の選挙・解散', '予算・税制'],
+    'ビジネス':     ['業界シェア・競合企業', '仕入れコスト・サプライチェーン', '雇用・採用市場', '関連株価'],
+    '株・金融':     ['関連セクター株価', '為替 (ドル円)', '長期金利・国債', '日銀・中央銀行政策', 'TOPIX・日経平均'],
+    'テクノロジー': ['競合企業・株価', '雇用市場', '規制当局の動き', '日本企業への影響'],
+    '科学':         ['実用化タイムライン', '関連企業・投資', '規制・倫理審査'],
+    '健康':         ['医療費・保険', '製薬企業株価', '厚労省・PMDA の対応', '患者・家族への影響'],
+    '国際':         ['日本への輸出入影響', '円相場', '日系企業の海外事業', 'エネルギーコスト'],
+    'スポーツ':     ['放映権・スポンサー', '関連グッズ市場', '選手の次の動向'],
+    'エンタメ':     ['関連作品・続編', '出演者の動向', 'ストリーミング・配信市場'],
+    'くらし':       ['関連業界・小売', '家計・消費トレンド', '行政の対応'],
+    '社会':         ['関連行政の対応', '世論・SNS反応', '類似事例・横展開'],
+    'グルメ':       ['関連飲食業界', '食材生産者・卸', '消費トレンド'],
+    'ファッション': ['関連ブランド・小売', '消費トレンド', '輸入コスト'],
+    '総合':         ['関連業界・市場', '行政・自治体の対応', '世論・消費者行動'],
+}
+
+
 # T2026-0501-C: ジャンル別の角度ヒント。将来ジャンル別プロンプト分岐の足場。
 # 現状は単一プロンプト本体に追加注入する形。新ジャンルを増やすときはここに 1 行追加。
 _GENRE_TITLE_HINTS = {
@@ -471,6 +494,61 @@ def _build_outlook_actor_hint(genre):
     )
 
 
+def _build_causal_outlook_hint(genre):
+    """T2026-0501-OL2: outlook に「波及先 (impact targets) + 因果連鎖深度」を強制注入する。
+
+    既存の `_build_outlook_actor_hint` (T2026-0501-G) は読者ペルソナと視点アクターを与えるが、
+    「どこに波及するか」「2 次・3 次連鎖まで踏み込むか」は要求していない。結果として
+    1 次効果 (誰でも分かる直接影響) で止まる予想が量産されていた。
+
+    本関数は user prompt に以下を追加注入する:
+      - **波及先候補** (`_GENRE_IMPACT_TARGETS`): 経済 → 関連株/ドル円/長期金利/日銀政策 等
+      - 1 次効果は禁止・2 次/3 次の連鎖まで踏み込む指示
+      - 「もし〜なら 〈具体的数値・固有名詞〉が 〈N週/N ヶ月〉以内に〜する」構文の強制
+      - 「大胆に外れろ・無難な予想は価値ゼロ」のリスクテイク許可
+
+    `_build_outlook_actor_hint` と併用される設計 (system prompt は変更しない、cache 維持)。
+
+    Args:
+        genre: トピックの主ジャンル文字列。None or 未知は『総合』扱い。
+
+    Returns:
+        str: ユーザープロンプトに直結するブロック。空文字を返さず必ず 1 ブロック返す。
+    """
+    actors_raw = _GENRE_PERSPECTIVE_ACTORS.get(genre or '', _GENRE_PERSPECTIVE_ACTORS['総合'])
+    persona = _GENRE_READER_PERSONAS.get(genre or '', _GENRE_READER_PERSONAS['総合'])
+    impacts = _GENRE_IMPACT_TARGETS.get(genre or '', _GENRE_IMPACT_TARGETS['総合'])
+    impact_str = '・'.join(impacts[:3]) if impacts else '関連市場・政策'
+    primary_actor = actors_raw.split('/')[0].strip() if actors_raw else '専門家'
+    return (
+        '【outlook 生成ルール (T2026-0501-OL2 — 波及先マッピング + 連鎖深度)】★厳守\n'
+        f'読者は「{persona}」。その関心に直接刺さる予想を書け。\n'
+        f'視点アクター: {primary_actor} の立場で分析せよ (perspectives と同じ集合から借りる)。\n'
+        f'★波及先を必ず特定せよ (候補: {impact_str})。\n'
+        '★1 次効果 (誰でも分かる直接影響) は書くな。例: 原油高 → 「物価が上がる」は禁止。\n'
+        '★2 次・3 次の連鎖 (政策対応・市場反応・社会変化) まで踏み込め。\n'
+        '  例: 原油高 → 日銀が利上げ示唆 → 円高 1 ヶ月で 5 円振れる → 輸出企業の業績下方修正\n'
+        '★構文: 「もし〜なら 〈具体的な数値/固有名詞〉が 〈N週/N ヶ月〉以内に〜する [確信度:高/中/低]」\n'
+        '  数値 (株価/支持率/件数 pt%) / 期限 (◯月末・来週中・3ヶ月以内) / 具体的アクション (解散/買収/利下げ/利確) を必ず名指し。\n'
+        '★大胆に外れることを恐れるな。後で judge_prediction が当否を自動判定する仕組みがある。\n'
+        '  無難な「動向に注目」「見守る必要」は価値ゼロ。リスクを取って具体に踏み込んだ予想 = 高評価。\n'
+        '\n'
+        '【causalChain フィールド (必須)】\n'
+        '  outlook の根拠となる因果チェーンを 3〜6 ステップで JSON 配列として出力する。\n'
+        '  各ステップは {from, to, mechanism, confidence(0.0〜1.0)} を持つ。\n'
+        '  ★ 相関ではなく因果であること: mechanism で「なぜ from が to を引き起こすか」を経路で説明できること。\n'
+        '  ★ 第三変数による疑似相関は含めない (例: 「アイス売上が増えると溺死が増える」は気温という第三変数による疑似相関)。\n'
+        '  ★ confidence は記事根拠あり=0.8〜1.0 / 状況証拠=0.5〜0.7 / 推測=0.3〜0.4 を目安。\n'
+        '  例 (株・金融): [\n'
+        '    {"from":"FOMC で 0.25% 利下げ確定", "to":"米長期金利低下", "mechanism":"政策金利低下が長短金利に伝播", "confidence":0.85},\n'
+        '    {"from":"米長期金利低下", "to":"日米金利差縮小", "mechanism":"日米金利差は両国長期金利の差で決まる", "confidence":0.9},\n'
+        '    {"from":"日米金利差縮小", "to":"円高 (3 円ドル安)", "mechanism":"金利差縮小はキャリートレード解消で円買い圧力", "confidence":0.7},\n'
+        '    {"from":"円高", "to":"輸出企業株価下落 (日経平均 2% 下押し)", "mechanism":"円高は輸出企業の海外売上を円換算で目減りさせる", "confidence":0.65}\n'
+        '  ]\n'
+        '\n'
+    )
+
+
 def _validate_genres(raw):
     """AI が返した genres を _VALID_GENRE_SET 内に絞り込む。
     - 文字列が来たら 1 要素配列扱い
@@ -641,6 +719,28 @@ def _build_story_schema(mode: str, *, cnt: int = 1) -> dict:
         'aiSummary': {'type': 'string', 'description': '150字以内・2文構成。「何が起きたか」+「何を意味するか」。事実羅列禁止、読んだ人が結論を理解できる内容にする。人名は初出時に「肩書き＋正式名称」必須 (例: 米国のトランプ大統領 / ミャンマーの民主化指導者アウンサンスーチー氏)。略称・苗字単独・通称のみは禁止。'},
         'keyPoint': {'type': 'string', 'minLength': 0, 'description': 'トピックのフェーズ（記事数）に応じて書き方を変える。【記事1件・初動フェーズ】: ①何が起きたか（具体的事実）②なぜ重要か ③今後どうなりそうか。【記事2件以上・変化フェーズ】: 1文目=今回何が変わったか（〜が新たに判明/〜に変化）2文目=以前の状況（これまでは〜だった）3文目=今回の追加情報・具体内容 4文目=意味・今後の展開。禁止: 一般論から始める/単なる記事要約/背景説明だけで終わる/抽象的表現で逃げる/人名・組織を略称や苗字単独で書く（読者の前提知識を要求しない=情報の地図原則）。「何が変わったのか」が不明確な場合は空文字を返す（無理に生成しない）。100字以上必須（書ける場合）。人名・組織名は段落内で 1 回は「肩書き＋正式名称」で書く（例: ミャンマーの民主化指導者アウンサンスーチー氏 / 東南アジア諸国連合 (ASEAN)）。2 回目以降は略称可。'},
         'outlook': {'type': 'string', 'minLength': _OUTLOOK_MIN_CHARS, 'description': 'AI予想として「この先どうなるか」を1文で。**60 字以上 必須**。〜が予想される/〜の可能性があるで締める。文末に [確信度:高] [確信度:中] [確信度:低] のいずれかを必ず付与 (例: 「合意成立の可能性がある [確信度:中]」)。記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低。後で新記事と照合して当否判定するため、検証可能な仮説として書くこと。'},
+        # T2026-0501-OL2: outlook の根拠となる因果チェーン。情報の地図ビジョンの中核。
+        # 1 次効果で止まらず 2 次/3 次連鎖まで踏み込ませるため、構造化フィールドとして強制。
+        'causalChain': {
+            'type': 'array',
+            'description': (
+                'outlookの根拠となる因果チェーン。各ステップにfrom/to/mechanism/confidence を持つ。'
+                '相関ではなく因果であること（mechanismで経路を説明できること）を確認してから出力。'
+                '第三変数による疑似相関は含めない。3〜6ステップ推奨。'
+            ),
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'from': {'type': 'string', 'description': '原因となる出来事・状態'},
+                    'to': {'type': 'string', 'description': '結果となる出来事・状態'},
+                    'mechanism': {'type': 'string', 'description': 'なぜfromがtoを引き起こすかの経路（第三変数排除済み）'},
+                    'confidence': {'type': 'number', 'description': '0.0〜1.0 この因果リンクの確信度'},
+                },
+                'required': ['from', 'to', 'mechanism', 'confidence'],
+            },
+            'minItems': 2,
+            'maxItems': 8,
+        },
         'topicTitle': {'type': 'string', 'description': '15文字以内のテーマ名(体言止め)。具体的な固有名詞を含む。例: 岸田政権の解散戦略。'},
         'latestUpdateHeadline': {'type': 'string', 'description': '最新の動きを40文字以内の1文(〜が〜した形式)。'},
         'isCoherent': {'type': 'boolean', 'description': 'true=全記事が同一主語・同一流れ。false=異主語/異論点混在。'},
@@ -649,7 +749,9 @@ def _build_story_schema(mode: str, *, cnt: int = 1) -> dict:
         'relatedTopicTitles': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 3, 'description': '因果・波及関係にある別テーマ。'},
         'genres': {'type': 'array', 'items': {'type': 'string', 'enum': list(_VALID_GENRE_SET)}, 'minItems': 1, 'maxItems': 2},
     }
-    required = ['aiSummary', 'keyPoint', 'outlook', 'topicTitle', 'latestUpdateHeadline', 'isCoherent', 'topicLevel', 'genres']
+    # T2026-0501-OL2: causalChain は全モード必須 (outlook が必須なら根拠も必須にする)。
+    # minItems=2 で物理ガード。AI が出さなければ Tool Use API がスキーマ違反を再要求する。
+    required = ['aiSummary', 'keyPoint', 'outlook', 'causalChain', 'topicTitle', 'latestUpdateHeadline', 'isCoherent', 'topicLevel', 'genres']
 
     if mode == 'minimal':
         # minimal は timeline/watchPoints/statusLabel は無し (記事1〜2件では差分が出ない)。
@@ -701,10 +803,39 @@ def _build_story_schema(mode: str, *, cnt: int = 1) -> dict:
     }
 
 
+def _sanitize_causal_chain(raw, max_items: int = 8) -> list:
+    """T2026-0501-OL2: causalChain を検証・正規化する。
+
+    各要素は {from, to, mechanism, confidence} を必須とし、欠落 or 型違反は除外。
+    confidence は 0.0〜1.0 にクランプ。max_items を超えたら切り詰める。
+    Returns: [{from,to,mechanism,confidence}, ...]
+    """
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for step in raw[:max_items]:
+        if not isinstance(step, dict):
+            continue
+        f = str(step.get('from') or '').strip()
+        t = str(step.get('to') or '').strip()
+        m = str(step.get('mechanism') or '').strip()
+        c = step.get('confidence')
+        if not f or not t or not m:
+            continue
+        try:
+            cf = float(c)
+        except (TypeError, ValueError):
+            continue
+        cf = max(0.0, min(1.0, cf))
+        out.append({'from': f[:200], 'to': t[:200], 'mechanism': m[:300], 'confidence': cf})
+    return out
+
+
 def _normalize_story_result(result: dict, mode: str) -> dict:
     """tool_use.input を内部 dict 形式に正規化。"""
     parent_title    = result.get('parentTopicTitle')
     related_titles  = result.get('relatedTopicTitles') or []
+    causal_chain    = _sanitize_causal_chain(result.get('causalChain'))
     if mode == 'minimal':
         # T219 修正 (2026-04-28): minimal モード (記事1-2件) は phase 概念が薄い
         # → 「発端」固定はユーザーに「フェーズ機能が機能していない」誤印象を与える
@@ -723,6 +854,8 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
             # AI が出さなかった場合は None のまま (空文字列ではなく None で観測上の差を残す)。
             'perspectives':           result.get('perspectives') if isinstance(result.get('perspectives'), str) and result.get('perspectives').strip() else None,
             'outlook':                str(result.get('outlook') or '').strip(),
+            # T2026-0501-OL2: outlook の根拠となる因果チェーン (必ず array で返す。空配列もあり得る)。
+            'causalChain':            causal_chain,
             'forecast':               '',
             'timeline':               [],
             'phase':                  None,
@@ -755,6 +888,8 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
         'watchPoints':            str(result.get('watchPoints') or '').strip()[:200],
         'perspectives':           result.get('perspectives') if isinstance(result.get('perspectives'), str) else None,
         'outlook':                str(result.get('outlook') or '').strip(),
+        # T2026-0501-OL2: outlook の根拠となる因果チェーン (必ず array で返す。空配列もあり得る)。
+        'causalChain':            causal_chain,
         'forecast':               str(result.get('forecast') or '').strip() if mode == 'full' else '',
         'timeline':               _sanitize_timeline(result.get('timeline'), max_items=6 if mode == 'full' else 3),
         'phase':                  raw_phase if raw_phase in _VALID_PHASES else '現在地',
@@ -925,12 +1060,15 @@ def _generate_story_minimal(articles: list, genre: str | None = None) -> dict | 
     # T2026-0501-G: outlook は minimal mode (cnt=1 でも) 必須フィールドのため
     # 全ケースで読者ペルソナ + 視点アクター hint を注入する。
     outlook_actor_hint = _build_outlook_actor_hint(genre)
+    # T2026-0501-OL2: 波及先マッピング + 因果連鎖深度 + causalChain 必須化 hint。
+    causal_outlook_hint = _build_causal_outlook_hint(genre)
     prompt = (
         f'【今回のモード: minimal (記事 {cnt} 件)】\n'
         + schema_hint
         + keypoint_phase_hint
         + perspective_actor_hint
         + outlook_actor_hint
+        + causal_outlook_hint
         + '\n'
         f'記事情報（{cnt}件）:\n{headlines}'
         + (f'\n{media_block}' if media_block else '')
@@ -1057,6 +1195,8 @@ def _generate_story_standard(articles: list, cnt: int, genre: str | None = None)
     media_block = _build_media_comparison_block(articles, max_count=3)
     perspective_actor_hint = _build_perspective_actor_hint(genre)
     outlook_actor_hint = _build_outlook_actor_hint(genre)
+    # T2026-0501-OL2: 波及先マッピング + 因果連鎖深度 + causalChain 必須化 hint。
+    causal_outlook_hint = _build_causal_outlook_hint(genre)
     prompt = (
         f'【今回のモード: standard (記事 {cnt} 件)】\n'
         'phase は「拡散 / ピーク / 現在地 / 収束」のみ (発端は禁止)。timeline は最大3件。\n'
@@ -1065,6 +1205,7 @@ def _generate_story_standard(articles: list, cnt: int, genre: str | None = None)
         '【keyPoint のフェーズ判定】記事 2 件以上 = 変化フェーズ → 4 文構成（1文目=今回の変化 / 2文目=以前の状況 / 3文目=追加情報 / 4文目=意味・今後）。1 文目で「何が変わったか」を必ず明示する。書けない場合は空文字を返す。\n\n'
         + perspective_actor_hint
         + outlook_actor_hint
+        + causal_outlook_hint
         + f'記事情報（{cnt}件）:\n{headlines}'
         + (f'\n{media_block}' if media_block else '')
     )
@@ -1123,6 +1264,8 @@ def _generate_story_full(articles: list, cnt: int, genre: str | None = None) -> 
     media_block = _build_media_comparison_block(articles, max_count=3)
     perspective_actor_hint = _build_perspective_actor_hint(genre)
     outlook_actor_hint = _build_outlook_actor_hint(genre)
+    # T2026-0501-OL2: 波及先マッピング + 因果連鎖深度 + causalChain 必須化 hint。
+    causal_outlook_hint = _build_causal_outlook_hint(genre)
     prompt = (
         '【最重要: 必ず守ること】\n'
         '1. keyPoint は必ずフェーズ判定に従って書く（記事1件=初動3要素 / 2件以上=変化4文構成）。\n'
@@ -1131,7 +1274,8 @@ def _generate_story_full(articles: list, cnt: int, genre: str | None = None) -> 
         '4. 書けない場合は空文字 ("") を返す（無理に埋めない）。100 字未満で埋めるより空文字が良い。\n'
         '5. perspectives は 2〜3 アクターを等しく扱う (下記アクター指定参照)。1 アクターだけ詳述は禁止。論調差が薄ければ「概ね同様」と書く。\n'
         '6. outlook / forecast の文末に必ず [確信度:高] / [確信度:中] / [確信度:低] のいずれかを付ける。\n'
-        '7. ★ outlook は読者ペルソナ視点で「もし〜なら N週/Nヶ月以内に □□となる」の条件付き仮説で書く (下記 outlook 生成方針参照)。当たり障りなく観測する書き方は禁止。\n\n'
+        '7. ★ outlook は読者ペルソナ視点で「もし〜なら N週/Nヶ月以内に □□となる」の条件付き仮説で書く (下記 outlook 生成方針参照)。当たり障りなく観測する書き方は禁止。\n'
+        '8. ★ causalChain は outlook の根拠として 3〜6 ステップで必ず出力 (下記 OL2 ルール参照)。1 次効果で止まらず 2 次/3 次連鎖まで踏み込む。\n\n'
         f'【今回のモード: full (記事 {cnt} 件)】\n'
         'phase は「拡散 / ピーク / 現在地 / 収束」のみ (発端は禁止)。timeline は 3〜6 件出力。\n'
         'forecast は必ず出力する (確信度タグ必須)。\n'
@@ -1139,6 +1283,7 @@ def _generate_story_full(articles: list, cnt: int, genre: str | None = None) -> 
         '【keyPoint のフェーズ判定】記事 2 件以上 = 変化フェーズ → 4 文構成（1文目=今回の変化 / 2文目=以前の状況 / 3文目=追加情報 / 4文目=意味・今後）。1 文目で「何が変わったか」を必ず明示する。書けない場合は空文字を返す。\n\n'
         + perspective_actor_hint
         + outlook_actor_hint
+        + causal_outlook_hint
         + f'記事情報（{cnt}件・見出しと概要）:\n{headlines}'
         + (f'\n{media_block}' if media_block else '')
     )
