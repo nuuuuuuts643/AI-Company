@@ -14,25 +14,18 @@
 **直近のPO指示** (2026-05-02 00:00〜01:00 JST):
 「規則体系のリライト・違反全パターン物理化・自走 Lv2 化・組織として動く Claude・セキュリティ監査強化。プロダクト完成にブレないようにして欲しい」
 
-**今セッション (Eng Claude / Code セッション・T2026-0502-G) で完了** (2026-05-02 01:55〜02:10 JST):
-- ✅ session_bootstrap.sh + merge conflict 解消 (WORKING.md + cowork_commit.py)
-- ✅ CloudWatch Logs 調査: `[dynamo-batch] Float types are not supported` (7/8 chunks) + `UnboundLocalError: current_run_tids` の2連鎖バグを特定
-- ✅ 恒久対処実装: `_dynamo_safe(obj)` 層防御 + `current_run_tids` 早期定義 + `merge_audit.py` float排除
-- ✅ PR #114 作成 + auto-merge 設定済み。CI通過後 Lambda デプロイ → 次の 30分 cron で修復予定
-- ✅ lessons-learned.md T2026-0502-G Why1〜Why5 + 横展開チェックリスト追記
+**今セッション (Cowork Dispatch / P003 自走) で実機検証完了** (2026-05-02 08:04〜08:15 JST):
+- ✅ **T2026-0502-G 本体は復旧確認** — topics.json 鮮度 27.7分 (90分閾値内) / FetcherSavedArticles 過去3h 7datapoints (22-31件/run, sum=178件) / 30min cron 6回連続 healthy。**ユーザー被害解消 ✅**
+- ✅ PR #114 (Eng Claude 02:10 JST 実装) → auto-merge.yml により 02:06 UTC squash merge → Lambda 自動デプロイ済み
+- ⚠️ **新規発見**: freshness-check.yml + fetcher-health-check.yml が **false-failure** を返す。手動 dispatch (08:07 JST) でも再現。CloudWatch メトリクス・topics.json 共に健全だが SLI workflow が赤い → **新規 T2026-0502-A 起票** (Eng Claude エスカレーション)
+- ⚠️ p003-haiku alert: lifecycle Lambda SK FilterExpression error → **新規 T2026-0502-B 起票**
+- ✅ T2026-0501-N (auto-merge.yml) は実装済 (PR #110 merged) と確認 → TASKS.md 取消線
 
-**🔄 T2026-0502-G 完了待ち (自動デプロイ後の確認が必要):**
-- PR #114 auto-merge: CI通過後に squash merge → GitHub Actions が Lambda デプロイ
-- 次回 fetcher cron (~17:33 UTC = 02:33 JST): topics.json updatedAt が更新されるはず
-- freshness-check.yml (18:23 UTC tick) で success を確認してから done.sh T2026-0502-G を実行
-
-**⚠️ p003-haiku alert (2026-05-02 22:13 UTC)**: flotopic-lifecycle Lambda で `ValidationException: Filter Expression can only contain non-primary key attributes: Primary key attribute: SK` が直近24hで複数回発生 (handler.py:64 delete_snaps / :93 delete_old_snaps)。SK は KeyConditionExpression で指定すべきところ FilterExpression に入っている。修正タスクを TASKS.md に起票要 (他5 Lambda は ERROR ゼロ)。
-
-**次セッション (Dispatch または p003-haiku で確認後) でやること** (PR→CI→merge→done.sh 必須):
-1. **T2026-0502-G 完了確認**: `curl -s https://flotopic.com/api/topics.json | python3 -c "import json,sys,datetime;d=json.load(sys.stdin);print(d['updatedAt'])"` で updatedAt < 90分を確認 → `bash done.sh T2026-0502-G https://flotopic.com/api/topics.json`
-2. **T2026-0501-K** 🔴 (フェーズ2 直撃) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` 内 keyPoint ◎例をエンタメ + テックに差し替え
-3. **T2026-0501-M** 🔴 (UX 直撃) — 重複トピック検出・マージ
-4. **T2026-0501-N** 🔴 (Dispatch運用) — `gh pr merge --auto --squash` ルール landing
+**次セッション (Dispatch / Code 問わず) でやること**:
+1. **T2026-0502-A** 🟠 (フェーズ1 観測基盤) — Eng Claude が `gh run view --log 25237008550` / `25237009244` で SLI workflow false-failure の根本原因特定 → script 修正 PR
+2. **T2026-0502-B** 🟡 (lifecycle Lambda 健全性) — handler.py:64/:93 の SK 引数を FilterExpression → KeyConditionExpression に修正
+3. **T2026-0501-K** 🔴 (フェーズ2 直撃 = メインタスク) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` 内 keyPoint ◎例 をエンタメ + テック差し替え。**ただし T2026-0502-A 解決後に着手** (effect 検証に SLI が必須のため)
+4. **T2026-0501-M** 🔴 (UX 直撃) — 重複トピック検出・マージ。WORKING.md に [Code] 行あり (本セッション中も継続)
 5. (フェーズ2 完了条件達成までフェーズ3/4/5 タスクは凍結)
 
 **実在スケジューラー**: p003-haiku (7:08am daily) / p003-sonnet (手動のみ) / security-audit.yml (週次)
@@ -129,4 +122,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-M 重複トピック検出・マージ恒久対処 | Code | lambda/fetcher/config.py, lambda/fetcher/handler.py, lambda/fetcher/ai_merge_judge.py | 2026-05-02 JST | yes |
+| [Cowork] T2026-0502-G 実機検証 + T2026-0502-A/B 起票 (docs only) | Cowork | WORKING.md, TASKS.md, HISTORY.md | 2026-05-02 08:04 | no |
