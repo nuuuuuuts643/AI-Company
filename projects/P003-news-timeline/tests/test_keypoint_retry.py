@@ -329,10 +329,12 @@ class PromptWorkedExampleTest(unittest.TestCase):
     """T-keypoint-prompt (2026-04-30): _STORY_PROMPT_RULES に新しい worked example が埋め込まれていること。"""
 
     def test_story_rules_contains_good_example_initial_phase(self):
-        self.assertIn('60%の追加関税', proc_ai._STORY_PROMPT_RULES)
+        # T2026-0501-K: エンタメ例に差し替え (2026-05-01)
+        self.assertIn('降幡愛', proc_ai._STORY_PROMPT_RULES)
 
     def test_story_rules_contains_good_example_change_phase(self):
-        self.assertIn('利上げ幅を0.25%から0.5%', proc_ai._STORY_PROMPT_RULES)
+        # T2026-0501-K: テクノロジー例に差し替え (2026-05-01)
+        self.assertIn('AIOWN', proc_ai._STORY_PROMPT_RULES)
 
     def test_story_rules_contains_bad_example_marker(self):
         self.assertIn('悪い例', proc_ai._STORY_PROMPT_RULES)

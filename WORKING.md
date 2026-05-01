@@ -109,4 +109,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0501-K keyPoint品質改善 + PR #100/#101/#102 rebase | Code | lambda/processor/proc_ai.py | 2026-05-01T23:10:00+09:00 | yes |
 | [Cowork] T2026-0501-K keyPoint few-shot改善 | Cowork | lambda/processor/proc_ai.py | 2026-05-01 22:37 JST | yes |
