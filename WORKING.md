@@ -21,6 +21,8 @@
 
 **直近 SLI 実測 (2026-05-01 04:10 JST P003 自律巡回・公開 topics-card.json サブセット 202件)**: keyPoint>=100字 充填率 29.7% (60/202) — 04/28 ベースライン 10.02% から +19.7pt 改善 / ac>=3 サブ 36.4% (32/88) / kp 平均長 **103.8字** (04/28 43.8字 → +60字、T2026-0430-A `_retry_short_keypoint` 効果顕在化) / **storyPhase 発端率 (ac>=3) 0.0% (0/88) ✅ 完了条件 10% 未満 達成** (T2026-0429-G `normalize_minimal_phase` 効果) / aiGenerated 144件中 kp>=100字 40.3%。**フェーズ2 完了条件は keyPoint 充填率 70% のみ未達**。05:30 JST processor 実行後に再観測。
 
+**朝SLI (2026-05-01 08:04 JST `p003-sli-morning-check` scheduled)**: topics.json 228件 / stale48h=39.0%(89/228) ⚠️>30% / official check_age_decay.sh: stale_24h+=2.2%(5) exiled_72h+=37.3%(85) top30_stale=0.0% / keyPoint>=50字=38.6%(88/228) ⚠️<50% → TASKS.md に T2026-0501-SLI-AGE / T2026-0501-SLI-KP 追記。AWS CLI 不在のため公開 topics.json で代替観測。
+
 ---
 
 ## ⚠️ セッション種別ルール（2026-04-27 追加）
