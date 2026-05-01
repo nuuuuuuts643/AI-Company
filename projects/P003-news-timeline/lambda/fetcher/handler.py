@@ -1063,6 +1063,37 @@ def lambda_handler(event, context):
                 topics_by_tid[item['topicId']] = item
         topics = list(topics_by_tid.values())
 
+        # T2026-0501-F2: 今回 run で更新されなかったトピックの lifecycle を
+        # decayed velocity で再計算して topics dict を修正する (DDB 書き戻しなし・memory only)。
+        # 旧実装は compute_lifecycle_status が新記事のある run 時にしか呼ばれないため、
+        # cooling トピックが velocity=0 になっても最大7日間 topics.json に残留していた。
+        _inactive_archived = 0
+        for _t in topics:
+            if _t['topicId'] in current_run_tids:
+                continue
+            _stored_ls = _t.get('lifecycleStatus', 'active')
+            if _stored_ls in INACTIVE_LIFECYCLE_STATUSES:
+                continue
+            _last_art = int(_t.get('lastArticleAt') or _t.get('firstArticleAt') or 0)
+            if not _last_art:
+                continue
+            _decayed_vs = int(apply_velocity_decay(
+                float(_t.get('velocityScore', 0) or 0),
+                _t.get('lastUpdated', '')
+            ))
+            _new_ls = compute_lifecycle_status(
+                int(_t.get('score', 0) or 0),
+                _last_art,
+                _decayed_vs,
+                int(_t.get('articleCount', 0) or 0),
+            )
+            if _new_ls != _stored_ls:
+                _t['lifecycleStatus'] = _new_ls
+                if _new_ls in INACTIVE_LIFECYCLE_STATUSES:
+                    _inactive_archived += 1
+        if _inactive_archived:
+            print(f'[T2026-0501-F2] lifecycle 再計算: {_inactive_archived}件を archived に移行 (memory only)')
+
         # 幽霊エントリ除去: T2026-0429-H で skip_tids 最適化を撤廃。
         # 旧実装は「今回 run の saved_ids は DDB 確定」と仮定して skip していたが、
         # batch_writer の例外が ThreadPool で silently drop されてゴーストが saved_ids に
