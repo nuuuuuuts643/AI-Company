@@ -176,6 +176,28 @@ if [ -f "docs/project-phases.md" ]; then
   echo "==================================================================="
 fi
 
+# ---- 3d. north-star.md 表示 (リライト案 Layer 1 不変層・T2026-0502-A 着地分) ----
+# 出自: docs/rules-rewrite-proposal-2026-05-01.md Section 11 Step 3
+# 目的: 「プロダクト完成にブレない」北極星を毎セッション必読化する物理ガード。
+# 一タスク完遂の局所最適化を防ぐ (PO 観察「変な方向に進む」「組織として動いて欲しい」への対策)。
+if [ -f "docs/north-star.md" ]; then
+  echo ""
+  echo "=== ⭐ 北極星 (docs/north-star.md・全文・毎セッション必読) ==="
+  cat docs/north-star.md
+  echo "==================================================================="
+fi
+
+# ---- 3e. current-phase.md 表示 (リライト案 Layer 2 現フェーズ層・T2026-0502-A 着地分) ----
+# 出自: docs/rules-rewrite-proposal-2026-05-01.md Section 11 Step 3
+# 目的: 現フェーズ完了条件と「やらないこと」を毎回視界に入れる。
+# project-phases.md は階層全体を概観 (3c)、本ファイルは現フェーズだけにフォーカス。
+if [ -f "docs/current-phase.md" ]; then
+  echo ""
+  echo "=== 🎯 現在のフェーズ (docs/current-phase.md・全文・毎セッション必読) ==="
+  cat docs/current-phase.md
+  echo "==================================================================="
+fi
+
 # ---- 4. WORKING.md 8h stale 自動削除 ----
 # DRY_RUN=1 では triage 実行を skip（mutation 回避）。WORKING.md の存在のみ確認。
 if [ "$DRY_RUN" = "1" ]; then
