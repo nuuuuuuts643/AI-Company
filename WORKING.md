@@ -110,4 +110,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Code] deploy-lambdas.yml YAML構文エラー修正 | fix | .github/workflows/deploy-lambdas.yml | 2026-05-01 13:30 | yes |
-| [Code] なぜなぜ分析→lessons-learned追記 | Code | docs/lessons-learned.md | 2026-05-01 14:06 JST | no |
