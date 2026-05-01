@@ -66,7 +66,20 @@ aws dynamodb create-table \
   } \
   || echo "  -> コメントテーブル既に存在（スキップ）"
 
-# ---- 1c. DynamoDB PITR有効化 ----
+# ---- 1c. DynamoDB (エージェントステータス) ----
+echo "  -> エージェントステータステーブル作成..."
+aws dynamodb create-table \
+  --table-name "ai-company-agent-status" \
+  --attribute-definitions \
+    AttributeName=agent_name,AttributeType=S \
+  --key-schema \
+    AttributeName=agent_name,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region "$REGION" 2>/dev/null \
+  && echo "  -> エージェントステータステーブル作成完了" \
+  || echo "  -> エージェントステータステーブル既に存在（スキップ）"
+
+# ---- 1d. DynamoDB PITR有効化 ----
 # データ破損・誤削除からの復元保険（35日間のポイントインタイムリカバリ）
 aws dynamodb update-continuous-backups \
   --table-name "$TABLE" \
