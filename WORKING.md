@@ -109,5 +109,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0501-SLI-KP keyPoint 充填率 38.6%→70% への根本原因調査+修正 | AI品質/フェーズ2 | projects/P003-news-timeline/lambda/processor/proc_ai.py, tests/test_*.py | 2026-05-01 09:15 | yes |
 
