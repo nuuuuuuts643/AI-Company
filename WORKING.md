@@ -26,6 +26,8 @@
 - 次回 fetcher cron (~17:33 UTC = 02:33 JST): topics.json updatedAt が更新されるはず
 - freshness-check.yml (18:23 UTC tick) で success を確認してから done.sh T2026-0502-G を実行
 
+**⚠️ p003-haiku alert (2026-05-02 22:13 UTC)**: flotopic-lifecycle Lambda で `ValidationException: Filter Expression can only contain non-primary key attributes: Primary key attribute: SK` が直近24hで複数回発生 (handler.py:64 delete_snaps / :93 delete_old_snaps)。SK は KeyConditionExpression で指定すべきところ FilterExpression に入っている。修正タスクを TASKS.md に起票要 (他5 Lambda は ERROR ゼロ)。
+
 **次セッション (Dispatch または p003-haiku で確認後) でやること** (PR→CI→merge→done.sh 必須):
 1. **T2026-0502-G 完了確認**: `curl -s https://flotopic.com/api/topics.json | python3 -c "import json,sys,datetime;d=json.load(sys.stdin);print(d['updatedAt'])"` で updatedAt < 90分を確認 → `bash done.sh T2026-0502-G https://flotopic.com/api/topics.json`
 2. **T2026-0501-K** 🔴 (フェーズ2 直撃) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` 内 keyPoint ◎例をエンタメ + テックに差し替え
@@ -74,18 +76,23 @@
 ## ⚠️ セッション役割分担（恒久定義・2026-04-28 制定）
 
 **Code（Claude Code）がやること**:
-- `lambda/`・`frontend/`・`scripts/`・`.github/` のコード変更
-- テスト実行・Lambda手動invoke・デプロイ確認
+- `lambda/`・`frontend/`・`scripts/`・`.github/` のコード変更（Mac ファイルシステム依存）
+- ローカルテスト実行 (pytest / npm test)
+- デプロイ確認・gh CLI 操作
 - TASKS.md のステータス更新（実装完了後）
 
 **Cowork がやること**:
 - `CLAUDE.md`・`WORKING.md`・`TASKS.md`・`HISTORY.md` のドキュメント更新
-- CloudWatch確認・S3データ参照・ステータス報告
+- **AWS MCP 経由 (`mcp__awslabs_aws-mcp-server__call_aws`) で AWS 運用操作** (Lambda/CloudWatch/DynamoDB/S3/EventBridge)
+  - 障害調査 (logs filter-log-events / metrics get-metric-statistics / lambda get-function-configuration)
+  - 効果検証 (Errors/Invocations 集計・SLI 実測)
+  - 設定確認 (events list-rules / lambda list-functions)
+  - **禁止**: `update-function-code` / `delete-*` / 不可逆な write 操作 → Eng Claude 領域
 - POとの会話・分析・計画立案
 - **コードファイルの編集もOK**（WORKING.mdに [Cowork] 行を明記してから着手）
-- **git操作もOK** — push前に `rm -f .git/index.lock .git/HEAD.lock` を実行してから git add/commit/push する
+- **git操作もOK** — FUSE で `git CLI` が詰まる場合は `scripts/cowork_commit.py` で GitHub API 経由 PR
 
-> Coworkが実装からpushまで完結できる。lockファイル削除で競合を回避する。
+> Coworkが運用観測〜PR作成まで完結できる。AWS MCP + cowork_commit.py で FUSE 制約を物理的に迂回する。
 
 ---
 
@@ -122,5 +129,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] T2026-0502-N AWS MCP 発見によるルール更新 (役割分担表 / プロンプト / lessons-learned) | Cowork | CLAUDE.md, WORKING.md, scripts/gen_dispatch_prompt.sh, docs/lessons-learned.md | 2026-05-02 02:15 | yes |
 | [Cowork] T2026-0502-F PII検査failure修正 (cowork_commit.py docstring) + T2026-0502-G fetcher停止緊急タスク起票 | Cowork | scripts/cowork_commit.py, TASKS.md | 2026-05-02 01:48 | yes |
 | [Cowork] CI fix: PII 違反解消 (affd1ba8 PII 検査 fail / sk-ant-/個人メール マスク) | Cowork | docs/rules-rewrite-proposal-2026-05-01.md | 2026-05-02 01:25 | yes |
