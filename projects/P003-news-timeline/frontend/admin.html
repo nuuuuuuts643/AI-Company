@@ -233,6 +233,27 @@ details.collapsible .details-body{padding:14px 20px 20px;border-top:1px solid #2
       </div>
     </details>
 
+    <!-- T2026-0501-H: 誤マージ疑いトピック一覧（merge audit から自動検知） -->
+    <details class="collapsible" id="mismerge-section">
+      <summary>⚠️ 誤マージ疑いトピック
+        <span class="summary-meta" id="mismerge-summary-meta">読み込み中...</span>
+      </summary>
+      <div class="details-body" style="overflow-x:auto">
+        <p style="font-size:.85rem;color:#8b949e;margin-bottom:8px">
+          自動検知シグナル: <code>time_gap</code>=記事間 7日超ギャップ /
+          <code>entity_split</code>=記事のエンティティが 2系統以上に分裂 /
+          <code>count_spike</code>=直前 run の 2倍超
+        </p>
+        <table class="data-table">
+          <thead><tr>
+            <th>#</th><th>タイトル</th><th>ジャンル</th>
+            <th class="td-num">記事数</th><th>シグナル</th><th>詳細</th>
+          </tr></thead>
+          <tbody id="table-mismerge-topics"></tbody>
+        </table>
+      </div>
+    </details>
+
     <details class="collapsible">
       <summary>🆕 最近更新されたトピック TOP10
         <span class="summary-meta">直近で動いているコンテンツ</span>
@@ -384,9 +405,15 @@ function computeMetrics(topics) {
   const now24h = Date.now() - 86400 * 1000;
   const updatedToday = topics.filter(t => t.lastUpdated && new Date(t.lastUpdated).getTime() > now24h).length;
 
+  // T2026-0501-H: 誤マージ自動検知 (suspectedMismerge:true) のカウントと割合
+  const mismergeFlagged = topics.filter(t => t.suspectedMismerge);
+  const mismergeCount = mismergeFlagged.length;
+  const mismergePct = total > 0 ? (mismergeCount / total * 100) : 0;
+
   return {
     total, aiGenerated, totalArticles, updatedToday,
     aiPct: total > 0 ? (aiGenerated / total * 100) : 0,
+    mismergeCount, mismergePct, mismergeFlagged,
   };
 }
 
@@ -556,7 +583,15 @@ function renderSubCards(metrics, cfData) {
   const comments  = cfData?.comments  || {};
   const favorites = cfData?.favorites || {};
 
+  // T2026-0501-H: 誤マージ自動検知。閾値 5% 超え → red、1〜5% → yellow、0% → green。
+  const mismergeStatus = metrics.mismergePct >= 5 ? 'red'
+                       : metrics.mismergePct > 0 ? 'yellow' : 'green';
+  const mismergeColor = STATUS_COLORS[mismergeStatus];
   const cards = [
+    UI.subCard('誤マージ疑い率',
+               metrics.mismergePct.toFixed(1) + '%',
+               `<span style="color:${mismergeColor}">${metrics.mismergeCount}件</span> / ${metrics.total} 件（time_gap / entity_split / count_spike）`,
+               'topics.json（suspectedMismerge）'),
     UI.subCard('総トピック数',
                metrics.total.toLocaleString(),
                `24h更新 ${metrics.updatedToday} 件`,
@@ -720,6 +755,45 @@ function renderTopTopics(topics, analyticsMap) {
       </tr>`;
     });
   document.getElementById('table-top-topics').innerHTML = rows.join('');
+}
+
+// T2026-0501-H: 誤マージ疑いトピック一覧
+function renderMismergeTopics(metrics) {
+  const tbody = document.getElementById('table-mismerge-topics');
+  const meta  = document.getElementById('mismerge-summary-meta');
+  if (!tbody) return;
+  const flagged = metrics.mismergeFlagged || [];
+  if (meta) {
+    meta.textContent = flagged.length
+      ? `${flagged.length}件 / ${metrics.total}件 (${metrics.mismergePct.toFixed(1)}%)`
+      : `0件（健全）`;
+  }
+  if (!flagged.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center;padding:18px">誤マージ疑いトピックなし</td></tr>';
+    return;
+  }
+  const rows = flagged
+    .sort((a,b) => U.int(b.articleCount) - U.int(a.articleCount))
+    .slice(0, 50)
+    .map((t, i) => {
+      const reasons = (t.mismergeReasons || []).map(r =>
+        `<span class="tag" style="background:#3b1f1f;color:#f85149;border:1px solid #f85149;margin-right:4px">${U.esc(r)}</span>`
+      ).join('');
+      const detail = t.mismergeDetail
+        ? Object.entries(t.mismergeDetail).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(',') : v}`).join(' / ')
+        : '—';
+      return `<tr>
+        <td class="muted">${i+1}</td>
+        <td><a class="td-link" href="/topic.html?id=${U.esc(t.topicId)}" target="_blank">
+          ${U.esc(t.generatedTitle||t.title||'—')}
+        </a></td>
+        <td><span class="tag">${U.esc((t.genres && t.genres[0]) || t.genre || '総合')}</span></td>
+        <td class="td-num">${U.int(t.articleCount)}</td>
+        <td>${reasons || '—'}</td>
+        <td class="muted" style="font-size:.78rem">${U.esc(detail)}</td>
+      </tr>`;
+    });
+  tbody.innerHTML = rows.join('');
 }
 
 function renderRecentTopics(topics) {
@@ -984,6 +1058,7 @@ const Dashboard = {
       renderCfAnalytics(cfData);
       renderTopTopics(topics, analyticsMap);
       renderRecentTopics(topics);
+      renderMismergeTopics(m);
       renderRevenue();
       renderServiceLinks();
 

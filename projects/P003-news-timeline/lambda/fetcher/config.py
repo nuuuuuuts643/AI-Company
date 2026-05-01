@@ -6,6 +6,9 @@ S3_BUCKET     = os.environ.get('S3_BUCKET', '')
 REGION        = os.environ.get('REGION', 'ap-northeast-1')
 SLACK_WEBHOOK = os.environ.get('SLACK_WEBHOOK', '')
 SITE_URL      = os.environ.get('SITE_URL', 'https://flotopic.com')
+# T2026-0501-H: borderline トピック merge 判定 (Jaccard 0.15-0.35) を Haiku に委譲する。
+# 未設定時は failsafe で merge しない (現状挙動と同等)。
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 
 from botocore.config import Config as BotocoreConfig
 _boto_cfg = BotocoreConfig(max_pool_connections=50)
