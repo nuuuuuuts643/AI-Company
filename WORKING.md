@@ -108,3 +108,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | worktree-zombie-cleanup-119 | [Code] | .git/worktrees / .claude/worktrees | 2026-05-01 11:30 | no |
+| [Code] CI修正 PR#96/#97 | [Code] | scripts/ .github/ | 2026-05-01 12:00 | yes |
