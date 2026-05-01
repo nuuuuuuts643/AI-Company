@@ -15,7 +15,7 @@
 
 **次のアクション**: T2026-0501-C (continuation 0.10→改善) UX次アクションセッション起動 / p003-haiku 翌朝7:08amでPR #89 CIチェック+マージ+SLI再測
 
-**直近完了**: PR #89 提出済(keyPointフック型プロンプト改修・CI待ち) / PR #86-88 マージ済 / なぜなぜ分析→lessons-learned / CI scope-check (≥10ファイル→exit1) / Bluesky 4回/日に削減
+**直近完了**: T2026-0501-B 誤マージメトリクス信頼性検証 完了（フォールスネガティブ 30-40% 推定）/ PR #89 提出済(keyPointフック型プロンプト改修・CI待ち) / PR #86-88 マージ済 / なぜなぜ分析→lessons-learned / CI scope-check (≥10ファイル→exit1) / Bluesky 4回/日に削減
 
 **直近 SLI**: keyPoint>=100字 充填率 **41.1%** (直近測定) — フェーズ2 完了条件 70% まで -28.9pt / UX continuation **0.10** (baseline 2026-05-01)
 
