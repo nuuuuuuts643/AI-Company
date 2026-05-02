@@ -58,7 +58,10 @@ jobs:
             --function-name p003-fetcher --region ap-northeast-1 \
             --query 'Environment.Variables' --output json)
           # AWS CLI の --environment Variables 引数は key=value をカンマ区切りで取る形式
-          MERGED_ENV=$(EXISTING_ENV="$EXISTING_ENV" python3 scripts/ci_lambda_merge_env.py)
+          # T2026-0502-Q fix: cd 後に相対パス scripts/... を呼ぶと runner にファイルが無く
+          # [Errno 2] No such file or directory で必ず失敗していた構造バグを恒久対処。
+          # repo root 直下を絶対パスで参照する。GITHUB_WORKSPACE は GHA が必ず設定する。
+          MERGED_ENV=$(EXISTING_ENV="$EXISTING_ENV" python3 "$GITHUB_WORKSPACE/scripts/ci_lambda_merge_env.py")
           aws lambda update-function-configuration \
             --function-name p003-fetcher \
             --environment "Variables={${MERGED_ENV}}" \
