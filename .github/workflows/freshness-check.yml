@@ -479,5 +479,89 @@ jobs:
           )
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
 
+      # =====================================================================
+      # SES error rate 観測 (SLI 14 / T2026-0502-SES-METRIC-FILTER)
+      # 背景: T2026-0502-S (lessons-learned) で `p003-contact` の SES SendEmail が
+      #   silent fail し 1 ヶ月気付かれず放置された。handler.py 側は [ERROR] プレフィックスに
+      #   昇格済 (PR #180) だが、ログを grep するレイヤーが必要。
+      # 仕組み: CloudWatch Logs に `[ERROR] SES send` が直近 1h で N 件出現したかを観測。
+      #   0 件 ok / 1〜4 WARN / 5+ ERROR。Slack 既存 webhook に乗せる。
+      # 注意: aws logs filter-log-events のスキャン量は数 KB / 1h なので追加コストは実質ゼロ。
+      # AWS 認証: secrets が無い環境では fail-open で skip (check_ses_error_sli.sh が exit 3)。
+      # =====================================================================
+      - name: AWS 認証 (SLI 14 用)
+        id: aws_auth_sli14
+        continue-on-error: true
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: SES error rate 観測 (SLI 14)
+        id: ses_error_sli
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          bash scripts/check_ses_error_sli.sh >> "$GITHUB_STEP_SUMMARY" 2>&1
+          rc=$?
+          COUNT=$(bash scripts/check_ses_error_sli.sh 2>/dev/null | grep "ses_error_count=" | cut -d= -f2)
+          COUNT="${COUNT:-unknown}"
+          if [ "$rc" -eq 1 ] || [ "$rc" -eq 2 ]; then
+            WARN_OR_ERROR=true
+          else
+            WARN_OR_ERROR=false
+          fi
+          {
+            echo "ses_error_count=${COUNT}"
+            echo "rc=${rc}"
+            echo "warn_or_error=${WARN_OR_ERROR}"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### SES error rate (SLI 14)"
+            echo "- ses_error_count: ${COUNT}"
+            if [ "$rc" -eq 0 ]; then
+              echo "- status: ok"
+            elif [ "$rc" -eq 1 ]; then
+              echo "- status: WARN"
+            elif [ "$rc" -eq 2 ]; then
+              echo "- status: ERROR"
+            else
+              echo "- status: skipped (aws cli 不在 or 権限不足)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: SES error WARN/ERROR で Slack 通知
+        if: steps.ses_error_sli.outputs.warn_or_error == 'true'
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
+          COUNT: ${{ steps.ses_error_sli.outputs.ses_error_count }}
+          RC: ${{ steps.ses_error_sli.outputs.rc }}
+        shell: bash
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::warning::ses_error_sli: count=${COUNT} rc=${RC} — SES send error が発生中"
+            exit 0
+          fi
+          LEVEL=$([ "${RC}" -eq 2 ] && echo "ERROR" || echo "WARN")
+          PAYLOAD=$(python3 - <<PY
+          import json
+          level = "${LEVEL}"
+          count = "${COUNT}"
+          emoji = ":rotating_light:" if level == "ERROR" else ":warning:"
+          text = (
+              f"{emoji} *[SLI 14] SES send error 検出*\n"
+              f"- ses_error_count: {count} 件 / 直近1h\n"
+              f"- 閾値: WARN=1, ERROR=5\n"
+              f"- 由来: T2026-0502-S lessons-learned (silent fail 再発防止)"
+          )
+          print(json.dumps({"text": text}))
+          PY
+          )
+          curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
+
       # SLI-keypoint-fill-rate は別ワークフロー (sli-keypoint-fill-rate.yml) へ分離 (T2026-0428-BI)。
       # hourly DynamoDB scan は過剰だったため 6h scan へ削減 (-83%)。

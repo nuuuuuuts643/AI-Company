@@ -126,3 +126,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] T2026-0502-SES-METRIC-FILTER SLI 14 追加 | Cowork | scripts/check_ses_error_sli.sh, .github/workflows/freshness-check.yml | 2026-05-02 12:25 | yes |
