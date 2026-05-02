@@ -239,8 +239,16 @@ def commit_and_pr(message, file_paths, branch=None, pr_title=None, pr_body=None,
     base_tree_sha = base_commit['tree']['sha']
 
     # blob 群
+    # 削除ファイル: ":rm:<path>" prefix で渡されたら tree から削除する
+    # (T2026-0502-BI ゴミ掃除対応・FUSE で git rm が unlink 不可なので API 経由で消す)
     tree_items = []
     for fp in file_paths:
+        if fp.startswith(':rm:'):
+            target = fp[len(':rm:'):]
+            tree_items.append({'path': target, 'mode': '100644',
+                               'type': 'blob', 'sha': None})
+            print(f'  delete: {target}')
+            continue
         abs_path = os.path.join(repo_root, fp)
         if not os.path.exists(abs_path):
             print(f'WARN: {fp} not found, skipping')

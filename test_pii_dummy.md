@@ -1,1 +1,0 @@
-owner is <owner-email>
