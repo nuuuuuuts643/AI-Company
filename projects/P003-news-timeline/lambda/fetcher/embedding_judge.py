@@ -84,12 +84,17 @@ class OnnxEmbeddingBackend(EmbeddingBackend):
     def encode(self, texts: list[str]) -> list[list[float]]:
         # E5 は "query: ..." prefix が推奨
         prefixed = [f'query: {t}' for t in texts]
+        import numpy as np
         enc = self.tokenizer(prefixed, padding=True, truncation=True,
                              max_length=128, return_tensors='np')
-        outputs = self.session.run(None, {
-            'input_ids': enc['input_ids'],
-            'attention_mask': enc['attention_mask'],
-        })
+        # モデルが要求する入力のみ渡す (token_type_ids は BERT 系モデルで必要だが
+        # sentencepiece tokenizer が生成しない場合はゼロ埋めで補完)
+        input_names = {inp.name for inp in self.session.get_inputs()}
+        feed: dict = {'input_ids': enc['input_ids'], 'attention_mask': enc['attention_mask']}
+        if 'token_type_ids' in input_names:
+            feed['token_type_ids'] = (enc['token_type_ids'] if 'token_type_ids' in enc
+                                      else np.zeros_like(enc['input_ids']))
+        outputs = self.session.run(None, feed)
         # mean pooling
         last_hidden = outputs[0]
         mask = enc['attention_mask'][..., None]
