@@ -19,12 +19,30 @@ def dec(obj):
     raise TypeError
 
 
-def resp(code, body):
+# T2026-0502-SEC8 (2026-05-02): CORS Allow-Origin を `*` から自社ドメインに固定。
+_ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get(
+        'ALLOWED_ORIGINS',
+        'https://flotopic.com,https://www.flotopic.com'
+    ).split(',') if o.strip()
+]
+
+
+def _resolve_origin(event) -> str:
+    headers = (event or {}).get('headers') or {}
+    raw = headers.get('origin') or headers.get('Origin') or ''
+    if raw in _ALLOWED_ORIGINS:
+        return raw
+    return _ALLOWED_ORIGINS[0] if _ALLOWED_ORIGINS else 'https://flotopic.com'
+
+
+def resp(code, body, event=None):
     return {
         'statusCode': code,
         'headers': {
             'Content-Type': 'application/json; charset=utf-8',
-            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Origin': _resolve_origin(event),
+            'Vary': 'Origin',
         },
         'body': json.dumps(body, default=dec, ensure_ascii=False),
     }

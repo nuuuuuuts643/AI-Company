@@ -172,9 +172,26 @@ function srcFaviconUrl(source) {
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16`;
 }
 
+// T2026-0502-SEC11 (2026-05-02): URL を <img src> 等にレンダーする前にスキーム検証する。
+// 旧実装は scheme 検証なしで http→https 昇格のみ。`javascript:`/`data:`/`vbscript:` 等を block。
 function safeImgUrl(url) {
-  if (!url) return '';
-  return url.replace(/^http:\/\//i, 'https://');
+  if (url == null) return '';
+  const s = String(url).trim();
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s.replace(/^http:\/\//i, 'https://');
+  if (s.startsWith('/')) return s;  // 相対 URL (自社配信)
+  return '';
+}
+
+// T2026-0502-SEC11: <a href> 用の URL スキーム whitelist。esc() だけでは
+// `javascript:alert(1)` のような dangerous scheme が clicked XSS となる。
+// RSS 経由の article URL は外部由来なので必ず通すこと。
+function safeHref(url) {
+  if (url == null) return '#';
+  const s = String(url).trim();
+  if (!s) return '#';
+  if (/^(https?:\/\/|\/|#|\?|mailto:)/i.test(s)) return s;
+  return '#';
 }
 function srcFaviconImg(source) {
   const url = srcFaviconUrl(source);

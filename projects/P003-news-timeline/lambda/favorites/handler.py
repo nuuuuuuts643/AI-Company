@@ -71,26 +71,73 @@ def update_topic_fav_count(topic_id: str, delta: int):
 
 # ── ヘルパー ─────────────────────────────────────────────────────
 
-def _cors_headers():
+# T2026-0502-SEC8 (2026-05-02): CORS Allow-Origin を `*` から自社ドメインに固定。
+# CSRF 増幅リスクを下げる (任意の悪性サイトから fetch されない)。
+_ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get(
+        'ALLOWED_ORIGINS',
+        'https://flotopic.com,https://www.flotopic.com'
+    ).split(',') if o.strip()
+]
+
+
+def _resolve_origin(event) -> str:
+    headers = (event or {}).get('headers') or {}
+    raw = headers.get('origin') or headers.get('Origin') or ''
+    if raw in _ALLOWED_ORIGINS:
+        return raw
+    return _ALLOWED_ORIGINS[0] if _ALLOWED_ORIGINS else 'https://flotopic.com'
+
+
+def _cors_headers(event=None):
     return {
         'Content-Type':                 'application/json; charset=utf-8',
-        'Access-Control-Allow-Origin':  '*',
+        'Access-Control-Allow-Origin':  _resolve_origin(event),
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Vary':                         'Origin',
     }
 
 
-def _make_response(status: int, payload: dict, headers=None) -> dict:
+def _bearer_id_token(event) -> str:
+    """Authorization: Bearer <idToken> ヘッダーを取り出す。空なら ''。"""
+    headers = (event or {}).get('headers') or {}
+    auth = headers.get('authorization') or headers.get('Authorization') or ''
+    if not auth.startswith('Bearer '):
+        return ''
+    return auth[7:].strip()
+
+
+def _verify_user_or_403(event, user_id: str):
+    """
+    T2026-0502-SEC7: GET 系 (favorites/history/prefs/analytics-user) の IDOR 防止。
+    Authorization: Bearer <idToken> で本人検証。
+    Returns:
+        None  → OK (続行)
+        dict  → エラーレスポンス (return すべき)
+    """
+    id_token = _bearer_id_token(event)
+    if not id_token:
+        return _make_response(401, {'error': '認証が必要です'})
+    payload = verify_google_token(id_token)
+    if not payload:
+        return _make_response(401, {'error': 'トークンの検証に失敗しました'})
+    if payload.get('sub') != user_id:
+        return _make_response(403, {'error': 'userId とトークンが一致しません'})
+    return None
+
+
+def _make_response(status: int, payload: dict, headers=None, event=None) -> dict:
     """PayloadFormatVersion 2.0 準拠レスポンス (statusCode=int, body=str)"""
     return {
         'statusCode': int(status),
-        'headers':    headers if headers is not None else _cors_headers(),
+        'headers':    headers if headers is not None else _cors_headers(event),
         'body':       json.dumps(payload, ensure_ascii=False, default=str),
     }
 
 
-def resp(code: int, body: dict):
-    return _make_response(code, body)
+def resp(code: int, body: dict, event=None):
+    return _make_response(code, body, event=event)
 
 
 def verify_google_token(id_token: str):
@@ -234,25 +281,31 @@ def lambda_handler(event, context):
     parts = [p for p in path.split('/') if p]
 
     # ── GET /favorites/{userId} or GET /history/{userId} or GET /prefs/{userId} ──
+    # T2026-0502-SEC7: 全 GET エンドポイントに認証必須化 (旧実装は IDOR で他人の閲覧履歴等が読めた)
     if method == 'GET':
         if len(parts) < 2:
-            return resp(400, {'error': 'userId が必要です'})
+            return resp(400, {'error': 'userId が必要です'}, event=event)
         resource, user_id = parts[0], parts[1]
+        # 認証チェック (本人 only)
+        auth_err = _verify_user_or_403(event, user_id)
+        if auth_err is not None:
+            return auth_err
         try:
             if resource == 'history':
                 items = get_history(user_id)
-                return resp(200, {'userId': user_id, 'history': items})
+                return resp(200, {'userId': user_id, 'history': items}, event=event)
             elif resource == 'favorites':
                 items = get_favorites(user_id)
-                return resp(200, {'userId': user_id, 'favorites': items})
+                return resp(200, {'userId': user_id, 'favorites': items}, event=event)
             elif resource == 'prefs':
                 prefs = get_prefs(user_id)
-                return resp(200, {'userId': user_id, **prefs})
+                return resp(200, {'userId': user_id, **prefs}, event=event)
             else:
-                return resp(404, {'error': 'not found'})
+                return resp(404, {'error': 'not found'}, event=event)
         except Exception as e:
             print(f'[ERROR] GET {resource}/{user_id}: {type(e).__name__}: {e}')
-            return _make_response(500, {'error': '取得に失敗しました', 'detail': str(e)})
+            # T2026-0502-SEC16: detail は返さない (内部例外メッセージ漏洩抑制)
+            return _make_response(500, {'error': '取得に失敗しました'}, event=event)
 
     # ── DELETE /user : アカウント全データ削除 ────────────────────
     if method == 'DELETE' and len(parts) >= 1 and parts[0] == 'user':
@@ -269,7 +322,7 @@ def lambda_handler(event, context):
             return _make_response(200, {'status': 'deleted', 'userId': user_id})
         except Exception as e:
             print(f'[ERROR] DELETE user/{user_id}: {type(e).__name__}: {e}')
-            return _make_response(500, {'error': 'データ削除に失敗しました', 'detail': str(e)})
+            return _make_response(500, {'error': 'データ削除に失敗しました'}, event=event)  # T2026-0502-SEC16: detail 削除
 
     # ── POST /history : 閲覧履歴追加 ─────────────────────────────
     if method == 'POST' and len(parts) >= 1 and parts[0] == 'history':
@@ -289,7 +342,7 @@ def lambda_handler(event, context):
             return _make_response(200, {'status': 'added', 'topicId': topic_id})
         except Exception as e:
             print(f'[ERROR] POST history/{user_id}/{topic_id}: {type(e).__name__}: {e}')
-            return _make_response(500, {'error': '履歴追加に失敗しました', 'detail': str(e)})
+            return _make_response(500, {'error': '履歴追加に失敗しました'}, event=event)  # T2026-0502-SEC16: detail 削除
 
     # ── DELETE /history : 閲覧履歴削除 (topicId省略=全削除) ───────
     if method == 'DELETE' and len(parts) >= 1 and parts[0] == 'history':
@@ -311,7 +364,7 @@ def lambda_handler(event, context):
                 return _make_response(200, {'status': 'cleared', 'userId': user_id})
         except Exception as e:
             print(f'[ERROR] DELETE history/{user_id}: {type(e).__name__}: {e}')
-            return _make_response(500, {'error': '履歴削除に失敗しました', 'detail': str(e)})
+            return _make_response(500, {'error': '履歴削除に失敗しました'}, event=event)  # T2026-0502-SEC16: detail 削除
 
     # ── PUT /prefs: ジャンル設定保存 ─────────────────────────────
     if method == 'PUT' and len(parts) >= 1 and parts[0] == 'prefs':
@@ -329,7 +382,7 @@ def lambda_handler(event, context):
             return _make_response(200, {'status': 'saved', 'genre': genre})
         except Exception as e:
             print(f'[ERROR] PUT prefs/{user_id}: {type(e).__name__}: {e}')
-            return _make_response(500, {'error': '設定保存に失敗しました', 'detail': str(e)})
+            return _make_response(500, {'error': '設定保存に失敗しました'}, event=event)  # T2026-0502-SEC16: detail 削除
 
     # ── POST / DELETE /favorites: 認証付き書き込み ───────────────
     if method in ('POST', 'DELETE'):
@@ -364,6 +417,6 @@ def lambda_handler(event, context):
                 return _make_response(200, {'status': 'removed', 'userId': user_id, 'topicId': topic_id})
         except Exception as e:
             print(f'[ERROR] {method} favorites/{user_id}/{topic_id}: {type(e).__name__}: {e}')
-            return _make_response(500, {'error': 'お気に入りの更新に失敗しました', 'detail': str(e)})
+            return _make_response(500, {'error': 'お気に入りの更新に失敗しました'}, event=event)  # T2026-0502-SEC16: detail 削除
 
     return resp(405, {'error': 'method not allowed'})
