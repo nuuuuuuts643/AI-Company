@@ -487,6 +487,9 @@ jobs:
           # 突合し、SLI が常に 0% を測ってしまう「situation 0% 問題」型の事故を物理ガード。
           bash scripts/check_sli_field_coverage.sh
 
+      - name: workflow yml の cd 後相対パス検出 (T2026-0502-WORKFLOW-PATH-LINT)
+        run: bash scripts/check_workflow_paths.sh
+
       - name: 係数・パラメータ根拠 確認 (T2026-0429-N, WARNING のみ)
         if: github.event_name == 'pull_request'
         env:

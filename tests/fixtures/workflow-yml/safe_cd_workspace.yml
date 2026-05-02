@@ -1,0 +1,14 @@
+name: safe workflow (cd $GITHUB_WORKSPACE to reset)
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build with workspace reset
+        run: |
+          cd projects/P003-news-timeline/lambda/fetcher
+          zip -q function.zip *.py
+          cd $GITHUB_WORKSPACE
+          python3 scripts/ci_lambda_merge_env.py
+          echo "done"

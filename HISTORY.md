@@ -103,3 +103,14 @@
 | ~~T2026-0502-A~~ | ~~🟠 高~~ | ~~**freshness-check + fetcher-health-check が false-failure**~~ → **2026-05-02 09:50 JST 完了 (PR #122 merged, commit 253a67bb)** — 根本原因: 両 workflow に `actions/checkout@v4` step が無く、scripts/*.py を呼ぶ前に runner にリポジトリが存在しなかった。両 yml の steps 先頭に checkout 追加。**Verified-Effect**: post-fix で freshness-check #21/#22, fetcher-health-check #9/#10 = いずれも 2 連続 success（直前 5 件は連続 failure）。lessons-learned.md L1432〜 に Why1〜Why5 + 横展開チェックリスト追記済。 | (実装完了) | 2026-05-02 |
 
 </details>
+
+
+### 自動 triage: 2026-05-02 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T2026-0502-D~~ | ~~🟠 高~~ | ~~**auto-merge stuck watcher**~~ → **2026-05-02 09:55 JST 完了 (PR #137 merged)** — `.github/workflows/automerge-stuck-watcher.yml` + `scripts/automerge_stuck_watcher.py` + `tests/test_automerge_stuck_watcher.py` (16 ケース pass) で 10 分毎 cron + workflow_dispatch。**Verified-Effect (2026-05-02 09:58 JST)**: 手動 dispatch で run #1 success (空振り = 正常)。schedule から自動発火は次の :*0 / :*10 で landing。 | (実装完了) | 2026-05-02 |
+| ~~T2026-0502-Q~~ | ~~🔴 最優先~~ | ~~**Lambda デプロイ workflow が連続失敗 → 直近修正 PR が本番未反映**~~ → **2026-05-02 10:25 JST 完了 (PR #141 merged + deploy run #372 success)** — Cowork が `$GITHUB_WORKSPACE/scripts/ci_lambda_merge_env.py` の絶対パス参照に修正。**Verified-Effect (2026-05-02 10:23 JST)**: 手動 dispatch で run #372 = success / fetcher step ✓ + 全 11 Lambda (fetcher/processor/comments/analytics/auth/favorites/lifecycle/cf-analytics/api/contact/bluesky) deploy 成功。直前 10 連続 failure → 解消。これにより本日の PR #114 (T2026-0502-G fetcher 恒久対処) / PR #118 (T2026-0501-M 重複検出マージ) / PR #125 (T2026-0502-B lifecycle SK fix) が **初めて本番反映**。 | (実装完了) | 2026-05-02 |
+| ~~T2026-0502-H~~ | ~~🔴 最優先~~ | ~~**deploy-lambdas.yml の `ci_lambda_merge_env.py` パス解決バグ修正**~~ → **2026-05-02 10:25 JST 完了 (PR #141 merged)** — Cowork 推奨案 (a) `$GITHUB_WORKSPACE/scripts/ci_lambda_merge_env.py` の絶対パス参照に修正。Verified-Effect: 手動 dispatch run #372 success（11 Lambda 全 deploy）。**注**: 同 ID T2026-0502-H が別 dispatch session で「shared-docs conflict 物理ガード」にも採番されており PR #138 で landing 済（HISTORY.md 参照）。ID 重複は Cowork ↔ 別 dispatch 間の調整不足が原因。 | (実装完了) | 2026-05-02 |
+
+</details>
