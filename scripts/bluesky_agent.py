@@ -399,6 +399,53 @@ def get_last_post_time(mode: str):
         return None
 
 
+# ── レート制御の単一エントリ (T2026-0502-L 恒久対処の中核) ────────────────
+def _check_rate_limit(mode: str) -> tuple[bool, str]:
+    """
+    BLUESKY_POSTING_CONFIG[mode] に基づき投稿可否を判定する **唯一** のエントリ。
+
+    全 post_xxx() 関数はこの関数を冒頭で呼ぶだけで、独自のクールタイム実装を
+    持たない。設定変更は BLUESKY_POSTING_CONFIG だけで完結する。
+
+    3 つのガードを AND で全部通過したら投稿可:
+      1) enabled        — False なら即停止 (kill switch)
+      2) cooldown_hours — 前回同 mode 投稿から N 時間空いているか
+      3) max_per_24h    — 24h 内の同 mode 投稿件数が N 件未満か (二重ガード)
+
+    Args:
+      mode: 'daily' | 'morning' | 'debut' | 'weekly' | 'monthly'
+
+    Returns:
+      (ok, reason)
+        ok=True  → 投稿OK
+        ok=False → reason に skip 理由（ログ出力用）
+    """
+    cfg = BLUESKY_POSTING_CONFIG.get(mode)
+    if not cfg:
+        return False, f"未定義 mode={mode!r}"
+
+    if not cfg.get('enabled', True):
+        return False, f"{mode} は無効化中 (BLUESKY_POSTING_CONFIG[{mode!r}]['enabled']=False)"
+
+    cooldown_h = float(cfg.get('cooldown_hours', 0) or 0)
+    if cooldown_h > 0:
+        last = get_last_post_time(mode)
+        if last is not None:
+            elapsed = datetime.now(timezone.utc) - last
+            cooldown = timedelta(hours=cooldown_h)
+            if elapsed < cooldown:
+                remain = int((cooldown - elapsed).total_seconds() / 60)
+                return False, f"{mode} cooldown 中 (残り{remain}分 / 設定{cooldown_h}h)"
+
+    cap = int(cfg.get('max_per_24h', 0) or 0)
+    if cap > 0:
+        recent = get_posted_ids_within_hours(mode, hours=24)
+        if len(recent) >= cap:
+            return False, f"{mode} 24h 内 {len(recent)}件 (上限{cap}) 到達"
+
+    return True, "OK"
+
+
 def mark_as_posted(topic_id: str, mode: str):
     """投稿済みとして DynamoDB に記録（TTL 30日）"""
     try:
