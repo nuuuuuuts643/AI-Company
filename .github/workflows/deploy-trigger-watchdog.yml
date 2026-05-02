@@ -90,22 +90,32 @@ jobs:
             echo "[INFO] PR #$PR_NUMBER does not touch lambda paths; skipping watchdog."
           fi
 
-      # PR merge で lambda path マッチなし → skip
+      # PR merge で lambda path マッチなし → skip (情報出力のみ)
       - name: lambda path マッチなし → skip
         if: github.event_name == 'pull_request' && steps.path_check.outputs.matched == 'false'
         run: |
           echo "PR does not touch lambda paths. No watchdog action needed."
-          exit 0
 
-      # Lambda freshness チェック (5min まで待つ)
-      - name: Lambda freshness poll (最大 5 分)
+      # Lambda freshness チェック (deploy chain 最大 8 分待ち)
+      # T2026-0502-WATCHDOG-FIX (2026-05-02 PO 指示「物理ガード偽陽性恒久対処」):
+      # ① docs-only PR で freshness poll が走って fail する bug 修正
+      #    旧: skip step で exit 0 しても次 step の if: 条件がなく走ってしまっていた
+      #    新: 本 step に明示的に if: 条件追加 (push/schedule/lambda-touched PR のみ)
+      # ② deploy chain (auto-merge → post-merge-deploy → deploy-lambdas → Lambda 更新) 平均 3-5min を踏まえ
+      #    poll 窓を 5min → 8min に拡大 (4 attempts × 120s sleep = 480s)。レースを構造的に解消。
+      - name: Lambda freshness poll (最大 8 分・deploy chain 考慮)
         id: freshness_poll
+        if: |
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch' ||
+          github.event_name == 'push' ||
+          (github.event_name == 'pull_request' && steps.path_check.outputs.matched == 'true')
         run: |
-          echo "[INFO] Polling Lambda freshness (max 5 minutes)..."
+          echo "[INFO] Polling Lambda freshness (max 8 minutes)..."
           THRESHOLD=1800  # 30min lag threshold
 
-          for attempt in 1 2 3; do
-            echo "[INFO] Attempt $attempt/3 (${attempt}m elapsed)"
+          for attempt in 1 2 3 4; do
+            echo "[INFO] Attempt $attempt/4 (${attempt}*2min elapsed)"
 
             COMMIT_TIME=$(git log -1 --format="%ct" -- projects/P003-news-timeline/lambda/ 2>/dev/null || echo "")
             if [ -z "$COMMIT_TIME" ]; then
@@ -134,11 +144,11 @@ jobs:
             echo "[INFO] Deploy lag: ${DIFF_MIN}min (threshold=30min)"
 
             if [ $DIFF_SEC -ge $THRESHOLD ] || [ $DIFF_SEC -lt $(( -THRESHOLD )) ]; then
-              if [ $attempt -lt 3 ]; then
-                echo "[WAIT] Lag detected (${DIFF_MIN}min), waiting 100s before retry..."
-                sleep 100
+              if [ $attempt -lt 4 ]; then
+                echo "[WAIT] Lag detected (${DIFF_MIN}min), waiting 120s before retry..."
+                sleep 120
               else
-                echo "[FAIL] Lag still detected after 3 attempts: ${DIFF_MIN}min"
+                echo "[FAIL] Lag still detected after 4 attempts: ${DIFF_MIN}min"
                 echo "status=lag_detected" >> "$GITHUB_OUTPUT"
                 echo "diff_min=$DIFF_MIN" >> "$GITHUB_OUTPUT"
                 echo "commit_time=$COMMIT_TIME" >> "$GITHUB_OUTPUT"

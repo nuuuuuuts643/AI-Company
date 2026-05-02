@@ -1,0 +1,244 @@
+name: Deploy Trigger Watchdog (Frontend) (T2026-0502-AT)
+
+# T2026-0502-AT
+# 目的: frontend/** 変更を含む PR merge 後 5min 以内に CloudFront 配信 HTML が
+#       更新されているか poll し、されていなければ auto-fallback (deploy-p003.yml を
+#       手動発火) + Slack 通知 + GitHub Issue 自動起票。
+#
+# 背景: T2026-0502-AQ (noindex 削除) の effect verify で発覚: deploy-p003.yml の
+#       pull_request 由来 run = total 0 (過去 30 日)。auto-merge.yml (github-actions[bot])
+#       による squash merge は GitHub の制約「GITHUB_TOKEN による push/merge は
+#       他の workflow を trigger しない」で deploy-p003 の push event も pull_request
+#       closed event も発火しない。yml に「pull_request closed でカバー」と書いて
+#       あったが実際カバーできていなかった。私が手動 dispatch を打つまで 30 分間
+#       本番未反映だった。
+#
+#       既存 deploy-trigger-watchdog.yml は Lambda 専用 (lambda paths のみ)。
+#       同じ構造の frontend 用を別ファイルで作る (独立性のため)。
+#
+# トリガー:
+#   - pull_request: types: [closed] — PR merge 検知 (frontend paths にマッチするか判定)
+#   - push: branches: [main]        — push 直後 fallback (frontend paths filter)
+#   - schedule: cron '15 * * * *'   — 毎時 15 分 UTC (Lambda watchdog の 5 分とずらす)
+#   - workflow_dispatch              — 手動
+
+on:
+  pull_request:
+    types: [closed]
+  push:
+    branches:
+      - main
+    paths:
+      - "projects/P003-news-timeline/frontend/**"
+      - "projects/P003-news-timeline/infra/cf-redirect-function.js"
+  schedule:
+    - cron: '15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watchdog-frontend:
+    name: deploy trigger watchdog (frontend)
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+
+      # PR merge 時: 変更ファイルが frontend paths にマッチするか確認
+      - name: PR 変更ファイルの frontend paths マッチ判定
+        id: path_check
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          CHANGED_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' 2>/dev/null || echo "")
+          echo "Changed files in PR #$PR_NUMBER:"
+          echo "$CHANGED_FILES"
+
+          PATTERNS=(
+            "projects/P003-news-timeline/frontend/"
+            "projects/P003-news-timeline/infra/cf-redirect-function.js"
+          )
+
+          MATCHED=false
+          while IFS= read -r file; do
+            for pat in "${PATTERNS[@]}"; do
+              if [[ "$file" == "$pat"* ]] || [[ "$file" == "$pat" ]]; then
+                echo "[MATCH] $file matches frontend pattern $pat"
+                MATCHED=true
+                break
+              fi
+            done
+          done <<< "$CHANGED_FILES"
+
+          echo "matched=$MATCHED" >> "$GITHUB_OUTPUT"
+          if [ "$MATCHED" = "false" ]; then
+            echo "[INFO] PR #$PR_NUMBER does not touch frontend paths; skipping watchdog."
+          fi
+
+      - name: frontend path マッチなし → skip
+        if: github.event_name == 'pull_request' && steps.path_check.outputs.matched == 'false'
+        run: |
+          echo "PR does not touch frontend paths. No watchdog action needed."
+
+      # CloudFront 配信フレッシュネスを確認 (S3 origin の Last-Modified 経由)
+      # T2026-0502-WATCHDOG-FIX (2026-05-02 PO 指示「物理ガード偽陽性恒久対処」横展開):
+      # ① docs-only PR で freshness poll が走って fail する bug 修正
+      #    旧: skip step で exit 0 しても次 step の if: 条件がなく走ってしまっていた
+      #    新: 本 step に明示的に if: 条件追加 (push/schedule/frontend-touched PR のみ)
+      # ② deploy chain (auto-merge → deploy-p003.yml → S3 sync → CloudFront 反映) 平均 3-5min を踏まえ
+      #    poll 窓を 5min → 8min に拡大 (4 attempts × 120s sleep = 480s)。レースを構造的に解消。
+      - name: CloudFront freshness poll (最大 8 分・deploy chain 考慮)
+        id: freshness_poll
+        if: |
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch' ||
+          github.event_name == 'push' ||
+          (github.event_name == 'pull_request' && steps.path_check.outputs.matched == 'true')
+        run: |
+          echo "[INFO] Polling CloudFront freshness (max 8 minutes)..."
+          THRESHOLD=1800  # 30min lag threshold
+
+          for attempt in 1 2 3 4; do
+            echo "[INFO] Attempt $attempt/4 (${attempt}*2min elapsed)"
+
+            COMMIT_TIME=$(git log -1 --format="%ct" -- projects/P003-news-timeline/frontend/ 2>/dev/null || echo "")
+            if [ -z "$COMMIT_TIME" ]; then
+              echo "[INFO] No frontend commits found; no action needed."
+              echo "status=ok" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            # CloudFront 配信 topic.html の Last-Modified を取得
+            CF_HEADERS=$(curl -sI -m 10 "https://flotopic.com/topic.html" 2>/dev/null || echo "")
+            CF_LM=$(echo "$CF_HEADERS" | grep -i '^last-modified:' | sed 's/^[Ll]ast-[Mm]odified: //I' | tr -d '\r\n')
+
+            if [ -z "$CF_LM" ]; then
+              echo "[ERROR] CloudFront last-modified header not found"
+              echo "status=fetch_error" >> "$GITHUB_OUTPUT"
+              exit 2
+            fi
+
+            CF_TS=$(date -d "$CF_LM" +%s 2>/dev/null || echo "")
+            if [ -z "$CF_TS" ]; then
+              echo "[ERROR] Failed to parse last-modified: $CF_LM"
+              echo "status=parse_error" >> "$GITHUB_OUTPUT"
+              exit 2
+            fi
+
+            DIFF_SEC=$(( CF_TS - COMMIT_TIME ))
+            DIFF_MIN=$(( DIFF_SEC / 60 ))
+            echo "[INFO] Deploy lag: ${DIFF_MIN}min (threshold=30min)"
+
+            if [ $DIFF_SEC -ge $THRESHOLD ] || [ $DIFF_SEC -lt $(( -THRESHOLD )) ]; then
+              if [ $attempt -lt 4 ]; then
+                echo "[WAIT] Lag detected (${DIFF_MIN}min), waiting 120s before retry..."
+                sleep 120
+              else
+                echo "[FAIL] Lag still detected after 4 attempts: ${DIFF_MIN}min"
+                echo "status=lag_detected" >> "$GITHUB_OUTPUT"
+                echo "diff_min=$DIFF_MIN" >> "$GITHUB_OUTPUT"
+                echo "commit_time=$COMMIT_TIME" >> "$GITHUB_OUTPUT"
+                echo "cf_ts=$CF_TS" >> "$GITHUB_OUTPUT"
+                exit 1
+              fi
+            else
+              echo "[OK] CloudFront freshness OK (lag=${DIFF_MIN}min)"
+              echo "status=ok" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+
+      # Auto-fallback: deploy-p003.yml を手動発火
+      - name: "Auto-fallback: deploy-p003.yml を発火"
+        if: failure() && steps.freshness_poll.outputs.status == 'lag_detected'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "[ACTION] Triggering deploy-p003.yml as fallback..."
+          gh workflow run deploy-p003.yml --ref main
+          TRIGGER_EXIT=$?
+          if [ $TRIGGER_EXIT -ne 0 ]; then
+            echo "[ERROR] Failed to trigger deploy-p003.yml (exit=$TRIGGER_EXIT)" >&2
+          else
+            echo "[OK] deploy-p003.yml triggered successfully"
+          fi
+          exit $TRIGGER_EXIT
+
+      # Slack 通知
+      - name: Slack 通知 (frontend deploy lag 検知)
+        if: failure() && steps.freshness_poll.outputs.status == 'lag_detected'
+        env:
+          SLACK_WEBHOOK: ${{ secrets.FAILURE_SLACK_WEBHOOK }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK:-}" ]; then
+            echo "::warning::Slack webhook 未設定 — 通知スキップ"
+            exit 0
+          fi
+          TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S UTC')
+          DIFF_MIN="${{ steps.freshness_poll.outputs.diff_min }}"
+          TRIGGER="${{ github.event_name }}"
+          curl -fsS -X POST "$SLACK_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"text\": \"🚨 *Frontend deploy trigger 故障検知 + 自動 fallback 発火* ($TIMESTAMP)\\nlag: ${DIFF_MIN}min\\ntrigger: $TRIGGER\\ndeploy-p003.yml を自動発火しました。\\n<https://github.com/${{ github.repository }}/actions/workflows/deploy-p003.yml|deploy-p003.yml>\"
+            }" || true
+
+      # GitHub Issue 自動起票
+      - name: GitHub Issue 自動起票 (frontend-deploy-trigger-broken)
+        if: failure() && steps.freshness_poll.outputs.status == 'lag_detected'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S UTC')
+          DIFF_MIN="${{ steps.freshness_poll.outputs.diff_min }}"
+          TRIGGER="${{ github.event_name }}"
+
+          # 既に open の frontend-deploy-trigger-broken issue があれば重複起票しない
+          EXISTING=$(gh issue list \
+            --label "frontend-deploy-trigger-broken" \
+            --state open \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING" ]; then
+            echo "[SKIP] frontend-deploy-trigger-broken issue #$EXISTING already open; skipping duplicate."
+            exit 0
+          fi
+
+          gh issue create \
+            --title "🚨 [auto] Frontend deploy trigger 故障検知 ($TIMESTAMP)" \
+            --label "frontend-deploy-trigger-broken,auto-created" \
+            --body "## Frontend Deploy Trigger 故障を自動検知しました
+
+          **検知時刻**: $TIMESTAMP
+          **trigger**: $TRIGGER
+          **deploy lag**: ${DIFF_MIN}min (threshold: 30min)
+          **配信対象**: https://flotopic.com/topic.html (CloudFront)
+
+          ### 自動対処
+          - deploy-p003.yml を \`gh workflow run\` で自動発火しました
+
+          ### 確認事項
+          - [ ] deploy-p003.yml の push/pull_request event trigger が機能しているか
+          - [ ] auto-merge.yml の GITHUB_TOKEN 制約 (GITHUB_TOKEN による push/merge は他 workflow を trigger しない) の影響範囲
+          - [ ] 自動発火後のデプロイが成功しているか
+          - [ ] CloudFront last-modified が更新されているか (curl -sI https://flotopic.com/topic.html)
+
+          ### 関連
+          - [deploy-trigger-watchdog-frontend.yml](\${{ github.server_url }}/\${{ github.repository }}/actions/runs/\${{ github.run_id }})
+          - Ticket: T2026-0502-AT (auto-merge bot による frontend deploy auto-trigger 失敗)
+          - 由来: T2026-0502-AQ (noindex 削除) の effect verify で発覚
+          "
