@@ -342,8 +342,13 @@ def _is_extractive_summary(text: str) -> bool:
     return False
 
 
-def needs_ai_processing(item):
+def needs_ai_processing(item, force=False):
     """このトピックがAI処理を必要とするかを判定。
+
+    Args:
+        item: DynamoDB から読んだ topic META。
+        force: True の場合、idempotent ガードを bypass する。
+               forceRegenerateAll など「全件強制再生成」パスで使用 (T2026-0502-BA)。
 
     以下のいずれかに該当する場合は処理が必要:
     - aiGenerated=False または未設定
@@ -357,8 +362,20 @@ def needs_ai_processing(item):
     Note: articleCount<2 のトピックはフロントエンドで非表示（processor もスキップ）のため
     False を返して pending_ai.json から自動クリーンアップされるようにする。
     2件目の記事が来た際は fetcher が pendingAI=True をセットし直す。
+
+    T2026-0502-BA: idempotent guard
+        全品質バー達成済 (`_is_fully_filled` が True) の topic は再生成しても改善余地ゼロ
+        なので skip する。pendingAI=True (新記事到着 / quality_heal rescue) であっても、
+        既に keyPoint>=100字 + perspectives + outlook + storyPhase 等が揃っていれば
+        Anthropic API 課金の無駄打ち + 上書き品質悪化リスクを物理ガード。
+        force=True の時は bypass (forceRegenerateAll など全件再生成パス温存)。
+        副作用: pendingAI=True に対する自動 re-summary は走らなくなるが、
+        朝刊・夕刊モデル (docs/product-direction.md) の「最大 12h 古い」UX 前提なので許容。
     """
     if int(item.get('articleCount', 0) or 0) < 2:
+        return False
+    # T2026-0502-BA: idempotent guard — 完全充填済なら skip (force=True で bypass)
+    if not force and _is_fully_filled(item):
         return False
     if item.get('pendingAI'):
         return True
@@ -480,8 +497,16 @@ def _load_visible_topic_ids() -> set:
         return set()
 
 
-def get_pending_topics(max_topics=100):
-    """S3のpending_ai.jsonからトピックIDを取得し、DynamoDBで個別に取得。"""
+def get_pending_topics(max_topics=100, force=False):
+    """S3のpending_ai.jsonからトピックIDを取得し、DynamoDBで個別に取得。
+
+    Args:
+        max_topics: 返却件数の上限。
+        force: True の場合、idempotent ガード (T2026-0502-BA) を bypass し、
+               全品質バー達成済の topic も pending として返す。
+               forceRegenerateAll など全件強制再生成パスで使用。
+    """
+    idempotent_skipped = 0  # T2026-0502-BA: idempotent ガードでスキップした件数
     pending_ids = []
     if S3_BUCKET:
         try:
@@ -553,12 +578,15 @@ def get_pending_topics(max_topics=100):
             try:
                 r = table.get_item(
                     Key={'topicId': tid, 'SK': 'META'},
-                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints,lifecycleStatus',
+                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints,lifecycleStatus,schemaVersion',
                 )
                 item = r.get('Item')
-                if item and needs_ai_processing(item):
+                if item and needs_ai_processing(item, force=force):
                     still_pending.append(tid)
                     items.append(item)
+                elif item and (not force) and _is_fully_filled(item):
+                    # T2026-0502-BA: idempotent ガード命中。pending_ai.json から自動除去される。
+                    idempotent_skipped += 1
                 # 存在しないIDまたは処理済みIDはstill_pendingに追加しない（自動クリーンアップ）
             except Exception:
                 still_pending.append(tid)
@@ -598,12 +626,15 @@ def get_pending_topics(max_topics=100):
                     try:
                         r = table.get_item(
                             Key={'topicId': tid, 'SK': 'META'},
-                            ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints,lifecycleStatus',
+                            ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints,lifecycleStatus,schemaVersion',
                         )
                         item = r.get('Item')
-                        if item and needs_ai_processing(item):
+                        if item and needs_ai_processing(item, force=force):
                             still_pending.append(tid)
                             items.append(item)
+                        elif item and (not force) and _is_fully_filled(item):
+                            # T2026-0502-BA: idempotent ガード命中
+                            idempotent_skipped += 1
                     except Exception:
                         pass
 
@@ -646,6 +677,9 @@ def get_pending_topics(max_topics=100):
         items = _apply_tier0_budget(items)
         visible_pending = sum(1 for x in items if x.get('topicId', '') in visible_tids and not x.get('aiGenerated'))
         print(f'[get_pending_topics] ソート完了: 可視未生成={visible_pending}件が先頭')
+        # T2026-0502-BA: idempotent ガードで skip した件数を可視化 (CloudWatch Insights で集計可能)
+        if idempotent_skipped > 0:
+            print(f'[idempotent] skipped fully_filled topics: {idempotent_skipped} (force={force})')
 
         # 補充があった場合は pending_ai.json も更新して次回スケジュール実行で再走査させる
         if S3_BUCKET and visible_tids:
@@ -688,7 +722,13 @@ def get_pending_topics(max_topics=100):
         if not r.get('LastEvaluatedKey'): break
         kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
 
-    items = [it for it in items if needs_ai_processing(it)]
+    # T2026-0502-BA: idempotent ガードで skip された件数を別途集計
+    _scan_idempotent_skipped = sum(
+        1 for it in items if (not force) and _is_fully_filled(it)
+    )
+    items = [it for it in items if needs_ai_processing(it, force=force)]
+    if _scan_idempotent_skipped > 0:
+        print(f'[idempotent] skipped fully_filled topics (scan path): {_scan_idempotent_skipped} (force={force})')
 
     def _ts(s):
         try:
@@ -740,8 +780,13 @@ def get_pending_topics(max_topics=100):
     return items[:max_topics]
 
 
-def get_topics_by_ids(topic_ids):
+def get_topics_by_ids(topic_ids, force=False):
     """指定IDのトピックをDynamoDBから直接取得し、AI処理が必要なものを返す。fetcher_trigger専用。
+
+    Args:
+        topic_ids: 対象 topicId の list
+        force: True の場合、idempotent ガード (T2026-0502-BA) を bypass し、
+               全品質バー達成済の topic も処理対象に含める。
 
     2026-04-29: keyPoint/schemaVersion/statusLabel/watchPoints を Projection に追加。
     needs_ai_processing が参照する全フィールドを取得しないと、Projection 欠落で None 扱いに
@@ -758,6 +803,7 @@ def get_topics_by_ids(topic_ids):
     items = []
     ghost_ids = []
     skipped_ids = []  # 存在するが needs_ai_processing が False
+    idempotent_skipped = 0  # T2026-0502-BA: idempotent ガード命中件数
     for tid in topic_ids:
         try:
             r = table.get_item(
@@ -768,10 +814,13 @@ def get_topics_by_ids(topic_ids):
             if not item:
                 ghost_ids.append(tid)
                 continue
-            if needs_ai_processing(item):
+            if needs_ai_processing(item, force=force):
                 items.append(item)
             else:
                 skipped_ids.append(tid)
+                # T2026-0502-BA: idempotent ガード命中分を別途集計
+                if (not force) and _is_fully_filled(item):
+                    idempotent_skipped += 1
         except Exception as e:
             print(f'get_topics_by_ids error [{tid}]: {e}')
     if ghost_ids:
@@ -780,6 +829,8 @@ def get_topics_by_ids(topic_ids):
     if skipped_ids:
         print(f'[get_topics_by_ids] needs_ai_processing=False で skip: {len(skipped_ids)}件 '
               f'(処理済 or articleCount<2). サンプル: {skipped_ids[:5]}')
+    if idempotent_skipped > 0:
+        print(f'[idempotent] skipped fully_filled topics: {idempotent_skipped} (force={force}, source=fetcher_trigger)')
     items.sort(key=lambda x: (
         0 if x.get('pendingAI') else (1 if not x.get('aiGenerated') else 2),
         -float(x.get('velocityScore', 0) or 0),
@@ -981,6 +1032,80 @@ def _is_keypoint_inadequate(v) -> bool:
     if isinstance(v, str) and len(v.strip()) < KEYPOINT_MIN_LENGTH:
         return True
     return False
+
+
+def _is_fully_filled(item) -> bool:
+    """T2026-0502-BA: idempotent guard 用 — 全品質バー達成済 (再生成しても改善余地ゼロ) を判定。
+
+    needs_ai_processing が True を返す全条件の **逆** に当たる: ここで True なら
+    「再生成しても出力は変わらない or むしろ悪化リスクがある」状態として skip 可能。
+
+    判定基準 (全て満たす場合のみ True):
+      - aiGenerated=True
+      - schemaVersion >= PROCESSOR_SCHEMA_VERSION (旧スキーマは再生成対象)
+      - generatedSummary が extractive_summary フォールバックでない
+      - storyTimeline 充足 (minimal/ac<=2 を除く)
+      - storyPhase 設定 (minimal/ac<=2 を除く)
+      - imageUrl 設定
+      - generatedTitle が低品質パターン (「〇〇をめぐる最新の動き」等) でない
+      - keyPoint が 100 字以上
+      - ac>=3 なら statusLabel / watchPoints 設定
+      - storyPhase=='発端' & ac>=3 ではない (T2026-0428-AH ガード対象外)
+
+    用途: 新記事到着 (pendingAI=True) や quality_heal の rescue で同じトピックが
+    pending キューに乗ってしまう経路で、既に高品質に充填済のものを物理的に skip し、
+    Anthropic API 課金の無駄打ちと上書き品質悪化リスクを同時に解消する。
+
+    forceRegenerateAll パスでは bypass する (needs_ai_processing(force=True) で迂回)。
+    """
+    if not item.get('aiGenerated'):
+        return False
+
+    # schemaVersion: 旧スキーマは再生成対象なので fully filled ではない
+    try:
+        sv = int(item.get('schemaVersion', 0) or 0)
+    except (ValueError, TypeError):
+        sv = 0
+    if sv < PROCESSOR_SCHEMA_VERSION:
+        return False
+
+    # 低品質要約 (extractive fallback 形式) は fully filled ではない
+    if _is_extractive_summary(item.get('generatedSummary', '')):
+        return False
+
+    # mode-aware: minimal/ac<=2 では timeline/storyPhase の有無を問わない
+    timeline = item.get('storyTimeline')
+    is_minimal = (item.get('summaryMode') == 'minimal'
+                  or int(item.get('articleCount', 0) or 0) <= 2)
+    if not is_minimal:
+        if not timeline or (isinstance(timeline, list) and len(timeline) == 0):
+            return False
+        if not item.get('storyPhase'):
+            return False
+
+    if not item.get('imageUrl'):
+        return False
+
+    if _is_low_quality_title(item.get('generatedTitle', '')):
+        return False
+
+    # keyPoint は minimal/standard/full 全モードで必須・100 字未満は不十分
+    if _is_keypoint_inadequate(item.get('keyPoint')):
+        return False
+
+    # ac>=3 では statusLabel / watchPoints が必須
+    ac = int(item.get('articleCount', 0) or 0)
+    if ac >= 3:
+        if not str(item.get('statusLabel') or '').strip():
+            return False
+        if not str(item.get('watchPoints') or '').strip():
+            return False
+
+    # T2026-0428-AH: storyPhase='発端' & ac>=3 は再処理対象 = NOT fully filled
+    if item.get('storyPhase') == '発端' and ac >= 3:
+        return False
+
+    return True
 
 
 def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_url=None, existing_meta=None):
