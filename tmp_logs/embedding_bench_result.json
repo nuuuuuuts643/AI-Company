@@ -1,0 +1,49 @@
+{
+  "results": [
+    {
+      "label": "same_event_geo_subset",
+      "title_a": "トランプ大統領 欧州駐留米軍 削減 発表",
+      "title_b": "トランプ氏 ドイツ駐留米軍 縮小",
+      "expected": true,
+      "cosine_sim": 0.9487794940623308
+    },
+    {
+      "label": "same_event_paraphrase",
+      "title_a": "米GDP速報値 年率2.0%増",
+      "title_b": "米国GDP 第3四半期 年率2.0%増",
+      "expected": true,
+      "cosine_sim": 0.9609515689625543
+    },
+    {
+      "label": "same_event_continuing",
+      "title_a": "日経平均 終値 史上最高値 更新",
+      "title_b": "NY株式市場 ナスダック S&P500指数 再び最高値更新",
+      "expected": false,
+      "cosine_sim": 0.9131364395726852
+    },
+    {
+      "label": "different_subject_same_topic",
+      "title_a": "米国 GDP 速報値 2.0%増",
+      "title_b": "日本 GDP 速報値 2.0%増",
+      "expected": false,
+      "cosine_sim": 0.9664597566366715
+    },
+    {
+      "label": "different_event_same_org",
+      "title_a": "トランプ大統領 関税引き上げ発表",
+      "title_b": "トランプ大統領 ロシア制裁 緩和示唆",
+      "expected": false,
+      "cosine_sim": 0.8995124567311932
+    },
+    {
+      "label": "borderline_score_match",
+      "title_a": "NY株式市場 ナスダック 最高値更新",
+      "title_b": "S&P500指数 終値 最高値",
+      "expected": true,
+      "cosine_sim": 0.9125685816081993
+    }
+  ],
+  "misses": 3,
+  "cosine_high": 0.85,
+  "cosine_low": 0.65
+}
