@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write   # OIDC で必須
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -27,13 +28,18 @@ jobs:
       - name: boto3インストール
         run: pip install boto3 --break-system-packages
 
+      - name: AWS 認証 (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # T2026-0502-SEC10-CODE: OIDC 専用化 (両建て廃止)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
+          aws-region: ap-northeast-1
+
       - name: 編集AIエージェント実行
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'ap-northeast-1' }}
+          AWS_DEFAULT_REGION: ap-northeast-1
         run: python3 scripts/editorial_agent.py
 
       - name: 変更をコミット・プッシュ

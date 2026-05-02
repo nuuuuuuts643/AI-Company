@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write   # OIDC で必須
 
     steps:
       - uses: actions/checkout@v4
@@ -37,8 +38,8 @@ jobs:
       - name: AWS認証情報を設定
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # T2026-0502-SEC10-CODE: OIDC 専用化 (両建て廃止)。Deploy role (特権) を使用。
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEPLOY }}
           aws-region: ap-northeast-1
 
       - name: sw.js バージョンをgit SHAで上書き
