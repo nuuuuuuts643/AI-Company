@@ -579,10 +579,19 @@ fi
 echo ""
 
 # ---- 7. サマリ出力 ----
+# T2026-0502-BOOTSTRAP-SUMMARY-FIX: BOOTSTRAP_EXIT に応じてシンボル/メッセージを分岐。
+# 旧実装: 失敗時 (BOOTSTRAP_EXIT=1) でも stdout 末尾は「✅ 起動チェック完了」のまま →
+#         lessons-learned.md L961「✅ 完了ログは実際に成功した条件下でのみ出す」のメタ教訓
+#         そのものを bootstrap 自身が踏み続けていた。 git pull/push auth fail のとき
+#         ⚠️ stderr メッセージは出るが見落とされやすく、 ✅ で成功と誤認するリスク。
 echo "─────────────────────────────────────────"
 if [ "$DRY_RUN" = "1" ]; then
   echo "✅ [DRY-RUN] 起動チェック完了 ($(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST'))"
   echo "  REPO=$REPO"
+elif [ "${BOOTSTRAP_EXIT:-0}" -ne 0 ]; then
+  echo "❌ 起動チェック異常終了 ($(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')) — exit ${BOOTSTRAP_EXIT}"
+  echo "  詳細は stderr の ⚠️ 行を参照 (例: git pull/push 失敗・lock 競合・並走違反 等)"
+  echo "  bootstrap は exit ${BOOTSTRAP_EXIT} で終了します。後続セッションが状態確認できるよう WORKING.md に状況を記録してください。"
 else
   echo "✅ 起動チェック完了 ($(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST'))"
 fi
