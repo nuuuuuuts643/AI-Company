@@ -194,3 +194,20 @@
 
 ## 完了
 → HISTORY.md に移動済み
+
+---
+
+## 🤖 自動検出キュー (health_check.sh)
+
+> `scripts/health_check.sh` が自動で追記する。GitHub Actions `health-check.yml` が毎日 09:00 JST に実行する。
+> 同じタグのタスクは重複追記されない。完了したら HISTORY.md に移動して行を削除する。
+
+| ID | 優先 | 軸 | 内容 | 変更予定ファイル | 追加日 |
+|---|---|---|---|---|---|
+| T2026-0502-AUTO-AI-MISSING | 高 | AI品質 | [自動検出] **AI 要約なしトピック比率が 35.1% (46/131, 閾値 20%, articleCount>=3 母数)** — processor の AI 生成キューが詰まっているか proc_ai.py がエラーで skip している。CloudWatch Logs で processor の error/warning を直近 24h 確認し、ANTHROPIC_API_KEY / 429 / wallclock guard 起因か特定する。 | `projects/P003-news-timeline/lambda/processor/proc_ai.py`, CloudWatch Logs | 2026-05-02 |
+| T2026-0502-AUTO-LAMBDA-ERR-FETCHER | 高 | 安定性 | [自動検出] **Lambda `p003-fetcher` のエラー率が 30.61% (閾値 1.0%, invocations=49.0, errors=15.0, 過去24h)** — CloudWatch Logs で root cause 調査し、リトライ・タイムアウト・依存サービス側の障害を切り分ける。 | CloudWatch Logs / `projects/P003-news-timeline/lambda/fetcher/` | 2026-05-02 |
+| T2026-0502-AUTO-DDB-TTL | 中 | コスト・運用 | [自動検出] **DynamoDB テーブルで TTL 未設定: flotopic-contacts,flotopic-favorites,flotopic-users** — 古いレコードが永続蓄積しコスト増 & スキャン速度低下。enable-time-to-live で expiresAt 属性を有効化する。 | AWS DynamoDB console / IaC | 2026-05-02 |
+| T2026-0502-AUTO-PRINT-RESIDUE | 低 | 技術負債 | [自動検出] **lambda/ 配下に print( が 273 箇所残留** — CloudWatch には出るが構造化ログにならない。logger.info/warning/error に置換する。 | `projects/P003-news-timeline/lambda/` | 2026-05-02 |
+| T2026-0502-AUTO-LINES-FETCHER | 中 | 技術負債 | [自動検出] **lambda/fetcher/handler.py が 1643 行 (閾値 500 行)** — ファイル分割で保守性を改善する。責務ごとに別ファイルへ切り出し、import/require で接続。 | `projects/P003-news-timeline/lambda/fetcher/handler.py` | 2026-05-02 |
+| T2026-0502-AUTO-LINES-PROCESSOR | 中 | 技術負債 | [自動検出] **lambda/processor/handler.py が 659 行 (閾値 500 行)** — ファイル分割で保守性を改善する。責務ごとに別ファイルへ切り出し、import/require で接続。 | `projects/P003-news-timeline/lambda/processor/handler.py` | 2026-05-02 |
+| T2026-0502-AUTO-LINES-APPJS | 中 | 技術負債 | [自動検出] **frontend/app.js が 1600 行 (閾値 500 行)** — ファイル分割で保守性を改善する。責務ごとに別ファイルへ切り出し、import/require で接続。 | `projects/P003-news-timeline/frontend/app.js` | 2026-05-02 |
