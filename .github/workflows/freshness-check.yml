@@ -18,6 +18,8 @@ on:
 
 permissions:
   contents: read
+  # T2026-0502-SEC10: OIDC role assumption 用 (AWS_ROLE_ARN_STANDARD 設定後に有効化)
+  id-token: write
 
 jobs:
   check:
@@ -494,6 +496,10 @@ jobs:
         continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:
+          # T2026-0502-SEC10: OIDC role assumption 優先 (AWS_ROLE_ARN_STANDARD が設定されていれば)、
+          # 未設定時は legacy access key にフォールバック。移行期間中の両建て運用。
+          # 詳細: docs/runbooks/github-actions-oidc-migration.md
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-1

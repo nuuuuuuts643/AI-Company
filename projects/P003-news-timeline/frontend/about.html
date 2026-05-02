@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'">
+  <!-- T2026-0502-SEC12: meta CSP に object-src/base-uri/form-action 追加 -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <title>Flotopicについて | Flotopic</title>
   <meta name="description" content="Flotopicは「話題の流れ」をAIで追うニュースキュレーションサービス。速報ではなく文脈を届ける——なぜ作られたか、他サービスとの違い、機能詳細をまとめています。">
