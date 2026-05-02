@@ -600,6 +600,7 @@ def lambda_handler(event, context):
     # fetcher は 30 分毎に走るため UTC 13 台に fetcher_trigger が来た場合のみ判定が走る。
     pred_judged = 0
     pred_skipped = 0
+    pred_skipped_deadline = 0  # T2026-0502-BC: 期限未到来で skip した件数 (Anthropic API 課金回避)
     JUDGE_MAX = 10
     _utc_hour = datetime.now(timezone.utc).hour
     _should_judge = (source != 'fetcher_trigger') and (_utc_hour == 13)
@@ -613,6 +614,8 @@ def lambda_handler(event, context):
                                                            max_topics=JUDGE_MAX)
         if candidates:
             print(f'[Processor] 予想判定対象: {len(candidates)} 件')
+        # T2026-0502-BC: outlook 期限到来チェック関数を import (上で from proc_ai import judge_prediction 既存)
+        from proc_ai import is_eligible_for_judgment
         for cand in candidates:
             if not _wallclock_ok():
                 print('[Processor] 予想判定: wallclock guard 到達。残りは次回。')
@@ -622,6 +625,12 @@ def lambda_handler(event, context):
             since = cand['predictionMadeAt']
             if not outlook or not since:
                 pred_skipped += 1
+                continue
+            # T2026-0502-BC: outlook 文中の期限フレーズを解析し、期限未到来は Anthropic API 呼ばずスキップ
+            # (matched 0 件問題の対処 + コスト削減)。期限フレーズなしは fallback_days=7 で保守的判定。
+            if not is_eligible_for_judgment(outlook, since, fallback_days=7):
+                pred_skipped += 1
+                pred_skipped_deadline += 1
                 continue
             new_articles = get_articles_added_after(tid, since, max_articles=20)
             new_titles = [a.get('title', '') for a in new_articles if a.get('title')]
@@ -640,7 +649,10 @@ def lambda_handler(event, context):
                 print(f'  [予想判定] {tid[:8]}... → {verdict["result"]} (新記事 {len(new_titles)} 件)')
             time.sleep(1.0)
         if pred_judged or pred_skipped:
-            print(f'[Processor] 予想判定: 判定 {pred_judged} 件 / スキップ {pred_skipped} 件')
+            # T2026-0502-BC: 期限未到来 skip の件数を別途観測 (Anthropic API 課金削減効果の可視化)
+            print(f'[Processor] 予想判定: 判定 {pred_judged} 件 / スキップ {pred_skipped} 件 (うち期限未到来 {pred_skipped_deadline} 件)')
+        if pred_skipped_deadline > 0:
+            print(f'[judge_prediction] eligible={pred_judged + (pred_skipped - pred_skipped_deadline)} total={len(candidates)} skipped_deadline={pred_skipped_deadline}')
     except Exception as e:
         print(f'[Processor] judge_prediction error: {e}')
 
