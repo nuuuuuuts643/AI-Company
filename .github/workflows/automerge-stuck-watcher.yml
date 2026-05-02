@@ -31,15 +31,29 @@ jobs:
   watcher:
     name: detect & rescue stuck auto-merge PRs
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write   # T2026-0502-AB: rebase 失敗時に Issue 起票するため
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # T2026-0502-AB: dirty PR の rebase + force-push が必要なため fetch-depth=0 で全履歴取得。
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity (T2026-0502-AB rebase commits 用)
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
       - name: Run watcher
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           STUCK_THRESHOLD_MINUTES: ${{ github.event.inputs.threshold_minutes || '5' }}
+          DIRTY_THRESHOLD_MINUTES: '10'
         run: |
           python3 scripts/automerge_stuck_watcher.py
 
