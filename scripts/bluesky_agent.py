@@ -903,39 +903,39 @@ def post_debut(client, dry_run: bool = False) -> bool:
     """
     print('[bluesky_agent] 初回投稿 (debut) チェック 開始')
 
+    # 期限切れマーカーの GC は enabled / cooldown に**先行**して実施する。
+    # 理由: enabled=False のとき rate-limit で早期 return すると S3 マーカーが
+    # 永遠に消費されず累積する事故 (T2026-0502-L follow-up で 85件発見)。
+    # GC は投稿しない安全な操作なので rate-limit 判定とは独立に走らせる。
+    pending = list_debut_pending()
+    if pending:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=DEBUT_MARKER_TTL_HOURS)
+        fresh = []
+        for m in pending:
+            try:
+                ca = datetime.fromisoformat(m['createdAt'].replace('Z', '+00:00'))
+            except Exception:
+                print(f'[bluesky_agent] 不正な createdAt のため破棄: {m["topicId"][:8]}...')
+                delete_debut_marker(m['key'])
+                continue
+            if ca < cutoff:
+                print(f'[bluesky_agent] 期限切れマーカー破棄 ({DEBUT_MARKER_TTL_HOURS}h超): {m["topicId"][:8]}...')
+                delete_debut_marker(m['key'])
+                continue
+            fresh.append(m)
+        pending = fresh
+
     # T2026-0502-L: enabled/cooldown/24h-cap を BLUESKY_POSTING_CONFIG に委譲。
-    # ⚠️ 過去の事故 (5/1 48件投稿) を再発させないため、pending マーカー処理の
-    #    前にレート判定する。enabled=False 時は早期 return で pending を無視する
-    #    （マーカーは消さない: enabled=True に戻したとき自然に再開できる）。
+    # GC のあとにレート判定する: enabled=False でもマーカーは TTL で掃除される。
     ok, reason = _check_rate_limit('debut')
     if not ok:
         print(f'[bluesky_agent] debut skip: {reason}')
         return False
 
-    pending = list_debut_pending()
     if not pending:
-        print('[bluesky_agent] 初回投稿対象なし (pending マーカー 0 件)')
-        return False
-
-    # 期限切れマーカーを物理削除 (リトライ無限ループ防止)
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=DEBUT_MARKER_TTL_HOURS)
-    fresh = []
-    for m in pending:
-        try:
-            ca = datetime.fromisoformat(m['createdAt'].replace('Z', '+00:00'))
-        except Exception:
-            print(f'[bluesky_agent] 不正な createdAt のため破棄: {m["topicId"][:8]}...')
-            delete_debut_marker(m['key'])
-            continue
-        if ca < cutoff:
-            print(f'[bluesky_agent] 期限切れマーカー破棄 ({DEBUT_MARKER_TTL_HOURS}h超): {m["topicId"][:8]}...')
-            delete_debut_marker(m['key'])
-            continue
-        fresh.append(m)
-
-    if not fresh:
         print('[bluesky_agent] 初回投稿対象なし (期限内マーカー 0 件)')
         return False
+    fresh = pending  # 以降の処理は fresh 変数を使う既存コードに合わせる
 
     # 既に debut 投稿済みの topicId を除外 (重複投稿防止)
     posted_debut_ids = get_recent_posted_ids('debut', limit=50)
