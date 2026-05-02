@@ -644,13 +644,16 @@ echo "[フロントエンド] S3にアップロード..."
 aws s3 sync frontend/ "s3://${BUCKET}/" --exclude "api/*" \
   --cache-control "no-cache, must-revalidate"
 
-# HTMLファイルは no-cache で明示的に上書き（ブラウザキャッシュ対策）
-echo "  -> HTMLファイルを no-cache で上書き..."
+# HTMLファイルは no-store で明示的に上書き（T2026-0502-BI-CACHE-FIX）
+# 背景: スマホで UX 復旧反映遅れの構造対処。no-cache だと race condition で
+#       古い HTML が表示される隙間あり。no-store はブラウザ・SW どちらも
+#       キャッシュ不可を物理保証。副作用: オフライン時に SPA 動かない (許容)。
+echo "  -> HTMLファイルを no-store で上書き..."
 for html_file in frontend/*.html; do
   fname=$(basename "$html_file")
   aws s3 cp "$html_file" "s3://${BUCKET}/${fname}" \
     --content-type "text/html; charset=utf-8" \
-    --cache-control "no-cache, must-revalidate" --region "$REGION"
+    --cache-control "no-store, no-cache, must-revalidate" --region "$REGION"
 done
 
 # SEOファイルを正しい Content-Type で明示的にアップロード
