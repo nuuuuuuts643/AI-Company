@@ -269,3 +269,137 @@ Phase A/B/C プランを実コストで再評価した結果、**期待削減量
 4. **「真の削減目標」: 月 $11 → $7 (約 36% カット)** が現実的。**理想ゼロ**を目指すなら Cloudflare Workers / R2 への脱 AWS 移行が必要 (別プラン)
 5. **Anthropic Claude API コスト**は AWS 請求と別 → AWS 削減と独立して別タスクで管理 (フェーズ 2 進行に直結)
 
+---
+
+## 9. DynamoDB Read 元コード分析 (T2026-0502-COST-D1-INVESTIGATE・2026-05-02 23:00 JST)
+
+> 範囲: `projects/P003-news-timeline/lambda/` 配下の全 boto3 DynamoDB Read 呼出 (Scan / Query / GetItem / BatchGetItem) を網羅。コード変更はせず、削減候補設計案 1 件を提示する。
+> 関連: §8.4 D1 候補定義・§2 Phase C COST-C1 (`lambda/api/handler.py` 読取パス除去) との重複回避。
+
+### 9.1 関数別 × テーブル別 読取マトリクス
+
+| Lambda | テーブル | 操作種別 | 月間呼出推定 | 備考 |
+|---|---|---|---|---|
+| **api/handler.py** | `p003-topics` | `scan` (`all_topics` META 全件) + `query` (`topic_detail`) | API 呼出依存 (CloudFront cache miss 時のみ Lambda 起動) | **最有力 D1 ターゲット** — 既に `api/topics-card.json` (S3) で同じ minimal payload を配信済 |
+| **processor/handler.py** | `p003-topics` | `scan` (pending fallback L120/L134) | proc 月 ~60 回 × N items | rate-limit fallback 経路。S3 化困難 (内部状態管理) |
+| **processor/proc_storage.py** | `p003-topics` | `scan` × 多数 + `query` × 多数 + `get_item` × 多数 + `batch_get_item` × 2 | proc 1日2回 (08/20 JST) × 全 visible topic | 内部処理ロジック中核。`get_pending_topics` / `get_topics_by_ids` / `_backfill_ai_fields_from_ddb` 等。S3 化困難 (DDB が SoT) |
+| **fetcher/handler.py** | `p003-topics` | `get_item` (META lookup L216) | rate(30 min) × N topics = 月 ~1,440 × N | 鮮度判定で META 必読・整合性必須 |
+| **fetcher/storage.py** | `p003-topics` | `scan` + `query` × 4 + `batch_get_item` | 30 min × 数百件 | `_load_visible_topic_ids` 経由・`api/topics_visible_ids.json` で代替可能性あり |
+| **lifecycle/handler.py** | `p003-topics` | `query` × 4 + `scan` + `batch_get_item` × 3 | 週次 (月 4 回) | バッチ削除・低頻度。削減余地小 |
+| **comments/handler.py** | `ai-company-comments` `flotopic-users` `flotopic-rate-limits` `flotopic-analytics` `p003-topics` | `query` `scan` `get_item` 多数 | UGC イベント時 (低〜中) | UGC 整合性必須・S3 化不適 |
+| **contact/handler.py** | `flotopic-contacts` `p003-topics` `flotopic-rate-limits` | `query` + `scan` | 低 (問い合わせ時) | 低頻度・整合性必須 |
+| **auth/handler.py** | `flotopic-users` | `get_item` | login 時 | UGC 整合性必須・S3 化不適 |
+| **favorites/handler.py** | `flotopic-favorites` `p003-topics` | `query` × 2 + `get_item` × 2 | favorite アクション時 | UGC 整合性必須 |
+| **analytics/handler.py** | `flotopic-analytics` `flotopic-users` | `scan` × 4 + `query` + `get_item` | 集計時 (1日数回) | 集計系・S3 化検討余地あるが優先度低 |
+| **cf-analytics/handler.py** | `flotopic-favorites` | `scan` | daily | 低頻度 (月 ~30 回) |
+| **tracker/handler.py** | `p003-topics` | (Table 取得のみ・読み無し) | tracking | UGC tracking |
+
+### 9.2 既に S3 で配信されている同等データ
+
+| S3 key | 中身 | 由来 | frontend 利用 |
+|---|---|---|---|
+| `api/topics.json` | 全件 META | `processor` 出力 | (旧経路) |
+| `api/topics-full.json` | full payload | `processor` 出力 | 詳細画面 |
+| **`api/topics-card.json`** | **モバイル用 minimal payload** | **`processor` 出力** | **`frontend/app.js` L233 が `apiUrl('topics-card')` で取得** |
+| `api/health.json` | 充填率 SLI | `processor` 出力 | health page |
+| `api/pending_ai.json` | pending tid 一覧 | `processor` 内部用 | (内部) |
+| `api/topics_visible_ids.json` | visible tid 一覧 | `processor` 出力 | tracker/fetcher が参照 |
+
+**重要観測**: `frontend/app.js` は既に `topics-card.json` (S3) を直接 fetch している。**`api/handler.py` の `/topics` エンドポイント (DDB Scan) は旧経路で誰も呼んでいない可能性が高い**。CloudWatch access log で 7 日分の hit を確認する必要あり。
+
+### 9.3 削減施策の優先度
+
+**🎯 最高 (D1-α) — `api/handler.py` `/topics` 経路の S3 直配信化**
+- DDB Scan (META 全件・数百件) → 月 RCU 大量消費の主犯候補
+- frontend が既に `topics-card.json` を見ているため、`/topics` API は遺物の可能性 → アクセスログ確認で実効を判断
+- 期待削減: $1.5〜3/月 (DDB Read $4.02 のうち API path 寄与を ~50% カット仮定)
+
+**🟡 中 (D1-β) — `fetcher/storage.py` の `_load_visible_topic_ids` 系**
+- 30 min × 数百 topic で頻度高
+- 既に `api/topics_visible_ids.json` (S3) が存在 → S3 直読で DDB scan を回避できる可能性
+- 期待削減: $0.3〜0.8/月
+
+**🟢 低 (D1-γ) — `lifecycle/handler.py`**
+- weekly のみ・効果僅か → 後回し
+
+**❌ 提案しない**
+- `processor/proc_storage.py` 系: DDB が State of Record。書換は §C1/C2 のアーキ移行に統合する話で、§D1 のスコープ外
+- UGC 系 (comments/auth/favorites): 整合性必須・S3 化不適
+
+### 9.4 採用候補の具体設計案 — D1-α: `/topics` 経路の S3 直配信化
+
+#### 現状
+```
+client → CloudFront → API GW → Lambda(api/handler.py) → DynamoDB Scan(p003-topics META)
+```
+- `all_topics()` が `ProjectionExpression` で META のみ全件 Scan
+- 毎回 META 全件 → 数百 RCU 消費
+- CloudFront cache miss 時に毎回発火
+
+#### 提案 (3 ステップ・段階的)
+
+**Step 1: アクセス実態調査 (コード変更なし・3 日)**
+- CloudWatch Logs Insights で `/topics` への直接 hit (CloudFront cache miss + 異なる Source IP) を 7 日分集計
+- 結果次第で Step 2 を 2 系統に分岐
+
+**Step 2-A: 直撃が多い場合 — Lambda が S3 を読んで返す (要コード変更)**
+```python
+# lambda/api/handler.py 改修案
+import boto3
+s3 = boto3.client('s3', region_name=REGION)
+S3_BUCKET = os.environ.get('S3_BUCKET', 'p003-news-946554699567')
+
+def lambda_handler(event, context):
+    path = event.get('rawPath', '/')
+    if path in ('/', '/topics'):
+        try:
+            obj = s3.get_object(Bucket=S3_BUCKET, Key='api/topics-card.json')
+            payload = json.loads(obj['Body'].read())
+            return resp(200, {'topics': payload.get('topics', [])}, event)
+        except Exception:
+            # フォールバック: 旧 DDB 経路 (緊急時のみ)
+            return resp(200, {'topics': all_topics()}, event)
+    # ... topic_detail は据え置き
+```
+
+**Step 2-B: 直撃がほぼゼロ (frontend のみ・全 cache hit) の場合 — `/topics` ルート自体を 410 Gone に**
+- API 経路自体を撤去 → Lambda invocation も DDB Scan も完全にゼロ
+
+**Step 3: SLI 計測 + 撤退基準**
+- 計測項目: `DynamoDB ConsumedReadCapacityUnits` (p003-topics) before/after・CloudFront cache hit ratio
+- 撤退基準: S3 直配信に切替後、frontend で表示崩れまたは 5xx が 1% 超で即 revert
+- 評価期限: 切替 PR merge 後 7 日 (`Eval-Due:`)
+
+#### リスク
+
+| リスク | 影響 | 対策 |
+|---|---|---|
+| processor 書込から S3 反映まで cache TTL (5 min) 遅延 | frontend topics 一覧が最大 5 分古い | 現状 `topics-card.json` も同じ TTL で運用済 → 体感差なし |
+| `topics-card.json` schema が `/topics` API と微妙に違う | 直撃クライアントで JSON parse error | Step 1 のログ確認で外部直撃の有無を先に確認・schema 揃える Adapter を Lambda に挟む |
+| S3 read failure (バケット障害) | API 全断 | フォールバック (Step 2-A の except 節) で旧 DDB 経路を残す |
+| CloudFront cache invalidation が必要 | 切替時に古い payload 配信 | `processor` 出力時の既存 invalidation 機構を流用 |
+
+#### 実装ステップ (PR を分ける)
+1. **PR-1 (調査)**: CloudWatch Logs Insights クエリ + アクセス分析を別 doc に出す (コード変更なし)
+2. **PR-2 (Step 2-A or 2-B 採否)**: 結果に応じて Lambda 改修 or `/topics` ルート削除。SLI ベースラインを取る
+3. **PR-3 (Verified-Effect)**: 7 日後 SLI 再測定 → DDB Read 削減 / cache hit ratio 改善 を確認
+
+#### 期待削減
+- **保守的見積もり**: $1.0/月 (`/topics` 直撃が想定より少なく Cache hit が高い場合)
+- **中央値見積もり**: $1.5〜2.0/月 (`/topics` Lambda invocation の DDB Scan を半減)
+- **楽観見積もり**: $3.0/月 (`/topics` ルート完全撤去で API path 寄与をほぼゼロ化)
+
+### 9.5 §C1 (Phase C) との関係整理
+
+§2 Phase C の **COST-C1** が「`p003-topics` 読み取りパス全体を S3 直配信」と広い設計、本 §9.4 D1-α は **`/topics` API 単一エンドポイントに限定**した先行スコープ。
+
+- C1 は `topic_detail` (`/topic/{id}`) も S3 化する大きな話 (個別 topic ごとに `topic-{id}.json` を書く設計が必要・別タスク)
+- D1-α は `/topics` 一覧のみ・既存 `topics-card.json` を流用する小さな先行 PR
+- **D1-α が成功した時点で C1 を「`topic_detail` を残課題」として再定義し直す**
+
+### 9.6 D1 投資判断
+
+- **やる価値**: $1.5〜3/月 = 月支出の 14〜27%。1 PR で段階的に投入できる (Step 2-A or 2-B)
+- **やらない理由なし**: 既に S3 payload があるので追加生成は不要・Lambda コード変更も小さい
+- **次タスク**: `T2026-0502-COST-D1-α-INVESTIGATE` を起票 (Step 1 のアクセス実態調査) → 結果次第で `T2026-0502-COST-D1-α-CODE` で Step 2 実装
+
