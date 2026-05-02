@@ -46,6 +46,29 @@ grep "^| T" TASKS.md || echo "（なし）"
 # Verified 行を保持する変数（検証成功時に追記）
 VERIFIED_LINE=""
 
+# ===== main マージ確認 (CLAUDE.md「完了=mainマージ済み+deploy完了」の物理化) =====
+echo ""
+echo "=== main ブランチマージ確認 ==="
+git fetch origin main 2>/dev/null || echo "fetch failed, continuing"
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+CURRENT_HASH=$(git rev-parse HEAD 2>/dev/null)
+
+if [ "$CURRENT_BRANCH" = "main" ] || git merge-base --is-ancestor "$CURRENT_HASH" origin/main 2>/dev/null; then
+    MAIN_HEAD=$(git log origin/main --oneline | head -3)
+    echo "  ✅ Verified-Deploy: git log main shows ${CURRENT_HASH:0:7} @ $(date '+%Y-%m-%d %H:%M JST')"
+    echo "  main 直近 3 件:"
+    echo "$MAIN_HEAD" | sed 's/^/     /'
+else
+    echo "  ❌ 現在の HEAD (${CURRENT_HASH:0:7}) は origin/main に含まれていない"
+    echo "  現在ブランチ: $CURRENT_BRANCH"
+    echo ""
+    echo "  → feature branch push のみ。main へのマージ + GH Actions deploy 完了後に done.sh を再実行してください。"
+    echo "  確認コマンド: git log origin/main --oneline | head -5"
+    echo ""
+    echo "  ⚠️  CLAUDE.md「完了=mainマージ済み+deploy完了」未達 — 完了として扱わない。"
+    exit 1
+fi
+
 # ===== 動作確認ステージ (CLAUDE.md「完了=動作確認済み」の物理化) =====
 if [ -n "$VERIFY_TARGET" ]; then
     echo ""
