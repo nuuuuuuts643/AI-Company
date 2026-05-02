@@ -125,10 +125,15 @@ def find_unhealthy(metas):
             score = int(m.get('score', 0) or 0)
         except (ValueError, TypeError):
             score = 0
-        # archived/legacy/deleted は触らない (lifecycle Lambda の管轄)
+        # T2026-0502-MU-FOLLOWUP-ARCHIVED: legacy/deleted は触らない、
+        # archived は high-value (ac>=6 AND score>=100) のみ救済対象に含める。
+        # 閾値根拠: 2026-05-02 実測で対象わずか 1 件 (4bf3a46568f1189c) のみ・コスト爆発リスクなし。
         lifecycle = m.get('lifecycleStatus', '')
-        if lifecycle in ('archived', 'legacy', 'deleted'):
+        if lifecycle in ('legacy', 'deleted'):
             continue
+        if lifecycle == 'archived':
+            if not (ac >= 6 and score >= 100):
+                continue
 
         reasons = []
         # E2-2 (2026-04-28 PM): 空だけでなく 100 字未満の短い keyPoint も再処理対象に含める。
@@ -185,8 +190,11 @@ def find_mode_mismatch_topics(metas):
         current_mode = m.get('summaryMode')
         if not current_mode:
             continue  # summaryMode 未設定はスキップ (別の heal ルートで対処)
+        # T2026-0502-MU-FOLLOWUP-ARCHIVED: legacy/deleted は触らない、
+        # archived は high-value (ac>=6 AND score>=100) のみ救済対象に含める。
+        # find_unhealthy() の同等修正と論理同期。閾値変更時は両関数を一緒に更新すること。
         lifecycle = m.get('lifecycleStatus', '')
-        if lifecycle in ('archived', 'legacy', 'deleted'):
+        if lifecycle in ('legacy', 'deleted'):
             continue
         try:
             ac = int(m.get('articleCount', 0) or 0)
@@ -198,6 +206,10 @@ def find_mode_mismatch_topics(metas):
             score = int(m.get('score', 0) or 0)
         except (ValueError, TypeError):
             score = 0
+        # archived は ac/score 計算後に判定 (high-value のみ救済)
+        if lifecycle == 'archived':
+            if not (ac >= 6 and score >= 100):
+                continue
 
         expected = _expected_mode(ac)
         if not _is_mode_upgrade(current_mode, expected):
