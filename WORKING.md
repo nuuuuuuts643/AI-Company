@@ -128,3 +128,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 |---|---|---|---|---|
 | [Cowork] T2026-0502-G 実機検証 + T2026-0502-A/B 起票 (docs only) | Cowork | WORKING.md, TASKS.md, HISTORY.md | 2026-05-02 08:04 | no |
 | [Cowork] T2026-0502-Q 仮説外し訂正 + lessons-learned + T2026-0502-H 起票 (docs only) | Cowork | TASKS.md, docs/lessons-learned.md | 2026-05-02 10:25 | no |
+| [Code] T2026-0502-WORKFLOW-PATH-LINT workflow path 物理ガード | Code | scripts/check_workflow_paths.sh, .github/workflows/ci.yml, tests/test_check_workflow_paths.sh | 2026-05-02 10:34 | yes |
