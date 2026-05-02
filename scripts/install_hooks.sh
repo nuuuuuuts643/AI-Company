@@ -96,6 +96,31 @@ if [ -x "$SCAN_SCRIPT" ]; then
   rm -f /tmp/secret_scan.$$.log
 fi
 
+# T2026-0502-COST-DISCIPLINE-PHYSICAL (2026-05-02): コスト規律の物理化
+# 物理ガード: コードに以下のアンチパターンが入っている場合 commit を block する。
+# 1. workflow_dispatch を curl で直接叩く (scripts/gh_workflow_dispatch.sh wrapper を使うこと)
+# 2. sleep N && curl / aws polling パターン (1 回確認 + schedule タスク委ね原則)
+# 3. for i in {1..N}; do curl/aws ... done パターン
+COST_HITS=$(git diff --cached --no-color -U0 \
+    | grep -E '^\+' \
+    | grep -vE '^\+\+\+' \
+    | grep -vE 'gh_workflow_dispatch\.sh|cost.*-discipline|COST-DISCIPLINE|install_hooks\.sh|test.*pattern|test.*aspect' \
+    | grep -E '(curl[^|&;]*-X[ ]*POST[^|&;]*actions/workflows/[^/]+/dispatches|sleep[ ]+[0-9]+[ ]*&&[ ]*curl|sleep[ ]+[0-9]+[ ]*;[ ]*curl|sleep[ ]+[0-9]+[ ]*&&[ ]*aws[ ]+lambda|for[ ]+[a-zA-Z_]+[ ]+in[ ]+[\\{`].*do[ ]+(curl|aws[ ]))' \
+    || true)
+if [ -n "$COST_HITS" ]; then
+    echo "❌ pre-commit blocked: cost-discipline anti-pattern が staged されています (T2026-0502-COST-DISCIPLINE-PHYSICAL)"
+    echo "$COST_HITS" | head -10 | sed 's/^/   /'
+    echo ""
+    echo "   検出パターン (CLAUDE.md コスト規律ルール参照):"
+    echo "   ① curl で workflow_dispatch を直接叩く → bash scripts/gh_workflow_dispatch.sh <wf> を使うこと"
+    echo "   ② sleep N && curl / aws polling → 1 回確認 + schedule (p003-haiku) 委ね"
+    echo "   ③ for ループで curl/aws 連投 → 同上"
+    echo ""
+    echo "   緊急 bypass (テスト等): git commit --no-verify"
+    echo "   (使用時は WORKING.md に理由記録必須)"
+    exit 1
+fi
+
 exit 0
 HOOK
 
