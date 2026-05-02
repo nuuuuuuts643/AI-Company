@@ -128,3 +128,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 |---|---|---|---|---|
 | [Cowork] T2026-0502-SES-METRIC-FILTER SLI 14 追加 | Cowork | scripts/check_ses_error_sli.sh, .github/workflows/freshness-check.yml | 2026-05-02 12:25 | yes |
 | [Code] T2026-0502-MU-FOLLOWUP mode upgrade 上流補完 | Code | lambda/processor/proc_storage.py, lambda/quality_heal/handler.py, tests/test_mode_upgrade_rescue.py, docs/lessons-learned.md | 2026-05-02 13:00 JST | no |
+| [Code] T2026-0502-MU-FOLLOWUP-ARCHIVED quality_heal high-value archived 救済 | Code | scripts/quality_heal.py, tests/test_quality_heal_mode_upgrade.py, docs/lessons-learned.md, scripts/check_lessons_landings.sh | 2026-05-02 14:00 JST | no |
