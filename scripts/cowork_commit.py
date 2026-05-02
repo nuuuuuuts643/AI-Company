@@ -54,8 +54,59 @@ def api(method, path, token, repo, data=None):
         return json.loads(r.read())
 
 
+def detect_and_close_overlapping_cowork_prs(token, repo, file_paths):
+    """
+    open 中の cowork/* ブランチ PR が今回の file_paths と重複していないか検出し、
+    重複している cowork PR を**自動で close** する。
+
+    背景 (2026-05-02 PR #137 事故):
+      旧 PR #135 (Code 起源・closed すべきだった conflict 持ち) を閉じ忘れたまま
+      Cowork が同じファイル群で PR #137 を作成 → 一瞬だけ並行状態が発生し、
+      `pr-conflict-guard.yml` が「コード本体多重編集」を検出して fail を返した。
+      物理ルール「同名ファイル並行編集禁止」を Cowork 側で守るための物理化。
+
+    対象:
+      head ref が `cowork/` で始まる open PR のみ (Cowork が作った PR のみ)。
+      Code セッション (fix/T* / claude/* / feat/T*) の PR は人間/別セッションが
+      意図的に走らせている可能性があるため auto-close しない。
+
+    返り値: 閉じた PR 番号のリスト
+    """
+    closed = []
+    try:
+        prs = api('GET', 'pulls?state=open&per_page=50', token, repo)
+    except Exception as e:
+        print(f'  (overlap check skipped: {e})')
+        return closed
+    target_set = {os.path.normpath(p) for p in file_paths}
+    for pr in prs:
+        head_ref = pr.get('head', {}).get('ref', '')
+        if not head_ref.startswith('cowork/'):
+            continue
+        # PR の files 一覧
+        try:
+            files = api('GET', f'pulls/{pr["number"]}/files?per_page=100', token, repo)
+        except Exception:
+            continue
+        pr_files = {os.path.normpath(f['filename']) for f in files}
+        overlap = target_set & pr_files
+        if not overlap:
+            continue
+        # 重複あり → close
+        try:
+            api('POST', f'issues/{pr["number"]}/comments', token, repo, {
+                'body': f'cowork_commit.py により自動クローズ: 同一ファイル {sorted(overlap)} を含む新規 Cowork PR を作成するため (pr-conflict-guard.yml による多重編集 fail を予防)。'
+            })
+            api('PATCH', f'pulls/{pr["number"]}', token, repo, {'state': 'closed'})
+            print(f'  ⚠️  closed overlapping cowork PR #{pr["number"]} (overlap: {sorted(overlap)})')
+            closed.append(pr['number'])
+        except Exception as e:
+            print(f'  WARN: failed to close PR #{pr["number"]}: {e}')
+    return closed
+
+
 def commit_and_pr(message, file_paths, branch=None, pr_title=None, pr_body=None,
-                  base='main'):
+                  base='main', skip_overlap_close=False):
     token, repo = get_token_and_repo()
     if not token or not repo:
         print('ERROR: token/repo not found', file=sys.stderr)
@@ -69,6 +120,10 @@ def commit_and_pr(message, file_paths, branch=None, pr_title=None, pr_body=None,
         print(f'ERROR: refusing to write to base branch "{branch}". '
               f'Use a feature branch + PR. (CLAUDE.md「PR 経由必須」)', file=sys.stderr)
         sys.exit(1)
+
+    # 物理ガード: 重複 cowork PR (同じファイルを触っている open cowork PR) を自動クローズ
+    if not skip_overlap_close:
+        detect_and_close_overlapping_cowork_prs(token, repo, file_paths)
 
     repo_root = subprocess.check_output(
         ['git', 'rev-parse', '--show-toplevel'],
@@ -147,6 +202,8 @@ def main():
     p.add_argument('--base', default='main', help='base ブランチ (default: main)')
     p.add_argument('--pr-title', help='PR タイトル (省略時は commit message 1 行目)')
     p.add_argument('--pr-body', help='PR body (省略時は commit message 全体)')
+    p.add_argument('--no-close-duplicates', action='store_true',
+                   help='重複 cowork PR の auto-close を無効化 (デフォルトは有効)')
     p.add_argument('message', help='commit message')
     p.add_argument('files', nargs='+', help='コミットするファイル (リポジトリ root からの相対パス)')
     args = p.parse_args()
@@ -155,7 +212,8 @@ def main():
                   branch=args.branch,
                   pr_title=args.pr_title,
                   pr_body=args.pr_body,
-                  base=args.base)
+                  base=args.base,
+                  skip_overlap_close=args.no_close_duplicates)
 
 
 if __name__ == '__main__':
