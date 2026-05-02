@@ -126,3 +126,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0502-SEC10-CODE-RETRY OIDC 19 workflow 完全切替 | Code | .github/workflows/*.yml | 2026-05-02 18:10 | yes |
