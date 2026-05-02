@@ -231,6 +231,26 @@ if [ -f "docs/current-phase.md" ]; then
   echo "==================================================================="
 fi
 
+# ---- 3e2. .git/config URL に token 直書き検出 (T2026-0502-SEC2-RECURRENCE) ----
+# 背景: 2026-05-02 SEC2 対応で `.git/config` の `remote.origin.url` から PAT を剥がしたが、
+#       将来の clone や手動操作で再混入する可能性がある。CLAUDE.md「PII / secrets コード直書き禁止」
+#       物理ルールを `.git/config` にも適用する物理ガード。
+# 動作: bootstrap 起動時に URL を grep して `gho_` / `ghp_` / `ghs_` / `gho_` パターンが含まれていれば ERROR。
+# 対処: `git remote set-url origin https://github.com/<owner>/<repo>.git` + `gh auth login` で Keychain 認証へ。
+if [ "$DRY_RUN" = "0" ]; then
+  GIT_URL=$(git config --get remote.origin.url 2>/dev/null || echo "")
+  if echo "$GIT_URL" | LANG=C grep -qE '://[^/]+:(gh[opsu]_|ghp_)[A-Za-z0-9_-]+@github\.com'; then
+    echo "❌ ERROR: .git/config の remote.origin.url に token が直書きされています (T2026-0502-SEC2-RECURRENCE)" >&2
+    echo "   セキュリティリスク: PAT/OAuth token が平文で保存されています。" >&2
+    echo "   対処:" >&2
+    echo "     1. git remote set-url origin https://github.com/nuuuuuuts643/AI-Company.git" >&2
+    echo "     2. git config --global credential.helper osxkeychain  # Mac" >&2
+    echo "     3. gh auth login --web で Keychain 認証へ移行" >&2
+    echo "   詳細: docs/lessons-learned.md「T2026-0502-SEC2-RECURRENCE」セクション" >&2
+    BOOTSTRAP_EXIT=1
+  fi
+fi
+
 # ---- 3f. hook 再汚染検知 (T2026-0502-M-FOLLOW-UP) ----
 # 背景: T2026-0502-SESSION-END-HOOK-AUDIT (PR #173) で `~/.claude/settings.json` の Stop hook が
 #       全セッション終了時に `git add -A && git commit && git push` を main に直実行していたため、

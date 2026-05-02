@@ -27,18 +27,104 @@ import sys, os, json, urllib.request, subprocess, argparse, time, re
 
 
 def get_token_and_repo():
+    """
+    Token と GITHUB_REPO を多経路で取得 (T2026-0502-SEC2-RECURRENCE 恒久対処).
+
+    優先順位:
+      1. .git/config URL に embed された token (旧仕様・SEC2 で除去推奨)
+      2. 環境変数 GITHUB_TOKEN / GH_TOKEN
+      3. gh CLI auth ファイル (~/.config/gh/hosts.yml)
+      4. ~/.netrc (machine github.com)
+      5. macOS Keychain (security コマンド) — Mac 環境のみ
+
+    repo (owner/repo) は .git/config URL または 環境変数 GITHUB_REPO で取得。
+
+    背景: 2026-05-02 T2026-0502-SEC2 で .git/config URL から PAT を除去した結果、
+    cowork_commit.py が 401 Unauthorized になり Cowork から PR が作れなくなった事故。
+    平文 token を保管しなくても認証できるよう多経路化する。
+    """
+    repo = None
+    token = None
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # 経路 1: .git/config URL (token 埋め込みありの旧仕様)
     try:
         url = subprocess.check_output(
             ['git', 'config', '--get', 'remote.origin.url'],
-            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            cwd=repo_root,
             stderr=subprocess.DEVNULL
         ).decode().strip()
         m = re.match(r'https://[^:]+:([^@]+)@github\.com/([^/]+/[^.]+)', url)
         if m:
             return m.group(1), m.group(2)
+        # token なし URL から repo だけ抽出
+        m_repo = re.match(r'https://github\.com/([^/]+/[^.]+)', url)
+        if m_repo:
+            repo = m_repo.group(1)
     except Exception:
         pass
-    return os.environ.get('GITHUB_TOKEN'), os.environ.get('GITHUB_REPO')
+
+    repo = repo or os.environ.get('GITHUB_REPO')
+
+    # 経路 2: 環境変数 (推奨経路)
+    token = os.environ.get('GITHUB_TOKEN') or os.environ.get('GH_TOKEN')
+    if token and repo:
+        return token, repo
+
+    # 経路 3: gh CLI auth (~/.config/gh/hosts.yml)
+    try:
+        gh_hosts = os.path.expanduser('~/.config/gh/hosts.yml')
+        if os.path.isfile(gh_hosts):
+            with open(gh_hosts, 'r') as f:
+                content = f.read()
+            # シンプル parse (yaml モジュール不要・regex で oauth_token: を拾う)
+            m_gh = re.search(r'oauth_token:\s*(\S+)', content)
+            if m_gh:
+                gh_token = m_gh.group(1).strip('"\'')
+                if gh_token and repo:
+                    return gh_token, repo
+    except Exception:
+        pass
+
+    # 経路 4: ~/.netrc (machine github.com)
+    try:
+        netrc_path = os.path.expanduser('~/.netrc')
+        if os.path.isfile(netrc_path):
+            with open(netrc_path, 'r') as f:
+                content = f.read()
+            m_netrc = re.search(
+                r'machine\s+github\.com\s+(?:login\s+\S+\s+)?password\s+(\S+)',
+                content
+            )
+            if m_netrc:
+                netrc_token = m_netrc.group(1)
+                if netrc_token and repo:
+                    return netrc_token, repo
+    except Exception:
+        pass
+
+    # 経路 5: macOS Keychain (Mac 環境のみ)
+    try:
+        if sys.platform == 'darwin':
+            kc_token = subprocess.check_output(
+                ['security', 'find-internet-password', '-s', 'github.com', '-w'],
+                stderr=subprocess.DEVNULL
+            ).decode().strip()
+            if kc_token and repo:
+                return kc_token, repo
+    except Exception:
+        pass
+
+    # 全経路 fail → 呼び出し側で 401 にしないよう、ここで明示的にエラー出力
+    if not token:
+        sys.stderr.write(
+            "ERROR: GitHub token not found in any of the 5 sources:\n"
+            "  1. .git/config URL  2. env GITHUB_TOKEN/GH_TOKEN\n"
+            "  3. ~/.config/gh/hosts.yml  4. ~/.netrc  5. macOS Keychain\n"
+            "  対処: gh auth login (推奨) or export GITHUB_TOKEN=ghp_...\n"
+            "  詳細: docs/lessons-learned.md「T2026-0502-SEC2-RECURRENCE」\n"
+        )
+    return token, repo
 
 
 def api(method, path, token, repo, data=None):
