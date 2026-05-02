@@ -1,0 +1,116 @@
+{
+  "Version": "2012-10-17",
+  "_meta": {
+    "_comment": "T2026-0502-IAM-DEPLOY-FIX: SEC10 OIDC 移行時の権限漏れ恒久対処。git tracked source of truth。変更は infra/iam/apply.sh で apply。",
+    "role_name": "GitHubActionsRole-Flotopic-Standard",
+    "policy_name": "flotopic-actions-standard",
+    "_strip_meta_before_apply": true
+  },
+  "Statement": [
+    {
+      "Sid": "DynamoDBSpecificTables",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "dynamodb:BatchGetItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:DescribeTable",
+        "dynamodb:ConditionCheckItem"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/p003-topics",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/p003-topics/index/*",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/ai-company-comments",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/ai-company-comments/index/*",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/ai-company-memory",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/ai-company-x-posts",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/ai-company-bluesky-posts",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/ai-company-agent-status",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/ai-company-audit",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/flotopic-analytics",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/flotopic-favorites",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/flotopic-rate-limits",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/flotopic-users",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/flotopic-notifications",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/flotopic-notifications/index/*",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/flotopic-contacts",
+        "arn:aws:dynamodb:ap-northeast-1:946554699567:table/flotopic-contacts/index/*"
+      ]
+    },
+    {
+      "Sid": "S3SpecificBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": [
+        "arn:aws:s3:::p003-news-946554699567",
+        "arn:aws:s3:::p003-news-946554699567/*",
+        "arn:aws:s3:::p003-news-staging-946554699567",
+        "arn:aws:s3:::p003-news-staging-946554699567/*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchMetrics",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:PutMetricData"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ProcessorDLQ",
+      "Effect": "Allow",
+      "Action": "sqs:SendMessage",
+      "Resource": "arn:aws:sqs:ap-northeast-1:946554699567:p003-processor-dlq"
+    },
+    {
+      "Sid": "SES",
+      "Effect": "Allow",
+      "Action": [
+        "ses:SendEmail",
+        "ses:SendRawEmail"
+      ],
+      "Resource": "arn:aws:ses:us-east-1:946554699567:identity/flotopic.com"
+    },
+    {
+      "Sid": "InvokeProcessor",
+      "Effect": "Allow",
+      "Action": "lambda:InvokeFunction",
+      "Resource": "arn:aws:lambda:ap-northeast-1:946554699567:function:p003-processor"
+    },
+    {
+      "Sid": "LambdaReadOnlyT2026IAMDEPLOYFIX",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:GetFunctionConfiguration",
+        "lambda:GetFunction"
+      ],
+      "Resource": [
+        "arn:aws:lambda:ap-northeast-1:946554699567:function:p003-*",
+        "arn:aws:lambda:ap-northeast-1:946554699567:function:flotopic-*"
+      ]
+    },
+    {
+      "Sid": "SecretsManagerRead",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": [
+        "arn:aws:secretsmanager:ap-northeast-1:946554699567:secret:flotopic/anthropic-api-key-*",
+        "arn:aws:secretsmanager:ap-northeast-1:946554699567:secret:flotopic/slack-webhook-*"
+      ]
+    }
+  ]
+}
