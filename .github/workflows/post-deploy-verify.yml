@@ -1,0 +1,68 @@
+name: post-deploy-verify
+
+on:
+  workflow_run:
+    workflows: [Lambda デプロイ（全関数）]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-ai-freshness:
+    name: post-deploy-verify (AI 充填率 + 鮮度)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: AI 充填率 + 鮮度を計測
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -e
+          echo "::group::topics.json 取得 + 計測"
+          curl -fsS --max-time 30 https://flotopic.com/api/topics.json -o /tmp/topics.json
+          python3 - <<'PY'
+          import json, sys, datetime as dt
+          d = json.load(open('/tmp/topics.json'))
+          topics = d.get('topics', d) if isinstance(d, dict) else d
+          total = len(topics)
+          ai_gen = sum(1 for t in topics if t.get('aiGenerated'))
+          has_kp = sum(1 for t in topics if t.get('keyPoint') or t.get('keyPoints'))
+          has_per = sum(1 for t in topics if t.get('perspectives'))
+          kp_rate = has_kp/total*100 if total else 0
+          per_rate = has_per/total*100 if total else 0
+          # 鮮度
+          ua = d.get('updatedAt') if isinstance(d, dict) else None
+          age_min = -1
+          if ua:
+              try:
+                  t = dt.datetime.fromisoformat(str(ua).replace('Z','+00:00'))
+                  age_min = int((dt.datetime.now(dt.timezone.utc) - t).total_seconds()/60)
+              except Exception as e:
+                  print(f'updatedAt parse failed: {ua} ({e})')
+          # サマリ出力
+          summary = f"""### post-deploy-verify 結果
+          - Total topics: {total}
+          - aiGenerated: {ai_gen}
+          - keyPoint 充填率: {kp_rate:.1f}% ({has_kp}/{total}) [閾値 60%]
+          - perspectives 充填率: {per_rate:.1f}% ({has_per}/{total}) [閾値 60%]
+          - updatedAt 経過: {age_min} 分 [閾値 90 分]
+          """
+          import os
+          gha_summary = os.environ.get('GITHUB_STEP_SUMMARY')
+          if gha_summary:
+              with open(gha_summary, 'a') as f:
+                  f.write(summary)
+          print(summary)
+          # 閾値判定 — 60% 未満は warning (continue-on-error で job は成功扱い)
+          # (独立した監視ワークフローなので deploy workflow 全体を赤くしない)
+          if kp_rate < 60:
+              print(f'::warning::keyPoint 充填率 {kp_rate:.1f}% < 60% 閾値')
+          if per_rate < 60:
+              print(f'::warning::perspectives 充填率 {per_rate:.1f}% < 60% 閾値')
+          if age_min > 90 and age_min >= 0:
+              print(f'::warning::topics.json 鮮度 {age_min}分 > 90分閾値')
+          PY
+          echo "::endgroup::"
