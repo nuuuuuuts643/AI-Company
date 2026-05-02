@@ -43,7 +43,7 @@ from text_utils import (
     extract_entities, extract_merge_entities,
     find_related_topics, detect_topic_hierarchy,
     extractive_title, extractive_summary, is_extractive_summary,
-    strip_title_markdown,
+    strip_title_markdown, hierarchy_aware_overlap,
 )
 from storage import (
     write_s3, get_all_topics, get_topic_detail,
@@ -393,7 +393,7 @@ def _resolve_tid_collisions_by_title(group_tids, existing_topics, ai_judge=None,
             sim = len(inter) / len(union)
             if sim < _JACCARD_BORDERLINE_LOW:
                 continue
-            shared_ents = cand_entities & ttl_ents
+            shared_ents = hierarchy_aware_overlap(cand_entities, ttl_ents)
             if not shared_ents:
                 # entity 重複なし → マージ対象外
                 if sim >= _JACCARD_TITLE_THRESHOLD:
@@ -561,7 +561,7 @@ def _merge_within_run_duplicates(group_tids, existing_tids, ai_judge=None, audit
             sim = len(inter) / len(bg_i | bg_j)
             if sim < _JACCARD_BORDERLINE_LOW:
                 continue
-            shared_ents = ents_i & ents_j
+            shared_ents = hierarchy_aware_overlap(ents_i, ents_j)
             if not shared_ents:
                 continue
             if sim >= _JACCARD_TITLE_THRESHOLD:

@@ -8,6 +8,7 @@ from collections import Counter
 from config import (
     MEDIA_NS, SOURCE_NAME_MAP, GENRE_KEYWORDS, GENRE_STRONG_KEYWORDS,
     GENRE_PRIORITY, ENTITY_PATTERNS, SYNONYMS,
+    ENTITY_HIERARCHY,
 )
 
 
@@ -729,3 +730,24 @@ def detect_topic_hierarchy(topics: list, topic_entities: dict) -> dict:
             parent_map[tid_b] = best_parent
 
     return parent_map
+
+
+def hierarchy_aware_overlap(entities_a: set, entities_b: set) -> set:
+    """A と B の entity が「同じ階層を共有」する場合を含めて overlap を返す。
+
+    例: A={'欧州', 'トランプ', '米軍'}, B={'ドイツ', 'トランプ', '米軍'}
+        直接 overlap = {'トランプ', '米軍'}
+        hierarchy 込み overlap = {'トランプ', '米軍', '欧州'} (欧州⊃ドイツ で hit)
+
+    T2026-0502-U-V3: false-split 解消 (embedding pivot 後の rule-based 代替)
+    """
+    extended = entities_a & entities_b
+    for ea in entities_a:
+        children = ENTITY_HIERARCHY.get(ea)
+        if children and any(c in entities_b for c in children):
+            extended = extended | {ea}
+    for eb in entities_b:
+        children = ENTITY_HIERARCHY.get(eb)
+        if children and any(c in entities_a for c in children):
+            extended = extended | {eb}
+    return extended
