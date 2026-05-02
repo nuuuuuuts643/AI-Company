@@ -172,6 +172,19 @@ else
   git push 2>&1 | _strip_fuse_noise | tail -2 || true
 fi
 
+# ---- 2b. shared docs conflict guard (T2026-0502-H) ----
+# pull で shared docs (CLAUDE.md / WORKING.md / TASKS.md / HISTORY.md / docs/lessons-learned.md)
+# が UU 状態に陥ったら以後の処理を全て止める。upstream 採用で重要セクションを潰す事故
+# (2026-05-02 「コンフリクト解決時に upstream 採用で CLAUDE.md を破壊」) の物理化。
+# 詳細: docs/rules/conflict-resolution.md
+if [ -x scripts/conflict_check.sh ]; then
+  if ! bash scripts/conflict_check.sh; then
+    echo "❌ shared docs conflict が未解決のため bootstrap を中断します。" >&2
+    echo "   両側マージで解決してから再実行してください (docs/rules/conflict-resolution.md)。" >&2
+    exit 1
+  fi
+fi
+
 # ---- 3. CLAUDE.md 変更検知 ----
 LATEST_CLAUDE=$(git log --oneline -1 -- CLAUDE.md 2>/dev/null || echo "(none)")
 
