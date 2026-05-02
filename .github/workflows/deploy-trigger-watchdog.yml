@@ -136,7 +136,7 @@ jobs:
               exit 2
             fi
 
-            # T2026-0502-LINT-YAML-FIX: インライン python3 -c を撤廃 (lint-yaml-logic.yml ルール準拠)
+            # T2026-0502-LINT-YAML-FIX: インライン Python ロジックを撤廃 (lint-yaml-logic.yml ルール準拠)
             LAMBDA_TS=$(python3 scripts/parse_iso_to_epoch.py "$LAMBDA_LAST_MODIFIED" 2>/dev/null)
 
             DIFF_SEC=$(( LAMBDA_TS - COMMIT_TIME ))
