@@ -13,5 +13,7 @@ for fmt in ('%Y-%m-%dT%H:%M:%S.%f%z', '%Y-%m-%dT%H:%M:%S%z'):
         dt = datetime.strptime(s, fmt)
         print(int(dt.timestamp()))
         break
+    except ValueError:
+        continue
 else:
     print(-1)
