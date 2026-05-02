@@ -6,6 +6,21 @@
 
 ---
 
+## T2026-0502-DEPLOY-LAMBDAS-FIX — Lambda security deployment verified complete
+
+**完了** (2026-05-02 16:00 JST、Code セッション)。
+- **背景**: PR #205 (SEC5-17: IDOR vulnerability fixes) merge 後、deploy-lambdas.yml fetcher step が 5 秒で 3 回連続失敗 → 他 10 Lambda の新コード未反映。本番で旧コード挙動 (認証無しで 200 応答) が続いていた。
+- **検証実施**: curl でセキュリティ修正済 3 エンドポイントに対して認証無しアクセスをテスト:
+  - `GET /favorites/{userId}` → HTTP 401 ✅
+  - `GET /history/{userId}` → HTTP 401 ✅  
+  - `GET /avatar/upload-url?userId=X` → HTTP 401 ✅
+- **Lambda確認**: `aws lambda list-functions` で全 11 Lambda の LastModified が 2026-05-02 05:21〜05:22 UTC → PR #205 デプロイ成功を確認。
+- **Verified-Effect**: 認証なし curl リクエストで 3 エンドポイント全て HTTP 401 返却 (期待値と一致)。SEC5-17 IDOR 脆弱性修正が本番で有効。
+
+**注**: fetcher step の連鎖停止は並行タスク T2026-0502-Q で別途対処済 (deploy-lambdas.yml 修正・GitHub Actions log 確認で env merge 引数の特殊文字処理を改善)。
+
+---
+
 ## 2026-05-02 残務監査結果サマリ (T2026-0502-AUDIT・Cowork・11:30〜12:00 JST)
 
 **ステップA (WORKING.md 棚卸し)**: stale 残骸 2 行発見・2 行削除（T2026-0502-G/A/B 紐付き行 + T2026-0502-Q/H 紐付き行はいずれも HISTORY.md に landing 済 → 残骸として削除）。
