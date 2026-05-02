@@ -236,18 +236,23 @@ def lambda_handler(event, context):
     # ため通常は Tier-0 が先に消化されるが、本ガードは「Tier-0 を取り切る前に時間切れ」
     # を構造的に防ぐ物理ゲート (count budget=3 の補完)。
     def _is_tier0(t):
+        # T2026-0502-M: ac>=6 OR score>=100 に閾値を下げる。旧: ac>=10 のみ。
+        # 「育つべきトピック」(ac>=6 or high-score) が summaryMode=None のまま
+        # 放置される事象 (97件・33.7%) を物理ガードで解消する。
         try:
             ac = int(t.get('articleCount', 0) or 0)
+            score = int(t.get('score', 0) or 0)
         except (ValueError, TypeError):
             ac = 0
-        return ac >= 10 and not t.get('aiGenerated')
+            score = 0
+        return (ac >= 6 or score >= 100) and not t.get('aiGenerated')
     tier0_total = sum(1 for t in pending if _is_tier0(t))
     _initial_runtime_ms = max(0, _wallclock_remaining_ms() - WALLCLOCK_GUARD_MS)
     # phase A 終了時点での「残り時間」(ここを下回ったら Phase B = 全 topic 解放)
     TIER0_PHASE_END_REMAINING_MS = _wallclock_remaining_ms() - (_initial_runtime_ms // 2)
     tier0_processed = 0
     if tier0_total > 0:
-        print(f'[Processor] Tier-0 (articles>=10 × aiGenerated=False) {tier0_total}件 / Phase A wallclock={(_initial_runtime_ms//2)/1000:.0f}s 予約')
+        print(f'[Processor] Tier-0 (ac>=6 or score>=100, aiGenerated=False) {tier0_total}件 / Phase A wallclock={(_initial_runtime_ms//2)/1000:.0f}s 予約')
 
     for topic in pending:
         if api_calls >= effective_max_api_calls:
