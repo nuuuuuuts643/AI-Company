@@ -198,12 +198,15 @@ def lambda_handler(event, context):
 
     topic_id_filter = event.get('topic_ids')
     source = event.get('source', 'scheduled')
+    # T2026-0502-BA: forceRegenerateAll パスでは idempotent ガードを bypass する。
+    # 全件強制再生成 (schemaVersion 移行・全プロンプト改修後の再処理) のため。
+    force_regen = bool(event.get('forceRegenerateAll'))
     if topic_id_filter:
-        pending = get_topics_by_ids(topic_id_filter)
-        print(f'[Processor] フェッチャートリガー (source={source}): {len(topic_id_filter)}件指定 → {len(pending)}件処理対象')
+        pending = get_topics_by_ids(topic_id_filter, force=force_regen)
+        print(f'[Processor] フェッチャートリガー (source={source}): {len(topic_id_filter)}件指定 → {len(pending)}件処理対象 (force={force_regen})')
     else:
-        pending = get_pending_topics(max_topics=100)
-        print(f'[Processor] pendingAI=True トピック数: {len(pending)}')
+        pending = get_pending_topics(max_topics=100, force=force_regen)
+        print(f'[Processor] pendingAI=True トピック数: {len(pending)} (force={force_regen})')
 
     # event.maxApiCalls で上限をオーバーライド可能 (fetcher_trigger は 10 件など少量で即時処理)。
     # 不正値 (0/負/非数値) は MAX_API_CALLS にフォールバック。
