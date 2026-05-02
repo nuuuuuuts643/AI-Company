@@ -1159,6 +1159,7 @@ def post_morning(client, dry_run=False):
         return
 
     title     = topic.get('generatedTitle') or topic.get('title', '')
+    summary   = topic.get('generatedSummary') or topic.get('extractiveSummary', '')
     tid       = topic.get('topicId', '')
     image_url = topic.get('imageUrl') or ''
     url       = f'{SITE_URL}/topic.html?id={tid}'
