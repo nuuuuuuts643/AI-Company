@@ -2,8 +2,8 @@
 
 > **目的**: fetcher の bigram Jaccard + Haiku borderline 構成を embedding ベースに移行し、kill switch (`AI_MERGE_ENABLED=false`) で停止中の merge judge 機能を **コスト発生なしで品質維持** で復活させる。さらに processor 側の冗長 AI 生成も embedding 事前フィルタで削減。
 >
-> **状態**: 2026-05-02 14:45 JST 初版 (Cowork セッション中の WebSearch / WebFetch 公開情報のみで作成・実測 API 呼び出しなし)
-> **次アクション**: Code セッションで PoC 実装 (sentence-transformers Lambda layer + scripts ベンチ)
+> **状態**: 2026-05-02 15:30 JST Phase 1 bench 実施済 → multilingual-e5-small **不採用** (misses=3/6・diff_max > same_min で閾値分離不可能)
+> **次アクション**: voyage-3-lite API 評価 (T2026-0502-U-V2) or 現状維持 (AI_MERGE_ENABLED=false) — PO 判断待ち
 
 ---
 
@@ -201,4 +201,42 @@
 
 ---
 
-> **次アクション**: Code セッションで Phase 1 PoC 実装 → 結果次第で Phase 2 へ進む。本ドキュメントは Phase 1 完了時に bench 結果と推奨閾値を追記して living document として更新する。
+---
+
+## 9. Phase 1 Bench 実測結果 (2026-05-02 15:30 JST)
+
+**実行環境**: Mac (Python 3.9・ONNX Runtime 1.20.1・deepfile/multilingual-e5-small-onnx-qint8 ARM64)
+
+### cosine 実測値
+
+| label | title_a | title_b | expected | cosine | decision | match |
+|---|---|---|---|---|---|---|
+| same_event_geo_subset | トランプ大統領 欧州駐留米軍 削減 発表 | トランプ氏 ドイツ駐留米軍 縮小 | True | **0.949** | True | ✓ |
+| same_event_paraphrase | 米GDP速報値 年率2.0%増 | 米国GDP 第3四半期 年率2.0%増 | True | **0.961** | True | ✓ |
+| same_event_continuing | 日経平均 終値 史上最高値 更新 | NY株式市場 ナスダック S&P500指数 再び最高値更新 | False | 0.913 | True | ✗ |
+| different_subject_same_topic | 米国 GDP 速報値 2.0%増 | 日本 GDP 速報値 2.0%増 | False | 0.966 | True | ✗ |
+| different_event_same_org | トランプ大統領 関税引き上げ発表 | トランプ大統領 ロシア制裁 緩和示唆 | False | 0.900 | True | ✗ |
+| borderline_score_match | NY株式市場 ナスダック 最高値更新 | S&P500指数 終値 最高値 | True | 0.913 | True | ✓ |
+
+**misses: 3/6**・`prefix='query:'` `'passage:'` `''` のいずれでも結果不変
+
+### 根本問題
+
+- `same_min = 0.913`・`diff_max = 0.966` → **same_min < diff_max → 閾値帯で分離不可能**
+- `米国 GDP vs 日本 GDP` が 0.966 と最高類似度 → 構造的に同一なテキストを誤って同一事件と判定
+- multilingual-e5-small は短文ニュース見出しで cosine 分布が 0.9+ に圧縮される
+  → 同一事件と別事件が重なり、どの閾値でも True/False を分離できない
+
+### 結論: multilingual-e5-small 不採用
+
+Phase 1 完了条件「misses=0/6」未達。閾値調整で解消不可能 (数学的に証明済)。
+
+### 次の選択肢
+
+| 選択肢 | コスト | 実装工数 | 推奨度 |
+|---|---|---|---|
+| **voyage-3-lite API** | ~$0.15/月 (200M tok 無料枠 = 約26ヶ月) | Lambda env 追加のみ | ⭐⭐⭐ |
+| AI_MERGE_ENABLED=false 継続 | $0 | なし | ⭐⭐ (false split 継続) |
+| multilingual-e5-base (768dim) | $0 | S3 download or container | ⭐ (工数大) |
+
+→ **PO 判断**: voyage-3-lite 評価を T2026-0502-U-V2 として新規タスク起票するか、現状維持するか
