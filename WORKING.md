@@ -126,3 +126,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] T2026-0502-BI 静的トピックHTML JSON-LD 適正化 (NewsArticle化/dateModified ISO化/BreadcrumbList/publisher.logo) | Cowork | projects/P003-news-timeline/lambda/processor/proc_storage.py | 2026-05-02 20:05 | yes |
