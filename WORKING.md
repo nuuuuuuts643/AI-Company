@@ -126,5 +126,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T2026-0502-Z/AA/BB 観測ゼロ課題タスク積み | Cowork | TASKS.md | 2026-05-02 14:40 | no |
-| [Cowork] T2026-0502-AQ noindex 流入消失 恒久対処+再発防止 | Cowork | frontend/topic.html, frontend/catchup.html, scripts/check_seo_regression.sh, .github/workflows/ci.yml, .github/workflows/freshness-check.yml, docs/lessons-learned.md, docs/product-direction.md | 2026-05-02 14:55 | yes |
