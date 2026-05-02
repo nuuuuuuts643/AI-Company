@@ -128,3 +128,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 |---|---|---|---|---|
 | [Cowork] T2026-0502-G 実機検証 + T2026-0502-A/B 起票 (docs only) | Cowork | WORKING.md, TASKS.md, HISTORY.md | 2026-05-02 08:04 | no |
 | [Code] T2026-0502-H コンフリクト解決物理化 | Code | scripts/conflict_check.sh, docs/rules/conflict-resolution.md, scripts/session_bootstrap.sh, tests/test_conflict_check.sh, docs/lessons-learned.md | 2026-05-02 09:58 | yes |
+| [Code] T2026-0502-Q/R deploy復旧 + Haiku borderline 復活確認 | Code | TASKS.md (verify only) | 2026-05-02 10:05 | no |
