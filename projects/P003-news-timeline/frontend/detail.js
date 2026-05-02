@@ -94,7 +94,12 @@ function updateOGP(meta) {
   const desc = summaryPart
     ? `${phasePrefix}${summaryPart}`
     : 'AIがニュースの経緯をストーリー化。話の始まりから今日まで時系列で追える。';
-  const url     = meta.topicId ? `https://flotopic.com/topics/${meta.topicId}.html` : 'https://flotopic.com/topic.html';
+  // T2026-0502-BI-PERMANENT: topicId 確定時のみ静的 SEO URL を canonical / og:url に使用。
+  //   topicId 未確定時は空文字列で「canonical 不在」を維持する (id 無し topic.html を絶対に書かない)。
+  //   理由: id 無し topic.html を canonical にすると Google が「全 ID を topic.html 単独に統合する
+  //         duplicate URL シグナル」と解釈。空 href は Google が canonical 不在として扱う = self URL
+  //         (動的 SPA `topic.html?id=X`) を canonical 扱い → 統合誤シグナルを回避できる。
+  const url     = meta.topicId ? `https://flotopic.com/topics/${meta.topicId}.html` : '';
   const ogImage = meta.imageUrl || 'https://flotopic.com/ogp.png';
   const setMeta = (prop, val) => {
     const el = document.querySelector(`meta[property="${prop}"]`);

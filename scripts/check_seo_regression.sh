@@ -5,6 +5,10 @@
 # T2026-0502-BI (2026-05-02): canonical 二重URL / JSON-LD 妥当性 を物理 reject に拡張
 # T2026-0502-BI-REVERT (2026-05-02): Rule 2 (dynamic 内部リンク禁止) は UX 破壊だったため削除。
 #                                     ユーザー向け SPA topic.html?id=X は復活させる。
+# T2026-0502-BI-PERMANENT (2026-05-02): 役割分離の再発防止物理ガードを追加。
+#                                        Rule 5 (動的SPA内部リンク強制 = 静的 topics/X.html リンク禁止)
+#                                        Rule 6 (topic.html に SPA UX 要素必須)
+#                                        Rule 7 (topic.html の初期 canonical=id 無し topic.html 禁止)
 #
 # 背景:
 #   - AQ: T2026-0502-ADSENSE-FIX (4/28) で frontend/topic.html / catchup.html に
@@ -16,13 +20,23 @@
 #         そこに送ると UX 破壊 (コメント / お気に入り / 関連トピック が消える)。
 #         REVERT 後は内部リンクを動的SPA (topic.html?id=X) に戻し、canonical 統一は
 #         別経路 (動的ページ noindex / JS canonical 書換) で再設計予定 (T2026-0502-BI-REDESIGN)。
+#   - PERMANENT: 「次に同じ事故を起こさない」物理ガードを追加。役割分離 (動的=ユーザー UX
+#         一次・静的=Googlebot SEO 一次) を CI で強制する。
+#         詳細 → docs/rules/dynamic-vs-static-url.md
 #
 # このスクリプトが reject するパターン:
-#   1. INDEXABLE_PAGES に noindex が入る (AQ)
+#   1. INDEXABLE_PAGES に noindex が入る (AQ Rule 1)
 #   2. proc_storage.py の生成 JSON-LD で @type が "Article" (BI Rule 3)
 #      → "NewsArticle" 必須 (news-sitemap と整合)
 #   3. proc_storage.py の生成 JSON-LD で dateModified が date-only "YYYY-MM-DD" (BI Rule 4)
 #      → 完全 ISO 8601 必須 (Google が "modified < published" と誤読する)
+#   4. frontend の内部リンクが静的 topics/X.html (= Googlebot 向け薄ページ) を指す (PERMANENT Rule 5)
+#      → ユーザー導線は動的 topic.html?id=X (full UX) を指す。share/canonical URL は除外。
+#   5. topic.html から SPA UX 要素が消える (PERMANENT Rule 6)
+#      → #comments-section / #topic-fav-btn / #related-articles / #discovery-section /
+#        #parent-topic-link のいずれかが欠けたら reject
+#   6. topic.html の初期 <link rel="canonical"> が id 無し "topic.html" を指す (PERMANENT Rule 7)
+#      → 「全 ID を topic.html 単独に統合する duplicate URL シグナル」を Google に送る誤設計
 
 set -euo pipefail
 
@@ -96,9 +110,86 @@ if [[ -f "$PROC_STORAGE" ]]; then
 fi
 
 # ─────────────────────────────────────────────
+# Rule 5 (BI-PERMANENT): 動的 SPA 内部リンク強制 (静的 topics/X.html 内部リンク禁止)
+#   ユーザー導線は動的 topic.html?id=X (full UX) を指すこと。
+#   静的 topics/X.html は Googlebot 向け SEO 専用なのでユーザー導線にしない。
+#   除外: ①share/canonical 用の `https://flotopic.com/topics/...` 絶対 URL は OK
+#         ②admin/legacy.html (開発用)
+#         ③`topics/index.html` `topics-card.json` `topics.json` 等の固定 path は別物 (検索 grep で除外)
+#         ④node_modules/ は除外
+# ─────────────────────────────────────────────
+DYNAMIC_LINK_SCAN_DIRS=(
+  "projects/P003-news-timeline/frontend"
+)
+STATIC_LINK_EXCLUDE_RE='^(.*/(admin|legacy)\.html|.*/node_modules/.*)$'
+
+violations_static_link=()
+while IFS= read -r line; do
+  file="${line%%:*}"
+  if [[ "$file" =~ $STATIC_LINK_EXCLUDE_RE ]]; then continue; fi
+  violations_static_link+=("$line")
+done < <(
+  for d in "${DYNAMIC_LINK_SCAN_DIRS[@]}"; do
+    [[ -d "$d" ]] || continue
+    # 内部リンク `href="topics/${...}.html"` (or 'topics/...html' literal) を検出
+    # share/canonical 用の `https://flotopic.com/topics/...` は除外する (絶対 URL は SEO 一次への意図的参照)
+    grep -rnE 'href[[:space:]]*=[[:space:]]*[`"'"'"']topics/[^`"'"'"' ]*\.html' "$d" \
+      --include="*.html" --include="*.js" 2>/dev/null || true
+  done
+)
+
+# ─────────────────────────────────────────────
+# Rule 6 (BI-PERMANENT): topic.html に SPA UX 要素必須
+#   ユーザー導線が動的 SPA に向く以上、SPA に UX 要素 (コメント / お気に入り / 関連記事 /
+#   Discovery / 親トピックリンク) が必ず存在しなければ「役割分離違反 = UX 破壊」になる。
+# ─────────────────────────────────────────────
+TOPIC_HTML="projects/P003-news-timeline/frontend/topic.html"
+REQUIRED_SPA_ELEMENTS=(
+  'id="comments-section"'
+  'id="topic-fav-btn"'
+  'id="related-articles"'
+  'id="discovery-section"'
+  'id="parent-topic-link"'
+)
+
+violations_spa_ux=()
+if [[ -f "$TOPIC_HTML" ]]; then
+  for elem in "${REQUIRED_SPA_ELEMENTS[@]}"; do
+    if ! grep -qF "$elem" "$TOPIC_HTML"; then
+      violations_spa_ux+=("$TOPIC_HTML: 必須 SPA UX 要素 '$elem' が消えている")
+    fi
+  done
+fi
+
+# ─────────────────────────────────────────────
+# Rule 7 (BI-PERMANENT): topic.html の初期 canonical が id 無し "topic.html" 禁止
+#   理由: Googlebot 初回 fetch (JS rendering 前) で「全 ID が topic.html 単独 URL に統合される
+#         duplicate URL シグナル」を送ることになる。
+#   期待: 初期 href="" (空) で出して、JS が topicId 確定後に `topics/${id}.html` を inject。
+# ─────────────────────────────────────────────
+violations_initial_canonical=()
+if [[ -f "$TOPIC_HTML" ]]; then
+  # `<link rel="canonical" ... href="...topic.html..." (id クエリ無し or 末尾 topic.html)` を検出
+  # 許容: href="" (空) / href が含まれない / href="topic.html?id=" (id クエリ込み・通常無いが念のため許容)
+  if grep -E '<link[^>]*rel=["'"'"']canonical["'"'"'][^>]*href=["'"'"'][^"'"'"']*topic\.html(["'"'"']|#)' "$TOPIC_HTML" >/dev/null 2>&1; then
+    # ただし href="topic.html?id=" は許容
+    if ! grep -E '<link[^>]*rel=["'"'"']canonical["'"'"'][^>]*href=["'"'"'][^"'"'"']*topic\.html\?id=' "$TOPIC_HTML" >/dev/null 2>&1; then
+      violations_initial_canonical+=("$TOPIC_HTML: 初期 <link rel=\"canonical\"> が id 無し \"topic.html\" を指している (Google が duplicate URL と誤解する)")
+    fi
+  fi
+fi
+
+# ─────────────────────────────────────────────
 # 集計 & 出力
 # ─────────────────────────────────────────────
-total_violations=$(( ${#violations_aq[@]} + ${#violations_bi_schema[@]} + ${#violations_bi_date[@]} ))
+total_violations=$((
+  ${#violations_aq[@]} +
+  ${#violations_bi_schema[@]} +
+  ${#violations_bi_date[@]} +
+  ${#violations_static_link[@]} +
+  ${#violations_spa_ux[@]} +
+  ${#violations_initial_canonical[@]}
+))
 
 if (( total_violations > 0 )); then
   echo "[check_seo_regression] ❌ ERROR: SEO regression を検出しました" >&2
@@ -126,9 +217,36 @@ if (( total_violations > 0 )); then
     echo "" >&2
   fi
 
-  echo "詳細: docs/lessons-learned.md (T2026-0502-AQ / T2026-0502-BI セクション)" >&2
+  if (( ${#violations_static_link[@]} > 0 )); then
+    echo "── Rule 5 (T2026-0502-BI-PERMANENT): 内部リンクが静的 topics/X.html を指している (動的SPA topic.html?id=X 必須)" >&2
+    for v in "${violations_static_link[@]}"; do echo "  - $v" >&2; done
+    echo "  ※ 静的 topics/X.html は Googlebot 向け SEO 専用 (薄い AI まとめ)。" >&2
+    echo "  ※ ユーザー導線は動的 topic.html?id=X (full UX) に統一する。" >&2
+    echo "  ※ 詳細 → docs/rules/dynamic-vs-static-url.md" >&2
+    echo "" >&2
+  fi
+
+  if (( ${#violations_spa_ux[@]} > 0 )); then
+    echo "── Rule 6 (T2026-0502-BI-PERMANENT): topic.html から SPA UX 要素が消えた" >&2
+    for v in "${violations_spa_ux[@]}"; do echo "  - $v" >&2; done
+    echo "  ※ 動的 SPA topic.html はユーザー向け full UX 一次。" >&2
+    echo "  ※ コメント / お気に入り / 関連記事 / Discovery / 親トピックリンクは必須。" >&2
+    echo "  ※ どれかを削除する設計変更を行う前に PO 確認 + lessons-learned T2026-0502-BI-REVERT 参照" >&2
+    echo "" >&2
+  fi
+
+  if (( ${#violations_initial_canonical[@]} > 0 )); then
+    echo "── Rule 7 (T2026-0502-BI-PERMANENT): topic.html の初期 canonical が id 無し \"topic.html\" を指している" >&2
+    for v in "${violations_initial_canonical[@]}"; do echo "  - $v" >&2; done
+    echo "  ※ 期待: <link rel=\"canonical\" id=\"canonical-url\" href=\"\"> (空) で出して、JS が topicId 確定後に inject" >&2
+    echo "  ※ id 無し canonical は 'duplicate URL シグナル' を Google に送る誤設計" >&2
+    echo "" >&2
+  fi
+
+  echo "詳細: docs/lessons-learned.md (T2026-0502-AQ / T2026-0502-BI / T2026-0502-BI-REVERT)" >&2
+  echo "      docs/rules/dynamic-vs-static-url.md (役割分離 doc)" >&2
   exit 1
 fi
 
-echo "[check_seo_regression] ✅ OK: noindex / @type=NewsArticle / dateModified=ISO8601 すべて健全"
+echo "[check_seo_regression] ✅ OK: noindex / @type=NewsArticle / dateModified=ISO8601 / 動的SPA内部リンク / SPA UX 要素 / 初期 canonical すべて健全"
 exit 0

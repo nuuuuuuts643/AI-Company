@@ -23,7 +23,13 @@
   <meta name="twitter:title" content="Flotopic | トピック詳細">
   <meta name="twitter:description" content="このトピックの時系列推移をAIが分析。Flotopicで同じ話題のニュースをまとめて追えます。">
   <meta name="twitter:image" content="https://flotopic.com/ogp.png">
-  <link rel="canonical" id="canonical-url" href="https://flotopic.com/topic.html">
+  <!-- T2026-0502-BI-PERMANENT (2026-05-02): 初期 canonical の href は空にして JS inject に一本化。
+       理由: id 無し `topic.html` を canonical にすると Googlebot 初回 fetch (JS rendering 前) で
+             「全 ID が topic.html 単独 URL に統合される duplicate URL シグナル」を送ってしまう。
+       JS が URL から id を読んで `topics/${id}.html` (静的 SEO ページ) に書き換える (detail.js L116-118)。
+       CI Rule 7 (scripts/check_seo_regression.sh) で「id 無し canonical 」の再発を物理 reject。
+       詳細 → docs/rules/dynamic-vs-static-url.md, docs/lessons-learned.md T2026-0502-BI-REVERT。 -->
+  <link rel="canonical" id="canonical-url" href="">
   <script id="jsonld-newsarticle" type="application/ld+json">{"@context":"https://schema.org","@type":"NewsArticle","headline":"Flotopic","publisher":{"@type":"Organization","name":"Flotopic","url":"https://flotopic.com","logo":{"@type":"ImageObject","url":"https://flotopic.com/icon-192.png"}}}</script>
   <script id="jsonld-breadcrumb" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Flotopic","item":"https://flotopic.com/"}]}</script>
   <link rel="preconnect" href="https://accounts.google.com">
