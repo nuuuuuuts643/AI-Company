@@ -23,6 +23,8 @@
 2. **T2026-0501-K** 🟡 (フェーズ2) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` keyPoint ◎例 をエンタメ+テック差し替え
 3. (フェーズ2 完了条件達成までフェーズ3/4/5 タスクは凍結)
 
+**最新 Dispatch (auto-v2)** 2026-05-02 09:18 JST | staleness=3.3min | 過去2h saves=116件 | 直近1h Errors=0件 | outcome=A 異常なし・次回run まで観測のみ。T2026-0502-A は WORKING.md 上 PR #122 merged 済だが TASKS.md 緊急対処欄が未消し込み (Code セッションが ~~取消線~~ 化 + HISTORY.md 移動を担当)。
+
 **実在スケジューラー**: p003-haiku (7:08am daily) / p003-sonnet (手動のみ) / security-audit.yml (週次)
 **FUSE 環境メモ**: Cowork セッションでは git CLI が index.lock を unlink できない場合がある。`scripts/cowork_commit.py "msg" file...` で GitHub API 直接コミットに迂回可能（.git/config の token 自動取得）。
 
