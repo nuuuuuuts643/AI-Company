@@ -596,7 +596,7 @@ function buildCard(topic) {
   const tid     = topic.topicId || '';
   const updated = topic.lastUpdated || '';
   const created = topic.firstArticleAt ? new Date(topic.firstArticleAt * 1000).toISOString() : '';
-  const url     = tid ? `topic.html?id=${tid}` : 'topic.html';
+  const url     = tid ? `topics/${tid}.html` : '/';
   const velocity = parseInt(topic.velocityScore || 0);
 
   // バッジ

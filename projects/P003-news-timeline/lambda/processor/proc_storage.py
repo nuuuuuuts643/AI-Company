@@ -2210,19 +2210,60 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
         parts.append('</section>')
         ai_html = ''.join(parts)
 
-    # JSON-LD
+    # T2026-0502-BI (2026-05-02): JSON-LD 適正化
+    #   1) @type: Article → NewsArticle (news-sitemap と整合・Top Stories 対象化)
+    #   2) dateModified を完全 ISO 8601 に (旧: lastUpdated[:10] = date-only → Google が
+    #      "modified < published" と誤読する回避)
+    #   3) publisher.logo を ImageObject で追加 (NewsArticle 必須要件)
+    #   4) mainEntityOfPage 追加
+    #   5) BreadcrumbList を別 JSON-LD として追加
+    # 詳細: docs/lessons-learned.md T2026-0502-BI-SEO-SCHEMA セクション
+    _last_upd_raw = meta.get('lastUpdated') or ''
+    try:
+        _dm_iso = datetime.fromisoformat(str(_last_upd_raw).replace('Z', '+00:00')).strftime('%Y-%m-%dT%H:%M:%SZ')
+    except Exception:
+        _dm_iso = date_published if date_published else last_upd
+    # dateModified < datePublished にならないよう保証
+    if _dm_iso < date_published:
+        _dm_iso = date_published
+
     jsonld = json.dumps({
         '@context': 'https://schema.org',
-        '@type': 'Article',
+        '@type': 'NewsArticle',
+        'mainEntityOfPage': {'@type': 'WebPage', '@id': canonical},
         'headline': meta.get('generatedTitle') or meta.get('title', ''),
         'description': _strip_md(meta.get('generatedSummary', ''))[:200],
-        'image': meta.get('imageUrl') or 'https://flotopic.com/icons/icon-512.png',
+        'image': [meta.get('imageUrl') or 'https://flotopic.com/icon-512.png'],
         'datePublished': date_published,
-        'dateModified': last_upd,
+        'dateModified': _dm_iso,
         'author': {'@type': 'Organization', 'name': 'Flotopic', 'url': 'https://flotopic.com'},
-        'publisher': {'@type': 'Organization', 'name': 'Flotopic', 'url': 'https://flotopic.com'},
+        'publisher': {
+            '@type': 'Organization',
+            'name': 'Flotopic',
+            'url': 'https://flotopic.com',
+            'logo': {
+                '@type': 'ImageObject',
+                'url': 'https://flotopic.com/icon-512.png',
+                'width': 512,
+                'height': 512,
+            },
+        },
         'url': canonical,
+        'articleSection': genres_raw[0] if genres_raw else genre,
         'keywords': ', '.join(genres_raw) if genres_raw else genre,
+    }, ensure_ascii=False)
+
+    breadcrumb_jsonld = json.dumps({
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        'itemListElement': [
+            {'@type': 'ListItem', 'position': 1, 'name': 'Flotopic', 'item': 'https://flotopic.com/'},
+            {'@type': 'ListItem', 'position': 2, 'name': genres_raw[0] if genres_raw else '総合',
+             'item': f'https://flotopic.com/?genre={_up.quote(genres_raw[0] if genres_raw else "総合", safe="")}'},
+            {'@type': 'ListItem', 'position': 3,
+             'name': meta.get('generatedTitle') or meta.get('title', ''),
+             'item': canonical},
+        ],
     }, ensure_ascii=False)
 
     html = f"""<!DOCTYPE html>
@@ -2239,7 +2280,9 @@ def generate_static_topic_html(tid: str, meta: dict, articles: list) -> None:
 <meta property="og:image" content="{image_url}">
 <meta property="og:url" content="{canonical}">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="max-image-preview:large,max-snippet:-1,max-video-preview:-1">
 <script type="application/ld+json">{jsonld}</script>
+<script type="application/ld+json">{breadcrumb_jsonld}</script>
 <style>
 body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:800px;margin:0 auto;padding:16px;color:#1e293b;line-height:1.7}}
 h1{{font-size:1.6rem;margin-bottom:.5rem}}
