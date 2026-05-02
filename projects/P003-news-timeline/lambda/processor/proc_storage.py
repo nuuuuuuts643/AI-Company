@@ -501,14 +501,16 @@ def get_pending_topics(max_topics=100):
     if S3_BUCKET and len(pending_ids) < PENDING_REPLENISH_THRESHOLD:
         try:
             ddb_pending_ids: list = []
+            # SK(sort key) は FilterExpression に使用不可 → pendingAI のみフィルタし Python で SK 判定
             scan_kwargs = {
-                'FilterExpression': Attr('SK').eq('META') & Attr('pendingAI').eq(True),
-                'ProjectionExpression': 'topicId',
+                'FilterExpression': Attr('pendingAI').eq(True),
+                'ProjectionExpression': 'topicId, SK',
             }
             while True:
                 r = table.scan(**scan_kwargs)
                 ddb_pending_ids.extend(
-                    x['topicId'] for x in r.get('Items', []) if x.get('topicId')
+                    x['topicId'] for x in r.get('Items', [])
+                    if x.get('topicId') and x.get('SK') == 'META'
                 )
                 if not r.get('LastEvaluatedKey'):
                     break
@@ -1269,13 +1271,11 @@ def get_all_topics_for_s3():
                 return capped, _extract_trending_keywords(capped)
         except Exception as e:
             print(f'get_all_topics_for_s3 S3 error: {e}')
-    items, kwargs = [], {
-        'FilterExpression': 'SK = :m',
-        'ExpressionAttributeValues': {':m': 'META'},
-    }
+    # SK(sort key) は FilterExpression に使用不可 → 全件 Scan して Python 側で絞る
+    items, kwargs = [], {}
     while True:
         r = table.scan(**kwargs)
-        items.extend(r.get('Items', []))
+        items.extend(item for item in r.get('Items', []) if item.get('SK') == 'META')
         if not r.get('LastEvaluatedKey'): break
         kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
     capped = _cap_topics(items)
