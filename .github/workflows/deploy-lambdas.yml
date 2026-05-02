@@ -371,74 +371,10 @@ jobs:
       # Slack通知は slack-notify.yml が push 時に一元管理するため不要
 
   # =====================================================================
-  # post-deploy-verify: デプロイ後の効果計測 (T2026-0428-Z / 仕組みベース)
-  # 目的: 「修正→push→数日後にPOが気付く」ループを潰す。
-  #       デプロイ完了後に topics.json を取得し、AI 充填率と鮮度を即時検証する。
-  #       閾値割れは GitHub Actions UI で赤ジョブとして残るので外部観測になる。
-  # 注: deploy 直後は既存 topics.json を見ることになる。次回 processor 起動後の
+  # post-deploy-verify: 独立ワークフローに移行 (T2026-0502-POST-DEPLOY-VERIFY-FIX)
+  # 理由: deploy job の成功と workflow 全体の結論を分離する
+  #       → post-deploy-verify.yml が workflow_run で自動起動
+  #       → 失敗しても deploy workflow conclusion に影響なし
+  # 注: deploy 直後の topics.json を検証する同じロジック継続
+  #     deploy 直後は既存 topics.json を見ることになる。次回 processor 起動後の
   #     最新値検証は別系統 freshness-check.yml (毎時) が担う。
-  # =====================================================================
-  post-deploy-verify:
-    name: post-deploy-verify (AI 充填率 + 鮮度)
-    needs: [deploy]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: AI 充填率 + 鮮度を計測
-        shell: bash
-        run: |
-          set -e
-          echo "::group::topics.json 取得 + 計測"
-          curl -fsS --max-time 30 https://flotopic.com/api/topics.json -o /tmp/topics.json
-          python3 - <<'PY'
-          import json, sys, datetime as dt
-          d = json.load(open('/tmp/topics.json'))
-          topics = d.get('topics', d) if isinstance(d, dict) else d
-          total = len(topics)
-          ai_gen = sum(1 for t in topics if t.get('aiGenerated'))
-          has_kp = sum(1 for t in topics if t.get('keyPoint') or t.get('keyPoints'))
-          has_per = sum(1 for t in topics if t.get('perspectives'))
-          kp_rate = has_kp/total*100 if total else 0
-          per_rate = has_per/total*100 if total else 0
-          # 鮮度
-          ua = d.get('updatedAt') if isinstance(d, dict) else None
-          age_min = -1
-          if ua:
-              try:
-                  t = dt.datetime.fromisoformat(str(ua).replace('Z','+00:00'))
-                  age_min = int((dt.datetime.now(dt.timezone.utc) - t).total_seconds()/60)
-              except Exception as e:
-                  print(f'updatedAt parse failed: {ua} ({e})')
-          # サマリ出力
-          summary = f"""### post-deploy-verify 結果
-          - Total topics: {total}
-          - aiGenerated: {ai_gen}
-          - keyPoint 充填率: {kp_rate:.1f}% ({has_kp}/{total}) [閾値 60%]
-          - perspectives 充填率: {per_rate:.1f}% ({has_per}/{total}) [閾値 60%]
-          - updatedAt 経過: {age_min} 分 [閾値 90 分]
-          """
-          import os
-          gha_summary = os.environ.get('GITHUB_STEP_SUMMARY')
-          if gha_summary:
-              with open(gha_summary, 'a') as f:
-                  f.write(summary)
-          print(summary)
-          # 閾値判定 — 60% 未満は warning + 非ゼロ exit で job を赤くする
-          # (user spec 通り: 「修正→push→数日後PO気付く」を物理ゲートで止める)
-          failed = False
-          if kp_rate < 60:
-              print(f'::warning::keyPoint 充填率 {kp_rate:.1f}% < 60% 閾値')
-              failed = True
-          if per_rate < 60:
-              print(f'::warning::perspectives 充填率 {per_rate:.1f}% < 60% 閾値')
-              failed = True
-          if age_min > 90 and age_min >= 0:
-              print(f'::warning::topics.json 鮮度 {age_min}分 > 90分閾値')
-              failed = True
-          if failed:
-              sys.exit(1)
-          PY
-          echo "::endgroup::"
