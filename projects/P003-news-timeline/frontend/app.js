@@ -578,7 +578,8 @@ function renderHeroStoryPreview(list) {
     t.lifecycleStatus !== 'archived' &&
     parseInt(t.articleCount || 0, 10) >= 3 &&
     (t.storyPhase === '拡散' || t.storyPhase === 'ピーク') &&
-    (t.summaryMode === 'full' || t.summaryMode === 'standard')
+    (t.summaryMode === 'full' || t.summaryMode === 'standard') &&
+    (t.keyPoint || '').trim().length >= 80
   );
   candidates.sort((a, b) =>
     (Number(b.velocityScore || 0) - Number(a.velocityScore || 0)) ||
@@ -619,6 +620,8 @@ function renderTopics(topics) {
   }
   // 記事1件以下 or AI判定で内容が乖離しているトピックはフィードから除外
   list = list.filter(t => parseInt(t.articleCount) >= 2 && t.topicCoherent !== false);
+  // T2026-0502-ADSENSE-FIX: 薄トピックは表示から除外 (Google からの薄コンテンツ評価防止)
+  list = list.filter(t => ((t.keyPoint || '').trim().length >= 80));
 
   // 子トピック（parentTopicId あり）は親がリストに存在する場合はメインリストから非表示
   // 検索・ジャンルフィルター中は非表示にしない（検索で見つけられるように）
