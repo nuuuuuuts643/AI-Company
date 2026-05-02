@@ -137,3 +137,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Cowork] T2026-0502-COST-A1-CODE deploy.sh DDB 4個整理 | Cowork | projects/P003-news-timeline/deploy.sh | 2026-05-02 22:55 JST | yes |
+| [Cowork] T2026-0502-WORKFLOW-DEP-PHYSICAL workflow YAML が参照する scripts/* / infra/* の存在を CI 物理 reject + lessons-learned landing verify | Cowork | scripts/ci_check_workflow_script_refs.sh, .github/workflows/lint-yaml-logic.yml, docs/lessons-learned.md, scripts/check_lessons_landings.sh | 2026-05-02 23:00 JST | yes |
