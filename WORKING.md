@@ -136,5 +136,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T2026-0502-UX-CARDTITLE トップカードタイトル日本語15字truncation恒久対処 (proc_ai.py 15→30 + frontend 4箇所 generatedTitle優先 + lessons-learned + 物理ガード3件 candidate) | Cowork | projects/P003-news-timeline/lambda/processor/proc_ai.py, projects/P003-news-timeline/frontend/app.js, projects/P003-news-timeline/frontend/detail.js, docs/lessons-learned.md, TASKS.md, WORKING.md | 2026-05-02 23:30 JST | yes |
+<!-- [Cowork] T2026-0502-UX-CARDTITLE 完了 (2026-05-03 00:00 JST): PR #318 merge ✅ + PR #323 (lessons-learned 補完) auto-merge 待ち。実機検証 (flotopic.com) で12/12カード語句完整性 100% 確認・平均長 29字 (修正前 14.2字)。one-time scheduled task p003-verify-cardtitle-fix-20260504 で 2026-05-04 09:00 JST 自動再検証予定 -->
+| [Cowork] T2026-0502-UX-CARDTITLE-LESSONS-FOLLOWUP PR #318 から抜けた lessons-learned entry の補完 + FUSE Edit 並行書き込み事故記録 | Cowork | docs/lessons-learned.md | 2026-05-02 23:55 JST | yes |
 | [Cowork] T2026-0502-COST-RESIDUAL-WRAP 残課題 prompts (CLEANUP-FULL/AUTO-MERGE-GUARDS/CI-FAILURES-INVESTIGATE) + WORKING.md cleanup | Cowork | docs/code-session-prompts/*.md, WORKING.md | 2026-05-02 23:35 JST | yes |
