@@ -182,6 +182,31 @@ if ! grep -qE '^Verified: .*:2[0-9]{2}:' "$MSG_FILE"; then
   echo "⚠️  Verified line found but HTTP status is not 2xx. Continuing — please double-check."
 fi
 
+# ---- (C) Verified-Effect 行（feat:/fix:/perf: で必須・T2026-0502-AA で物理化）----
+# 「完了 = 動作確認済み + 効果検証済み」(CLAUDE.md) を物理ガード化。
+# Verified: は「動作確認 (URL HTTP 200)」を保証するが、効果 (SLI 改善) は別軸。
+# Cowork が「PR 出した時点で完了」と誤認するパターンが 2026-05-02 一日で 4 回発生 (T2026-0502-COST/U/W/Y)。
+#
+# 必須:
+#   `Verified-Effect: <SLI 説明> <before>→<after> (<source>:<JST_timestamp>)` か
+#   `Verified-Effect-Skip: <理由>` (例: \"build artifact only\" \"test fixture\" \"lint fix\") のどちらか。
+# Verified-Effect-Skip は理由を明示することで「あえて効果検証しない」判断を可視化する。
+# 効果検証が時間遅延 (deploy 後 N 時間後) の場合は `Verified-Effect-Pending: <Eval-Due日付>` も可。
+if ! grep -qE '^Verified-Effect(-Skip|-Pending)?: ' "$MSG_FILE"; then
+  echo "❌ commit-msg blocked: '$FIRST_LINE' requires one of:"
+  echo "   - Verified-Effect: <SLI metric> <before>→<after> (<source>:<JST>)"
+  echo "       (例: Verified-Effect: fetcher Haiku call 1100/run→0/run (CloudWatch:2026-05-02 14:08))"
+  echo "   - Verified-Effect-Skip: <reason>"
+  echo "       (例: Verified-Effect-Skip: build artifact only / test fixture / lint fix)"
+  echo "   - Verified-Effect-Pending: <Eval-Due日付>"
+  echo "       (例: Verified-Effect-Pending: 2026-05-09 effect_check_after_deploy)"
+  echo ""
+  echo "   理由: CLAUDE.md「完了=動作確認済+効果検証済」物理化 (T2026-0502-AA)"
+  echo "         2026-05-02 に Cowork が「PR 出した=完了」誤認を 4 回繰り返した対策"
+  echo "   bypass (emergency only): git commit --no-verify"
+  exit 1
+fi
+
 exit 0
 MSGHOOK
 
