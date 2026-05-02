@@ -14,18 +14,25 @@
 **直近のPO指示** (2026-05-02 00:00〜01:00 JST):
 「規則体系のリライト・違反全パターン物理化・自走 Lv2 化・組織として動く Claude・セキュリティ監査強化。プロダクト完成にブレないようにして欲しい」
 
-**今セッション (Code) で完了** (2026-05-02 08:43〜09:15 JST):
-- ✅ **T2026-0502-A** — PR #122 merged。SLI workflow に actions/checkout@v4 追加
-- ✅ **T2026-0501-M** — PR #118 merged。within-run dedup 本番入り
-- ✅ **auto-update-branches CI再発火 恒久対処** — PR #124 merged。ci.yml / meta-doc-guard.yml に workflow_dispatch 追加 + auto-update-branches.yml でブランチ更新後に両 workflow dispatch
+**今セッション (Cowork) で完了** (2026-05-02 09:00〜09:30 JST):
+- ✅ **p003-dispatch-auto-v2 本番稼働開始** — 4回/日 (08/13/18/22 JST) Haiku・Slack通知なし・start_code_task不使用版で create + Run now 検証済 (09:18 JST に WORKING.md 自動更新確認)
+- ✅ **scheduled-tasks 環境調査** — `start_code_task` は scheduled session 環境では未提供と確認 (probe タスクで実証済 → tmp_logs に結果あり・auto-sync で削除済)
+- ✅ **ゾンビ scheduled-tasks クリーンアップ** — description 空の orphan 5 件 (rule-monthly-audit / security-audit-aws / dispatch-auto / eng-permission-probe / fetcher-recovery-verify) PO 削除
+- ⚠️ **失敗 + 切り戻し記録** — PR #120/121: 「鮮度モニタの cron 頻度UP+コアタイム除外」依頼を GitHub Actions cron と解釈してしまい revert。実際は scheduled-tasks 自走の話だった。lessons-learned 候補: 「『スケジュール』『cron』『コアタイム』のような複数レイヤー解釈可能語は AskUserQuestion で対象を明示確認」
 
 **次セッション (Dispatch / Code 問わず) でやること**:
+1. **p003-dispatch-auto-v2 観察** — 13:00 / 18:00 / 22:00 JST 自然発火を確認。WORKING.md「最新 Dispatch (auto-v2)」行が毎回更新されてるか・コアタイム前 22:00 で適切に止まるか・明朝 07:08 の p003-haiku と衝突しないか
 2. **T2026-0501-K** 🟡 (フェーズ2) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` keyPoint ◎例 をエンタメ+テック差し替え
 3. (フェーズ2 完了条件達成までフェーズ3/4/5 タスクは凍結)
 
+**観察 OK なら次に追加検討するスケジュールタスク（保留中・順番に）**:
+- ⭐ #3 `p003-sonnet-weekly-quality` — 週1月曜10:00 Sonnet・SLI実測+品質低下検出時に fix PR の prompt を TASKS.md に積む (~200k トークン/月・効果デカい)
+- #2 `p003-security-audit-aws` — 月1 1日09:30 Haiku・AWS MCP read-only でIAM/S3/secrets チェック (~15k/月)
+- #1 `p003-rule-monthly-audit` — 月1 1日09:00 Haiku・CLAUDE.md/docs/rules/ 整合性チェック (~10k/月)
+
 **最新 Dispatch (auto-v2)** 2026-05-02 09:18 JST | staleness=3.3min | 過去2h saves=116件 | 直近1h Errors=0件 | outcome=A 異常なし・次回run まで観測のみ。T2026-0502-A は WORKING.md 上 PR #122 merged 済だが TASKS.md 緊急対処欄が未消し込み (Code セッションが ~~取消線~~ 化 + HISTORY.md 移動を担当)。
 
-**実在スケジューラー**: p003-haiku (7:08am daily) / p003-sonnet (手動のみ) / security-audit.yml (週次)
+**実在スケジューラー**: p003-haiku (7:08am daily) / p003-dispatch-auto-v2 (4x/日 08/13/18/22 JST) / p003-sonnet (手動のみ) / security-audit.yml (週次・GitHub Actions)
 **FUSE 環境メモ**: Cowork セッションでは git CLI が index.lock を unlink できない場合がある。`scripts/cowork_commit.py "msg" file...` で GitHub API 直接コミットに迂回可能（.git/config の token 自動取得）。
 
 ---
