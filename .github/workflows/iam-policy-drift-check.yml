@@ -1,0 +1,161 @@
+name: IAM Policy Drift Check (T2026-0502-IAM-DRIFT-CI)
+
+# 目的: git tracked source of truth (infra/iam/policies/*.json) と AWS の実 role policy が
+#       drift (差分) してないかを定期的に検出し、検出時は Slack 通知 + GitHub Issue を自動起票。
+#
+# 背景: T2026-0502-IAM-DEPLOY-FIX で IAM policy を git tracked 化したが、AWS console 直接編集
+#       の経路が物理的には残っている。drift 検出 CI を以下の用途で運用:
+#         (a) 不意の console 編集 → 即検出 → 「git に取り込む PR or AWS を git に戻す」判断
+#         (b) apply.sh の bug や手元実行漏れ → drift で気付ける
+#         (c) 監査記録: "drift 0 件" を SLI として残す
+#
+# 連携:
+#   - infra/iam/apply.sh --dry-run で実 AWS と比較
+#   - drift があれば exit 1 + Slack + Issue
+#   - drift なし or skip → exit 0
+
+on:
+  schedule:
+    # 毎日 JST 09:30 (UTC 00:30) に実行
+    - cron: '30 0 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/iam/policies/**'
+      - 'infra/iam/apply.sh'
+      - '.github/workflows/iam-policy-drift-check.yml'
+
+permissions:
+  contents: read
+  issues: write
+  id-token: write
+
+jobs:
+  drift-check:
+    name: IAM policy drift check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: AWS 認証 (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # T2026-0502-SEC10-CODE: OIDC 専用化。standard role は iam:GetRolePolicy を持つ必要あり。
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
+          aws-region: ap-northeast-1
+
+      - name: jq + aws cli 確認
+        run: |
+          jq --version
+          aws --version
+
+      - name: drift detection (apply.sh --dry-run 相当)
+        id: drift
+        run: |
+          set -e
+          DRIFT_FOUND=0
+          DRIFT_REPORT=""
+
+          for policy_file in infra/iam/policies/*.json; do
+            ROLE_NAME=$(jq -r '._meta.role_name // empty' "$policy_file")
+            POLICY_NAME=$(jq -r '._meta.policy_name // empty' "$policy_file")
+
+            if [ -z "$ROLE_NAME" ] || [ -z "$POLICY_NAME" ]; then
+              echo "::warning::$policy_file: _meta.role_name / _meta.policy_name 欠落 (skip)"
+              continue
+            fi
+
+            DESIRED=$(jq 'del(._meta)' "$policy_file" | jq -S '.')
+            ACTUAL=$(aws iam get-role-policy \
+              --role-name "$ROLE_NAME" \
+              --policy-name "$POLICY_NAME" \
+              --query "PolicyDocument" \
+              --output json 2>/dev/null | jq -S '.' || echo "{}")
+
+            if [ "$DESIRED" = "$ACTUAL" ]; then
+              echo "[OK] $ROLE_NAME / $POLICY_NAME : no drift"
+            else
+              DRIFT_FOUND=1
+              echo "::error::$ROLE_NAME / $POLICY_NAME : DRIFT detected"
+              DRIFT_REPORT="${DRIFT_REPORT}### ${ROLE_NAME} / ${POLICY_NAME}\n"
+              DRIFT_REPORT="${DRIFT_REPORT}\`\`\`diff\n"
+              DRIFT_REPORT="${DRIFT_REPORT}$(diff <(echo "$DESIRED") <(echo "$ACTUAL") | head -100 | sed 's/`/\\`/g')\n"
+              DRIFT_REPORT="${DRIFT_REPORT}\`\`\`\n\n"
+            fi
+          done
+
+          {
+            echo "drift_found=$DRIFT_FOUND"
+            echo 'drift_report<<EOF'
+            printf '%b' "$DRIFT_REPORT"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$DRIFT_FOUND" -eq 1 ]; then
+            echo "[FAIL] DRIFT detected"
+            exit 1
+          fi
+          echo "[PASS] no drift"
+
+      - name: Slack 通知 (drift detected)
+        if: failure() && steps.drift.outputs.drift_found == '1'
+        env:
+          SLACK_WEBHOOK: ${{ secrets.FAILURE_SLACK_WEBHOOK }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK:-}" ]; then
+            echo "::warning::FAILURE_SLACK_WEBHOOK 未設定 — Slack 通知スキップ"
+            exit 0
+          fi
+          TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S UTC')
+          curl -fsS -X POST "$SLACK_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"text\": \"🚨 *IAM policy drift 検出* ($TIMESTAMP)\n\ngit tracked policy と AWS の実 role policy に差分があります。\nconsole 直接編集 or apply.sh 実行漏れの可能性。\n<https://github.com/${{ github.repository }}/actions/workflows/iam-policy-drift-check.yml|drift-check workflow>\"
+            }"
+
+      - name: GitHub Issue 自動起票 (drift detected)
+        if: failure() && steps.drift.outputs.drift_found == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 既に open の iam-drift issue があれば重複起票しない
+          EXISTING=$(gh issue list \
+            --label "iam-drift" \
+            --state open \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING" ]; then
+            echo "[SKIP] iam-drift issue #$EXISTING already open"
+            exit 0
+          fi
+
+          TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S UTC')
+          gh issue create \
+            --title "🚨 [auto] IAM policy drift 検出 ($TIMESTAMP)" \
+            --label "iam-drift,auto-created" \
+            --body "## IAM policy drift を自動検出しました
+
+          **検知時刻**: $TIMESTAMP
+          **trigger**: ${{ github.event_name }}
+
+          ### 内容
+          \`infra/iam/policies/*.json\` (git tracked source of truth) と AWS 実 role policy に差分があります。
+
+          ### 自動対処
+          なし (drift の解消方針は人間が判断する必要あり)。
+
+          ### 確認手順
+          1. \`bash infra/iam/apply.sh --dry-run\` をローカル実行して diff を確認
+          2. 以下のどちらかを判断:
+             - **git を真とする**: \`bash infra/iam/apply.sh\` で AWS を git に同期
+             - **AWS を真とする**: AWS の現状を JSON にダンプし PR で git にコミット (\`aws iam get-role-policy ... --query PolicyDocument > infra/iam/policies/<name>.json\`)
+          3. 決着後、本 Issue を close
+
+          ### 関連
+          - Workflow run: [drift-check](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - Runbook: \`docs/runbooks/iam-policy-management.md\`
+          - Lesson: T2026-0502-IAM-DEPLOY-FIX (lessons-learned.md)
+          "
