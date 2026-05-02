@@ -1,0 +1,16 @@
+name: safe workflow (absolute GITHUB_WORKSPACE path)
+on: [push]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: fetcher deploy (fixed)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          cd projects/P003-news-timeline/lambda/fetcher
+          zip -q function.zip *.py
+          aws lambda update-function-code --function-name p003-fetcher --zip-file fileb://function.zip
+          MERGED_ENV=$(EXISTING_ENV="$EXISTING_ENV" python3 "$GITHUB_WORKSPACE/scripts/ci_lambda_merge_env.py")
+          echo "done"
