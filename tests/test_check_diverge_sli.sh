@@ -35,7 +35,8 @@ setup_repo() {
   git -C "$dir" update-ref refs/remotes/origin/main HEAD
 
   # ahead コミットを追加
-  for i in $(seq 1 "$ahead"); do
+  local i
+  for ((i=1; i<=ahead; i++)); do
     echo "$i" >> "$dir/file_${i}.txt"
     git -C "$dir" add "file_${i}.txt"
     git -C "$dir" commit -q -m "commit $i"

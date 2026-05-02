@@ -407,5 +407,77 @@ jobs:
           PAYLOAD=$(OK="$OK" NG="$NG" TOTAL="$TOTAL" python3 scripts/ci_slack_freshness_sitemap.py)
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
 
+      # =====================================================================
+      # ローカル diverge 観測 (SLI 13 / T2026-0502-DIVERGE-SLI)
+      # 背景: T2026-0502-M で origin/main との diverge が 11h 放置された。
+      #   pre-push hook / bootstrap exit 1 で発生は塞いだが bypass 時の検出網が欠如。
+      #   本 SLI が「外部観測」レイヤーとして 2 commits 以上を検知する。
+      #   30 分連続で 2 以上 → Slack 通知 / 5 以上 → CloudWatch ERROR アラート。
+      # 注意: GitHub Actions は main ブランチを checkout するため、通常運用では 0 になる。
+      #   PR が open のまま放置されたり merge が詰まった場合に count が増加する。
+      # =====================================================================
+      - name: ローカル diverge 観測 (SLI 13)
+        id: diverge_sli
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          bash scripts/check_diverge_sli.sh >> "$GITHUB_STEP_SUMMARY" 2>&1
+          rc=$?
+          # check_diverge_sli.sh が stdout に diverge_count=N を出力するので再取得
+          COUNT=$(bash scripts/check_diverge_sli.sh 2>/dev/null | grep "diverge_count=" | cut -d= -f2)
+          COUNT="${COUNT:-0}"
+          {
+            echo "diverge_count=${COUNT}"
+            echo "rc=${rc}"
+            echo "warn_or_error=$([ "$rc" -ge 1 ] && echo true || echo false)"
+          } >> "$GITHUB_OUTPUT"
+          echo "### ローカル diverge 観測 (SLI 13)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- diverge_count: ${COUNT}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- status: $([ "$rc" -eq 0 ] && echo ok || ([ "$rc" -ge 2 ] && echo ERROR || echo WARN))" >> "$GITHUB_STEP_SUMMARY"
+          # CloudWatch カスタムメトリクス put (失敗しても continue)
+          python3 - "${COUNT}" <<'PY' || true
+          import sys, os, json, urllib.request, time
+          count = int(sys.argv[1]) if sys.argv[1].isdigit() else 0
+          # AWS SDK が無い場合は put をスキップ（GitHub Actions 上は aws cli 経由）
+          import subprocess
+          r = subprocess.run([
+              "aws", "cloudwatch", "put-metric-data",
+              "--namespace", "Flotopic/Git",
+              "--metric-name", "LocalDivergeCount",
+              "--value", str(count),
+              "--unit", "Count",
+              "--region", "ap-northeast-1",
+          ], capture_output=True, timeout=15)
+          if r.returncode != 0:
+              print(f"::warning::CloudWatch put-metric-data failed: {r.stderr.decode()[:200]}")
+          PY
+          exit 0
+
+      - name: diverge WARN/ERROR で Slack 通知
+        if: steps.diverge_sli.outputs.warn_or_error == 'true'
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
+          COUNT: ${{ steps.diverge_sli.outputs.diverge_count }}
+          RC: ${{ steps.diverge_sli.outputs.rc }}
+        shell: bash
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::warning::diverge_sli: count=${COUNT} rc=${RC} — origin/main から diverge しています"
+            exit 0
+          fi
+          LEVEL=$([ "${RC}" -ge 2 ] && echo "ERROR" || echo "WARN")
+          PAYLOAD=$(python3 - <<PY
+          import json
+          level = "${LEVEL}"
+          count = "${COUNT}"
+          emoji = ":rotating_light:" if level == "ERROR" else ":warning:"
+          text = f"{emoji} *[SLI 13] ローカル diverge 検出*\n- diverge_count: {count} commits\n- 閾値: WARN=2, ERROR=5\n- 確認: \`git rev-list --count origin/main..HEAD\`"
+          print(json.dumps({"text": text}))
+          PY
+          )
+          curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
+
       # SLI-keypoint-fill-rate は別ワークフロー (sli-keypoint-fill-rate.yml) へ分離 (T2026-0428-BI)。
       # hourly DynamoDB scan は過剰だったため 6h scan へ削減 (-83%)。
