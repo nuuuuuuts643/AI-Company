@@ -79,6 +79,23 @@ if [ -n "$PII_HITS" ]; then
   exit 1
 fi
 
+# T2026-0502-SEC-AUDIT (2026-05-02): Secret pattern scanner (pre-commit)
+# 物理ガード: ghp_/gho_/xoxb-/sk-ant-/ntn_/Slack Webhook 等の live secret が
+# staged された時点で commit を block する。CI secret-scan.yml と同パターン。
+SCAN_SCRIPT="$REPO_ROOT/scripts/secret_scan.sh"
+if [ -x "$SCAN_SCRIPT" ]; then
+  if ! bash "$SCAN_SCRIPT" staged >/tmp/secret_scan.$$.log 2>&1; then
+    echo "❌ pre-commit blocked: secret pattern detected in staged changes"
+    cat /tmp/secret_scan.$$.log
+    rm -f /tmp/secret_scan.$$.log
+    echo ""
+    echo "緊急時 bypass: git commit --no-verify"
+    echo "   ただし bypass 時は WORKING.md に理由記録必須 (CLAUDE.md 物理ルール)"
+    exit 1
+  fi
+  rm -f /tmp/secret_scan.$$.log
+fi
+
 exit 0
 HOOK
 
