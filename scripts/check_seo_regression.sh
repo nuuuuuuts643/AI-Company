@@ -180,6 +180,47 @@ if [[ -f "$TOPIC_HTML" ]]; then
 fi
 
 # ─────────────────────────────────────────────
+# Rule 8 (BI-CACHE-FIX): HTML の Cache-Control が "no-store" を含むこと
+#   理由: スマホで PR merge 後の UX 復旧反映遅れ事故 (T2026-0502-BI-REVERT 後 PO 報告)
+#         の構造対処。no-cache は ETag check race / SW 経由 cache fallback で古い
+#         HTML が返る隙間あり → no-store でブラウザ・SW どちらも cache 不可を物理保証。
+#   検査対象: .github/workflows/deploy-p003.yml の HTML sync 部分 + projects/P003-news-timeline/deploy.sh
+# ─────────────────────────────────────────────
+violations_html_cache=()
+
+# .github/workflows/deploy-p003.yml で HTML aws s3 sync の cache-control が no-store を含むか
+DEPLOY_YAML=".github/workflows/deploy-p003.yml"
+if [[ -f "$DEPLOY_YAML" ]]; then
+  # 「--include "*.html"」を含むブロックの周辺で cache-control が no-store を含まなければ violation
+  # awk で *.html sync ブロック切り出し → cache-control 行抽出 → no-store 含むかチェック
+  html_cc=$(awk '
+    /--include[[:space:]]+"\*\.html"/ { in_html_sync=1 }
+    in_html_sync && /--cache-control/ {
+      match($0, /"[^"]+"/)
+      if (RSTART > 0) {
+        cc = substr($0, RSTART+1, RLENGTH-2)
+        print cc
+        in_html_sync = 0
+      }
+    }
+    in_html_sync && /\\$/ { next }
+    in_html_sync && !/\\$/ && !/--cache-control/ { in_html_sync = 0 }
+  ' "$DEPLOY_YAML")
+  if [[ -n "$html_cc" ]] && ! echo "$html_cc" | grep -q "no-store"; then
+    violations_html_cache+=("$DEPLOY_YAML: HTML sync の cache-control \"$html_cc\" に no-store が含まれていない")
+  fi
+fi
+
+# projects/P003-news-timeline/deploy.sh の HTML cp ブロック
+DEPLOY_SH="projects/P003-news-timeline/deploy.sh"
+if [[ -f "$DEPLOY_SH" ]]; then
+  # for html_file in frontend/*.html ループの cp で cache-control が no-store を含むか
+  if grep -B2 -A4 'for html_file in frontend/\*.html' "$DEPLOY_SH" | grep -E -- '--cache-control' | grep -v "no-store" >/dev/null 2>&1; then
+    violations_html_cache+=("$DEPLOY_SH: frontend/*.html ループの cache-control に no-store が含まれていない")
+  fi
+fi
+
+# ─────────────────────────────────────────────
 # 集計 & 出力
 # ─────────────────────────────────────────────
 total_violations=$((
@@ -188,7 +229,8 @@ total_violations=$((
   ${#violations_bi_date[@]} +
   ${#violations_static_link[@]} +
   ${#violations_spa_ux[@]} +
-  ${#violations_initial_canonical[@]}
+  ${#violations_initial_canonical[@]} +
+  ${#violations_html_cache[@]}
 ))
 
 if (( total_violations > 0 )); then
@@ -243,10 +285,19 @@ if (( total_violations > 0 )); then
     echo "" >&2
   fi
 
-  echo "詳細: docs/lessons-learned.md (T2026-0502-AQ / T2026-0502-BI / T2026-0502-BI-REVERT)" >&2
+  if (( ${#violations_html_cache[@]} > 0 )); then
+    echo "── Rule 8 (T2026-0502-BI-CACHE-FIX): HTML の Cache-Control に no-store が含まれていない" >&2
+    for v in "${violations_html_cache[@]}"; do echo "  - $v" >&2; done
+    echo "  ※ 期待: HTML を 'no-store, no-cache, must-revalidate' で配信 (ブラウザ・SW どちらも cache 不可)" >&2
+    echo "  ※ no-cache は ETag check race / SW 経由 cache fallback で古い HTML が返る隙間あり" >&2
+    echo "  ※ T2026-0502-BI-REVERT 後 PO スマホで UX 復旧反映遅れた事故の構造対処" >&2
+    echo "" >&2
+  fi
+
+  echo "詳細: docs/lessons-learned.md (T2026-0502-AQ / T2026-0502-BI / T2026-0502-BI-REVERT / T2026-0502-BI-CACHE-FIX)" >&2
   echo "      docs/rules/dynamic-vs-static-url.md (役割分離 doc)" >&2
   exit 1
 fi
 
-echo "[check_seo_regression] ✅ OK: noindex / @type=NewsArticle / dateModified=ISO8601 / 動的SPA内部リンク / SPA UX 要素 / 初期 canonical すべて健全"
+echo "[check_seo_regression] ✅ OK: noindex / @type=NewsArticle / dateModified=ISO8601 / 動的SPA内部リンク / SPA UX 要素 / 初期 canonical / HTML no-store すべて健全"
 exit 0

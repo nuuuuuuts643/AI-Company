@@ -85,13 +85,19 @@ jobs:
           REGION="ap-northeast-1"
           FRONTEND="projects/P003-news-timeline/frontend"
 
-          # HTML: no-cache（常に最新を取得 — ?v=SHA で参照する JS/CSS を切り替えるため）
+          # HTML: no-store（一切キャッシュさせない — T2026-0502-BI-CACHE-FIX）
+          # 背景: T2026-0502-BI-REVERT 後にスマホで UX 復旧反映が遅れた事故の構造対処。
+          #   no-cache だと「ブラウザはキャッシュ保存するが使う前に revalidate」だが、
+          #   ETag/Last-Modified の比較中の race condition / SW 経由 fallback 等で
+          #   古い HTML が表示される隙間があった (?v=SHA は HTML が古いと旧 SHA を参照)。
+          #   no-store は「ブラウザもキャッシュに保存しない・SW でも cache 不可」が物理保証。
+          # 副作用: オフライン時に HTML が取れない → SPA 動かない (許容)。
           aws s3 sync "${FRONTEND}/" "s3://${BUCKET}/" \
             --region "${REGION}" \
             --exclude "*" \
             --include "*.html" \
             --content-type "text/html; charset=utf-8" \
-            --cache-control "no-cache, must-revalidate"
+            --cache-control "no-store, no-cache, must-revalidate"
 
           # JS: 長期キャッシュ (T254 — ?v=SHA で URL が変わるため immutable で安全)
           aws s3 sync "${FRONTEND}/" "s3://${BUCKET}/" \
