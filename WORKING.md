@@ -20,7 +20,6 @@
 - ✅ **auto-update-branches CI再発火 恒久対処** — PR #124 merged。ci.yml / meta-doc-guard.yml に workflow_dispatch 追加 + auto-update-branches.yml でブランチ更新後に両 workflow dispatch
 
 **次セッション (Dispatch / Code 問わず) でやること**:
-1. **T2026-0502-B** 🟡 (lifecycle Lambda 健全性) — `lambda/lifecycle/handler.py:64/:93` の SK を FilterExpression → KeyConditionExpression に修正
 2. **T2026-0501-K** 🟡 (フェーズ2) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` keyPoint ◎例 をエンタメ+テック差し替え
 3. (フェーズ2 完了条件達成までフェーズ3/4/5 タスクは凍結)
 
