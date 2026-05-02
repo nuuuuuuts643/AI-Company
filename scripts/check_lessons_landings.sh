@@ -149,4 +149,23 @@ if [ ! -f "$REPO_ROOT/tests/test_lambda_freshness.sh" ]; then
 fi
 echo "✅ T2026-0502-DEPLOY-WATCHDOG: tests/test_lambda_freshness.sh landing verified"
 
+# T2026-0502-MU-FOLLOWUP-ARCHIVED landing 検証: archived high-value 救済ロジック
+# 1) quality_heal.py の archived 除外が高価値条件付きに変更されていること
+if ! grep -q 'T2026-0502-MU-FOLLOWUP-ARCHIVED' "$REPO_ROOT/scripts/quality_heal.py"; then
+  echo "❌ T2026-0502-MU-FOLLOWUP-ARCHIVED: rescue comment not found in scripts/quality_heal.py" >&2
+  exit 1
+fi
+if ! grep -q 'ac >= 6 and score >= 100' "$REPO_ROOT/scripts/quality_heal.py"; then
+  echo "❌ T2026-0502-MU-FOLLOWUP-ARCHIVED: high-value threshold not found in scripts/quality_heal.py" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-MU-FOLLOWUP-ARCHIVED: quality_heal.py archived rescue landing verified"
+
+# 2) 境界テストが存在すること
+if [ ! -f "$REPO_ROOT/tests/test_quality_heal_mode_upgrade.py" ]; then
+  echo "❌ T2026-0502-MU-FOLLOWUP-ARCHIVED: tests/test_quality_heal_mode_upgrade.py not found" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-MU-FOLLOWUP-ARCHIVED: tests/test_quality_heal_mode_upgrade.py landing verified"
+
 exit 0

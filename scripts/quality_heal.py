@@ -105,10 +105,14 @@ def find_unhealthy(metas):
             score = int(m.get('score', 0) or 0)
         except (ValueError, TypeError):
             score = 0
-        # archived/legacy/deleted は触らない (lifecycle Lambda の管轄)
         lifecycle = m.get('lifecycleStatus', '')
-        if lifecycle in ('archived', 'legacy', 'deleted'):
-            continue
+        if lifecycle in ('legacy', 'deleted'):
+            continue  # legacy/deleted は触らない
+        if lifecycle == 'archived':
+            # T2026-0502-MU-FOLLOWUP-ARCHIVED: high-value archived は救済
+            # 閾値根拠: 2026-05-02 実測で対象1件 (4bf3a46568f1189c) のみ・コスト爆発なし
+            if not (ac >= 6 and score >= 100):
+                continue
 
         reasons = []
         # E2-2 (2026-04-28 PM): 空だけでなく 100 字未満の短い keyPoint も再処理対象に含める。
