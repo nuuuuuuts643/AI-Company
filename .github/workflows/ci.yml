@@ -255,6 +255,11 @@ jobs:
           done
           [ $ERRORS -eq 0 ] || exit 1
 
+      - name: 同日タスク ID 重複検出テスト (T2026-0502-TASK-ID-COLLISION)
+        run: |
+          echo "=== タスク ID 重複物理ガード テスト ==="
+          bash tests/test_next_task_id.sh
+
   conflict-markers:
     name: コンフリクトマーカー残存チェック
     runs-on: ubuntu-latest
