@@ -126,4 +126,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+<<<<<<< HEAD
 | [Code] T2026-0502-TASK-ID-COLLISION 同日ID重複物理ガード | Code | scripts/next_task_id.sh, tests/test_next_task_id.sh, .github/workflows/ci.yml | 2026-05-02T12:05 | yes |
+=======
+| [Code] T2026-0502-DIVERGE-SLI merge + done | Code | (none, merge only) | 2026-05-02T12:00 | no |
