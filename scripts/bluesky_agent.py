@@ -103,6 +103,9 @@ BSKY_MAX_CHARS = 300
 #   morning 1件 (JST 08:00 cron 単発)
 #   debut   0件 (現在 enabled=False。再有効化時は max_per_24h=2 で最大2件/日)
 #   合計    最大 4件/日 (debut 有効化時 6件/日)
+#
+# weekly/monthly はここに含めない (cron が単発・実質キュー外。post_weekly/
+# post_monthly は CONFIG を参照しないので追加しても dead config になるだけ)。
 # ════════════════════════════════════════════════════════════════════════════
 BLUESKY_POSTING_CONFIG = {
     'daily': {
@@ -123,23 +126,9 @@ BLUESKY_POSTING_CONFIG = {
         'cooldown_hours': 12,
         'max_per_24h':    2,
     },
-    'weekly': {
-        'enabled':        True,
-        'cooldown_hours': 24 * 6,   # 月曜 cron 単発、念のため 6 日空ける
-        'max_per_24h':    1,
-    },
-    'monthly': {
-        'enabled':        True,
-        'cooldown_hours': 24 * 27,  # 月初 cron 単発、念のため 27 日空ける
-        'max_per_24h':    1,
-    },
 }
 
-# ── 旧コード互換シンボル（テスト・既存呼び出し向け alias） ────────────────
-# 設定値の真実の源は BLUESKY_POSTING_CONFIG。
-DAILY_COOLDOWN_HOURS    = BLUESKY_POSTING_CONFIG['daily']['cooldown_hours']
-MORNING_COOLDOWN_HOURS  = BLUESKY_POSTING_CONFIG['morning']['cooldown_hours']
-MORNING_RECENT_HOURS    = 24    # 「今朝の動き」として扱う最大経過時間
+MORNING_RECENT_HOURS    = 24    # post_morning の topic フィルタ（投稿対象の鮮度上限）
 
 # T2026-0428-AS: 初回 AI 要約完了 → 即時投稿 (debut) 用の S3 pending マーカー。
 # processor Lambda が初回 AI 要約成功時に bluesky/pending/{topicId}.json を書き込み、
@@ -1042,7 +1031,7 @@ def post_morning(client, dry_run=False):
 
     daily / debut とは独立した別系統:
       - mode='morning' で BLUESKY_POSTS_TABLE に記録
-      - MORNING_COOLDOWN_HOURS=20h で物理ガード (cron 揺らぎ + 二重発火対策)
+      - レート制御は BLUESKY_POSTING_CONFIG['morning'] (cron 揺らぎ + 二重発火対策)
       - 静的HTMLが存在するトピックのみ投稿 (OGP リンクカード正しく表示)
     """
     print('[bluesky_agent] 朝投稿 開始')

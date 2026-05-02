@@ -42,12 +42,10 @@ def _import_agent():
 class TestBlueskyPostingConfig:
     """設定ブロックの不変条件をテスト (リグレッション防止)."""
 
-    def test_config_has_all_modes(self):
-        """全モードのエントリが存在する."""
+    def test_config_has_all_active_modes(self):
+        """_check_rate_limit を呼ぶ全モード (daily/morning/debut) のエントリがある."""
         agent = _import_agent()
-        assert set(agent.BLUESKY_POSTING_CONFIG.keys()) >= {
-            "daily", "morning", "debut", "weekly", "monthly"
-        }
+        assert set(agent.BLUESKY_POSTING_CONFIG.keys()) >= {"daily", "morning", "debut"}
 
     def test_config_each_mode_has_required_keys(self):
         """各モードに enabled / cooldown_hours / max_per_24h がある."""
@@ -70,11 +68,15 @@ class TestBlueskyPostingConfig:
             f"debut={debut_cap} 合計{total}). PO目標 4件/日"
         )
 
-    def test_legacy_aliases_match_config(self):
-        """旧コード互換 alias (DAILY_COOLDOWN_HOURS 等) が config と一致する."""
+    def test_only_active_modes_in_config(self):
+        """CONFIG には実際に _check_rate_limit を呼ぶモードしか入れない (dead config 禁止)."""
         agent = _import_agent()
-        assert agent.DAILY_COOLDOWN_HOURS == agent.BLUESKY_POSTING_CONFIG["daily"]["cooldown_hours"]
-        assert agent.MORNING_COOLDOWN_HOURS == agent.BLUESKY_POSTING_CONFIG["morning"]["cooldown_hours"]
+        # _check_rate_limit を呼ぶのは post_daily / post_morning / post_debut のみ
+        active = {"daily", "morning", "debut"}
+        assert set(agent.BLUESKY_POSTING_CONFIG.keys()) == active, (
+            f"CONFIG に未使用エントリがある (登録 {set(agent.BLUESKY_POSTING_CONFIG.keys())} / "
+            f"実際使用 {active})"
+        )
 
 
 class TestCheckRateLimitEnabled:
