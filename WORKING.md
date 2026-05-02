@@ -127,3 +127,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Code] T2026-0502-DIVERGE-SLI merge + done | Code | (none, merge only) | 2026-05-02T12:00 | no |
+| [Code] T2026-0502-POST-DEPLOY-VERIFY-FIX deploy workflow 構造修正 | Code | .github/workflows/deploy-lambdas.yml, .github/workflows/post-deploy-verify.yml, scripts/check_post_deploy.sh | 2026-05-02T12:30 | yes |
