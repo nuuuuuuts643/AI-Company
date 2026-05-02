@@ -52,11 +52,13 @@ bash scripts/session_bootstrap.sh
 
 1. git lock / rebase-merge を `_garbage/` に退避（FUSE rm 不可環境対応）
 2. ローカル変更を sync commit & pull (`--no-rebase` 固定で中断作らない) & push
+   - **git pull / git push の終了コードは `PIPESTATUS[0]` で捕捉する（T2026-0502-M）**。`|| true` + `tail -N` で黙殺するのは禁止。失敗時は `BOOTSTRAP_EXIT=1` を立てて末尾で物理 exit 1。FUSE noise filter (`_strip_fuse_noise`) は維持
+   - **push 失敗時は salvage 手順 (`cowork_commit.py --branch salvage/local-diverge-...`) を stderr に出力**
 3. `CLAUDE.md` の最近の commit を表示（変更検知 → 再読指示）
 4. `WORKING.md` の 8h 超 stale 行を自動削除
 5. `TASKS.md` の取消線済み行を `HISTORY.md` に集約移動
 6. `WORKING.md` 内の `needs-push: yes` 滞留があれば最優先警告
-7. 1 行サマリ「✅ 起動チェック完了」
+7. 1 行サマリ「✅ 起動チェック完了」（**実際に sync 成功した場合のみ**。失敗時は `BOOTSTRAP_EXIT=1` で exit 1）
 
 > 既存の長い手動 bash ブロックは廃止し、このスクリプト 1 本に集約。
 
@@ -72,8 +74,29 @@ bash scripts/session_bootstrap.sh
 | 旧フェーズ表記 / 旧 4 セクション | `pre-commit` hook で物理 reject |
 | タスク ID 重複（TASKS.md） | `python3 scripts/triage_tasks.py --check-duplicate-task-ids` で CI 検出（exit 1）|
 | CLAUDE.md 250 行超過 | CI で物理ガード |
+| **main 直接 push (T2026-0502-M)** | `pre-push` hook で物理 reject。実コード変更は branch + PR 経由のみ。緊急時 bypass `git push --no-verify` は WORKING.md に理由＋`Verified-Effect:` 必須 |
+| **scripts 内の git エラー黙殺 (T2026-0502-M)** | `git pull` / `git push` の戻り値を `PIPESTATUS[0]` で捕捉して非ゼロなら明示 exit。`\|\| true` + `tail -N` の組み合わせは禁止 |
 
 hook インストール: `bash scripts/install_hooks.sh`（clone 直後 1 回）。
+
+### 4.1 ローカル diverge 解消の標準手順 (T2026-0502-M)
+
+`session_bootstrap.sh` が `git push failed` で exit 1 した場合、もしくは手動で `git rev-list --count origin/main..HEAD` が 1 を超える場合:
+
+```bash
+# 1. 滞留 commit を salvage ブランチに退避 → PR 化
+python3 scripts/cowork_commit.py \
+  --branch "salvage/local-diverge-$(date +%Y-%m-%d)" \
+  --pr-title "fix: salvage local diverged commits" \
+  "fix: salvage local diverged commits" \
+  <変更ファイル...>
+
+# 2. PR がマージされたら main を origin/main に同期 (注: 不可逆操作なので salvage PR の merge を必ず確認してから)
+git fetch origin main
+git reset --hard origin/main
+```
+
+PR は `auto-merge.yml` で CI green になり次第 squash merge される。salvage PR の存在によりローカル commit は一切失われない（履歴は squash されるが内容は main に届く）。
 
 ---
 
