@@ -80,6 +80,181 @@ def _call_claude(payload: dict, timeout: int = 25) -> dict:
     raise RuntimeError('Claude API retries exhausted')
 
 
+# ============================================================================
+# T2026-0502-AY: Anthropic Batch API helpers (50% off list price・schedule cron 専用)
+# ----------------------------------------------------------------------------
+# 用途: schedule cron 起動分の processor 呼び出しを Batch API に振り替えてコスト 50%off。
+#       fetcher_trigger 等の即時性が必要な経路は対象外 (realtime 維持)。
+# 統合: env `USE_BATCH_API=true` 時のみ起動 (default false で既存挙動温存)。
+# 仕様: https://docs.anthropic.com/en/api/messages-batches
+#       - 24h SLA (実測 1h 程度が大半)
+#       - 1 batch あたり最大 10,000 requests
+#       - submit → batch_id 取得 → poll → 全件完了で results 取得
+# Lambda 制約 (15min max) を踏まえ、submit と retrieve を別 invoke に分割する 2 段階フロー想定。
+# 本ファイルでは API helper のみ実装。state 管理 (S3) と handler.py 側統合は別 PR で段階的に landing。
+# ============================================================================
+
+_CLAUDE_BATCH_URL = 'https://api.anthropic.com/v1/messages/batches'
+
+
+def _call_claude_batch_submit(requests: list, timeout: int = 30) -> dict | None:
+    """Anthropic Batch API に複数 request を一括 submit する。
+
+    Args:
+        requests: 各 request は `{custom_id, params}` 形式。`params` は messages.create
+                  payload と同じスキーマ (model, max_tokens, messages, tools, system 等)。
+                  custom_id は自分側で管理する一意 ID (例: 'topic_<topicId>_<task>')、
+                  retrieve 時に結果を topic に紐付けるキーとして使う。
+        timeout: HTTP timeout 秒。
+
+    Returns:
+        {'id': '<batch_id>', 'processing_status': 'in_progress', ...}
+        失敗時 None。
+
+    cost: list price の 50% (Batch API 規定)。submit 自体は数秒で完了。
+
+    NOTE: fetcher_trigger や即時 UX が必要な経路では使わない。schedule cron の
+          24h SLA 許容パスのみで使用すること。
+    """
+    if not ANTHROPIC_API_KEY:
+        return None
+    if not requests:
+        return None
+    body = json.dumps({'requests': requests}).encode('utf-8')
+    headers = {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'message-batches-2024-09-24',
+        'content-type': 'application/json',
+    }
+    try:
+        req = urllib.request.Request(_CLAUDE_BATCH_URL, data=body, headers=headers, method='POST')
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        print(f'[batch_submit] HTTP {e.code}: {e.read()[:200] if hasattr(e, "read") else e}')
+        return None
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+        print(f'[batch_submit] network error: {type(e).__name__}: {e}')
+        return None
+
+
+def _call_claude_batch_status(batch_id: str, timeout: int = 30) -> dict | None:
+    """Batch の処理状況を確認する。
+
+    Args:
+        batch_id: submit 時に返された batch ID
+
+    Returns:
+        {'id', 'processing_status', 'request_counts', 'results_url' (完了時のみ), ...}
+        失敗時 None。
+    processing_status: 'in_progress' / 'canceling' / 'ended' のいずれか。
+                       'ended' なら results_url が設定され retrieve 可能。
+    """
+    if not ANTHROPIC_API_KEY:
+        return None
+    if not batch_id:
+        return None
+    url = f'{_CLAUDE_BATCH_URL}/{batch_id}'
+    headers = {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'message-batches-2024-09-24',
+    }
+    try:
+        req = urllib.request.Request(url, headers=headers, method='GET')
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        print(f'[batch_status] HTTP {e.code} for {batch_id[:16]}...')
+        return None
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+        print(f'[batch_status] network error: {type(e).__name__}: {e}')
+        return None
+
+
+def _call_claude_batch_results(batch_id: str, timeout: int = 60) -> list | None:
+    """Batch の結果を JSONL として取得し、各 request の結果 dict のリストを返す。
+
+    Args:
+        batch_id: 完了した batch の ID (processing_status='ended' であること)
+
+    Returns:
+        [{'custom_id', 'result': {'type': 'succeeded'|'errored', 'message': {...}}}]
+        失敗時 None。
+
+    各 result entry の `result.type` は 'succeeded' / 'errored' / 'canceled' / 'expired'。
+    succeeded 時のみ result.message.content[].input が tool_use の出力。
+    """
+    if not ANTHROPIC_API_KEY:
+        return None
+    if not batch_id:
+        return None
+    url = f'{_CLAUDE_BATCH_URL}/{batch_id}/results'
+    headers = {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'message-batches-2024-09-24',
+    }
+    try:
+        req = urllib.request.Request(url, headers=headers, method='GET')
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode('utf-8')
+        # JSONL 形式: 1 行 1 JSON オブジェクト
+        results = []
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                results.append(json.loads(line))
+            except json.JSONDecodeError as e:
+                print(f'[batch_results] malformed line: {e}')
+                continue
+        return results
+    except urllib.error.HTTPError as e:
+        print(f'[batch_results] HTTP {e.code} for {batch_id[:16]}...')
+        return None
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+        print(f'[batch_results] network error: {type(e).__name__}: {e}')
+        return None
+
+
+def build_batch_request(custom_id: str, prompt: str, tool_name: str, input_schema: dict,
+                        max_tokens: int = 1500,
+                        model: str = 'claude-haiku-4-5-20251001',
+                        system: str | None = None) -> dict:
+    """T2026-0502-AY: `_call_claude_tool` と同等の payload を batch request 形式で組み立てる。
+
+    Returns: {'custom_id': ..., 'params': {model, max_tokens, tools, tool_choice, messages, system}}
+
+    NOTE: handler.py 側で複数トピック分の request を build → batch submit する設計。
+          batch retrieve 後は params 構造が同じなので _call_claude_tool 同等に
+          `result.message.content[*].input` から tool 出力を取り出せる。
+    """
+    params = {
+        'model': model,
+        'max_tokens': max_tokens,
+        'tools': [{
+            'name': tool_name,
+            'description': '構造化された分析結果を出力する',
+            'input_schema': input_schema,
+        }],
+        'tool_choice': {'type': 'tool', 'name': tool_name},
+        'messages': [{'role': 'user', 'content': prompt}],
+    }
+    if system:
+        params['system'] = [{
+            'type': 'text',
+            'text': system,
+            'cache_control': {'type': 'ephemeral'},
+        }]
+    return {'custom_id': custom_id, 'params': params}
+
+
+# ============================================================================
+# realtime path (T2026-0502-AY 以前から存在・既存挙動温存)
+# ============================================================================
 def _call_claude_tool(prompt: str, tool_name: str, input_schema: dict,
                        max_tokens: int = 1500, timeout: int = 25,
                        model: str = 'claude-haiku-4-5-20251001',
