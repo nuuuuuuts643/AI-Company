@@ -30,6 +30,8 @@
 - #2 `p003-security-audit-aws` — 月1 1日09:30 Haiku・AWS MCP read-only でIAM/S3/secrets チェック (~15k/月)
 - #1 `p003-rule-monthly-audit` — 月1 1日09:00 Haiku・CLAUDE.md/docs/rules/ 整合性チェック (~10k/月)
 
+**最新 Dispatch (auto-v2)** 2026-05-03 08:01 JST | staleness=25.4min | 過去2h saves=42 | 直近1h errors=0 | 全SLI healthy・異常なし・次回 13:00 JST run まで観測のみ (outcome=A)
+
 **最新 Dispatch (Cowork)** 2026-05-02 22:50 JST PO「AWSコスト下げて理想0・品質上げる方向」→ 4 PR で着地済 ✅:
 - PR #291 (削減プラン docs) / #293 (A1 検証結果) / #298 (深掘り §8) / #299 (TASKS.md 整合化) merge ✅
 - 衝撃の発見: Lambda/API GW/CloudFront/CloudWatch は全て無料枠内 ($0)。実コストの 95% は DynamoDB R/W $6.42 + S3 PUT $2.17。当初プラン A2/A3/A5/B1/B2/B3/B4/C2/C3 は撤回。本命は A1-CODE / D1 / C1 / D2 / D3 / D4。
@@ -137,5 +139,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 <!-- [Cowork] T2026-0502-UX-CARDTITLE 完了 (2026-05-03 00:00 JST): PR #318 merge ✅ + PR #323 (lessons-learned 補完) auto-merge 待ち。実機検証 (flotopic.com) で12/12カード語句完整性 100% 確認・平均長 29字 (修正前 14.2字)。one-time scheduled task p003-verify-cardtitle-fix-20260504 で 2026-05-04 09:00 JST 自動再検証予定 -->
-| [Cowork] T2026-0502-UX-CARDTITLE-LESSONS-FOLLOWUP PR #318 から抜けた lessons-learned entry の補完 + FUSE Edit 並行書き込み事故記録 | Cowork | docs/lessons-learned.md | 2026-05-02 23:55 JST | yes |
-| [Cowork] T2026-0502-PROMPTS-V2 prompts 精査 + V2 改訂 (rollback/段階導入/chicken-and-egg/2 PR 分割) + BRANCH-PROTECTION 新規 | Cowork | docs/code-session-prompts/{CLEANUP-FULL,AUTO-MERGE-GUARDS,CI-FAILURES-INVESTIGATE,BRANCH-PROTECTION-REQUIRED-CHECKS,README}.md | 2026-05-02 23:55 JST | yes |
