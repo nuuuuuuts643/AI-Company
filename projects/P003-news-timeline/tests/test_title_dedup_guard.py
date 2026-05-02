@@ -475,5 +475,66 @@ class TidRebindBehaviorTest(unittest.TestCase):
         self.assertEqual(len(out[0][0]), 2, 'NHK + 朝日 が 1 group にマージ')
 
 
+class WithinRunDedupGuardTest(unittest.TestCase):
+    """T2026-0501-M: _merge_within_run_duplicates の boundary test。"""
+
+    def setUp(self):
+        with open(HANDLER_PATH, 'r', encoding='utf-8') as f:
+            self.source = f.read()
+
+    def test_function_exists(self):
+        self.assertIn('def _merge_within_run_duplicates(', self.source,
+                      'T2026-0501-M: _merge_within_run_duplicates が削除されている。'
+                      '同一 run 内分裂の恒久対処が外れた可能性。')
+
+    def test_called_after_resolve_tid_collisions(self):
+        """_merge_within_run_duplicates が _resolve_tid_collisions_by_title 呼び出し後に続くこと。"""
+        resolve_call = self.source.find('group_tids = _resolve_tid_collisions_by_title(')
+        within_call = self.source.find('group_tids = _merge_within_run_duplicates(')
+        self.assertGreater(resolve_call, 0, '_resolve_tid_collisions_by_title 呼び出しが消えている')
+        self.assertGreater(within_call, 0, '_merge_within_run_duplicates 呼び出しが消えている')
+        self.assertGreater(within_call, resolve_call,
+                           '_merge_within_run_duplicates が _resolve_tid_collisions_by_title より前にある')
+
+    def test_borderline_threshold_lowered(self):
+        """_JACCARD_BORDERLINE_LOW が 0.10 以下に設定されていること (T2026-0501-M 調整)。"""
+        m = re.search(r'_JACCARD_BORDERLINE_LOW\s*=\s*([0-9.]+)', self.source)
+        self.assertIsNotNone(m, '_JACCARD_BORDERLINE_LOW 定数が見つからない')
+        val = float(m.group(1))
+        self.assertLessEqual(val, 0.10,
+                             f'_JACCARD_BORDERLINE_LOW={val} が 0.10 より大きい。'
+                             '欧州/ドイツ米軍削減ペアが Haiku 判定に到達しない。')
+
+
+class EntityPatternMilitaryTest(unittest.TestCase):
+    """T2026-0501-M: 米軍が ENTITY_PATTERNS に含まれること。"""
+
+    def setUp(self):
+        config_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'lambda', 'fetcher', 'config.py',
+        )
+        with open(config_path, 'r', encoding='utf-8') as f:
+            self.source = f.read()
+
+    def test_jietai_military_in_entity_patterns(self):
+        """米軍|自衛隊 が ENTITY_PATTERNS に含まれること。"""
+        self.assertIn('米軍', self.source,
+                      'T2026-0501-M: 米軍が ENTITY_PATTERNS にない。'
+                      '欧州/ドイツ米軍削減の entity bonus が発動しない。')
+
+    def test_geographic_containment_in_merge_judge(self):
+        """ai_merge_judge.py に地理的包含ルールが記述されていること。"""
+        judge_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'lambda', 'fetcher', 'ai_merge_judge.py',
+        )
+        with open(judge_path, 'r', encoding='utf-8') as f:
+            judge_src = f.read()
+        self.assertIn('地理的包含', judge_src,
+                      'T2026-0501-M: ai_merge_judge.py に地理的包含ルールがない。'
+                      'ドイツ⊂欧州 ペアが Haiku に別事件と判定される可能性。')
+
+
 if __name__ == '__main__':
     unittest.main()
