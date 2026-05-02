@@ -59,9 +59,8 @@ jobs:
 
           # T2026-0502-IAM-DRIFT-FIX2: jq -S の再帰 sort が浅い件の対処として Python json.dumps を使う。
           # AWS canonicalize 後の representation と 1:1 一致させる比較関数。
-          canon() {
-            python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin), sort_keys=True, separators=(",", ":")))'
-          }
+          # T2026-0502-LINT-YAML-FIX2: インライン Python ロジックを撤廃し scripts/iam_canon.py に統一 (apply.sh と同じ helper)。
+          canon() { python3 scripts/iam_canon.py; }
 
           for policy_file in infra/iam/policies/*.json; do
             ROLE_NAME=$(jq -r '._meta.role_name // empty' "$policy_file")
