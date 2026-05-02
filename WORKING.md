@@ -126,4 +126,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T2026-0502-S P003 SES 障害可視化＋IAM policy ドリフト検知 | Cowork | lambda/contact/handler.py, scripts/security_audit.sh, docs/lessons-learned.md | 2026-05-02 12:18 | yes |
