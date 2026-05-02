@@ -126,4 +126,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T2026-0502-AUDIT 残務監査+救済 | Cowork | TASKS.md, HISTORY.md, WORKING.md, docs/lessons-learned.md | 2026-05-02 11:30 | no |
