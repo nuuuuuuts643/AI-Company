@@ -914,11 +914,19 @@ function renderDetail(data) {
 
   const storymapContainer = document.getElementById('storymap-link-container');
   if (storymapContainer) {
-    if (meta.childTopics && meta.childTopics.length > 0) {
-      storymapContainer.innerHTML = `<a href="storymap.html?id=${esc(meta.topicId)}" class="storymap-btn">🗺 このストーリーの分岐を見る (${meta.childTopics.length}件)</a>`;
-    } else if (meta.storyPhase || (Array.isArray(meta.storyTimeline) && meta.storyTimeline.length > 0)) {
-      storymapContainer.innerHTML = `<a href="storymap.html?id=${esc(meta.topicId)}" class="storymap-banner">📖 このストーリーを始まりから追う →</a>`;
+    let smHtml = '';
+    if (meta.suspectedMismerge) {
+      smHtml += `<div style="margin-bottom:10px;padding:10px 14px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.4);border-radius:10px;font-size:.82rem;color:#b45309;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">` +
+        `<span>⚠️ このトピックは別話題が混入している可能性があります。</span>` +
+        `<a href="storymap.html?split=1" style="color:#2563eb;white-space:nowrap;">分岐候補リストを見る →</a>` +
+        `</div>`;
     }
+    if (meta.childTopics && meta.childTopics.length > 0) {
+      smHtml += `<a href="storymap.html?id=${esc(meta.topicId)}" class="storymap-btn">🗺 このストーリーの分岐を見る (${meta.childTopics.length}件)</a>`;
+    } else if (meta.storyPhase || (Array.isArray(meta.storyTimeline) && meta.storyTimeline.length > 0)) {
+      smHtml += `<a href="storymap.html?id=${esc(meta.topicId)}" class="storymap-banner">📖 このストーリーを始まりから追う →</a>`;
+    }
+    if (smHtml) storymapContainer.innerHTML = smHtml;
   }
 
   const storyEl = document.getElementById('story-timeline');
