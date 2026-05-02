@@ -127,5 +127,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Cowork] T2026-0502-BI 静的トピックHTML JSON-LD 適正化 (NewsArticle化/dateModified ISO化/BreadcrumbList/publisher.logo) | Cowork | projects/P003-news-timeline/lambda/processor/proc_storage.py | 2026-05-02 20:05 | yes |
-| [Cowork] T2026-0502-LINT-YAML-FIX2 iam-policy-drift-check.yml の python3 -c を scripts/iam_canon.py に統一 + watchdog コメント文字列調整 | Cowork | .github/workflows/iam-policy-drift-check.yml, .github/workflows/deploy-trigger-watchdog.yml | 2026-05-02 22:40 | yes |
 | [Cowork] T2026-0502-BI-REVERT UX 破壊事故 revert (内部リンク 22 箇所 + CFF Rule 4 + check_seo Rule 2) | Cowork | projects/P003-news-timeline/frontend/{app.js,detail.js,mypage.html,profile.html,catchup.html,storymap.html} projects/P003-news-timeline/infra/cf-redirect-function.js scripts/check_seo_regression.sh docs/lessons-learned.md TASKS.md | 2026-05-02 22:31 | yes |
+| [Cowork] T2026-0502-IAM-CANON-RESCUE scripts/iam_canon.py を初 commit (c521a846 不完全 merge 補修・apply.sh と drift check 双方が参照) | Cowork | scripts/iam_canon.py | 2026-05-02 22:50 | yes |
