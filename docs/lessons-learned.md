@@ -2267,3 +2267,34 @@ PR #327 で実装した物理ガードは以下の経路で bypass 可能:
 CLAUDE.md は CI で `triage_tasks.py --check-duplicate-task-ids` を走らせているはずだが、CLAUDE.md 引用は対象外で見逃している。
 
 **別タスク**: T2026-0502-TASKID-DUPLICATE-DETECTION-EXPAND として triage_tasks.py の検証範囲を CLAUDE.md / docs/lessons-learned.md / docs/rules/ にも拡張。
+
+---
+
+## T2026-0502-BI-REDESIGN-NOINDEX: 動的 SPA に noindex を入れるタイミングを誤った canonical 二重化 (2026-05-03 制定)
+
+**事象**: flotopic.com には静的 `topics/{id}.html`（Googlebot 向け SEO）と動的 `topic.html?id={id}`（ユーザー向け SPA）の 2 種類が存在し、両方が Google にインデックスされた。Search Console に「Duplicate, Google chose different canonical」が大量発生。
+
+**Why1**: なぜ両方がインデックスされたか？
+→ 動的 SPA `topic.html?id=X` に noindex がなかったため、Google がクロール・インデックスした。
+
+**Why2**: なぜ noindex を入れなかったか？
+→ T2026-0502-AQ で一度 noindex を入れたところ Cloudflare PV が 1/10 に急減したため、CI（`check_seo_regression.sh` Rule 1）で「topic.html に noindex 禁止」の物理ガードを設けた。
+
+**Why3**: なぜ AQ の時は PV が急減したか？
+→ 当時、静的 `topics/{id}.html` が Google にインデックスされていなかった。動的 SPA が唯一のインデックス済みページだったため noindex で全ページが除外された。
+
+**Why4**: なぜ静的ページが indexed されていなかったか？
+→ 静的ページ生成機能（`proc_storage.py` の `generate_static_topic_html`）と sitemap 更新は T2026-0502-BI 以降の実装で、当時存在していなかった。noindex を入れる判断が静的ページ indexed 完了前に行われた。
+
+**Why5**: なぜ「静的 indexed 完了後に noindex を入れる」という条件が明示されていなかったか？
+→ AQ の教訓が「noindex を入れたら PV 激減した」という現象レベルで記録されており、「静的ページが indexed されていない時に noindex を入れたことが原因」という構造レベルでの記録がなかった。CI Rule 1 も「topic.html に noindex 禁止（無条件）」として物理化され、条件付き解除の判断フローが欠落した。
+
+**仕組み的対策**:
+1. **CI Rule 1 を条件付きに変更** — `INDEXABLE_PAGES` から `topic.html` を除外し、「topic.html は動的 SPA のため noindex 可」をコメントで明示。
+2. **noindex 追加後の Search Console 確認をスケジューラーに委ねる** — 効果検証 (1 週間後に「Duplicate」件数の変化) を p003-sonnet one-time task として登録。
+3. **AQ 教訓の精緻化** — Why レベルで「静的ページ indexed 完了前に noindex を入れることの危険性」を記録（本エントリー）。
+
+**横展開チェックリスト**:
+- [ ] `catchup.html` にも静的版（`catchups/{id}.html` 等）が将来生成される場合、同じ判断フローを踏むこと（静的 indexed 完了後に noindex 追加）
+- [ ] noindex を追加する際は必ず Search Console の「インデックス済みページ数」を確認してから PR を出す
+- [ ] CI Rule 1 のコメントに「この noindex が安全な理由（静的 topics/{id}.html が indexed 済み）」を記録し、条件が変わった場合に再評価できるようにする（実装ファイル: `scripts/check_seo_regression.sh` L49-57）
