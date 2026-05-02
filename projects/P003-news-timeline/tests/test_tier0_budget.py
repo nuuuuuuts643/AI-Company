@@ -1,5 +1,5 @@
-"""T2026-0428-O regression test: proc_storage._apply_tier0_budget で
-articles>=10 × aiGenerated=False のトピック (Tier-0) が必ず先頭に固定されることを保証する。
+"""T2026-0428-O / T2026-0502-M regression test: proc_storage._apply_tier0_budget で
+(ac>=6 OR score>=100) × aiGenerated=False のトピック (Tier-0) が必ず先頭に固定されることを保証する。
 
 背景:
   T213 の 4段階優先度ソート後でも、Tier-0 内で articleCount の重みが弱く
@@ -32,8 +32,8 @@ apply_t0 = proc_storage._apply_tier0_budget
 sort_recency = proc_storage._sort_by_recency
 
 
-def _topic(tid, ac, ai_gen=False, updated_at=None):
-    item = {'topicId': tid, 'articleCount': ac, 'aiGenerated': ai_gen}
+def _topic(tid, ac, ai_gen=False, updated_at=None, score=0):
+    item = {'topicId': tid, 'articleCount': ac, 'aiGenerated': ai_gen, 'score': score}
     if updated_at is not None:
         item['updatedAt'] = updated_at
     return item
@@ -86,21 +86,53 @@ class Tier0BudgetTest(unittest.TestCase):
         # rest は updatedAt 降順 (m > s > aiGen_big)
         self.assertEqual([t['topicId'] for t in out[3:]], ['m', 's', 'aiGen_big'])
 
-    def test_articles_exactly_10_qualifies(self):
-        """articleCount==10 (境界値) も Tier-0 として扱われる"""
-        items = [_topic('small', 3), _topic('boundary', 10)]
+    # T2026-0502-M: 新閾値 (ac>=6 or score>=100) 境界テスト
+    def test_articles_exactly_6_qualifies(self):
+        """T2026-0502-M: articleCount==6 (新下限) は Tier-0"""
+        items = [_topic('small', 3), _topic('boundary', 6)]
         out = apply_t0(items)
         self.assertEqual(out[0]['topicId'], 'boundary')
 
-    def test_articles_9_does_not_qualify(self):
-        """articleCount==9 (境界直下) は Tier-0 ではない → rest として recency ソート"""
+    def test_articles_5_does_not_qualify_without_score(self):
+        """T2026-0502-M: articleCount==5 かつ score<100 は Tier-0 外"""
         items = [
             _topic('small', 3, updated_at='2026-04-29T00:01:00Z'),
-            _topic('almost', 9, updated_at='2026-04-29T00:02:00Z'),
+            _topic('almost', 5, updated_at='2026-04-29T00:02:00Z', score=50),
         ]
         out = apply_t0(items)
-        # almost が新しいので先頭
         self.assertEqual([t['topicId'] for t in out], ['almost', 'small'])
+
+    def test_score_exactly_100_qualifies(self):
+        """T2026-0502-M: score==100 は ac<6 でも Tier-0"""
+        items = [_topic('small', 3), _topic('highscore', 2, score=100)]
+        out = apply_t0(items)
+        self.assertEqual(out[0]['topicId'], 'highscore')
+
+    def test_score_99_does_not_qualify_without_ac(self):
+        """T2026-0502-M: score==99 かつ ac<6 は Tier-0 外"""
+        items = [
+            _topic('small', 3, updated_at='2026-04-29T00:01:00Z'),
+            _topic('almost', 2, score=99, updated_at='2026-04-29T00:02:00Z'),
+        ]
+        out = apply_t0(items)
+        self.assertEqual([t['topicId'] for t in out], ['almost', 'small'])
+
+    def test_ac6_or_score100_both_qualify(self):
+        """T2026-0502-M: ac>=6 と score>=100 の両方が Tier-0、OR 条件"""
+        items = [
+            _topic('small', 3, updated_at='2026-04-29T00:01:00Z'),
+            _topic('by_ac', 6, updated_at='2026-04-29T00:02:00Z'),
+            _topic('by_score', 2, score=100, updated_at='2026-04-29T00:03:00Z'),
+        ]
+        out = apply_t0(items)
+        tier0_ids = {t['topicId'] for t in out[:2]}
+        self.assertEqual(tier0_ids, {'by_ac', 'by_score'})
+
+    def test_articles_exactly_10_qualifies(self):
+        """articleCount==10 (旧境界値) も引き続き Tier-0"""
+        items = [_topic('small', 3), _topic('boundary', 10)]
+        out = apply_t0(items)
+        self.assertEqual(out[0]['topicId'], 'boundary')
 
     def test_aigenerated_true_disqualifies(self):
         """aiGenerated=True なら articleCount に関わらず Tier-0 ではない"""
