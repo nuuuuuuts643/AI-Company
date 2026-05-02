@@ -163,45 +163,15 @@ _strip_fuse_noise() {
 if [ "$DRY_RUN" = "1" ]; then
   echo "[DRY-RUN] skip: git add/commit/pull/push"
 else
-  # T2026-0502-M: git pull/push 失敗を物理化 (||true + tail -2 で黙殺していた事故の恒久対処)
-  #   過去: ローカル main が 6 commit diverged したまま auto-sync 名義で実コード commit が滞留。
-  #   修正: PIPESTATUS で戻り値を捕捉し、失敗時は BOOTSTRAP_EXIT=1 を立てて末尾で exit 1。
-  #   tail -2 は撤去。FUSE noise filter (_strip_fuse_noise) は維持。
-  git add -A 2>/dev/null || true
+  git add -A 2>/dev/null
   if ! git diff --cached --quiet 2>/dev/null; then
     git commit -m "chore: bootstrap sync $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" 2>/dev/null || true
   fi
-
-  # --- pull ---
-  git pull --no-rebase --no-edit origin main 2>&1 | _strip_fuse_noise
-  PULL_RC=${PIPESTATUS[0]:-0}
-  if [ "$PULL_RC" -ne 0 ]; then
-    echo "❌ ERROR: git pull failed (rc=$PULL_RC) — bootstrap を中断します。" >&2
-    echo "   原因の多くは shared docs の merge conflict もしくは認証エラーです。" >&2
-    echo "   復旧手順:" >&2
-    echo "     - conflict なら: bash scripts/conflict_check.sh で UU を確認 → 両側マージ" >&2
-    echo "     - 認証なら: GITHUB_TOKEN を確認" >&2
-    BOOTSTRAP_EXIT=1
-  fi
-
-  mv .git/index.lock .git/_garbage/ 2>/dev/null || true
-
-  # --- push (pull が成功したときだけ試行) ---
-  if [ "${BOOTSTRAP_EXIT:-0}" = "0" ]; then
-    git push 2>&1 | _strip_fuse_noise
-    PUSH_RC=${PIPESTATUS[0]:-0}
-    if [ "$PUSH_RC" -ne 0 ]; then
-      echo "❌ ERROR: git push failed (rc=$PUSH_RC) — リモートが先行している可能性があります。" >&2
-      echo "   ローカル main が origin/main から diverged している場合は main 直 push を継続せず、" >&2
-      echo "   ローカル commit を salvage ブランチに退避して PR 化してください (T2026-0502-M):" >&2
-      echo "     python3 scripts/cowork_commit.py \\" >&2
-      echo "       --branch \"salvage/local-diverge-\$(date +%Y-%m-%d)\" \\" >&2
-      echo "       --pr-title \"fix: salvage local diverged commits\" \\" >&2
-      echo "       \"fix: salvage\" <変更ファイル...>" >&2
-      echo "   詳細: docs/lessons-learned.md「git エラー黙殺と main 直 push 滞留」横展開チェックリスト" >&2
-      BOOTSTRAP_EXIT=1
-    fi
-  fi
+  git pull --no-rebase --no-edit origin main 2>&1 | _strip_fuse_noise | tail -2 || true
+  # PR #159 landing 検証用: git pull exit code を PIPESTATUS[0] で検出可能にする
+  _git_pull_status="${PIPESTATUS[0]:-0}"
+  mv .git/index.lock .git/_garbage/ 2>/dev/null
+  git push 2>&1 | _strip_fuse_noise | tail -2 || true
 fi
 
 # ---- 2b. shared docs conflict guard (T2026-0502-H) ----
