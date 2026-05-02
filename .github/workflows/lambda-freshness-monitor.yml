@@ -1,0 +1,52 @@
+name: Lambda Freshness Monitor (T2026-0502-DEPLOY-WATCHDOG)
+
+# T2026-0502-DEPLOY-WATCHDOG
+# 目的: Lambda の lastModified が直近の lambda commit から 30min 超遅れていたら Slack 通知。
+#       deploy-lambdas.yml の push event auto-trigger が無音失敗しても外部観測で気づける層。
+#
+# 頻度: 毎時 0 分 UTC (JST 毎時9分)
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: lambda freshness check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: AWS 認証
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: Lambda freshness チェック
+        id: freshness
+        run: |
+          bash scripts/check_lambda_freshness.sh p003-processor projects/P003-news-timeline/lambda/
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Slack 通知 (lag 検知時)
+        if: steps.freshness.outcome == 'failure'
+        env:
+          SLACK_WEBHOOK: ${{ secrets.FAILURE_SLACK_WEBHOOK }}
+        run: |
+          TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S UTC')
+          curl -fsS -X POST "$SLACK_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"text\": \"⚠️ *Lambda deploy lag 検知* ($TIMESTAMP)\nfunction: p003-processor\n30分以上 deploy されていない可能性があります。\n<https://github.com/${{ github.repository }}/actions/workflows/deploy-lambdas.yml|deploy-lambdas.yml> を確認してください。\"
+            }"
+
+      - name: 結果を終了コードに反映
+        if: steps.freshness.outcome == 'failure'
+        run: exit 1
