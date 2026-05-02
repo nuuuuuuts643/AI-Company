@@ -6,7 +6,7 @@ import re
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from proc_config import ANTHROPIC_API_KEY
 try:
@@ -1713,6 +1713,93 @@ _PREDICTION_JUDGE_SCHEMA = {
     },
     'required': ['result', 'evidence'],
 }
+
+
+def _extract_deadline_offset_days(outlook: str) -> int | None:
+    """T2026-0502-BC: outlook 文中の期限フレーズから「予想立て時刻からの日数」を推定する。
+
+    対応パターン (proc_ai.py の outlook プロンプトで「期限を必ず名指し」と指示している語彙):
+      - 今週中 / 今週 / 週末まで → 7 日
+      - 来週中 / 来週 / 来週末 → 14 日
+      - 今月中 / 今月 / 月末 → 30 日
+      - 来月 / 来月中 → 60 日
+      - 3 ヶ月 / 三ヶ月 / 3ヶ月以内 → 90 日
+      - 半年 / 6 ヶ月 / 六ヶ月 → 180 日
+      - 年内 → 365 日 (大雑把)
+      - 数値マッチ: "N 日以内" / "N 週間以内" / "N ヶ月以内"
+
+    Returns:
+        int | None: 予想立て時刻からの日数 (offset)。期限フレーズなしなら None。
+
+    None を返した場合、caller (`is_eligible_for_judgment`) は保守的フォールバック (7d) を使う。
+    """
+    if not outlook:
+        return None
+    s = str(outlook)
+
+    # 数値パターン優先 (より具体的)
+    import re
+    m = re.search(r'(\d+)\s*日(?:以内|間|後)', s)
+    if m:
+        return int(m.group(1))
+    m = re.search(r'(\d+)\s*週間?(?:以内|後)?', s)
+    if m:
+        return int(m.group(1)) * 7
+    m = re.search(r'(\d+)\s*[ヶか]?月(?:以内|間|後)?', s)
+    if m:
+        return int(m.group(1)) * 30
+
+    # キーワードマッチ
+    # ★順序注意: 「来週」「来月」を「今週」「今月」より先に check (substring 衝突回避)
+    if '来週' in s:
+        return 14
+    if '来月' in s:
+        return 60
+    if '今週' in s or '週末まで' in s:
+        return 7
+    if '今月' in s or '月末' in s:
+        return 30
+    if '三ヶ月' in s or '3ヶ月' in s or '半年' in s or '六ヶ月' in s or '6ヶ月' in s:
+        if '半年' in s or '六ヶ月' in s or '6ヶ月' in s:
+            return 180
+        return 90
+    if '年内' in s or '今年中' in s:
+        return 365
+
+    return None
+
+
+def is_eligible_for_judgment(outlook: str, made_at_iso: str,
+                             now_utc=None, fallback_days: int = 7) -> bool:
+    """T2026-0502-BC: 予想 (outlook) の期限が到来しているか判定する。
+
+    期限が到来していない場合は False を返し、handler.py 側で judge_prediction の
+    Anthropic API 呼び出しを skip させる。これによりコスト無駄打ちを物理的に削減し、
+    期限到来後の判定 signal を改善する (matched/partial/missed が 0 件問題の対処)。
+
+    Args:
+        outlook:    AI が立てた予想文 (期限フレーズを含む可能性)。
+        made_at_iso: 予想立て時刻 (ISO8601・例: '2026-04-25T10:00:00+00:00')。
+        now_utc:    判定基準時刻 (テスト用に注入可能・None なら現在時刻)。
+        fallback_days: 期限フレーズが outlook にない場合の保守的閾値 (default 7d)。
+
+    Returns:
+        bool: 期限到来済 = True (judge 対象) / 期限未到来 = False (skip)。
+    """
+    if now_utc is None:
+        now_utc = datetime.now(timezone.utc)
+    try:
+        made_at_dt = datetime.fromisoformat((made_at_iso or '').replace('Z', '+00:00'))
+    except (ValueError, TypeError):
+        # 不正な made_at は判定不能なので保守的に True (既存挙動温存)
+        return True
+
+    offset_days = _extract_deadline_offset_days(outlook)
+    if offset_days is None:
+        offset_days = fallback_days
+
+    deadline = made_at_dt + timedelta(days=offset_days)
+    return now_utc >= deadline
 
 
 def judge_prediction(outlook: str, new_titles: list, min_titles: int = 5) -> dict | None:
