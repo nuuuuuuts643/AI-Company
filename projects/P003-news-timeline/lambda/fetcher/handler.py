@@ -1042,7 +1042,7 @@ def lambda_handler(event, context):
             _prev_ac = 0
         _signals = detect_mismerge_signals(
             _merged_articles, extract_entities_fn=extract_merge_entities,
-            prev_article_count=_prev_ac,
+            prev_article_count=_prev_ac, genre=genre,
         )
         if _signals.get('suspectedMismerge'):
             item['suspectedMismerge'] = True
@@ -1050,6 +1050,33 @@ def lambda_handler(event, context):
             if _signals.get('detail'):
                 item['mismergeDetail'] = _signals['detail']
             print(f'[mismerge] tid={tid} reasons={_signals["reasons"]} title="{(gen_title or g[0]["title"])[:50]}"')
+        # T2026-0502-N: time_gap>=30日は「精査中」フラグを立ててAI生成をスキップ対象化し
+        # S3 split 候補キューに登録する (フロント storymap で split 操作の導線を提供)。
+        if _signals.get('split_candidate'):
+            item['statusLabel'] = '精査中'
+            item['pendingAI'] = False  # AI 生成を抑制
+            _split_key = f'api/admin/split-candidates/{datetime.now(timezone.utc).strftime("%Y-%m-%d")}.jsonl'
+            _split_entry = json.dumps({
+                'topicId': tid, 'detectedAt': ts_iso,
+                'maxGapDays': _signals.get('detail', {}).get('maxGapDays', 0),
+                'title': (gen_title or g[0]['title'])[:100],
+            }, ensure_ascii=False)
+            try:
+                _existing_split = ''
+                try:
+                    _existing_split = s3.get_object(
+                        Bucket=S3_BUCKET, Key=_split_key,
+                    )['Body'].read().decode('utf-8')
+                except Exception:
+                    pass
+                s3.put_object(
+                    Bucket=S3_BUCKET, Key=_split_key,
+                    Body=(_existing_split + _split_entry + '\n').encode('utf-8'),
+                    ContentType='application/x-ndjson', CacheControl='no-store',
+                )
+                print(f'[mismerge] split_candidate 登録: tid={tid} gap={_signals.get("detail", {}).get("maxGapDays")}日')
+            except Exception as _se:
+                print(f'[mismerge] split_candidate S3書き込み失敗 ({_se}) → 継続')
         current_run_metas[tid] = item
         _dynamo_puts.append(item)
         _dynamo_puts.append({

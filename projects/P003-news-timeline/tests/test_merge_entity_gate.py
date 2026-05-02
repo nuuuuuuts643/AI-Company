@@ -204,6 +204,58 @@ class MismergeDetectionTest(unittest.TestCase):
         self.assertIn('entity_split', r['reasons'])
         self.assertIn('count_spike', r['reasons'])
 
+    # T2026-0502-N: 新動作テスト
+    def test_count_spike_only_suppressed_for_sports(self):
+        """T2026-0502-N: count_spike 単独 + スポーツジャンルは suspectedMismerge にならない"""
+        articles = [{'title': f'試合{i}'} for i in range(15)]
+        r = self.detect(articles, prev_article_count=5, genre='スポーツ')
+        self.assertFalse(r['suspectedMismerge'])
+        self.assertNotIn('count_spike', r['reasons'])
+
+    def test_count_spike_only_suppressed_for_entertainment(self):
+        """T2026-0502-N: count_spike 単独 + エンタメジャンルは suspectedMismerge にならない"""
+        articles = [{'title': f'記事{i}'} for i in range(15)]
+        r = self.detect(articles, prev_article_count=5, genre='エンタメ')
+        self.assertFalse(r['suspectedMismerge'])
+
+    def test_count_spike_plus_other_not_suppressed(self):
+        """T2026-0502-N: count_spike + time_gap 複合はスポーツでも抑制しない"""
+        articles = [
+            {'title': '古い試合', 'publishedAt': 1700000000},
+            {'title': '新しい試合', 'publishedAt': 1700000000 + 8 * 86400},  # 8日後
+        ]
+        # 1→2 はスパイクにならないが time_gap は立つ
+        r = self.detect(articles, prev_article_count=0, genre='スポーツ')
+        self.assertIn('time_gap', r['reasons'])
+
+    def test_time_gap_30days_sets_split_candidate(self):
+        """T2026-0502-N: 30日超の time_gap は split_candidate=True"""
+        articles = [
+            {'title': 'A', 'publishedAt': 1700000000},
+            {'title': 'B', 'publishedAt': 1700000000 + 31 * 86400},  # 31日後
+        ]
+        r = self.detect(articles)
+        self.assertTrue(r['suspectedMismerge'])
+        self.assertIn('time_gap', r['reasons'])
+        self.assertTrue(r.get('split_candidate'), 'split_candidate が True でない')
+        self.assertTrue(r.get('detail', {}).get('requiresReview'), 'requiresReview が True でない')
+
+    def test_time_gap_29days_not_split_candidate(self):
+        """T2026-0502-N: 29日の time_gap は suspectedMismerge だが split_candidate にならない"""
+        articles = [
+            {'title': 'A', 'publishedAt': 1700000000},
+            {'title': 'B', 'publishedAt': 1700000000 + 29 * 86400},  # 29日後
+        ]
+        r = self.detect(articles)
+        self.assertTrue(r['suspectedMismerge'])
+        self.assertFalse(r.get('split_candidate', False))
+
+    def test_no_signals_split_candidate_false(self):
+        """T2026-0502-N: シグナルなしは split_candidate=False"""
+        articles = [{'title': 'A', 'publishedAt': 1700000000}]
+        r = self.detect(articles)
+        self.assertFalse(r.get('split_candidate', False))
+
 
 class HandlerStaticGuardTest(unittest.TestCase):
     """fetcher/handler.py に entity gate / Haiku borderline ロジックが残存することを静的検査。"""
