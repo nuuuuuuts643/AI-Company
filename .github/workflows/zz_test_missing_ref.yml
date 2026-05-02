@@ -1,12 +1,10 @@
-# T2026-0502-WORKFLOW-DEP-PHYSICAL VERIFY: 検出力テスト用 — 意図的に存在しない script を参照する。
-# このファイルが含まれた PR は lint-yaml-logic.yml の新 step が物理 reject すべき。
-# CI が success で通ったら物理ガードが効いていない証拠。CI が failure なら物理ガード機能している証拠。
-# 本ファイルは検出力テスト用で、PR は merge しない (close する)。
-name: VERIFY missing ref test (DO NOT MERGE)
+# T2026-0502-WORKFLOW-DEP-CLEANUP: PR #312 (test/T2026-0502-WORKFLOW-DEP-PHYSICAL-VERIFY) auto-merge 事故修復用 placeholder。
+# 本ファイルは検出力テスト用で、auto-merge.yml が CI failure を待たずに merge した事故により main 流入。
+# main の lint workflow を success に戻すため noop に置換。完全除去は T2026-0502-WORKFLOW-DEP-CLEANUP で予定。
+name: zz removed test (noop placeholder)
 on: workflow_dispatch
 jobs:
-  test:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - run: python3 scripts/this_file_does_not_exist_DELIBERATE_TEST.py
-      - run: bash infra/another_missing_DELIBERATE.sh
+      - run: echo "Placeholder for PR #312 auto-merge accident. See lessons-learned.md."
