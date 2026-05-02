@@ -45,7 +45,10 @@ def read(p):
 #    パターン: t.get('FOO')   — for ループ内で各 topic に触っている全箇所
 # ────────────────────────────────────────────────────────────────────
 freshness_src = read(freshness_path)
-measured = set(re.findall(r"t\.get\('([a-zA-Z][a-zA-Z0-9_]*)'", freshness_src))
+# T2026-0502-AQ-FOLLOWUP: 単語境界 \b を追加し `latest.get(...)` `prev.get(...)` 等の
+# 末尾 3 文字 `est.get(...)` `rev.get(...)` への誤マッチを防止。
+# `t.get('FOO')` は topic 単位の参照のみを対象とする。
+measured = set(re.findall(r"\bt\.get\('([a-zA-Z][a-zA-Z0-9_]*)'", freshness_src))
 
 # トップレベル d.get('updatedAt') 等は topic 単位ではないので除外。
 # 'topics' は配列キーなので除外。
