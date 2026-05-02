@@ -136,5 +136,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T2026-0502-WORKFLOW-DEP-CLEANUP PR #312 auto-merge 事故修復 (zz_test_missing_ref.yml を noop に・lessons-learned 追記) | Cowork | .github/workflows/zz_test_missing_ref.yml, docs/lessons-learned.md, WORKING.md | 2026-05-02 23:15 JST | yes |
 | [Cowork] T2026-0502-UX-CARDTITLE トップカードタイトル日本語15字truncation恒久対処 (proc_ai.py 15→30 + frontend 4箇所 generatedTitle優先 + lessons-learned + 物理ガード3件 candidate) | Cowork | projects/P003-news-timeline/lambda/processor/proc_ai.py, projects/P003-news-timeline/frontend/app.js, projects/P003-news-timeline/frontend/detail.js, docs/lessons-learned.md, TASKS.md, WORKING.md | 2026-05-02 23:30 JST | yes |
+| [Cowork] T2026-0502-COST-RESIDUAL-WRAP 残課題 prompts (CLEANUP-FULL/AUTO-MERGE-GUARDS/CI-FAILURES-INVESTIGATE) + WORKING.md cleanup | Cowork | docs/code-session-prompts/*.md, WORKING.md | 2026-05-02 23:35 JST | yes |
