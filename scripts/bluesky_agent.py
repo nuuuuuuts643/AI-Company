@@ -103,6 +103,9 @@ BSKY_MAX_CHARS = 300
 #   morning 1件 (JST 08:00 cron 単発)
 #   debut   0件 (現在 enabled=False。再有効化時は max_per_24h=2 で最大2件/日)
 #   合計    最大 4件/日 (debut 有効化時 6件/日)
+#
+# weekly/monthly はここに含めない (cron が単発・実質キュー外。post_weekly/
+# post_monthly は CONFIG を参照しないので追加しても dead config になるだけ)。
 # ════════════════════════════════════════════════════════════════════════════
 BLUESKY_POSTING_CONFIG = {
     'daily': {
@@ -123,23 +126,9 @@ BLUESKY_POSTING_CONFIG = {
         'cooldown_hours': 12,
         'max_per_24h':    2,
     },
-    'weekly': {
-        'enabled':        True,
-        'cooldown_hours': 24 * 6,   # 月曜 cron 単発、念のため 6 日空ける
-        'max_per_24h':    1,
-    },
-    'monthly': {
-        'enabled':        True,
-        'cooldown_hours': 24 * 27,  # 月初 cron 単発、念のため 27 日空ける
-        'max_per_24h':    1,
-    },
 }
 
-# ── 旧コード互換シンボル（テスト・既存呼び出し向け alias） ────────────────
-# 設定値の真実の源は BLUESKY_POSTING_CONFIG。
-DAILY_COOLDOWN_HOURS    = BLUESKY_POSTING_CONFIG['daily']['cooldown_hours']
-MORNING_COOLDOWN_HOURS  = BLUESKY_POSTING_CONFIG['morning']['cooldown_hours']
-MORNING_RECENT_HOURS    = 24    # 「今朝の動き」として扱う最大経過時間
+MORNING_RECENT_HOURS    = 24    # post_morning の topic フィルタ（投稿対象の鮮度上限）
 
 # T2026-0428-AS: 初回 AI 要約完了 → 即時投稿 (debut) 用の S3 pending マーカー。
 # processor Lambda が初回 AI 要約成功時に bluesky/pending/{topicId}.json を書き込み、
@@ -914,39 +903,39 @@ def post_debut(client, dry_run: bool = False) -> bool:
     """
     print('[bluesky_agent] 初回投稿 (debut) チェック 開始')
 
+    # 期限切れマーカーの GC は enabled / cooldown に**先行**して実施する。
+    # 理由: enabled=False のとき rate-limit で早期 return すると S3 マーカーが
+    # 永遠に消費されず累積する事故 (T2026-0502-L follow-up で 85件発見)。
+    # GC は投稿しない安全な操作なので rate-limit 判定とは独立に走らせる。
+    pending = list_debut_pending()
+    if pending:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=DEBUT_MARKER_TTL_HOURS)
+        fresh = []
+        for m in pending:
+            try:
+                ca = datetime.fromisoformat(m['createdAt'].replace('Z', '+00:00'))
+            except Exception:
+                print(f'[bluesky_agent] 不正な createdAt のため破棄: {m["topicId"][:8]}...')
+                delete_debut_marker(m['key'])
+                continue
+            if ca < cutoff:
+                print(f'[bluesky_agent] 期限切れマーカー破棄 ({DEBUT_MARKER_TTL_HOURS}h超): {m["topicId"][:8]}...')
+                delete_debut_marker(m['key'])
+                continue
+            fresh.append(m)
+        pending = fresh
+
     # T2026-0502-L: enabled/cooldown/24h-cap を BLUESKY_POSTING_CONFIG に委譲。
-    # ⚠️ 過去の事故 (5/1 48件投稿) を再発させないため、pending マーカー処理の
-    #    前にレート判定する。enabled=False 時は早期 return で pending を無視する
-    #    （マーカーは消さない: enabled=True に戻したとき自然に再開できる）。
+    # GC のあとにレート判定する: enabled=False でもマーカーは TTL で掃除される。
     ok, reason = _check_rate_limit('debut')
     if not ok:
         print(f'[bluesky_agent] debut skip: {reason}')
         return False
 
-    pending = list_debut_pending()
     if not pending:
-        print('[bluesky_agent] 初回投稿対象なし (pending マーカー 0 件)')
-        return False
-
-    # 期限切れマーカーを物理削除 (リトライ無限ループ防止)
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=DEBUT_MARKER_TTL_HOURS)
-    fresh = []
-    for m in pending:
-        try:
-            ca = datetime.fromisoformat(m['createdAt'].replace('Z', '+00:00'))
-        except Exception:
-            print(f'[bluesky_agent] 不正な createdAt のため破棄: {m["topicId"][:8]}...')
-            delete_debut_marker(m['key'])
-            continue
-        if ca < cutoff:
-            print(f'[bluesky_agent] 期限切れマーカー破棄 ({DEBUT_MARKER_TTL_HOURS}h超): {m["topicId"][:8]}...')
-            delete_debut_marker(m['key'])
-            continue
-        fresh.append(m)
-
-    if not fresh:
         print('[bluesky_agent] 初回投稿対象なし (期限内マーカー 0 件)')
         return False
+    fresh = pending  # 以降の処理は fresh 変数を使う既存コードに合わせる
 
     # 既に debut 投稿済みの topicId を除外 (重複投稿防止)
     posted_debut_ids = get_recent_posted_ids('debut', limit=50)
@@ -1042,7 +1031,7 @@ def post_morning(client, dry_run=False):
 
     daily / debut とは独立した別系統:
       - mode='morning' で BLUESKY_POSTS_TABLE に記録
-      - MORNING_COOLDOWN_HOURS=20h で物理ガード (cron 揺らぎ + 二重発火対策)
+      - レート制御は BLUESKY_POSTING_CONFIG['morning'] (cron 揺らぎ + 二重発火対策)
       - 静的HTMLが存在するトピックのみ投稿 (OGP リンクカード正しく表示)
     """
     print('[bluesky_agent] 朝投稿 開始')
