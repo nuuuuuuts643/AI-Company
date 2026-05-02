@@ -128,3 +128,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 |---|---|---|---|---|
 | [Cowork] T2026-0502-SES-METRIC-FILTER SLI 14 追加 | Cowork | scripts/check_ses_error_sli.sh, .github/workflows/freshness-check.yml | 2026-05-02 12:25 | yes |
 | [Cowork] T2026-0502-Z/AA/BB 観測ゼロ課題タスク積み | Cowork | TASKS.md | 2026-05-02 14:40 | no |
+| [Code] PR #234 rebase + auto-merge | Code | scripts/ci_check_yaml_no_inline_logic.py, .github/workflows/ | 2026-05-02 15:29 | yes |
