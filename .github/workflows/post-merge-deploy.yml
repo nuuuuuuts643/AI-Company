@@ -1,0 +1,106 @@
+# T2026-0502-W (恒久対処・2026-05-02): auto-merge → deploy 自動連動
+#
+# 問題:
+#   auto-merge.yml が `gh pr merge --auto` で予約 → GitHub が CI green 後に github-actions[bot]
+#   として squash merge → bot push は GitHub のループ防止仕様で他 workflow を trigger しない。
+#   結果: deploy-lambdas.yml / deploy-p003.yml が PR 経由のマージで発火せず、Lambda / frontend
+#   が古いコードで動作し続ける。今日 (2026-05-02) も PR #208 / #242 の deploy が
+#   workflow_dispatch 手動 kick まで反映されなかった。
+#
+# 恒久対処:
+#   `pull_request: types: [closed]` イベントは bot merger でも確実に発火する (GitHub 仕様)。
+#   `merged == true` のフィルタで merge 成功のみ捕捉し、変更ファイルから deploy 対象を判定して
+#   `gh workflow run` で workflow_dispatch を明示発動する。workflow_dispatch は GITHUB_TOKEN で
+#   bot 経由でも起動可能で、ループ防止対象外。これで「auto-merge → 自動 deploy」を物理保証する。
+#
+# 設計選択:
+#   - deploy-lambdas.yml / deploy-p003.yml の trigger を編集する案も検討したが、`pull_request: closed`
+#     直接発火が機能しなかった実績 (T2026-0502-PATH-FILTER-AUDIT 後も deploy が発火しない事例)
+#     から、明示 dispatch 経由の方が信頼性高い。
+#   - paths filter は workflow yaml ではなく `git diff --name-only` で動的判定。Lambda 系/Frontend 系
+#     を独立に判定できる。
+#
+# 関連: docs/lessons-learned.md (deploy auto-trigger 異常)・TASKS.md T2026-0502-W
+name: Post-merge auto-deploy (T2026-0502-W)
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  actions: write    # gh workflow run のために必要 (workflow_dispatch 発動権限)
+  contents: read
+  pull-requests: read
+
+jobs:
+  trigger-deploy:
+    name: trigger deploy by file change
+    runs-on: ubuntu-latest
+    # merge 成功のみ実行 (closed-without-merge は無視)
+    if: github.event.pull_request.merged == true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2  # HEAD と HEAD~1 で diff を取る
+
+      - name: Detect changed file paths
+        id: changed
+        run: |
+          set -euo pipefail
+          BASE=$(git rev-parse HEAD~1)
+          HEAD=$(git rev-parse HEAD)
+          echo "PR #${{ github.event.pull_request.number }} merged"
+          echo "diff: $BASE..$HEAD"
+          CHANGED=$(git diff --name-only "$BASE" "$HEAD")
+          echo "----- changed files -----"
+          echo "$CHANGED"
+          echo "-------------------------"
+
+          DEPLOY_LAMBDA=false
+          DEPLOY_FRONTEND=false
+
+          if echo "$CHANGED" | grep -qE '^projects/P003-news-timeline/lambda/'; then
+            DEPLOY_LAMBDA=true
+          fi
+          if echo "$CHANGED" | grep -qE '^scripts/(bluesky_agent\.py|_governance_check\.py|ci_lambda_merge_env\.py|parse_lambda_timestamp\.py)$'; then
+            # Lambda runtime に同梱される scripts 群も deploy 対象
+            DEPLOY_LAMBDA=true
+          fi
+          if echo "$CHANGED" | grep -qE '^projects/P003-news-timeline/frontend/'; then
+            DEPLOY_FRONTEND=true
+          fi
+
+          echo "deploy_lambda=$DEPLOY_LAMBDA"   >> "$GITHUB_OUTPUT"
+          echo "deploy_frontend=$DEPLOY_FRONTEND" >> "$GITHUB_OUTPUT"
+          echo ""
+          echo "→ deploy_lambda=$DEPLOY_LAMBDA  deploy_frontend=$DEPLOY_FRONTEND"
+
+      - name: Trigger Lambda deploy
+        if: steps.changed.outputs.deploy_lambda == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "🚀 triggering deploy-lambdas.yml (workflow_dispatch)"
+          gh workflow run deploy-lambdas.yml --ref main
+          echo "✅ deploy-lambdas.yml dispatched"
+
+      - name: Trigger Frontend deploy
+        if: steps.changed.outputs.deploy_frontend == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "🚀 triggering deploy-p003.yml (workflow_dispatch)"
+          gh workflow run deploy-p003.yml --ref main
+          echo "✅ deploy-p003.yml dispatched"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Post-merge deploy summary" >> $GITHUB_STEP_SUMMARY
+          echo "PR #${{ github.event.pull_request.number }} ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
+          echo "- deploy_lambda: ${{ steps.changed.outputs.deploy_lambda }}" >> $GITHUB_STEP_SUMMARY
+          echo "- deploy_frontend: ${{ steps.changed.outputs.deploy_frontend }}" >> $GITHUB_STEP_SUMMARY
