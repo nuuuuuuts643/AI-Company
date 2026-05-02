@@ -170,6 +170,21 @@ class TextExtractorTest(unittest.TestCase):
         self.assertNotIn('var evil', body)
 
 
+class HostTimeoutTest(unittest.TestCase):
+    """_get_timeout: ホスト別タイムアウトとデフォルト値のテスト。"""
+
+    def test_nhk_gets_longer_timeout(self):
+        t = af._get_timeout('https://www3.nhk.or.jp/news/html/xxx')
+        self.assertGreaterEqual(t, 8.0, 'NHK は 8s 以上のタイムアウトが必要')
+
+    def test_unknown_host_uses_default(self):
+        self.assertEqual(af._get_timeout('https://example.com/x', default=5.0), 5.0)
+
+    def test_subdomain_of_nhk_matches(self):
+        t = af._get_timeout('https://news.nhk.or.jp/article/1234')
+        self.assertGreaterEqual(t, 8.0)
+
+
 class FetchFullTextTest(unittest.TestCase):
     """fetch_full_text: HTTP 失敗系で落ちないことを保証。"""
 
@@ -210,6 +225,42 @@ class FetchFullTextTest(unittest.TestCase):
         with mock.patch('urllib.request.urlopen', return_value=fake):
             body = af.fetch_full_text('https://example.com/a')
         self.assertIn('テスト本文', body)
+
+    def test_retry_succeeds_on_second_attempt(self):
+        """1 回目 timeout → 2 回目成功 → 本文が返る。"""
+        html_bytes = (
+            '<!doctype html><html><body>'
+            '<article>' + ('リトライ成功。' * 60) + '</article>'
+            '</body></html>'
+        ).encode('utf-8')
+        fake = mock.MagicMock()
+        fake.headers = {'Content-Type': 'text/html; charset=utf-8'}
+        fake.read.return_value = html_bytes
+        fake.__enter__ = mock.MagicMock(return_value=fake)
+        fake.__exit__ = mock.MagicMock(return_value=False)
+        call_count = 0
+        def side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise TimeoutError('first attempt timed out')
+            return fake
+        with mock.patch('urllib.request.urlopen', side_effect=side_effect):
+            body = af.fetch_full_text('https://www3.nhk.or.jp/news/x', max_retries=1)
+        self.assertIn('リトライ成功', body)
+        self.assertEqual(call_count, 2)
+
+    def test_all_retries_exhausted_returns_empty(self):
+        """max_retries=1 で 2 回とも失敗 → 空文字列。"""
+        with mock.patch('urllib.request.urlopen',
+                        side_effect=TimeoutError('always timeout')):
+            result = af.fetch_full_text('https://www3.nhk.or.jp/news/y', max_retries=1)
+        self.assertEqual(result, '')
+
+    def test_user_agent_is_not_bot_string(self):
+        """User-Agent が FlotopicBot を名乗っていないことを確認。"""
+        self.assertNotIn('FlotopicBot', af._USER_AGENT)
+        self.assertIn('Mozilla', af._USER_AGENT)
 
 
 class FetchFullArticlesTest(unittest.TestCase):
