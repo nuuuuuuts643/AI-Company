@@ -149,4 +149,18 @@ if [ ! -f "$REPO_ROOT/tests/test_lambda_freshness.sh" ]; then
 fi
 echo "✅ T2026-0502-DEPLOY-WATCHDOG: tests/test_lambda_freshness.sh landing verified"
 
+# T2026-0502-MU-FOLLOWUP landing 検証: find_mode_mismatch_topics が quality_heal.py に実装済みであること
+if ! grep -q 'find_mode_mismatch_topics' "$REPO_ROOT/scripts/quality_heal.py"; then
+  echo "❌ T2026-0502-MU-FOLLOWUP: find_mode_mismatch_topics not found in scripts/quality_heal.py" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-MU-FOLLOWUP: find_mode_mismatch_topics landing verified"
+
+# T2026-0502-MU-FOLLOWUP landing 検証: test_quality_heal_mode_upgrade.py が存在すること
+if [ ! -f "$REPO_ROOT/tests/test_quality_heal_mode_upgrade.py" ]; then
+  echo "❌ T2026-0502-MU-FOLLOWUP: tests/test_quality_heal_mode_upgrade.py not found" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-MU-FOLLOWUP: tests/test_quality_heal_mode_upgrade.py landing verified"
+
 exit 0

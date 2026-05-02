@@ -39,6 +39,26 @@ S3_BUCKET = os.environ.get('S3_BUCKET', 'p003-news-946554699567')
 # (本番 100 件 / 1-99 字、99 件は pendingAI=False のまま固着)。
 KEYPOINT_MIN_LENGTH = 100
 
+# T2026-0502-MU-FOLLOWUP: handler.py:_expected_mode / _is_mode_upgrade と完全一致させる。
+# Lambda 側が source-of-truth。閾値変更時は lambda/processor/handler.py と両方を同期すること。
+_MODE_RANK = {'minimal': 0, 'standard': 1, 'full': 2}
+
+
+def _expected_mode(cnt: int) -> str:
+    """handler.py:_expected_mode と同期。cnt から期待 summaryMode を返す。"""
+    if cnt <= 2:
+        return 'minimal'
+    if cnt <= 5:
+        return 'standard'
+    return 'full'
+
+
+def _is_mode_upgrade(current: str, expected: str) -> bool:
+    """handler.py:_is_mode_upgrade と同期。昇格方向のみ True。"""
+    if current not in _MODE_RANK or expected not in _MODE_RANK:
+        return False
+    return _MODE_RANK[expected] > _MODE_RANK[current]
+
 
 def _is_empty(v):
     if v is None:
@@ -143,6 +163,58 @@ def find_unhealthy(metas):
     return unhealthy, reasons_counter
 
 
+def find_mode_mismatch_topics(metas):
+    """aiGenerated=True かつ summaryMode が articleCount 期待値より低いトピックを検出。
+
+    T2026-0502-MU-FOLLOWUP: PR #162 は processor 内の needs_story 判定 (下流) のみ
+    修正したが、pendingAI=null のトピックは pending queue に入らないため上流で拾えない。
+    本関数は scan 済みの metas を再利用して upgrade 候補を発見し (二重 DDB scan 禁止)、
+    mark_for_reprocess で pendingAI=True にセットすることで次の processor 実行で処理される。
+
+    _expected_mode / _is_mode_upgrade は handler.py と論理完全一致。閾値変更時は同期必須。
+    """
+    mismatches = []
+    for m in metas:
+        tid = m.get('topicId')
+        if not tid:
+            continue
+        if not m.get('aiGenerated'):
+            continue
+        if m.get('pendingAI') is True:
+            continue  # 既にキューイング済み、二重キューイング防止
+        current_mode = m.get('summaryMode')
+        if not current_mode:
+            continue  # summaryMode 未設定はスキップ (別の heal ルートで対処)
+        lifecycle = m.get('lifecycleStatus', '')
+        if lifecycle in ('archived', 'legacy', 'deleted'):
+            continue
+        try:
+            ac = int(m.get('articleCount', 0) or 0)
+        except (ValueError, TypeError):
+            ac = 0
+        if ac < 2:
+            continue  # フロント非表示なので heal 対象外
+        try:
+            score = int(m.get('score', 0) or 0)
+        except (ValueError, TypeError):
+            score = 0
+
+        expected = _expected_mode(ac)
+        if not _is_mode_upgrade(current_mode, expected):
+            continue
+
+        print(f'[mode-upgrade-rescue] tid={tid} from={current_mode} to={expected} cnt={ac}')
+        mismatches.append({
+            'topicId': tid,
+            'reasons': [f'mode-upgrade:{current_mode}→{expected}(cnt={ac})'],
+            'title': (m.get('title') or '')[:40],
+            'ac': ac, 'sv': 0, 'score': score,
+        })
+
+    mismatches.sort(key=lambda u: (-u['ac'], -u['score']))
+    return mismatches
+
+
 def mark_for_reprocess(table, tid):
     """pendingAI=True だけセット。既存 AI フィールドは絶対に上書きしない。"""
     try:
@@ -206,6 +278,15 @@ def main():
     print('[quality_heal] 理由別集計:')
     for r, c in reasons_counter.most_common():
         print(f'  {r}: {c}')
+
+    mode_mismatches = find_mode_mismatch_topics(metas)
+    print(f'[quality_heal] mode upgrade 候補検出: {len(mode_mismatches)} 件')
+    existing_tids = {u['topicId'] for u in unhealthy}
+    new_mismatches = [m for m in mode_mismatches if m['topicId'] not in existing_tids]
+    if new_mismatches:
+        print(f'[quality_heal] うち品質劣化未登録: {len(new_mismatches)} 件 → 追加')
+        unhealthy.extend(new_mismatches)
+        unhealthy.sort(key=lambda u: (-u['ac'], -u['score']))
 
     if args.limit and len(unhealthy) > args.limit:
         print(f'[quality_heal] limit={args.limit} を超過。先頭 {args.limit} 件のみ処理。')
