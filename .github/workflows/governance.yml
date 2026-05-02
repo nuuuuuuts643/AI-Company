@@ -37,6 +37,10 @@ on:
         required: false
         default: 'all'
 
+permissions:
+  contents: read
+  id-token: write   # OIDC で必須
+
 # =============================================================================
 # Job 1: セキュリティ Layer 1 — シークレットスキャン（即時）
 # =============================================================================
@@ -64,14 +68,19 @@ jobs:
         run: |
           pip install boto3 --quiet
 
+      - name: AWS 認証 (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # T2026-0502-SEC10-CODE-RETRY: OIDC 専用化 (AWS_ACCESS_KEY_ID 廃止)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
+          aws-region: ap-northeast-1
+
       - name: セキュリティ Layer 1 実行（シークレットスキャン）
         env:
           LAYER: '1'
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           AWS_DEFAULT_REGION: ap-northeast-1
           # Layer1はAWS不要だが一貫性のために設定
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           echo "=== SecurityAI Layer 1: シークレットスキャン ==="
           python3 scripts/security_agent.py
@@ -94,13 +103,19 @@ jobs:
       - name: 依存パッケージインストール
         run: pip install boto3 --quiet
 
+      - name: AWS 認証 (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # T2026-0502-SEC10-CODE-RETRY: OIDC 専用化 (AWS_ACCESS_KEY_ID 廃止)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
+          aws-region: ap-northeast-1
+
+
       - name: セキュリティ Layer 2 実行
         env:
           LAYER: '2'
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           AWS_DEFAULT_REGION: ap-northeast-1
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           echo "=== SecurityAI Layer 2: 脆弱性・S3・IAMチェック ==="
           python3 scripts/security_agent.py
@@ -127,14 +142,20 @@ jobs:
       - name: 依存パッケージインストール
         run: pip install boto3 --quiet
 
+      - name: AWS 認証 (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # T2026-0502-SEC10-CODE-RETRY: OIDC 専用化 (AWS_ACCESS_KEY_ID 廃止)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
+          aws-region: ap-northeast-1
+
+
       - name: リーガル Layer 2 実行（デプロイ前チェック）
         env:
           LAYER: '2'
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AWS_DEFAULT_REGION: ap-northeast-1
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           echo "=== LegalAI Layer 2: デプロイ前リーガルチェック ==="
           python3 scripts/legal_agent.py
@@ -157,6 +178,14 @@ jobs:
       - name: 依存パッケージインストール
         run: pip install boto3 --quiet
 
+      - name: AWS 認証 (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # T2026-0502-SEC10-CODE-RETRY: OIDC 専用化 (AWS_ACCESS_KEY_ID 廃止)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
+          aws-region: ap-northeast-1
+
+
       - name: 全エージェント監査実行（CEOを経由せずPOさんに直接報告）
         # 重要: AuditAIはClaude APIを一切使わない（独立性の担保）
         # 判断はPython統計・ルールエンジンのみ（ANTHROPIC_API_KEY不要）
@@ -165,8 +194,6 @@ jobs:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           # ANTHROPIC_API_KEY は意図的に渡さない — AuditAIはClaudeを呼ばない
           AWS_DEFAULT_REGION: ap-northeast-1
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           echo "=== AuditAI: 全エージェント監査（CEO含む9エージェント）==="
           echo "=== 判断方法: Python統計・ルールエンジン（Claude不使用）==="
@@ -193,14 +220,20 @@ jobs:
       - name: 依存パッケージインストール
         run: pip install boto3 --quiet
 
+      - name: AWS 認証 (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # T2026-0502-SEC10-CODE-RETRY: OIDC 専用化 (AWS_ACCESS_KEY_ID 廃止)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
+          aws-region: ap-northeast-1
+
+
       - name: セキュリティ週次監査（Layer 3）
         env:
           LAYER: '3'
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AWS_DEFAULT_REGION: ap-northeast-1
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           echo "=== SecurityAI Layer 3: 週次総合監査 ==="
           python3 scripts/security_agent.py
@@ -226,14 +259,20 @@ jobs:
       - name: 依存パッケージインストール
         run: pip install boto3 --quiet
 
+      - name: AWS 認証 (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # T2026-0502-SEC10-CODE-RETRY: OIDC 専用化 (AWS_ACCESS_KEY_ID 廃止)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
+          aws-region: ap-northeast-1
+
+
       - name: リーガル月次監査（Layer 3）
         env:
           LAYER: '3'
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AWS_DEFAULT_REGION: ap-northeast-1
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           echo "=== LegalAI Layer 3: 月次規約変更チェック ==="
           python3 scripts/legal_agent.py
@@ -258,11 +297,17 @@ jobs:
       - name: 依存パッケージインストール
         run: pip install boto3 --quiet
 
+      - name: AWS 認証 (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # T2026-0502-SEC10-CODE-RETRY: OIDC 専用化 (AWS_ACCESS_KEY_ID 廃止)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
+          aws-region: ap-northeast-1
+
+
       - name: DynamoDB テーブル初期化
         env:
           AWS_DEFAULT_REGION: ap-northeast-1
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           echo "=== ガバナンステーブル初期化 ==="
           python3 scripts/_governance_check.py
