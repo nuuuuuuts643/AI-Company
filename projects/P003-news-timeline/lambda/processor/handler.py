@@ -193,6 +193,7 @@ def lambda_handler(event, context):
             generate_and_upload_news_sitemap(topics)
             return {'statusCode': 200, 'body': json.dumps({'topics': len(topics)})}
         except Exception as e:
+            print(f'[ERROR] processor/scheduled: {type(e).__name__}: {e}')
             return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
 
     topic_id_filter = event.get('topic_ids')
