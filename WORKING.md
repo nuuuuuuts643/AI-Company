@@ -138,5 +138,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0502-BL landing grep 強化 | Code | scripts/check_lessons_landings.sh, tests/test_check_lessons_landings.sh, .github/workflows/ci.yml | 2026-05-03 14:00 | yes |
 <!-- [Cowork] T2026-0502-UX-CARDTITLE 完了 (2026-05-03 00:00 JST): PR #318 merge ✅ + PR #323 (lessons-learned 補完) auto-merge 待ち。実機検証 (flotopic.com) で12/12カード語句完整性 100% 確認・平均長 29字 (修正前 14.2字)。one-time scheduled task p003-verify-cardtitle-fix-20260504 で 2026-05-04 09:00 JST 自動再検証予定 -->
