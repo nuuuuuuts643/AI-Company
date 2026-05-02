@@ -47,12 +47,15 @@ PO（Slack）
 ```bash
 cd projects/P004-slack-bot
 
-export GITHUB_TOKEN="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"
-export SLACK_BOT_TOKEN="xoxb-..."   # 上で取得したBot Token
-export SLACK_WEBHOOK="https://hooks.slack.com/services/..."  # 既存のWebhook URL
+# ⚠️ シークレットは絶対にコード/コミットに含めない。1Password / aws-vault / .envrc 等から読み込むこと。
+export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"   # GitHub PAT (repo + workflow scope のみ)
+export SLACK_BOT_TOKEN="xoxb-..."                                   # 上で取得したBot Token
+export SLACK_WEBHOOK="https://hooks.slack.com/services/..."         # 既存のWebhook URL
 
 bash deploy.sh
 ```
+
+> ⚠️ **セキュリティ注意 (2026-05-02 T2026-0502-SEC-AUDIT)**: 旧バージョンの本ファイルには live な GitHub PAT (`ghp_LyAq...`) が直書きされていました。当該 PAT は **必ず Revoke** してください (https://github.com/settings/tokens)。git history には残り続けるため、リポジトリ public ならば履歴の rewrite (`git filter-repo` / BFG) を検討。シークレットは必ず env 変数経由で渡し、コード/ドキュメントには絶対に直書きしないこと。
 
 デプロイ後に表示される **Bot URL**（`https://xxxx.lambda-url.ap-northeast-1.on.aws/`）をメモしておく。
 
