@@ -126,4 +126,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0502-TASK-ID-COLLISION 同日ID重複物理ガード | Code | scripts/next_task_id.sh, tests/test_next_task_id.sh, .github/workflows/ci.yml | 2026-05-02T12:05 | yes |
