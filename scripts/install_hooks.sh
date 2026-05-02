@@ -121,19 +121,41 @@ if [ -n "$COST_HITS" ]; then
     exit 1
 fi
 
-# T2026-0502-IAM-DRIFT-FIX2 (2026-05-02): IAM apply は infra/iam/apply.sh 経由必須
-# 直接 `aws iam put-role-policy` / `put-user-policy` / `put-group-policy` を呼ぶスクリプトや
-# workflow YAML を staged に追加することを物理 reject。
-# 例外: infra/iam/apply.sh 自体 + テスト fixture + 本 install_hooks.sh + ドキュメント (.md) 内の説明引用。
-IAM_HITS=$(git diff --cached --no-color -U0 \
-    | grep -E '^\+' \
-    | grep -vE '^\+\+\+' \
-    | grep -vE 'infra/iam/apply\.sh|install_hooks\.sh|\.md:|test.*iam|iam_apply.*test|lessons-learned' \
-    | grep -E '(aws[ ]+iam[ ]+put-role-policy|aws[ ]+iam[ ]+put-user-policy|aws[ ]+iam[ ]+put-group-policy)' \
-    || true)
+# T2026-0502-IAM-DRIFT-FIX2 (初版 c521a846・file-path 修正 T2026-0502-IAM-FILTER-FIX 2026-05-02):
+# IAM apply は infra/iam/apply.sh 経由必須。直接 `aws iam put-role-policy` /
+# `put-user-policy` / `put-group-policy` を呼ぶスクリプトや workflow YAML を
+# staged に追加することを物理 reject。
+#
+# 例外 (file-path ベース・誤検知防止):
+#   - infra/iam/apply.sh 自体 (唯一の正しい IAM apply 経路)
+#   - scripts/install_hooks.sh 自体 (本 hook の source)
+#   - *.md 全般 (ドキュメント内のルール説明引用)
+#   - tests/ 配下 (回帰テスト fixture)
+#   - .git/hooks/ (インストール先 hook 自体に regex 文字列が入る)
+#
+# 旧実装 (c521a846) は git diff の "+ 行内容" に対して exemption regex を
+# 当てていたため、*.md / lessons-learned.md 内のドキュメント文字列まで
+# 誤検知して bypass を強いる構造だった。本実装は --name-only でファイル単位に
+# exempt 判定する。回帰テスト: tests/test_pre_commit_iam_filter.sh
+IAM_EXEMPT_PATH_RE='^infra/iam/apply\.sh$|^scripts/install_hooks\.sh$|\.md$|^tests?/|/tests?/|(^|/)test_[^/]+\.(py|sh|js|ts|yml|yaml)$|(^|/)test\.(py|sh|js|ts)$|^\.git/hooks/'
+IAM_HITS=""
+while IFS= read -r _iam_f; do
+    [ -z "$_iam_f" ] && continue
+    [ -f "$_iam_f" ] || continue
+    if echo "$_iam_f" | grep -qE "$IAM_EXEMPT_PATH_RE"; then
+        continue
+    fi
+    _iam_file_hits=$(git diff --cached --no-color -U0 -- "$_iam_f" \
+        | grep -E '^\+[^+]' \
+        | grep -E '(aws[ ]+iam[ ]+put-role-policy|aws[ ]+iam[ ]+put-user-policy|aws[ ]+iam[ ]+put-group-policy)' \
+        || true)
+    if [ -n "$_iam_file_hits" ]; then
+        IAM_HITS="${IAM_HITS}--- ${_iam_f} ---"$'\n'"${_iam_file_hits}"$'\n'
+    fi
+done < <(git diff --cached --name-only --diff-filter=AM)
 if [ -n "$IAM_HITS" ]; then
     echo "❌ pre-commit blocked: 直接 \`aws iam put-*-policy\` 呼び出しは禁止 (T2026-0502-IAM-DRIFT-FIX2)"
-    echo "$IAM_HITS" | head -10 | sed 's/^/   /'
+    printf '%s' "$IAM_HITS" | head -20 | sed 's/^/   /'
     echo ""
     echo "   IAM 変更は infra/iam/apply.sh 経由必須:"
     echo "   1. infra/iam/policies/<name>.json を編集 (git tracked source of truth)"

@@ -261,6 +261,17 @@ jobs:
           echo "=== タスク ID 重複物理ガード テスト ==="
           bash tests/test_next_task_id.sh
 
+      - name: pre-commit IAM filter 回帰テスト (T2026-0502-IAM-FILTER-FIX)
+        run: |
+          echo "=== pre-commit IAM filter false positive/negative 回帰テスト ==="
+          # install_hooks.sh の IAM filter (file-path ベース exemption) が
+          # *.md / tests/ / apply.sh / install_hooks.sh は通過させ、
+          # 非 exempt な shell script / workflow YAML は block することを検証。
+          # 旧実装 (c521a846) は diff 行内容に対して exemption を当てていて
+          # *.md 内のドキュメント引用まで誤 block していた構造的欠陥への
+          # 物理回帰ガード (T2026-0502-IAM-FILTER-FIX 由来)。
+          bash tests/test_pre_commit_iam_filter.sh
+
   conflict-markers:
     name: コンフリクトマーカー残存チェック
     runs-on: ubuntu-latest
