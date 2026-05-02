@@ -7,7 +7,7 @@
   <script>window.admaxads = window.admaxads || [];</script>
   <script async src="https://adm.shinobi.jp/st/t.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="robots" content="noindex,follow">
+  <!-- T2026-0502-AQ (2026-05-02 14:55 JST): noindex 削除 — T2026-0502-ADSENSE-FIX で入れた noindex により Google index から topic 個別ページが除外され Cloudflare PV 290→20 (1/10) へ急減 (4/27→4/28)。AdSense 薄コンテンツ対策は app.js の keyPoint<80字 frontend filter で代替済 → noindex は不要。詳細: docs/lessons-learned.md T2026-0502-AQ-NOINDEX-REGRESSION セクション。再発防止: scripts/check_seo_regression.sh で frontend/topic.html / frontend/catchup.html / frontend/index.html に noindex を入れる PR を CI で reject -->
   <!-- T2026-0502-SEC12 (2026-05-02): meta CSP に object-src/base-uri/form-action 追加 (PDF embed/base injection/form hijack 防御) -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">

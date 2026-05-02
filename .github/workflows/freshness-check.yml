@@ -569,5 +569,99 @@ jobs:
           )
           curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
 
+      - name: Cloudflare Web Analytics PV 急変観測 (SLI 15 / T2026-0502-AQ)
+        id: cf_pv_drop
+        continue-on-error: true
+        shell: bash
+        run: |
+          # T2026-0502-AQ: ADSENSE-FIX で frontend/topic.html に noindex を入れて
+          # Cloudflare PV が 4/27 260→4/28 20 (1/10) に急減した事故を 5 日間気づかなかった反省。
+          # cf-analytics Lambda が 7:00 JST (22:00 UTC) に S3 に生成する api/cf-analytics.json の
+          # daily PV を見て、前日比 50% 未満で ERROR、70% 未満で WARN を Slack に投げる。
+          # 重複 Slack 防止のため UTC 22 時台 (= JST 7:00〜7:59・cf-analytics 更新直後) のみ判定。
+          set +e
+          curl -sS -m 10 'https://flotopic.com/api/cf-analytics.json' -o /tmp/cf.json
+          if [ ! -s /tmp/cf.json ]; then
+            echo "::warning::cf_pv_drop: cf-analytics.json fetch failed"
+            echo "warn_or_error=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 <<'PY' > /tmp/cf_drop.txt
+          import json, sys, datetime
+          # UTC 22 時台 (= JST 7:00〜7:59) のみ alert 判定 (cf-analytics 更新直後)
+          if datetime.datetime.utcnow().hour != 22:
+              print("skip_off_hour 0 0 0")
+              sys.exit(0)
+          try:
+              d = json.load(open('/tmp/cf.json'))
+              daily = (d.get('cf') or {}).get('daily') or []
+              if len(daily) < 2:
+                  print("skip_insufficient_data 0 0 0")
+                  sys.exit(0)
+              daily_sorted = sorted(daily, key=lambda x: x.get('date', ''))
+              latest = daily_sorted[-1]
+              prev = daily_sorted[-2]
+              latest_pv = int(latest.get('count') or 0)
+              prev_pv = int(prev.get('count') or 0)
+              # 前日が 50 PV 未満ならノイズ過大で判定スキップ
+              if prev_pv < 50:
+                  print(f"skip_low_baseline {latest_pv} {prev_pv} 0")
+                  sys.exit(0)
+              ratio = latest_pv / prev_pv if prev_pv > 0 else 1.0
+              if ratio < 0.5:
+                  print(f"error {latest_pv} {prev_pv} {ratio:.3f}")
+              elif ratio < 0.7:
+                  print(f"warn {latest_pv} {prev_pv} {ratio:.3f}")
+              else:
+                  print(f"ok {latest_pv} {prev_pv} {ratio:.3f}")
+          except Exception as e:
+              print(f"parse_error 0 0 0")
+          PY
+          read -r STATUS LATEST PREV RATIO <<< "$(cat /tmp/cf_drop.txt)"
+          echo "status=$STATUS latest=$LATEST prev=$PREV ratio=$RATIO"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+          echo "prev=$PREV" >> "$GITHUB_OUTPUT"
+          echo "ratio=$RATIO" >> "$GITHUB_OUTPUT"
+          if [ "$STATUS" = "warn" ] || [ "$STATUS" = "error" ]; then
+            echo "warn_or_error=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "warn_or_error=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: PV 前日比急減で Slack 通知 (T2026-0502-AQ 再発防止)
+        if: steps.cf_pv_drop.outputs.warn_or_error == 'true'
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
+          STATUS: ${{ steps.cf_pv_drop.outputs.status }}
+          LATEST: ${{ steps.cf_pv_drop.outputs.latest }}
+          PREV: ${{ steps.cf_pv_drop.outputs.prev }}
+          RATIO: ${{ steps.cf_pv_drop.outputs.ratio }}
+        shell: bash
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::warning::cf_pv_drop: status=${STATUS} ${PREV}→${LATEST} (ratio=${RATIO}) — Cloudflare PV 前日比急減"
+            exit 0
+          fi
+          LEVEL=$([ "${STATUS}" = "error" ] && echo "ERROR" || echo "WARN")
+          PAYLOAD=$(python3 - <<PY
+          import json
+          level = "${LEVEL}"
+          latest = "${LATEST}"
+          prev = "${PREV}"
+          ratio = "${RATIO}"
+          emoji = ":rotating_light:" if level == "ERROR" else ":warning:"
+          text = (
+              f"{emoji} *[SLI 15] Cloudflare Web Analytics PV 前日比急減*\n"
+              f"- 前日 PV: {prev} → 当日 PV: {latest}\n"
+              f"- 比率: {ratio} (閾値: WARN<0.7, ERROR<0.5)\n"
+              f"- 由来: T2026-0502-AQ lessons-learned (noindex 流入消失 5 日無自覚を再発防止)"
+          )
+          print(json.dumps({"text": text}))
+          PY
+          )
+          curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
+
       # SLI-keypoint-fill-rate は別ワークフロー (sli-keypoint-fill-rate.yml) へ分離 (T2026-0428-BI)。
       # hourly DynamoDB scan は過剰だったため 6h scan へ削減 (-83%)。
