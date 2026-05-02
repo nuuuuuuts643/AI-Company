@@ -81,37 +81,80 @@ SITE_URL = 'https://flotopic.com'
 # BlueSky 文字数制限
 BSKY_MAX_CHARS = 300
 
-# 日次投稿クールタイム時間（30分間隔発火に対する実投稿レート制御）
-# ワークフローを */30 * * * * で発火させてcron遅延を吸収するが、
-# 実投稿は 8時間に最大1回 ＝ 1日3回までに抑える（PO指示: 投稿頻度減）。
-DAILY_COOLDOWN_HOURS = 8
+# ════════════════════════════════════════════════════════════════════════════
+# ⭐ Bluesky 投稿頻度・モード設定（単一の真実の源 / Single Source of Truth）⭐
+# ════════════════════════════════════════════════════════════════════════════
+# T2026-0502-L: 投稿頻度を変えたいときは **このブロックだけ** 編集すれば済むよう
+#   全モードのレート制御パラメータをここに集約。各 post_xxx() 関数は冒頭で
+#   `_check_rate_limit(mode)` を呼ぶだけで、独自のクールタイムを持たない。
+#
+# 経緯（lessons-learned: 2026-05-02 T2026-0502-L）:
+#   debut モードに per-day cap が無く、30分 cron × 48tick × 1件 = 最大48件/日の
+#   過剰投稿が発生（5/1 実測 48件）。当初は DEBUT_MAX_PER_RUN=0 のキルスイッチで
+#   応急処置していたが、設計欠陥として恒久対処（このブロック化）。
+#
+# 3 重ガード設計（AND で全部通過したときのみ投稿）:
+#   1) enabled        — False で完全停止 (kill switch)
+#   2) cooldown_hours — 前回同モード投稿から N 時間空ける（DynamoDB lookup）
+#   3) max_per_24h    — 24h 内の同モード投稿件数キャップ（DynamoDB lookup）
+#
+# 1日あたりの投稿上限（POの目標 = 4件/日）:
+#   daily   3件 (8h cooldown × 3回 = 24h)
+#   morning 1件 (JST 08:00 cron 単発)
+#   debut   0件 (現在 enabled=False。再有効化時は max_per_24h=2 で最大2件/日)
+#   合計    最大 4件/日 (debut 有効化時 6件/日)
+# ════════════════════════════════════════════════════════════════════════════
+BLUESKY_POSTING_CONFIG = {
+    'daily': {
+        'enabled':        True,
+        'cooldown_hours': 8,    # 8h × 3 = 24h → 1日3回まで
+        'max_per_24h':    3,    # 二重ガード: 24h スキャンで 3 件以上なら投稿停止
+    },
+    'morning': {
+        'enabled':        True,
+        'cooldown_hours': 20,   # 1 日 1 回想定 (20h バッファで cron 揺らぎ吸収)
+        'max_per_24h':    1,
+    },
+    'debut': {
+        # ⚠️ 現在無効化中 (新トピック登場通知の即時投稿)
+        # 再有効化したい場合: enabled=True にする。max_per_24h=2 で 1日最大2件保証。
+        # cooldown_hours=12 で前回 debut から 12h 空ける ⇒ 物理上限 2件/日。
+        'enabled':        False,
+        'cooldown_hours': 12,
+        'max_per_24h':    2,
+    },
+    'weekly': {
+        'enabled':        True,
+        'cooldown_hours': 24 * 6,   # 月曜 cron 単発、念のため 6 日空ける
+        'max_per_24h':    1,
+    },
+    'monthly': {
+        'enabled':        True,
+        'cooldown_hours': 24 * 27,  # 月初 cron 単発、念のため 27 日空ける
+        'max_per_24h':    1,
+    },
+}
 
-# T193: 朝の定期投稿 (morning) — JST 08:00 EventBridge cron で起動。
-# 「毎日朝に Bluesky を見れば必ず Flotopic の動きトピックが届く」習慣化の入り口。
-# daily / debut とは独立した別系統。MORNING_COOLDOWN_HOURS で 1 日 1 回に物理ガード。
-# EventBridge cron が二重発火しても DynamoDB の最終投稿時刻チェックで防止される。
-MORNING_COOLDOWN_HOURS  = 20    # 1 日 1 回想定 (20h バッファで cron 揺らぎ吸収)
+# ── 旧コード互換シンボル（テスト・既存呼び出し向け alias） ────────────────
+# 設定値の真実の源は BLUESKY_POSTING_CONFIG。
+DAILY_COOLDOWN_HOURS    = BLUESKY_POSTING_CONFIG['daily']['cooldown_hours']
+MORNING_COOLDOWN_HOURS  = BLUESKY_POSTING_CONFIG['morning']['cooldown_hours']
 MORNING_RECENT_HOURS    = 24    # 「今朝の動き」として扱う最大経過時間
 
-# T2026-0428-AS: 初回 AI 要約完了 → 即時投稿 (debut) 用の S3 pending マーカープレフィックス。
+# T2026-0428-AS: 初回 AI 要約完了 → 即時投稿 (debut) 用の S3 pending マーカー。
 # processor Lambda が初回 AI 要約成功時に bluesky/pending/{topicId}.json を書き込み、
 # bluesky_agent が次の cron tick (≤30分後) で消費して投稿する。
-# 注目度ベースの定期投稿 (post_daily) とは完全に独立した別トリガー。
 BLUESKY_PENDING_PREFIX  = 'bluesky/pending/'
 DEBUT_MARKER_TTL_HOURS  = 24    # これより古いマーカーは破棄 (リトライ無限ループ防止)
-DEBUT_MAX_PER_RUN       = 0     # 無効化: debut は1日4回制限(T2026-0502-C)に伴い停止。恒久対処は T2026-0502-C
+# DEBUT_MAX_PER_RUN は 1 tick あたりの上限。日次キャップは BLUESKY_POSTING_CONFIG['debut']
+# ['max_per_24h'] が _check_rate_limit() 経由で物理担保する。
+DEBUT_MAX_PER_RUN       = 1     # T2026-0502-L: 1 に戻し、日次制御は config に委譲
 
-# T2026-0429-K: Bluesky 投稿品質改善
-# 同一 topicId を 24h 以内に再投稿しない (時間ベース重複ガード)。
-# 既存の近接窓 4 件ガード (get_recent_posted_ids) は連投回避が目的。
-# 高頻度 cron (30 分間隔) で 4 件超の枯渇時に同 topicId が再投稿される事故が
-# 発生していたため、明示的な時間窓ガードを追加して二重化する。
+# T2026-0429-K: 同一 topicId を 24h 以内に再投稿しない (時間ベース重複ガード)。
 DUP_GUARD_HOURS  = 24
 
 # トピックの「鮮度」カットオフ。lastUpdated/lastArticleAt が
 # 24h 超のトピックは「古いトピックの再掲」とみなし投稿候補から除外する。
-# post_morning は既に MORNING_RECENT_HOURS=24 で同等のフィルタを持っているが、
-# post_daily には未実装だった (T2026-0429-K で追加)。
 DAILY_TOPIC_FRESHNESS_HOURS = 24
 
 # ── AWS クライアント ───────────────────────────────────────────────────────────
