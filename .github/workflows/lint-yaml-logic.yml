@@ -9,3 +9,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Reject inline python3 -c in workflow YAML
         run: bash scripts/ci_check_yaml_no_inline_logic.sh
+      - name: Reject workflow YAML referencing missing scripts/* or infra/*
+        # T2026-0502-WORKFLOW-DEP-PHYSICAL: workflow YAML が参照する scripts/foo.py / infra/foo.sh が
+        # repo に commit されていることを物理保証。
+        # 背景: T2026-0502-IAM-CANON-RESCUE — c521a846 で apply.sh が scripts/iam_canon.py 参照に書換
+        # わったが実体ファイル commit 漏れで drift CI が ~50min failure 続行した事故の物理化。
+        run: bash scripts/ci_check_workflow_script_refs.sh

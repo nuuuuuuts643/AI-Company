@@ -1,0 +1,12 @@
+# T2026-0502-WORKFLOW-DEP-PHYSICAL VERIFY: 検出力テスト用 — 意図的に存在しない script を参照する。
+# このファイルが含まれた PR は lint-yaml-logic.yml の新 step が物理 reject すべき。
+# CI が success で通ったら物理ガードが効いていない証拠。CI が failure なら物理ガード機能している証拠。
+# 本ファイルは検出力テスト用で、PR は merge しない (close する)。
+name: VERIFY missing ref test (DO NOT MERGE)
+on: workflow_dispatch
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: python3 scripts/this_file_does_not_exist_DELIBERATE_TEST.py
+      - run: bash infra/another_missing_DELIBERATE.sh
