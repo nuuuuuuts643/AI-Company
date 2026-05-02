@@ -165,7 +165,7 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| T2026-0502-OPS-1 | 🟢 低 | **`pr-162-unblock-watcher` スケジュールタスクを手動 disable** — PR #152 / #162 ともに 2026-05-02 朝には merge 済を確認済 (PR #162 watcher は目的達成)。`update_scheduled_task` は scheduled-task セッション内からは self-disable 不可のため、Dispatch から `mcp__scheduled-tasks__update_scheduled_task taskId=pr-162-unblock-watcher enabled=false` を実行して停止する。停止しないと毎時:15 に空振り run が発火し続ける | (スケジューラー操作のみ) | 2026-05-02 |
+| ~~T2026-0502-OPS-1~~ | 🟢 低 | ~~**`pr-162-unblock-watcher` スケジュールタスクを手動 disable** — PR #152 / #162 ともに 2026-05-02 朝には merge 済を確認済 (PR #162 watcher は目的達成)。`update_scheduled_task` は scheduled-task セッション内からは self-disable 不可のため、Dispatch から `mcp__scheduled-tasks__update_scheduled_task taskId=pr-162-unblock-watcher enabled=false` を実行して停止する。停止しないと毎時:15 に空振り run が発火し続ける~~ ✅ 2026-05-02 PO 指摘で Dispatch から disable 実行・空振り run 停止確認 | (スケジューラー操作のみ) | 2026-05-02 |
 
 ---
 
