@@ -11,6 +11,7 @@
 |---|---|---|---|---|
 | [T2026-0502-COST-A1-CODE.md](T2026-0502-COST-A1-CODE.md) | 未使用 DynamoDB 4 個整理 (deploy.sh + 実 delete) | Sonnet | 30 分 | 起動待ち |
 | [T2026-0502-COST-D1-INVESTIGATE.md](T2026-0502-COST-D1-INVESTIGATE.md) | DynamoDB Read $4.02/月 の元コード特定 (調査のみ) | Sonnet | 1〜2 時間 | 起動待ち |
+| [T2026-0502-BC-CRON-FIX.md](T2026-0502-BC-CRON-FIX.md) | judge_prediction 専用 22:00 JST cron 追加 + コメント乖離修正 | Sonnet | 30〜60 分 | 起動待ち |
 
 ---
 
