@@ -177,6 +177,100 @@ def api(method, path, token, repo, data=None):
         return json.loads(r.read())
 
 
+def check_working_md_declaration(message, file_paths, repo_root):
+    """
+    物理ガード: タスク開始前 WORKING.md 宣言の物理化
+    (T2026-0502-COWORK-WORKING-MD-MISSING・2026-05-02 23:30 JST 制定)
+
+    背景:
+      Cowork が PR #319 を WORKING.md に [Cowork] 行を追加せずに作成した。
+      CLAUDE.md「タスク開始前: WORKING.md に [Cowork] 行を追記してから push してから着手」は
+      思想ルール止まりで、cowork_commit.py が宣言の有無を物理チェックしていなかった。
+      git lock 詰まりや並走衝突回避を理由に Cowork が宣言を skip する経路が残っていた。
+
+    動作:
+      commit message から TaskID (T20XX-XXXX-XXX 形式) を抽出 → WORKING.md 内に該当タスクの
+      行があるか確認 → 無ければ exit 1 で reject。
+
+    Skip 条件:
+      - commit message に TaskID 形式が含まれない (chore: bootstrap sync 等)
+      - WORKING.md ファイル自体が存在しない (P006 等)
+      - --skip-working-md-check フラグ付与
+      - commit message に [skip-working-md-check] キーワード含む (緊急 bypass)
+    """
+    task_id_match = re.search(r'\bT\d{4}-\d{4}-[A-Z][A-Z0-9-]+\b', message)
+    if not task_id_match:
+        return  # TaskID 無し commit (chore / docs sync 等) は skip
+    task_id = task_id_match.group(0)
+
+    working_md_path = os.path.join(repo_root, 'WORKING.md')
+    if not os.path.isfile(working_md_path):
+        return  # WORKING.md 無いリポジトリでは skip
+
+    with open(working_md_path, 'r', encoding='utf-8') as f:
+        working_md = f.read()
+    if task_id in working_md:
+        return  # 宣言あり → OK
+
+    # 宣言無し → reject
+    print(f'❌ ERROR: WORKING.md に [{task_id}] の宣言行が無い '
+          f'(物理ガード T2026-0502-COWORK-WORKING-MD-MISSING)', file=sys.stderr)
+    print(f'', file=sys.stderr)
+    print(f'  CLAUDE.md「タスク開始前: WORKING.md に [Cowork] 行を追記してから着手」物理化:', file=sys.stderr)
+    print(f'  WORKING.md に以下を追記してから cowork_commit.py を再実行してください', file=sys.stderr)
+    print(f'  (並走衝突避けるため 1 行だけの commit を別途投げる):', file=sys.stderr)
+    print(f'', file=sys.stderr)
+    print(f'  | [Cowork] {task_id} <タスク名> | Cowork | '
+          f'{",".join(file_paths[:3])}{"..." if len(file_paths)>3 else ""} | <現在JST> | yes |', file=sys.stderr)
+    print(f'', file=sys.stderr)
+    print(f'  Bypass (緊急時のみ): --skip-working-md-check フラグ または', file=sys.stderr)
+    print(f'                      commit message に [skip-working-md-check] を含める', file=sys.stderr)
+    sys.exit(1)
+
+
+def warn_worktree_dirty_after_pr(file_paths, repo_root):
+    """
+    物理ガード (警告のみ・block しない): PR 作成成功後、私が触ったファイルが worktree に
+    M / ?? 状態で残っているか確認 → 警告して整理コマンドを提示。
+
+    背景 (T2026-0502-COWORK-WORKING-MD-MISSING):
+      cowork_commit.py は GitHub API 経由で commit するため、worktree の編集は同期されない
+      (M / ?? のまま残る) 問題。次回 session_bootstrap.sh の sync pull で auto-commit され
+      並走セッターの作業に巻き込まれるリスクがある。
+    """
+    try:
+        result = subprocess.run(
+            ['git', 'status', '--short', '--untracked-files=all'],
+            cwd=repo_root, capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            return
+        target_set = {os.path.normpath(p) for p in file_paths}
+        dirty = []
+        for line in result.stdout.split('\n'):
+            line = line.rstrip()
+            if not line or len(line) < 3:
+                continue
+            # Format: " M path/to/file" or "?? path/to/file"
+            path = os.path.normpath(line[3:].split(' -> ')[-1].strip())
+            if path in target_set:
+                dirty.append(line)
+        if dirty:
+            print('', file=sys.stderr)
+            print('⚠️  WARN: PR 作成後も worktree に以下の編集が残っています '
+                  '(T2026-0502-COWORK-WORKTREE-DIRTY 物理ガード):', file=sys.stderr)
+            for line in dirty:
+                print(f'    {line}', file=sys.stderr)
+            print('', file=sys.stderr)
+            print('  対処 (推奨):', file=sys.stderr)
+            print('    git checkout origin/main -- <file>     (lock 健全時)', file=sys.stderr)
+            print('    git show origin/main:<file> > <file>   (lock 詰まり時)', file=sys.stderr)
+            print('  放置すると次回 session_bootstrap.sh の sync pull で並走 commit に巻き込まれる', file=sys.stderr)
+            print('', file=sys.stderr)
+    except Exception:
+        pass  # ガードは情報提供のみ・失敗しても commit/PR は進める
+
+
 def detect_and_close_overlapping_cowork_prs(token, repo, file_paths):
     """
     open 中の cowork/* ブランチ PR が今回の file_paths と重複していないか検出し、
@@ -229,7 +323,7 @@ def detect_and_close_overlapping_cowork_prs(token, repo, file_paths):
 
 
 def commit_and_pr(message, file_paths, branch=None, pr_title=None, pr_body=None,
-                  base='main', skip_overlap_close=False):
+                  base='main', skip_overlap_close=False, skip_working_md_check=False):
     token, repo = get_token_and_repo()
     if not token or not repo:
         print('ERROR: token/repo not found', file=sys.stderr)
@@ -244,14 +338,18 @@ def commit_and_pr(message, file_paths, branch=None, pr_title=None, pr_body=None,
               f'Use a feature branch + PR. (CLAUDE.md「PR 経由必須」)', file=sys.stderr)
         sys.exit(1)
 
-    # 物理ガード: 重複 cowork PR (同じファイルを触っている open cowork PR) を自動クローズ
-    if not skip_overlap_close:
-        detect_and_close_overlapping_cowork_prs(token, repo, file_paths)
-
     repo_root = subprocess.check_output(
         ['git', 'rev-parse', '--show-toplevel'],
         stderr=subprocess.DEVNULL
     ).decode().strip()
+
+    # 物理ガード: WORKING.md 宣言チェック (T2026-0502-COWORK-WORKING-MD-MISSING)
+    if not skip_working_md_check and '[skip-working-md-check]' not in message:
+        check_working_md_declaration(message, file_paths, repo_root)
+
+    # 物理ガード: 重複 cowork PR (同じファイルを触っている open cowork PR) を自動クローズ
+    if not skip_overlap_close:
+        detect_and_close_overlapping_cowork_prs(token, repo, file_paths)
 
     # base branch HEAD
     base_ref = api('GET', f'git/ref/heads/{base}', token, repo)
@@ -320,6 +418,10 @@ def commit_and_pr(message, file_paths, branch=None, pr_title=None, pr_body=None,
     })
     print(f'✅ PR #{pr["number"]}: {pr["html_url"]}')
     print('   auto-merge.yml が enable_pull_request_auto_merge を発動 → CI 全 green で squash merge')
+
+    # 物理ガード (警告のみ): worktree に M/?? が残っていれば警告 + 整理コマンド提示
+    warn_worktree_dirty_after_pr(file_paths, repo_root)
+
     return pr
 
 
@@ -335,6 +437,9 @@ def main():
     p.add_argument('--pr-body', help='PR body (省略時は commit message 全体)')
     p.add_argument('--no-close-duplicates', action='store_true',
                    help='重複 cowork PR の auto-close を無効化 (デフォルトは有効)')
+    p.add_argument('--skip-working-md-check', action='store_true',
+                   help='WORKING.md 宣言チェックを skip (緊急 bypass・通常は使わない・'
+                        'commit message に [skip-working-md-check] を含めても同等)')
     p.add_argument('message', help='commit message')
     p.add_argument('files', nargs='+', help='コミットするファイル (リポジトリ root からの相対パス)')
     args = p.parse_args()
@@ -344,7 +449,8 @@ def main():
                   pr_title=args.pr_title,
                   pr_body=args.pr_body,
                   base=args.base,
-                  skip_overlap_close=args.no_close_duplicates)
+                  skip_overlap_close=args.no_close_duplicates,
+                  skip_working_md_check=args.skip_working_md_check)
 
 
 if __name__ == '__main__':
