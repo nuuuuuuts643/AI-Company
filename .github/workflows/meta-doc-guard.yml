@@ -16,6 +16,7 @@ on:
       - 'docs/**'
       - 'scripts/next_task_id.sh'
       - '.github/workflows/meta-doc-guard.yml'
+  workflow_dispatch:  # auto-update-branches が GITHUB_TOKEN push 後に手動再発火するため
 
 jobs:
   claude-md-size-guard:
