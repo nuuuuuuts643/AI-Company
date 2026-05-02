@@ -3,7 +3,6 @@ import re
 import time
 import unicodedata
 import urllib.request
-import boto3
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -1495,24 +1494,10 @@ def lambda_handler(event, context):
 
         write_s3('api/pending_ai.json', {'topicIds': pending_ids, 'updatedAt': ts_iso})
 
-        # 新規ペンディングトピックがあれば processor を即時非同期トリガー
-        # maxApiCalls=10: 即時処理は少量に絞る (定期 cron が MAX_API_CALLS=30 で残りを処理)。
-        # 目的: 新規トピック作成→AI要約付与までのレイテンシを最大6時間→最大30分に短縮。
-        if new_pending:
-            try:
-                _lambda = boto3.client('lambda', region_name='ap-northeast-1')
-                _lambda.invoke(
-                    FunctionName='p003-processor',
-                    InvocationType='Event',
-                    Payload=json.dumps({
-                        'topic_ids': list(new_pending),
-                        'source': 'fetcher_trigger',
-                        'maxApiCalls': 10,
-                    }).encode(),
-                )
-                print(f'[fetcher] processor即時トリガー: {len(new_pending)}件 (maxApiCalls=10)')
-            except Exception as _e:
-                print(f'[fetcher] processorトリガー失敗（スキップ）: {_e}')
+        # 旧: fetcher が processor を即時トリガーしていたが、月 $17 のコスト超過 + 1日 164 API calls の
+        # 67% を占めていたため 2026-05-02 削除 (T2026-0502-J)。新規トピックの AI 処理は cron 5:30/17:30
+        # JST で十分（平均 6h レイテンシで news 集約サイトには許容範囲）。
+        # レイテンシ短縮が必要になったら cron を 2x/day → 4x/day に増やすこと（即時 invoke は再導入しない）。
 
         generate_rss(topics, ts_iso)
         generate_sitemap(topics_deduped)  # 公開対象のみsitemapに含める
