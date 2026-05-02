@@ -9,6 +9,7 @@ on:
       - 'projects/**'
       - 'scripts/**'
       - '.github/workflows/**'
+  workflow_dispatch:  # auto-update-branches が GITHUB_TOKEN push 後に手動再発火するため
 
 jobs:
   lint-frontend:
