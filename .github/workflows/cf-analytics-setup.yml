@@ -13,16 +13,20 @@ on:
           - run_now       # 今すぐ集計して S3 を更新
           - both          # 両方
 
+permissions:
+  contents: read
+  id-token: write   # OIDC で必須
+
 jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
-      - name: AWS 認証
+      - name: AWS 認証 (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ap-northeast-1
+          # T2026-0502-SEC10-CODE-RETRY: OIDC 専用化 (AWS_ACCESS_KEY_ID 廃止)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
+          aws-region: ap-northeast-1
 
       - name: Lambda 環境変数を更新（CF トークン設定）
         if: ${{ inputs.action == 'update_env' || inputs.action == 'both' }}
