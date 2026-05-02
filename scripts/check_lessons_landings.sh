@@ -93,4 +93,27 @@ python3 "$PYTHON_SCRIPT" "$REPO_ROOT" "$LESSONS_FILE"
 EXIT_CODE=$?
 
 rm -f "$PYTHON_SCRIPT"
-exit $EXIT_CODE
+
+if [ $EXIT_CODE -ne 0 ]; then
+  exit $EXIT_CODE
+fi
+
+# PR #159 landing 検証: session_bootstrap.sh に PIPESTATUS[0] と BOOTSTRAP_EXIT=1 が両方含まれる
+if ! grep -q 'PIPESTATUS\[0\]' "$REPO_ROOT/scripts/session_bootstrap.sh"; then
+  echo "❌ PR #159: PIPESTATUS[0] not found in session_bootstrap.sh" >&2
+  exit 1
+fi
+if ! grep -q 'BOOTSTRAP_EXIT=1' "$REPO_ROOT/scripts/session_bootstrap.sh"; then
+  echo "❌ PR #159: BOOTSTRAP_EXIT=1 not found in session_bootstrap.sh" >&2
+  exit 1
+fi
+echo "✅ PR #159: session_bootstrap.sh landing verified"
+
+# PR #160 landing 検証: install_hooks.sh に pre-push hook 設置ブロックが含まれる
+if ! grep -q 'pre-push' "$REPO_ROOT/scripts/install_hooks.sh"; then
+  echo "❌ PR #160: pre-push hook block not found in install_hooks.sh" >&2
+  exit 1
+fi
+echo "✅ PR #160: install_hooks.sh landing verified"
+
+exit 0
