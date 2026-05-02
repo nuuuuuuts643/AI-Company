@@ -127,3 +127,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Cowork] T2026-0502-G 実機検証 + T2026-0502-A/B 起票 (docs only) | Cowork | WORKING.md, TASKS.md, HISTORY.md | 2026-05-02 08:04 | no |
+| [Cowork] P003 記事取得バグ調査 → NHK timeout/Trends 全滅 起票 (docs only) | Cowork | WORKING.md, TASKS.md | 2026-05-02 09:42 | no |
