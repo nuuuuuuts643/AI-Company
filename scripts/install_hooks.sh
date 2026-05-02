@@ -53,6 +53,32 @@ if [ -f "$INDEX" ] && [ -f "$ADS" ]; then
   fi
 fi
 
+# T2026-0502-PII-PRECOMMIT: PII (PO username/email) 直書き検知 (pre-commit 物理ガード)
+# 背景: T2026-0502-PII-leak (PR #194) で docs/lessons-learned.md L1074/L1093 に PO のメールアドレスが
+#       直書きされ、main マージ後に CI の PII 検査 step が連続 failure。pre-commit で止めれば
+#       commit 段階で阻止できた。CLAUDE.md「PII / secrets コード直書き禁止」物理ルールの完全物理化。
+# パターン: ci.yml の PII 検査 step (`grep -lE "m[u]rakaminaoya|mr[k]m\.naoya|n[a]oya643"`) と同一。
+# 例外: scripts/security_audit.sh / done.sh / .github/workflows/ci.yml / .git/hooks/pre-commit (本ファイル)
+PII_HITS=$(git diff --cached --name-only --diff-filter=ACMR \
+  | xargs -I{} sh -c 'grep -lE "m[u]rakaminaoya|mr[k]m\.naoya|n[a]oya643" "{}" 2>/dev/null' 2>/dev/null \
+  | grep -v "^scripts/security_audit\.sh$" \
+  | grep -v "^done\.sh$" \
+  | grep -v "^\.github/workflows/ci\.yml$" \
+  | grep -v "^\.git/hooks/pre-commit$" \
+  | grep -v "^scripts/install_hooks\.sh$" \
+  || true)
+if [ -n "$PII_HITS" ]; then
+  echo "❌ pre-commit blocked: PII (owner username/email) を含むファイルが staged されています"
+  echo "$PII_HITS" | sed 's/^/   /'
+  echo ""
+  echo "   ci.yml の PII 検査 step と同じルールを pre-commit で先取りブロックしています。"
+  echo "   対処: 該当箇所を <owner-email> / <owner-handle> プレースホルダーに置換してから commit"
+  echo "   詳細: docs/lessons-learned.md「T2026-0502-PII-leak」セクション (PR #194)"
+  echo ""
+  echo "   緊急時 bypass: git commit --no-verify (使用時は WORKING.md に理由記録必須)"
+  exit 1
+fi
+
 exit 0
 HOOK
 
