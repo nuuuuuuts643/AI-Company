@@ -8,6 +8,14 @@ on:
       - 'projects/P003-news-timeline/frontend/**'
       - 'projects/P003-news-timeline/infra/cf-redirect-function.js'
       - '.github/workflows/deploy-p003.yml'
+  # T2026-0502-PATH-FILTER-AUDIT: push event は github-actions[bot] merge で発火しない。
+  # pull_request closed でカバー。
+  pull_request:
+    types: [closed]
+    branches: [main]
+    paths:
+      - 'projects/P003-news-timeline/frontend/**'
+      - 'projects/P003-news-timeline/infra/cf-redirect-function.js'
 
 concurrency:
   group: deploy-p003-frontend
@@ -15,6 +23,10 @@ concurrency:
 
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     permissions:
       contents: read

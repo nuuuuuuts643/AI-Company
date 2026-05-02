@@ -9,6 +9,17 @@ on:
       - "projects/P003-news-timeline/lambda/**"
       - "scripts/bluesky_agent.py"
       - "scripts/_governance_check.py"
+  # T2026-0502-PATH-FILTER-AUDIT: auto-merge (github-actions[bot]) が push すると
+  # GitHub ループ防止仕様で push event が発火しない。pull_request closed を使うことで
+  # auto-merge 経由のマージでも確実にデプロイをトリガーする。
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+    paths:
+      - "projects/P003-news-timeline/lambda/**"
+      - "scripts/bluesky_agent.py"
+      - "scripts/_governance_check.py"
 
 concurrency:
   group: deploy-p003-lambda
@@ -16,6 +27,11 @@ concurrency:
 
 jobs:
   deploy:
+    # pull_request closed は merge されなかった場合も発火するので明示的に除外
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     permissions:
       contents: read
