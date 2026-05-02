@@ -119,4 +119,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Cowork] T2026-0502-G 実機検証 + T2026-0502-A/B 起票 (docs only) | Cowork | WORKING.md, TASKS.md, HISTORY.md | 2026-05-02 08:04 | no |
-| [Code] T2026-0502-B lifecycle SK FilterExpression 修正 | Code | projects/P003-news-timeline/lambda/lifecycle/handler.py | 2026-05-02 09:03 JST | yes |
