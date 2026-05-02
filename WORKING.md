@@ -136,4 +136,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T2026-0502-WORKFLOW-DEP-PHYSICAL workflow YAML 参照ファイル存在 CI 物理 reject (検出力 CI 上検証済) | Cowork | scripts/ci_check_workflow_script_refs.sh, .github/workflows/lint-yaml-logic.yml, docs/lessons-learned.md, scripts/check_lessons_landings.sh | 2026-05-02 23:10 JST | yes |
+| [Cowork] T2026-0502-WORKFLOW-DEP-CLEANUP PR #312 auto-merge 事故修復 (zz_test_missing_ref.yml を noop に・lessons-learned 追記) | Cowork | .github/workflows/zz_test_missing_ref.yml, docs/lessons-learned.md, WORKING.md | 2026-05-02 23:15 JST | yes |
