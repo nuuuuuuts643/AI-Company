@@ -513,7 +513,7 @@ function renderTopicCard(t, i) {
   return `
     <div class="topic-card-wrapper" style="position:relative;">
       ${renderBadges(t)}
-      <a class="topic-card ${displayStatus}${isViewed ? ' viewed' : ''}${childTopics.length > 0 ? ' has-story' : ''}" href="topics/${esc(t.topicId)}.html" data-tid="${esc(t.topicId)}">
+      <a class="topic-card ${displayStatus}${isViewed ? ' viewed' : ''}${childTopics.length > 0 ? ' has-story' : ''}" href="topic.html?id=${esc(t.topicId)}" data-tid="${esc(t.topicId)}">
         ${thumbHtml}
         <div class="card-body">
           <div class="topic-status ${displayStatus}">${STATUS_LABEL[displayStatus] || displayStatus}${coolingAgeHtml}${phaseHtml}${continuationBadge}</div>
@@ -593,7 +593,7 @@ function renderHeroStoryPreview(list) {
   const cnt   = parseInt(t.articleCount || 0, 10);
   el.innerHTML = `
     <div class="hero-story-tagline">⚡ 今動いているストーリー</div>
-    <a href="topics/${esc(t.topicId)}.html" class="hero-story-card" aria-label="${esc(title)}の経緯を読む">
+    <a href="topic.html?id=${esc(t.topicId)}" class="hero-story-card" aria-label="${esc(title)}の経緯を読む">
       <div class="hero-story-label">${esc(phaseBadge)} · 記事${cnt}件</div>
       <div class="hero-story-title">${esc(title)}</div>
       ${beat ? `<div class="hero-story-beat">${esc(beat)}</div>` : ''}
@@ -1122,7 +1122,7 @@ function renderReturnStrip(topics) {
   strip.innerHTML = `
     <div class="hot-strip-header">📣 前回から新着あり</div>
     <div class="hot-strip-chips">
-      ${moved.map(t => `<a href="topics/${esc(t.topicId)}.html" class="hot-chip return-chip">+${t._deltaCnt}件 ${esc(t.generatedTitle || t.title)}</a>`).join('')}
+      ${moved.map(t => `<a href="topic.html?id=${esc(t.topicId)}" class="hot-chip return-chip">+${t._deltaCnt}件 ${esc(t.generatedTitle || t.title)}</a>`).join('')}
     </div>`;
   grid.parentNode.insertBefore(strip, hotEl || grid);
 }
@@ -1149,7 +1149,7 @@ function renderFavStrip(topics) {
     <div class="hot-strip-chips">
       ${displayList.map(t => {
         const hasUpdate = typeof isFavUpdated === 'function' && isFavUpdated(t);
-        return `<a href="topics/${esc(t.topicId)}.html" class="hot-chip${hasUpdate ? ' fav-chip-updated' : ''}">${esc(t.generatedTitle || t.title)}${hasUpdate ? ' <span class="fav-new-dot">●</span>' : ''}</a>`;
+        return `<a href="topic.html?id=${esc(t.topicId)}" class="hot-chip${hasUpdate ? ' fav-chip-updated' : ''}">${esc(t.generatedTitle || t.title)}${hasUpdate ? ' <span class="fav-new-dot">●</span>' : ''}</a>`;
       }).join('')}
     </div>`;
   grid.parentNode.insertBefore(strip, grid);
@@ -1185,7 +1185,7 @@ function renderQuickNews(topics) {
       const h = Math.floor((nowSec - toUnixSec(t.lastArticleAt || t.lastUpdated)) / 3600);
       const timeLabel = h < 1 ? '1時間以内' : `${h}時間前`;
       const cnt = t.articleCount || 0;
-      return `<a href="topics/${esc(t.topicId)}.html" class="qn-item">
+      return `<a href="topic.html?id=${esc(t.topicId)}" class="qn-item">
         <div class="qn-meta">${cnt ? `📄 ${cnt}件` : ''} · ${timeLabel}更新</div>
         <div class="qn-title">${esc(t.generatedTitle || t.title)}</div>
       </a>`;
@@ -1218,7 +1218,7 @@ function showTrendingBanner(topics) {
   const links = rising.map(t => {
     const raw = (t.generatedTitle || t.title || '').replace(/[｜|\/].*$/, '').trim();
     const label = raw.length > 28 ? raw.slice(0, 27) + '…' : raw;
-    return `<a href="topics/${esc(t.topicId)}.html" class="trending-link">${esc(label)}</a>`;
+    return `<a href="topic.html?id=${esc(t.topicId)}" class="trending-link">${esc(label)}</a>`;
   }).join(' <span class="trending-sep">/</span> ');
   const banner = document.createElement('div');
   banner.id = 'trending-banner';

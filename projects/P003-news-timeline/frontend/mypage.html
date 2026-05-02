@@ -1178,7 +1178,7 @@
         const topicLabel = topicTitle ? esc(topicTitle) : 'トピックを見る →';
         const quoted = c.quotedHandle ? `<div class="hist-quoted"><span class="hist-quoted-handle">@${esc(c.quotedHandle)}</span> ${esc(c.quotedText||'')}</div>` : '';
         return `<div class="hist-card">
-          <a class="hist-topic" href="topics/${esc(c.topicId)}.html">📰 ${topicLabel}</a>
+          <a class="hist-topic" href="topic.html?id=${esc(c.topicId)}">📰 ${topicLabel}</a>
           ${quoted}
           <div class="hist-body">${esc(c.body)}</div>
           <div class="hist-meta">
@@ -1223,7 +1223,7 @@
       }
       el.innerHTML = notifs.map(n => {
         const time = n.createdAt ? new Date(n.createdAt).toLocaleString('ja-JP', {year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
-        const topicUrl = `topics/${encodeURIComponent(n.topicId || '')}.html`;
+        const topicUrl = `topic.html?id=${encodeURIComponent(n.topicId || '')}`;
         const unread = n.read === false;
         return `
           <div class="notif-item${unread ? ' notif-unread' : ''}">
@@ -1320,7 +1320,7 @@
         ? `<span class="fav-new-badge">NEW</span>${safeEsc((t.genres || [t.genre || '総合'])[0])} · ${t.articleCount || 0}件${relTime}`
         : `${safeEsc((t.genres || [t.genre || '総合'])[0])} · ${t.articleCount || 0}件`;
       return `
-          <a class="mp-topic-row${isNew ? ' fav-new-activity' : ''}" href="topics/${safeEsc(t.topicId)}.html">
+          <a class="mp-topic-row${isNew ? ' fav-new-activity' : ''}" href="topic.html?id=${safeEsc(t.topicId)}">
             <div class="mp-topic-icon fav">⭐</div>
             <div class="mp-topic-info">
               <div class="mp-topic-title">${safeEsc(t.generatedTitle || t.title)}</div>
@@ -1349,7 +1349,7 @@
            <button id="clear-history-btn" class="clear-history-btn">🗑 履歴を全削除</button>
          </div>` +
         history.map(h => `
-          <a class="mp-topic-row" href="topics/${safeEsc(h.topicId)}.html">
+          <a class="mp-topic-row" href="topic.html?id=${safeEsc(h.topicId)}">
             <div class="mp-topic-icon hist">📖</div>
             <div class="mp-topic-info">
               <div class="mp-topic-title">${safeEsc(h.title || h.topicId)}</div>
@@ -1368,7 +1368,7 @@
     const fmtDate2 = iso => { try { const d = new Date(iso); return d.toLocaleString('ja-JP',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}); } catch { return ''; } };
     const savedHtml = savedItems.length
       ? savedItems.map(s => `<div class="hist-card" data-saved-cid="${safeEsc(s.cid)}">
-          <a class="hist-topic" href="topics/${safeEsc(s.topicId)}.html">📰 トピックを見る →</a>
+          <a class="hist-topic" href="topic.html?id=${safeEsc(s.topicId)}">📰 トピックを見る →</a>
           <div class="hist-body">${safeEsc(s.body)}</div>
           <div class="hist-meta">
             <span>${safeEsc(s.nickname || '匿名')}</span>
