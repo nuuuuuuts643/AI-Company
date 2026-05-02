@@ -14,16 +14,15 @@
 **直近のPO指示** (2026-05-02 00:00〜01:00 JST):
 「規則体系のリライト・違反全パターン物理化・自走 Lv2 化・組織として動く Claude・セキュリティ監査強化。プロダクト完成にブレないようにして欲しい」
 
-**今セッション (Code) で完了** (2026-05-02 08:43〜 JST):
-- ✅ **T2026-0502-A** — PR #122 作成。両 SLI workflow (`freshness-check.yml` / `fetcher-health-check.yml`) の `steps:` 先頭に `actions/checkout@v4` を追加。根本原因: checkout なしで `scripts/*.py` を呼んでいた。merge 後の schedule run 2 連続 success で完了確認
-- ✅ **T2026-0501-M** — PR #118 (within-run dedup + entity pattern + Jaccard) は CI 待ち中 → auto-merge 待ち
-- ✅ **PR branch 更新問題** — `auto-update-branches.yml` で恒久対処済み
+**今セッション (Code) で完了** (2026-05-02 08:43〜09:15 JST):
+- ✅ **T2026-0502-A** — PR #122 merged。SLI workflow に actions/checkout@v4 追加
+- ✅ **T2026-0501-M** — PR #118 merged。within-run dedup 本番入り
+- ✅ **auto-update-branches CI再発火 恒久対処** — PR #124 merged。ci.yml / meta-doc-guard.yml に workflow_dispatch 追加 + auto-update-branches.yml でブランチ更新後に両 workflow dispatch
 
 **次セッション (Dispatch / Code 問わず) でやること**:
-1. **T2026-0502-A** 🟠 PR #122 merge 後 — schedule run (毎時 07分 / 23分) 2 連続 success を確認してタスク完了処理
-2. **T2026-0502-B** 🟡 (lifecycle Lambda 健全性) — `handler.py:64/:93` の SK 引数を FilterExpression → KeyConditionExpression に修正
-3. **T2026-0501-K** 🟡 (フェーズ2) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` keyPoint ◎例 をエンタメ+テック差し替え。T2026-0502-A 解消後に着手
-4. (フェーズ2 完了条件達成までフェーズ3/4/5 タスクは凍結)
+1. **T2026-0502-B** 🟡 (lifecycle Lambda 健全性) — `lambda/lifecycle/handler.py:64/:93` の SK を FilterExpression → KeyConditionExpression に修正
+2. **T2026-0501-K** 🟡 (フェーズ2) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` keyPoint ◎例 をエンタメ+テック差し替え
+3. (フェーズ2 完了条件達成までフェーズ3/4/5 タスクは凍結)
 
 **実在スケジューラー**: p003-haiku (7:08am daily) / p003-sonnet (手動のみ) / security-audit.yml (週次)
 **FUSE 環境メモ**: Cowork セッションでは git CLI が index.lock を unlink できない場合がある。`scripts/cowork_commit.py "msg" file...` で GitHub API 直接コミットに迂回可能（.git/config の token 自動取得）。

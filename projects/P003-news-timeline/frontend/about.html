@@ -128,7 +128,7 @@
     <div class="feature-card">
       <div class="icon"><i data-lucide="bot" aria-hidden="true"></i></div>
       <h3>AI自動分析</h3>
-      <p><i data-lucide="newspaper" aria-hidden="true"></i> 状況解説（時系列ストーリー）→ <i data-lucide="library" aria-hidden="true"></i> 各メディアの見解（メディアごとの違い）→ <i data-lucide="eye" aria-hidden="true"></i> これからの注目ポイント（観察視点）→ <i data-lucide="sparkles" aria-hidden="true"></i> AI予想（仮説としての見通し）の4軸で整理します。「背景・課題・目的」が抜け落ちがちなニュースを、初見でも文脈ごと理解できる形に再構成します。</p>
+      <p><i data-lucide="map-pin" aria-hidden="true"></i> 何が起きているか（状況解説）→ <i data-lucide="newspaper" aria-hidden="true"></i> 各社の見方（メディア比較）→ <i data-lucide="eye" aria-hidden="true"></i> 注目ポイント（これからどこを見るか）→ <i data-lucide="sparkles" aria-hidden="true"></i> AI予想（今後の見通し）の4軸で整理します。「背景・文脈・各社の温度差」が抜け落ちがちなニュースを、初見でも状況を把握できる形に再構成します。</p>
     </div>
     <div class="feature-card">
       <div class="icon"><i data-lucide="trending-up" aria-hidden="true"></i></div>
@@ -164,7 +164,7 @@
 
   <h2>他のニュースサービスとの違い</h2>
   <p>GoogleニュースやYahoo!ニュースが「最新の記事を届ける」ことに特化しているのに対し、Flotopicは「同じ話題の記事を束ねて、流れとして見せる」ことに特化しています。</p>
-  <p>Twitterのようなリアルタイム情報収集ツールは速いですが、文脈が断片的になりがちです。Flotopicでは、複数のメディアが同じトピックについて報じた記事を自動集約し、AIが「状況解説」「各メディアの見解」「これからの注目ポイント」「AI予想」の4軸で分析します。既存ニュースは『手段以降（実装・結果）』しか書きませんが、その前段の『背景・課題・目的』を補うことで、途中から読み始めた人でも文脈ごと理解できる設計です。</p>
+  <p>Twitterのようなリアルタイム情報収集ツールは速いですが、文脈が断片的になりがちです。Flotopicでは、複数のメディアが同じトピックについて報じた記事を自動集約し、AIが「なぜ起きたか（背景）」「なぜ今この話題か」「なぜ広がったか」「経緯と段階」「現状」「メディアの見方のズレ」「今後」を7つの視点で分析します。既存ニュースは『手段以降（実装・結果）』しか書きませんが、その前段の『背景・課題・目的』を補うことで、途中から読み始めた人でも文脈ごと理解できる設計です。</p>
   <p>また、話題が落ち着いた後も「アーカイブ」として参照できる設計になっており、「あの時のあの話題、どうなったんだっけ」という振り返り需要にも応えられます。数日離れていた場合の「振り返る」も、そのために作られた機能です。</p>
 
   <h2>「ストーリーで見せる」ことの意義</h2>
@@ -173,12 +173,12 @@
   <p>話題が落ち着いたトピックは「アーカイブ」状態に移行します。過去の騒動の経緯を後から振り返ることができ、「あのとき何が起きていたのか」を改めて追う場所として機能します。速報性よりも「文脈」を重視する設計は、ニュースを消費するのではなく、理解するための道具としてFlotopicを位置付けた結果です。</p>
 
   <h2>AIはどうやってまとめを作るのか</h2>
-  <p>Flotopicが使うAIは、Anthropic社が開発した大規模言語モデル「Claude」です。各記事のタイトルと概要文をまとめてClaudeに渡し、以下の4軸構成で分析させています（思想フレーム: 状況→視点→観察→見通し）。</p>
+  <p>Flotopicが使うAIは、Anthropic社が開発した大規模言語モデル「Claude」です。各記事のタイトルと概要文をまとめてClaudeに渡し、以下の4軸構成で分析させています。</p>
   <ul style="margin:0.6rem 0 0.8rem 1.2rem;line-height:1.9;">
-    <li><strong><i data-lucide="newspaper" aria-hidden="true"></i> 状況解説（keyPoint）</strong>——200〜300字の時系列ストーリー。何がいつ・どう動いたかを地続きに整理</li>
-    <li><strong><i data-lucide="library" aria-hidden="true"></i> 各メディアの見解（perspectives）</strong>——同じ事象でも社ごとに主語・着地点が違う場合の対比</li>
-    <li><strong><i data-lucide="eye" aria-hidden="true"></i> これからの注目ポイント（watchPoints）</strong>——次に何を見れば話の続きが追えるか、観察の視点</li>
-    <li><strong><i data-lucide="sparkles" aria-hidden="true"></i> AI予想（outlook）</strong>——記事内容を根拠にした見通し（断定せず仮説として）</li>
+    <li><strong><i data-lucide="map-pin" aria-hidden="true"></i> 状況解説（keyPoint）</strong>——何が起きているか・なぜ今この話題かを文脈ごと物語形式でまとめた200〜300字の解説</li>
+    <li><strong><i data-lucide="newspaper" aria-hidden="true"></i> 各社の見方（perspectives）</strong>——同じ事象でも社ごとに主語・着地点・懸念が異なる場合の対比（2〜3社）</li>
+    <li><strong><i data-lucide="eye" aria-hidden="true"></i> 注目ポイント（watchPoints）</strong>——「ここを見ておくといい」という観察視点を①②③の番号付きで提示</li>
+    <li><strong><i data-lucide="sparkles" aria-hidden="true"></i> AI予想（outlook）</strong>——記事内容を根拠にした今後の見通し（断定せず仮説として、確信度付き）</li>
   </ul>
   <p>AIは記事の全文を読んでいるわけではなく、各記事のタイトルと、RSSフィードに含まれる短い概要文（最大150字程度）だけを入力として使います。全文スクレイピングは行わないため情報量に限界がありますが、複数メディアの記事タイトルを横断することで「どのメディアがどの角度で報じているか」をパターンとして読み取っています。</p>
   <p>また、トピックには「フェーズ」が自動でラベル付けされます。<strong><i data-lucide="sprout" aria-hidden="true"></i>発端</strong>（最初の報道が出た段階）→ <strong><i data-lucide="radio-tower" aria-hidden="true"></i>拡散</strong>（複数メディアが追いかけている段階）→ <strong><i data-lucide="flame" aria-hidden="true"></i>ピーク</strong>（最も記事が集中している段階）→ <strong><i data-lucide="map-pin" aria-hidden="true"></i>現在地</strong>（報道が落ち着きつつある段階）→ <strong><i data-lucide="check-circle-2" aria-hidden="true"></i>収束</strong>（話題が一段落した段階）の5段階をAIが自動判定します。このフェーズを見るだけで、今追いかけるべき話題かどうかを素早く判断できます。</p>
@@ -238,7 +238,7 @@
     </details>
     <details class="faq-item">
       <summary>「フェーズ」とは何ですか？</summary>
-      <p>トピックの進行状況を示すラベルです。「<i data-lucide="sprout" aria-hidden="true"></i>発端」（最初の報道）→「<i data-lucide="radio-tower" aria-hidden="true"></i>拡散」（複数メディアが追随）→「<i data-lucide="flame" aria-hidden="true"></i>ピーク」（最も記事が集中）→「<i data-lucide="map-pin" aria-hidden="true"></i>現在地」（報道が落ち着きはじめ）→「<i data-lucide="check-circle-2" aria-hidden="true"></i>収束」（話題が一段落）の5段階をAIが自動判定します。話題がどの段階にあるかを素早く把握するための目安としてお使いください。</p>
+      <p>トピックの進行状況を示すラベルです。「<i data-lucide="sprout" aria-hidden="true"></i>発端」（最初の報道が出た段階）→「<i data-lucide="radio-tower" aria-hidden="true"></i>拡散」（複数メディアが追随する段階）→「<i data-lucide="flame" aria-hidden="true"></i>ピーク」（最も記事が集中している段階）→「<i data-lucide="map-pin" aria-hidden="true"></i>現在地」（報道が落ち着きつつある段階）→「<i data-lucide="check-circle-2" aria-hidden="true"></i>収束」（話題が一段落した段階）の5段階をAIが自動判定します。話題がどの段階にあるかを素早く把握するための目安としてお使いください。</p>
     </details>
     <details class="faq-item">
       <summary>「振り返る」とは何ですか？</summary>
