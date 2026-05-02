@@ -231,6 +231,51 @@ if [ -f "docs/current-phase.md" ]; then
   echo "==================================================================="
 fi
 
+# ---- 3f. hook 再汚染検知 (T2026-0502-M-FOLLOW-UP) ----
+# 背景: T2026-0502-SESSION-END-HOOK-AUDIT (PR #173) で `~/.claude/settings.json` の Stop hook が
+#       全セッション終了時に `git add -A && git commit && git push` を main に直実行していたため、
+#       476 件もの auto-sync コミットを生成して main を汚染していた事実が判明。Stop hook は撤去済だが、
+#       将来別の hook (PreToolUse / PostToolUse / Notification 等) が同じパターンを再発させた場合、
+#       lessons-learned.md に書いた思想ルールでは検出できない。
+# 目的: bootstrap 起動時に `~/.claude/settings.json` を grep して、hook ブロック内に
+#       `git add` / `git commit` / `git push` パターンがあれば ERROR で BOOTSTRAP_EXIT=1。
+# 制約: ファイル不在 (Cowork VM 環境など) はスキップ (Mac セッションでだけ動く)。
+HOME_CLAUDE_SETTINGS="${HOME:-/dev/null}/.claude/settings.json"
+if [ "$DRY_RUN" = "0" ] && [ -f "$HOME_CLAUDE_SETTINGS" ]; then
+  if LANG=C grep -nE 'git[[:space:]]+(-C[[:space:]]+\S+[[:space:]]+)?(add|commit|push)' "$HOME_CLAUDE_SETTINGS" >/tmp/.hook_audit.$$ 2>/dev/null; then
+    if [ -s /tmp/.hook_audit.$$ ]; then
+      echo "❌ ERROR: ~/.claude/settings.json に git add/commit/push を含む hook が再発しています (T2026-0502-SESSION-END-HOOK-AUDIT 再汚染)" >&2
+      echo "   PR #173 で撤去した Stop hook と同じパターンの hook が復活している可能性があります。" >&2
+      echo "   該当行:" >&2
+      sed 's/^/     /' /tmp/.hook_audit.$$ >&2
+      echo "   対処: ~/.claude/settings.json の hook ブロックから git push 系コマンドを除去" >&2
+      echo "   詳細: docs/lessons-learned.md「T2026-0502-SESSION-END-HOOK-AUDIT」セクション" >&2
+      BOOTSTRAP_EXIT=1
+    fi
+  fi
+  rm -f /tmp/.hook_audit.$$
+fi
+
+# ---- 3g. 直近 main CI failure 検知 (T2026-0502-M-FOLLOW-UP) ----
+# 背景: CLAUDE.md「Dispatch / Cowork 起動時 (毎回必須・行動前に実行)」で
+#       「gh run list --branch main --limit 3 で直近 CI がすべて green であることを確認」と
+#       指示しているが、これまでは思想ルール (テキスト止まり) だった。bootstrap で物理化する。
+# 目的: gh CLI が使える環境で、直近 3 件の main run に failure があれば WARN を出力 (ERROR にしない)。
+#       SLI 閾値違反 (perspectives 充填率など) と Lambda デプロイ失敗を区別できないため WARN 止まり。
+# 制約: gh CLI / 認証が無い環境はサイレント skip。
+if [ "$DRY_RUN" = "0" ] && command -v gh >/dev/null 2>&1; then
+  if gh auth status >/dev/null 2>&1; then
+    RECENT_FAIL=$(gh run list --branch main --limit 3 --json conclusion --jq '[.[] | select(.conclusion == "failure")] | length' 2>/dev/null || echo 0)
+    if [ "${RECENT_FAIL:-0}" -gt 0 ]; then
+      echo "" >&2
+      echo "⚠️  WARN: 直近 main CI に failure が ${RECENT_FAIL} 件あります" >&2
+      gh run list --branch main --limit 3 2>/dev/null | head -5 | sed 's/^/   /' >&2 || true
+      echo "   CLAUDE.md「直近 CI が green」ルール: 失敗があれば修正セッションを先に起動してください" >&2
+      echo "   SLI 閾値違反 (perspectives 充填率など) なら別系統タスクで対応可" >&2
+    fi
+  fi
+fi
+
 # ---- 4. WORKING.md 8h stale 自動削除 ----
 # DRY_RUN=1 では triage 実行を skip（mutation 回避）。WORKING.md の存在のみ確認。
 if [ "$DRY_RUN" = "1" ]; then
