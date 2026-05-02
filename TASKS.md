@@ -79,6 +79,7 @@
 |---|---|---|---|---|---|
 | ~~T2026-0430-C (→F)~~ | ~~🔴 高~~ | ~~観測~~ | ~~**freshness SLI に「<24h トピック比率」閾値アラート追加**~~ → **2026-04-30 20:13 JST 完了 (PR #48 merged, T2026-0430-F として実装)** — `.github/workflows/freshness-check.yml` に topics-card.json `lastArticleAt` 分布の <24h 比率計算ステップを追加。10% 未満で Slack 警告。Live実測: 14/108=13.0% (PR #46 直後で回復途中)。BUILDER_FIELDS allowlist にも `lastArticleAt` を追加 (SLI field guard CI が ERROR を出していたため)。Landing 検証は scheduled task `trig_01WnhUPiVhnvxZNVwvGS5nhU` (2026-04-30 21:43 JST) に渡してセッション close。注: 元案 ID は T2026-0430-C だが、git log 上 C は fetcher Float→Decimal (PR #46) で先に消費されていたため実装は T2026-0430-F として landing。 | .github/workflows/freshness-check.yml, scripts/check_sli_field_coverage.sh | 2026-04-30 |
 | T2026-0502-AB | 🟡 中 | 物理 | **PR rebase 不在で auto-merge 詰まる「何回も見てる」現象の恒久対処** — 2026-05-02 PO 観測「何回も見てるぞこのコンフリクトのエラー」。同一ファイル並行編集 → 後発 PR が `mergeable_state=dirty` で固着 → 手動 rebase + auto-merge enable に毎回 Haiku セッション消費。再発回数: 本日 PR #162 / #186 / #234 で計3回。**真の構造的問題**: ①並列 PR 増 → 同ファイル多重編集多発 ②conflict-guard は警告止まりで PR 作成自体は通る ③rebase 後の auto-merge 再有効化が自動化されていない。**実装スコープ**: 既存 `.github/workflows/automerge-stuck-watcher.yml` を拡張 → mergeable_state=dirty 検知 → 自動 git rebase 試行 (`gh pr checkout` + `git rebase origin/main` + non-conflict なら `git push --force-with-lease` + `gh pr merge --auto --squash`) → conflict 起きたら Slack alert + GitHub Issue 自動起票で人間に回す。**Why**: 「何回も見てる」フラストレーションの物理ガード化。**How to apply**: 1セッション1タスク・Sonnet 想定・既存 GitHub Actions 拡張のみ・追加インフラゼロ。**Phase-Impact**: フェーズ1 Dispatch運用安定 / **Eval-Due**: 2026-05-09 (1週間後に「Cowork が手動 rebase 介入した PR 件数」をゼロ近傍に下げられたか観測) | `.github/workflows/automerge-stuck-watcher.yml`, `scripts/automerge_stuck_watcher.py` | 2026-05-02 |
+| T2026-0502-AC | 🟡 中 | 物理 | **session_bootstrap.sh に「open PR / 進行中 Code セッション一覧」表示を追加** — 2026-05-02 PO 指摘「気をつけるは無理だって知ってる」(=思想ルール撲滅・物理化)。背景: Cowork セッションで PR 重複提案を本日複数回発生 (例: T2026-0502-MU-FOLLOWUP は既に PR #198 で merge 済だったのに「次に起動しますか」と提案・別 Code セッションが既に走っているタスクを「未着手」と誤認)。CLAUDE.md「Dispatch 起動時に gh pr list で並走確認」は思想ルール止まりで Cowork が確認をスキップする経路がある。**実装スコープ**: ①`scripts/session_bootstrap.sh` の最後 (起動チェック完了サマリ直前) に `gh pr list --state open --limit 10` 結果を表示 ②同様に WORKING.md の `[Code]` 行 (進行中 Code セッション一覧) を表示 ③出力は人間可読フォーマット (PR# / title / mergeable_state / 担当)。**Why**: Cowork が「既に走っている作業を見ずに重複提案する」物理パスを潰す。session_bootstrap は毎セッション起動時必ず走る = 確認スキップ不可能。**How to apply**: 1セッション1タスク・Haiku 想定 (shell script に20行足すだけ・Sonnet 不要)。**Phase-Impact**: フェーズ1 Dispatch運用安定 / **Eval-Due**: 2026-05-09 (1週間後の Cowork 重複提案件数をベースライン→改善で計測) | `scripts/session_bootstrap.sh` | 2026-05-02 |
 
 ---
 
@@ -193,3 +194,20 @@
 
 ## 完了
 → HISTORY.md に移動済み
+
+---
+
+## 🤖 自動検出キュー (health_check.sh)
+
+> `scripts/health_check.sh` が自動で追記する。GitHub Actions `health-check.yml` が毎日 09:00 JST に実行する。
+> 同じタグのタスクは重複追記されない。完了したら HISTORY.md に移動して行を削除する。
+
+| ID | 優先 | 軸 | 内容 | 変更予定ファイル | 追加日 |
+|---|---|---|---|---|---|
+| T2026-0502-AUTO-AI-MISSING | 高 | AI品質 | [自動検出] **AI 要約なしトピック比率が 35.1% (46/131, 閾値 20%, articleCount>=3 母数)** — processor の AI 生成キューが詰まっているか proc_ai.py がエラーで skip している。CloudWatch Logs で processor の error/warning を直近 24h 確認し、ANTHROPIC_API_KEY / 429 / wallclock guard 起因か特定する。 | `projects/P003-news-timeline/lambda/processor/proc_ai.py`, CloudWatch Logs | 2026-05-02 |
+| T2026-0502-AUTO-LAMBDA-ERR-FETCHER | 高 | 安定性 | [自動検出] **Lambda `p003-fetcher` のエラー率が 30.61% (閾値 1.0%, invocations=49.0, errors=15.0, 過去24h)** — CloudWatch Logs で root cause 調査し、リトライ・タイムアウト・依存サービス側の障害を切り分ける。 | CloudWatch Logs / `projects/P003-news-timeline/lambda/fetcher/` | 2026-05-02 |
+| T2026-0502-AUTO-DDB-TTL | 中 | コスト・運用 | [自動検出] **DynamoDB テーブルで TTL 未設定: flotopic-contacts,flotopic-favorites,flotopic-users** — 古いレコードが永続蓄積しコスト増 & スキャン速度低下。enable-time-to-live で expiresAt 属性を有効化する。 | AWS DynamoDB console / IaC | 2026-05-02 |
+| T2026-0502-AUTO-PRINT-RESIDUE | 低 | 技術負債 | [自動検出] **lambda/ 配下に print( が 273 箇所残留** — CloudWatch には出るが構造化ログにならない。logger.info/warning/error に置換する。 | `projects/P003-news-timeline/lambda/` | 2026-05-02 |
+| T2026-0502-AUTO-LINES-FETCHER | 中 | 技術負債 | [自動検出] **lambda/fetcher/handler.py が 1643 行 (閾値 500 行)** — ファイル分割で保守性を改善する。責務ごとに別ファイルへ切り出し、import/require で接続。 | `projects/P003-news-timeline/lambda/fetcher/handler.py` | 2026-05-02 |
+| T2026-0502-AUTO-LINES-PROCESSOR | 中 | 技術負債 | [自動検出] **lambda/processor/handler.py が 659 行 (閾値 500 行)** — ファイル分割で保守性を改善する。責務ごとに別ファイルへ切り出し、import/require で接続。 | `projects/P003-news-timeline/lambda/processor/handler.py` | 2026-05-02 |
+| T2026-0502-AUTO-LINES-APPJS | 中 | 技術負債 | [自動検出] **frontend/app.js が 1600 行 (閾値 500 行)** — ファイル分割で保守性を改善する。責務ごとに別ファイルへ切り出し、import/require で接続。 | `projects/P003-news-timeline/frontend/app.js` | 2026-05-02 |

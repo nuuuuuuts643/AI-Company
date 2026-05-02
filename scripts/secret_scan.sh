@@ -85,8 +85,15 @@ case "$MODE" in
     head)
         # CI push: tracked files only (current HEAD)
         # node_modules / .git / dist / build を除外。fast scan。
+        # T2026-0502-AC-SCANNER-FALSE-POSITIVE: ドキュメント (TASKS.md / HISTORY.md /
+        # docs/lessons-learned.md / docs/rules/**) は事象記述・例文置き場として scanner 対象外。
+        # 個別 secret は CLAUDE.md / project rules で「ドキュメントに本物 token を書かない」と
+        # 規定済 (思想ルール) — scanner はあくまで実コード経路の物理ガード。
         files_text=""
         while IFS= read -r f; do
+            case "$f" in
+                TASKS.md|HISTORY.md|docs/lessons-learned.md|docs/rules/*) continue ;;
+            esac
             if [[ -f "$f" ]] && [[ "$(file -b --mime "$f" 2>/dev/null)" != *"binary"* ]]; then
                 files_text+="$(printf '\n=== %s ===\n' "$f"; head -c 1000000 "$f" 2>/dev/null || true)"
             fi
