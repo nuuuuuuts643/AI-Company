@@ -136,3 +136,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] T2026-0502-COST-A1-CODE deploy.sh DDB 4個整理 | Cowork | projects/P003-news-timeline/deploy.sh | 2026-05-02 22:55 JST | yes |

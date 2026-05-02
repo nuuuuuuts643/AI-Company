@@ -66,20 +66,7 @@ aws dynamodb create-table \
   } \
   || echo "  -> コメントテーブル既に存在（スキップ）"
 
-# ---- 1c. DynamoDB (エージェントステータス) ----
-echo "  -> エージェントステータステーブル作成..."
-aws dynamodb create-table \
-  --table-name "ai-company-agent-status" \
-  --attribute-definitions \
-    AttributeName=agent_name,AttributeType=S \
-  --key-schema \
-    AttributeName=agent_name,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST \
-  --region "$REGION" 2>/dev/null \
-  && echo "  -> エージェントステータステーブル作成完了" \
-  || echo "  -> エージェントステータステーブル既に存在（スキップ）"
-
-# ---- 1d. DynamoDB PITR有効化 ----
+# ---- 1c. DynamoDB PITR有効化 ----
 # データ破損・誤削除からの復元保険（35日間のポイントインタイムリカバリ）
 aws dynamodb update-continuous-backups \
   --table-name "$TABLE" \
@@ -153,7 +140,7 @@ aws iam put-role-policy \
     "Statement":[
       {"Sid":"DynamoDBSpecificTables","Effect":"Allow",
        "Action":["dynamodb:GetItem","dynamodb:PutItem","dynamodb:UpdateItem","dynamodb:DeleteItem","dynamodb:Query","dynamodb:Scan","dynamodb:BatchGetItem","dynamodb:BatchWriteItem","dynamodb:DescribeTable","dynamodb:ConditionCheckItem"],
-       "Resource":["arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/p003-topics","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/p003-topics/index/*","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-comments","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-comments/index/*","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-memory","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-x-posts","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-bluesky-posts","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-agent-status","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-audit","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/flotopic-analytics","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/flotopic-favorites","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/flotopic-rate-limits","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/flotopic-users"]},
+       "Resource":["arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/p003-topics","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/p003-topics/index/*","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-comments","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-comments/index/*","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/ai-company-bluesky-posts","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/flotopic-analytics","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/flotopic-favorites","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/flotopic-rate-limits","arn:aws:dynamodb:ap-northeast-1:'"${ACCOUNT_ID}"':table/flotopic-users"]},
       {"Sid":"S3SpecificBucket","Effect":"Allow",
        "Action":["s3:GetObject","s3:PutObject","s3:DeleteObject","s3:ListBucket","s3:GetBucketLocation"],
        "Resource":["arn:aws:s3:::p003-news-946554699567","arn:aws:s3:::p003-news-946554699567/*","arn:aws:s3:::p003-news-staging-946554699567","arn:aws:s3:::p003-news-staging-946554699567/*"]},
