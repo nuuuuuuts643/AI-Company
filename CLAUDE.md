@@ -1,7 +1,7 @@
 # ⚡ セッション開始時に必ず最初に実行すること
 
 ```bash
-bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
+bash ~/ai-company/scripts/session_bootstrap.sh
 ```
 
 これ 1 本で以下が走る（詳細は `docs/rules/global-baseline.md` §3）:
@@ -21,7 +21,7 @@ bash /Users/murakaminaoya/ai-company/scripts/session_bootstrap.sh
 
 ## ⚡ 起動後の自動タスク実行
 
-**実行前に必ず**: `docs/project-phases.md` で現在フェーズと完了条件を確認 → `cat /Users/murakaminaoya/ai-company/TASKS.md` で未着手を取得 → **現在フェーズに紐付くタスクを優先**して実行する。各セクション直下の `<!-- フェーズN -->` コメントが帰属判断の根拠。フェーズ1 完了条件未達のうちは、フェーズ2/3 のタスクは原則着手しない（ナオヤ明示指示があれば例外）。
+**実行前に必ず**: `docs/project-phases.md` で現在フェーズと完了条件を確認 → `cat ~/ai-company/TASKS.md` で未着手を取得 → **現在フェーズに紐付くタスクを優先**して実行する。各セクション直下の `<!-- フェーズN -->` コメントが帰属判断の根拠。フェーズ1 完了条件未達のうちは、フェーズ2/3 のタスクは原則着手しない（ナオヤ明示指示があれば例外）。
 
 各タスクで以下を順守:
 
