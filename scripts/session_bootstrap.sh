@@ -486,6 +486,40 @@ if [ "$DRY_RUN" = "1" ]; then
   echo ""
 fi
 
+# ---- 6.5 並走 PR / Code セッション 一覧表示 (T2026-0502-AC) ----
+# Cowork が「既に走っている作業」を見ずに重複提案する物理パスを潰すため、
+# 起動時に必ず open PR と進行中 Code セッション (WORKING.md [Code] 行) を表示する。
+# CLAUDE.md「Dispatch 起動時に gh pr list で並走確認」の物理化。
+echo "─────────────────────────────────────────"
+echo "📋 並走 PR / Code セッション (確認スキップ不可)"
+if command -v gh >/dev/null 2>&1; then
+  if [ "$DRY_RUN" = "1" ]; then
+    echo "[DRY-RUN] gh pr list --state open --limit 10 を実行する想定"
+  else
+    _OPEN_PRS=$(gh pr list --state open --limit 10 \
+      --json number,title,mergeStateStatus,author \
+      --template '{{range .}}  #{{.number}} [{{.mergeStateStatus}}] {{.title}}{{"\n"}}{{end}}' 2>/dev/null \
+      || echo "  (gh pr list 失敗: 未認証 or オフライン)")
+    if [ -n "$_OPEN_PRS" ]; then
+      echo "$_OPEN_PRS"
+    else
+      echo "  (open PR ゼロ)"
+    fi
+  fi
+else
+  echo "  (gh CLI 未インストール — open PR 一覧スキップ)"
+fi
+if [ -f WORKING.md ]; then
+  _CODE_LINES=$(grep -E '^\| \[Code\]' WORKING.md 2>/dev/null || true)
+  if [ -n "$_CODE_LINES" ]; then
+    echo "  進行中 [Code] セッション:"
+    echo "$_CODE_LINES" | sed 's/^/    /'
+  else
+    echo "  進行中 [Code] セッションなし"
+  fi
+fi
+echo ""
+
 # ---- 7. サマリ出力 ----
 echo "─────────────────────────────────────────"
 if [ "$DRY_RUN" = "1" ]; then
