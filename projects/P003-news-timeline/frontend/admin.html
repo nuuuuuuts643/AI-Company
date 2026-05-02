@@ -150,6 +150,23 @@ details.collapsible .details-body{padding:14px 20px 20px;border-top:1px solid #2
 .chart-stat{display:flex;flex-direction:column;gap:2px}
 .chart-stat-val{font-size:1.4rem;font-weight:700;line-height:1}
 .chart-stat-lbl{font-size:.72rem;color:#8b949e}
+
+/* HERO STRIP (T2026-0502-AR・5 秒で読めるヘッドライン) */
+.hero-strip{background:linear-gradient(135deg,#161b22 0%,#0d1117 100%);border:1px solid #30363d;border-radius:12px;padding:18px 22px;margin-bottom:20px}
+.hero-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:18px;align-items:start}
+.hero-cell{display:flex;flex-direction:column;gap:4px;min-width:0}
+.hero-icon{font-size:1.6rem;line-height:1;font-weight:700}
+.hero-icon.green{color:#3fb950}
+.hero-icon.yellow{color:#d29922}
+.hero-icon.red{color:#f85149}
+.hero-label{font-size:.68rem;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.hero-value{font-size:1.4rem;font-weight:700;color:#f0f6fc;line-height:1.15;word-break:break-all}
+.hero-sub{font-size:.72rem;color:#8b949e;line-height:1.35}
+.hero-sub strong{color:#f0f6fc}
+.hero-alert{margin-top:14px;padding:10px 14px;background:#3a1d1d;border:1px solid #f85149;border-radius:8px;color:#ffa198;font-size:.85rem;line-height:1.55}
+.hero-alert.warn{background:#3a2c1d;border-color:#d29922;color:#ffd180}
+.hero-alert strong{color:#fff}
+@media (max-width:600px){.hero-value{font-size:1.1rem}.hero-row{gap:10px}}
 </style>
 </head>
 <body>
@@ -178,6 +195,38 @@ details.collapsible .details-body{padding:14px 20px 20px;border-top:1px solid #2
 <main>
   <div id="loading">データを読み込み中...</div>
   <div id="dashboard">
+
+    <!-- ⓪ Hero strip — 5 秒で読めるヘッドライン (T2026-0502-AR) -->
+    <div id="hero-strip" class="hero-strip" style="display:none">
+      <div class="hero-row">
+        <div class="hero-cell">
+          <div class="hero-label">サイト状態</div>
+          <div class="hero-value"><span id="hero-icon">●</span> <span id="hero-status-text">—</span></div>
+          <div class="hero-sub" id="hero-data-age">データ —</div>
+        </div>
+        <div class="hero-cell">
+          <div class="hero-label">直近 PV</div>
+          <div class="hero-value" id="hero-pv-text">—</div>
+          <div class="hero-sub" id="hero-pv-sub">—</div>
+        </div>
+        <div class="hero-cell">
+          <div class="hero-label">7日合計 PV</div>
+          <div class="hero-value" id="hero-pv-total">—</div>
+          <div class="hero-sub" id="hero-pv-trend">—</div>
+        </div>
+        <div class="hero-cell">
+          <div class="hero-label">登録 / コメント / お気に入り</div>
+          <div class="hero-value" id="hero-user-text">—</div>
+          <div class="hero-sub" id="hero-user-sub">—</div>
+        </div>
+        <div class="hero-cell">
+          <div class="hero-label">未対応 問合せ</div>
+          <div class="hero-value" id="hero-contact-text">—</div>
+          <div class="hero-sub" id="hero-contact-sub"></div>
+        </div>
+      </div>
+      <div class="hero-alert" id="hero-alert" style="display:none"></div>
+    </div>
 
     <!-- ① 総合健全性バナー（5秒で全体把握） -->
     <div class="health-banner" id="health-banner" style="display:none">
@@ -572,6 +621,126 @@ function renderHealthBanner(status, ctx) {
     ? '主要KPI 3つすべて閾値内。アクション不要。'
     : '対応推奨: ' + issues.join(' / '));
   banner.style.display = 'flex';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Hero strip (T2026-0502-AR・5 秒で読めるヘッドライン)
+// ═══════════════════════════════════════════════════════════════════════
+function renderHero(cfData, metrics, contactsCount) {
+  const strip = document.getElementById('hero-strip');
+  if (!strip) return;
+
+  const cf        = cfData?.cf        || {};
+  const users     = cfData?.users     || {};
+  const comments  = cfData?.comments  || {};
+  const favorites = cfData?.favorites || {};
+
+  // PV 前日比 (既存 pvDayOverDay を流用)
+  const trend = pvDayOverDay(cf.daily || []);
+
+  // ── 各セルのステータス判定 ──
+  let pvStatus = 'green';
+  if (trend !== null) {
+    if (trend.pct < -50 && trend.prev >= 50) pvStatus = 'red';
+    else if (trend.pct < -20) pvStatus = 'yellow';
+  } else {
+    pvStatus = 'yellow'; // データ不足
+  }
+
+  const aiStatus = (metrics?.aiPct ?? 100) < 60 ? 'red'
+                 : (metrics?.aiPct ?? 100) < 80 ? 'yellow' : 'green';
+
+  let cStatus = 'green';
+  if (contactsCount === null || contactsCount === undefined) {
+    cStatus = 'yellow';
+  } else if (contactsCount >= 3) {
+    cStatus = 'red';
+  } else if (contactsCount >= 1) {
+    cStatus = 'yellow';
+  }
+
+  // データ最終更新 (cf-analytics.json generatedAt)
+  let dataAgeStatus = 'green';
+  let dataAgeText = 'データ —';
+  if (cfData?.generatedAt) {
+    try {
+      const gen = new Date(cfData.generatedAt);
+      const ageH = (Date.now() - gen.getTime()) / 3600000;
+      if (ageH < 1) dataAgeText = `データ ${Math.round(ageH * 60)} 分前`;
+      else if (ageH < 25) dataAgeText = `データ ${ageH.toFixed(1)} 時間前`;
+      else { dataAgeText = `⚠️ データ ${Math.round(ageH / 24)} 日前 (停止疑い)`; dataAgeStatus = 'red'; }
+    } catch(e) {}
+  }
+
+  // 全体ステータス (worst)
+  const all = [pvStatus, aiStatus, cStatus, dataAgeStatus];
+  const overall = all.includes('red') ? 'red' : all.includes('yellow') ? 'yellow' : 'green';
+
+  // ── サイト状態 ──
+  const STATUS_TEXT = { green: '正常稼働中', yellow: '軽微な注意', red: '要確認' };
+  const heroIcon = document.getElementById('hero-icon');
+  if (heroIcon) {
+    heroIcon.className = '';
+    heroIcon.classList.add(overall);
+  }
+  U.setText('hero-status-text', STATUS_TEXT[overall]);
+  U.setText('hero-data-age', dataAgeText);
+
+  // ── 直近 PV ──
+  if (trend !== null) {
+    U.setText('hero-pv-text', trend.last.toLocaleString());
+    const arrow = trend.pct >= 0 ? '↑' : '↓';
+    const color = pvStatus === 'red' ? '#f85149' : pvStatus === 'yellow' ? '#d29922' : '#3fb950';
+    document.getElementById('hero-pv-sub').innerHTML =
+      `前日比 <strong style="color:${color}">${trend.pct >= 0 ? '+' : ''}${trend.pct}% ${arrow}</strong> (前日 ${trend.prev.toLocaleString()})`;
+  } else {
+    U.setText('hero-pv-text', '集計待ち');
+    U.setText('hero-pv-sub', '毎朝 7:00 JST 更新');
+  }
+
+  // ── 7日合計 PV ──
+  const total7 = cf.totalPv7d ?? 0;
+  U.setText('hero-pv-total', total7.toLocaleString());
+  U.setText('hero-pv-trend', `日平均 約 ${Math.round(total7 / 7)} 件`);
+
+  // ── 登録 / コメント / お気に入り ──
+  U.setText('hero-user-text',
+    `${users.total ?? 0} / ${comments.total ?? 0} / ${favorites.total ?? 0}`);
+  U.setText('hero-user-sub',
+    `7日新規 登録${users.new7d ?? 0} / コメント+${comments.new7d ?? 0} / お気に入り+${favorites.new7d ?? 0}`);
+
+  // ── 未対応 問合せ ──
+  if (contactsCount === null || contactsCount === undefined) {
+    U.setText('hero-contact-text', '—');
+    U.setText('hero-contact-sub', 'API 応答なし');
+  } else {
+    U.setText('hero-contact-text', `${contactsCount} 件`);
+    U.setText('hero-contact-sub',
+      contactsCount === 0 ? '対応の必要なし'
+      : contactsCount >= 3 ? '🔴 3件以上 — 要対応'
+      : '🟡 下のセクションで対応');
+  }
+
+  // ── 急変 alert (流入急減を強調表示) ──
+  const alertEl = document.getElementById('hero-alert');
+  if (alertEl) {
+    if (trend !== null && trend.pct < -50 && trend.prev >= 50) {
+      alertEl.className = 'hero-alert';
+      alertEl.innerHTML =
+        `🚨 <strong>流入急減検出</strong>: 前日 ${trend.prev} → 今日 ${trend.last} PV (${trend.pct}%)。` +
+        `noindex / robots.txt / SEO 設定変更を直近 commit で確認してください ` +
+        `(参考: T2026-0502-AQ noindex 削除事故・docs/lessons-learned.md)。`;
+      alertEl.style.display = 'block';
+    } else if (trend !== null && trend.pct < -20 && trend.prev >= 50) {
+      alertEl.className = 'hero-alert warn';
+      alertEl.innerHTML = `⚠️ PV 前日比 ${trend.pct}% 減 — 要観察。`;
+      alertEl.style.display = 'block';
+    } else {
+      alertEl.style.display = 'none';
+    }
+  }
+
+  strip.style.display = 'block';
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1053,6 +1222,8 @@ const Dashboard = {
       // KPI 計算に必要なので contacts を先に取得
       const contactsCount = await renderContacts();
 
+      // T2026-0502-AR: Hero strip を最上段で描画 (5 秒で読めるヘッドライン)
+      renderHero(cfData, m, contactsCount);
       buildKpis(m, cfData, contactsCount);
       renderSubCards(m, cfData);
       renderCfAnalytics(cfData);
