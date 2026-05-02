@@ -58,7 +58,16 @@ _DOMAIN_GROUP_MAP = {
     'nhk.or.jp':        'nhk',
 }
 
-_USER_AGENT = 'Mozilla/5.0 (compatible; FlotopicBot/1.0; +https://flotopic.com)'
+_USER_AGENT = (
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+    'AppleWebKit/537.36 (KHTML, like Gecko) '
+    'Chrome/124.0.0.0 Safari/537.36'
+)
+
+# NHK 等の重いホストには長めのタイムアウトを設定
+_HOST_TIMEOUT_MAP: dict[str, float] = {
+    'nhk.or.jp': 9.0,
+}
 
 _CONTENT_TAGS = ('article', 'main')
 _CONTENT_CLASS_HINTS = (
@@ -94,6 +103,15 @@ def _media_category(domain: str) -> str:
     if _domain_in_cat(domain, _MEDIA_CAT_C):
         return 'C'
     return 'X'
+
+
+def _get_timeout(url: str, default: float = 5.0) -> float:
+    """ホスト別タイムアウト値を返す。マップ未登録は default を使う。"""
+    domain = _domain_of(url)
+    for host, t in _HOST_TIMEOUT_MAP.items():
+        if domain == host or domain.endswith('.' + host):
+            return t
+    return default
 
 
 def _domain_group(domain: str) -> str:
@@ -210,58 +228,62 @@ def _strip_tags_fallback(html_text: str) -> str:
     return re.sub(r'\s+', ' ', target).strip()
 
 
-def fetch_full_text(url: str, timeout: float = 5.0) -> str:
-    """URL から本文テキストを抽出する。失敗時は空文字列。"""
+def fetch_full_text(url: str, timeout: float = 5.0, max_retries: int = 1) -> str:
+    """URL から本文テキストを抽出する。失敗時は空文字列。
+
+    timeout はホスト別マップで上書きされる (_HOST_TIMEOUT_MAP)。
+    max_retries=1 のとき最大 2 回試みる (initial + 1 retry)。
+    """
     if not url:
         return ''
+    effective_timeout = _get_timeout(url, default=timeout)
+    netloc = ''
     try:
-        req = urllib.request.Request(url, headers={
-            'User-Agent':       _USER_AGENT,
-            'Accept':           'text/html,application/xhtml+xml',
-            'Accept-Language':  'ja,en;q=0.5',
-        })
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            ctype = (resp.headers.get('Content-Type', '') or '').lower()
-            if 'html' not in ctype:
-                return ''
-            raw = resp.read(_MAX_FETCH_BYTES)
-        charset = 'utf-8'
-        m = re.search(rb'charset=["\']?([\w-]+)', raw[:2048], re.IGNORECASE)
-        if m:
+        netloc = urlparse(url).netloc
+    except Exception:
+        pass
+    for attempt in range(max_retries + 1):
+        try:
+            req = urllib.request.Request(url, headers={
+                'User-Agent':       _USER_AGENT,
+                'Accept':           'text/html,application/xhtml+xml',
+                'Accept-Language':  'ja,en;q=0.5',
+            })
+            with urllib.request.urlopen(req, timeout=effective_timeout) as resp:
+                ctype = (resp.headers.get('Content-Type', '') or '').lower()
+                if 'html' not in ctype:
+                    return ''
+                raw = resp.read(_MAX_FETCH_BYTES)
+            charset = 'utf-8'
+            m = re.search(rb'charset=["\']?([\w-]+)', raw[:2048], re.IGNORECASE)
+            if m:
+                try:
+                    charset = m.group(1).decode('ascii').lower()
+                except Exception:
+                    charset = 'utf-8'
             try:
-                charset = m.group(1).decode('ascii').lower()
+                text = raw.decode(charset, errors='replace')
+            except LookupError:
+                text = raw.decode('utf-8', errors='replace')
+            parser = _TextExtractor()
+            try:
+                parser.feed(text)
             except Exception:
-                charset = 'utf-8'
-        try:
-            text = raw.decode(charset, errors='replace')
-        except LookupError:
-            text = raw.decode('utf-8', errors='replace')
-        parser = _TextExtractor()
-        try:
-            parser.feed(text)
-        except Exception:
-            pass
-        body = parser.best_text()
-        if not body or len(body) < _MIN_FULL_TEXT_LEN:
-            body = _strip_tags_fallback(text)
-        body = re.sub(r'\s+', ' ', body).strip()
-        return body
-    except (urllib.error.URLError, TimeoutError, ConnectionError, ValueError) as e:
-        netloc = ''
-        try:
-            netloc = urlparse(url).netloc
-        except Exception:
-            pass
-        print(f'[ArticleFetcher] {netloc} fetch失敗: {type(e).__name__}: {e}')
-        return ''
-    except Exception as e:
-        netloc = ''
-        try:
-            netloc = urlparse(url).netloc
-        except Exception:
-            pass
-        print(f'[ArticleFetcher] {netloc} unexpected: {type(e).__name__}: {e}')
-        return ''
+                pass
+            body = parser.best_text()
+            if not body or len(body) < _MIN_FULL_TEXT_LEN:
+                body = _strip_tags_fallback(text)
+            body = re.sub(r'\s+', ' ', body).strip()
+            return body
+        except (urllib.error.URLError, TimeoutError, ConnectionError, ValueError) as e:
+            if attempt < max_retries:
+                print(f'[ArticleFetcher] {netloc} retry {attempt + 1}/{max_retries}: {type(e).__name__}')
+            else:
+                print(f'[ArticleFetcher] {netloc} fetch失敗: {type(e).__name__}: {e}')
+        except Exception as e:
+            print(f'[ArticleFetcher] {netloc} unexpected: {type(e).__name__}: {e}')
+            return ''
+    return ''
 
 
 def fetch_full_articles(articles: list, max_count: int = 3,
