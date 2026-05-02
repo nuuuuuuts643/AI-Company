@@ -32,15 +32,14 @@ def resp(code, body):
 
 def all_topics():
     items = []
+    # SK(sort key) は FilterExpression に使用不可 → 全件 Scan して Python 側で絞る
     kwargs = {
-        'FilterExpression': 'SK = :m',
-        'ExpressionAttributeValues': {':m': 'META'},
-        'ProjectionExpression': 'topicId, title, #s, articleCount, articleCountDelta, lastUpdated, sources',
+        'ProjectionExpression': 'topicId, title, #s, articleCount, articleCountDelta, lastUpdated, sources, SK',
         'ExpressionAttributeNames': {'#s': 'status'},
     }
     while True:
         r = table.scan(**kwargs)
-        items.extend(r.get('Items', []))
+        items.extend(item for item in r.get('Items', []) if item.get('SK') == 'META')
         last = r.get('LastEvaluatedKey')
         if not last:
             break
