@@ -146,11 +146,14 @@ def lambda_handler(event, context):
     cutoff_sk  = f"SNAP#{cutoff_dt.strftime('%Y%m%dT%H%M%SZ')}"
 
     # ---- DynamoDB 全 META アイテムをスキャン ----
-    scan_kwargs = {'FilterExpression': Attr('SK').eq('META')}
+    # FilterExpression に SK(sort key) を指定すると DynamoDB が ValidationException を出す。
+    # 全件 Scan して Python 側で SK=='META' を絞る（案A）。
+    # TODO(T2026-0502-B-followup): 項目数が膨れたら SK の GSI 化を検討すること
+    scan_kwargs = {}
     items = []
     while True:
         resp = table.scan(**scan_kwargs)
-        items.extend(resp.get('Items', []))
+        items.extend(item for item in resp.get('Items', []) if item.get('SK') == 'META')
         last = resp.get('LastEvaluatedKey')
         if not last:
             break

@@ -45,15 +45,14 @@ def get_all_topics():
             print(f'get_all_topics S3 error: {e}')
 
     print('get_all_topics: S3未作成のためDynamoDBフォールバック')
+    # SK(sort key) は FilterExpression に使用不可 → 全件 Scan して Python 側で絞る
     items, kwargs = [], {
-        'FilterExpression': 'SK = :m',
-        'ExpressionAttributeValues': {':m': 'META'},
-        'ProjectionExpression': 'topicId,title,generatedTitle,generatedSummary,spreadReason,imageUrl,#s,articleCount,lastUpdated,genre,genres,#l,score,mediaCount,hatenaCount,lastArticleAt,velocityScore,diversityScore,lifecycleStatus,pendingAI,aiGenerated,relatedTopics,sources',
+        'ProjectionExpression': 'topicId,title,generatedTitle,generatedSummary,spreadReason,imageUrl,#s,articleCount,lastUpdated,genre,genres,#l,score,mediaCount,hatenaCount,lastArticleAt,velocityScore,diversityScore,lifecycleStatus,pendingAI,aiGenerated,relatedTopics,sources,SK',
         'ExpressionAttributeNames': {'#s': 'status', '#l': 'lang'},
     }
     while True:
         r = table.scan(**kwargs)
-        items.extend(r.get('Items', []))
+        items.extend(item for item in r.get('Items', []) if item.get('SK') == 'META')
         if not r.get('LastEvaluatedKey'): break
         kwargs['ExclusiveStartKey'] = r['LastEvaluatedKey']
     items.sort(key=lambda x: int(x.get('score', 0) or 0), reverse=True)
