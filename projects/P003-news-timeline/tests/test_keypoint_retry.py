@@ -329,13 +329,15 @@ class PromptWorkedExampleTest(unittest.TestCase):
     """T-keypoint-prompt (2026-04-30): _STORY_PROMPT_RULES に新しい worked example が埋め込まれていること。"""
 
     def test_story_rules_contains_good_example_initial_phase(self):
-        # T-keypoint-prompt (2026-04-30): 汎用 ◎例 (政治/関税テーマ) がそのまま残ること
-        # ジャンル別◎例は _build_keypoint_genre_hint() 経由で注入するため _STORY_PROMPT_RULES は変更しない
-        self.assertIn('60%の追加関税', proc_ai._STORY_PROMPT_RULES)
+        # T2026-0501-K: 初動フェーズ ◎例 をエンタメ (降幡愛DV告発) に差し替え
+        # 汎用政治/金融例ではエンタメ/テクジャンルへの転用が伝わりにくかったため変更
+        self.assertIn('降幡愛', proc_ai._STORY_PROMPT_RULES)
+        self.assertIn('300万インプレッション', proc_ai._STORY_PROMPT_RULES)
 
     def test_story_rules_contains_good_example_change_phase(self):
-        # T-keypoint-prompt (2026-04-30): 汎用 ◎例 (日銀利上げテーマ) がそのまま残ること
-        self.assertIn('利上げ幅を0.25%から0.5%', proc_ai._STORY_PROMPT_RULES)
+        # T2026-0501-K: 変化フェーズ ◎例 をテクノロジー (NTT AIOWN) に差し替え
+        self.assertIn('IOWN', proc_ai._STORY_PROMPT_RULES)
+        self.assertIn('消費電力100分の1', proc_ai._STORY_PROMPT_RULES)
 
     def test_story_rules_contains_bad_example_marker(self):
         self.assertIn('悪い例', proc_ai._STORY_PROMPT_RULES)
@@ -409,7 +411,9 @@ class GenreKeypointExamplesTest(unittest.TestCase):
     def test_entertainment_genre_hint_contains_example(self):
         result = proc_ai._build_keypoint_genre_hint('エンタメ')
         self.assertIn('◎', result)
-        # 反響規模数値の例（エンタメの核心）が含まれること
+        # 降幡愛 DV 告発例 (インプレッション数値) が含まれること
+        self.assertIn('降幡愛', result)
+        # 興行収入の変化フェーズ例も含まれること
         self.assertIn('興行収入', result)
 
     def test_entertainment_genre_hint_contains_bad_example(self):
@@ -420,7 +424,8 @@ class GenreKeypointExamplesTest(unittest.TestCase):
     def test_technology_genre_hint_contains_example(self):
         result = proc_ai._build_keypoint_genre_hint('テクノロジー')
         self.assertIn('◎', result)
-        # 性能比数値の例（テクノロジーの核心）が含まれること
+        # NTT AIOWN 例 (消費電力100分の1) が含まれること
+        self.assertIn('IOWN', result)
         self.assertIn('消費電力', result)
 
     def test_technology_genre_hint_contains_bad_example(self):
@@ -437,6 +442,128 @@ class GenreKeypointExamplesTest(unittest.TestCase):
     def test_none_genre_falls_back_gracefully(self):
         result = proc_ai._build_keypoint_genre_hint(None)
         self.assertIn('総合', result)
+
+
+class RetryGenreHintInjectionTest(unittest.TestCase):
+    """T2026-0501-K: retry プロンプトにジャンル別角度ヒントが注入されること。
+
+    エンタメ/テクノロジーで短文率が高い (35%/37.5%) 原因として、retry でも
+    ジャンル固有の「何を数字にするか」ヒントがなく汎用短文が返り続けた。
+    genre_hint を retry プロンプトに注入することで改善する。
+    """
+
+    def test_retry_injects_genre_hint_for_entertainment(self):
+        """genre='エンタメ' 時は retry プロンプトにジャンルヒントが含まれること。"""
+        captured_prompts = []
+
+        def _capture(prompt, *args, **kwargs):
+            captured_prompts.append(prompt)
+            return {'keyPoint': _RETRY_LONG_KP}
+
+        with mock.patch('proc_ai._call_claude_tool', side_effect=_capture):
+            proc_ai._retry_short_keypoint(
+                _DUMMY_ARTICLES, cnt=1, mode='minimal',
+                original_keypoint=_SHORT_KP, genre='エンタメ',
+            )
+        self.assertTrue(len(captured_prompts) > 0)
+        prompt_text = captured_prompts[0]
+        self.assertIn('エンタメ', prompt_text, 'retry プロンプトにジャンル名が含まれること')
+        self.assertIn('keyPoint 角度ヒント', prompt_text, 'ジャンル別ヒントブロックが注入されること')
+
+    def test_retry_injects_genre_hint_for_technology(self):
+        """genre='テクノロジー' 時は retry プロンプトにジャンルヒントが含まれること。"""
+        captured_prompts = []
+
+        def _capture(prompt, *args, **kwargs):
+            captured_prompts.append(prompt)
+            return {'keyPoint': _RETRY_LONG_KP}
+
+        with mock.patch('proc_ai._call_claude_tool', side_effect=_capture):
+            proc_ai._retry_short_keypoint(
+                _DUMMY_ARTICLES, cnt=1, mode='minimal',
+                original_keypoint=_SHORT_KP, genre='テクノロジー',
+            )
+        prompt_text = captured_prompts[0]
+        self.assertIn('テクノロジー', prompt_text)
+        self.assertIn('keyPoint 角度ヒント', prompt_text)
+
+    def test_retry_no_genre_hint_when_genre_none(self):
+        """genre=None 時は genre_hint ブロックを挿入しない (余分な token を消費しない)。"""
+        captured_prompts = []
+
+        def _capture(prompt, *args, **kwargs):
+            captured_prompts.append(prompt)
+            return {'keyPoint': _RETRY_LONG_KP}
+
+        with mock.patch('proc_ai._call_claude_tool', side_effect=_capture):
+            proc_ai._retry_short_keypoint(
+                _DUMMY_ARTICLES, cnt=1, mode='minimal',
+                original_keypoint=_SHORT_KP, genre=None,
+            )
+        prompt_text = captured_prompts[0]
+        self.assertNotIn('keyPoint 角度ヒント', prompt_text)
+
+    def test_process_keypoint_quality_passes_genre_to_retry(self):
+        """_process_keypoint_quality(genre='エンタメ') は retry に genre を渡すこと。"""
+        side = [_stub_minimal_full(_SHORT_KP), _stub_retry_response(_RETRY_LONG_KP)]
+        captured_genres = []
+        original_retry = proc_ai._retry_short_keypoint
+
+        def _spy(articles, cnt, mode, original_keypoint, genre=None):
+            captured_genres.append(genre)
+            return original_retry(articles, cnt, mode, original_keypoint, genre=genre)
+
+        with mock.patch('proc_ai._call_claude_tool', side_effect=side), \
+             mock.patch('proc_ai._retry_short_keypoint', side_effect=_spy):
+            result = proc_ai._generate_story_minimal(_DUMMY_ARTICLES[:1], genre='エンタメ')
+        self.assertIsNotNone(result)
+        self.assertEqual(captured_genres, ['エンタメ'], 'genre がそのまま retry に渡されること')
+
+
+class RetryShortResultRejectTest(unittest.TestCase):
+    """T2026-0501-K: retry 結果が 50 字未満の場合は使用せず fallback に倒すこと。
+
+    10〜30 字の明確なゴミ (タイトル風短文) を使って original より長くても採用しない。
+    50 字未満 = SLI 警告閾値 (50 字) を下回る明確な短文として reject する。
+    """
+
+    def test_retry_result_below_50chars_not_adopted_even_if_longer_than_original(self):
+        """original=0字、retry=30字 → 30 > 0 だが 50 字未満なので使わない。original を残す。"""
+        empty_original = ''
+        thirty_char_retry = 'あ' * 30  # 50 字未満
+        result = {'keyPoint': empty_original}
+
+        with mock.patch('proc_ai._retry_short_keypoint', return_value=thirty_char_retry):
+            proc_ai._process_keypoint_quality(result, _DUMMY_ARTICLES, 1, 'minimal')
+
+        self.assertTrue(result['_kpFallback'], 'retry < 50 字なので fallback=True')
+        # 30 字 > 0 字だが 50 字未満なので採用しない → original (空文字) のまま
+        self.assertEqual(result['keyPoint'], empty_original, '50 字未満の retry は採用しない')
+
+    def test_retry_result_exactly_50chars_is_adopted_when_longer(self):
+        """retry=50字 ちょうどは採用する (50字以上が許容閾値)。"""
+        short_original = 'あ' * 10
+        fifty_char_retry = 'あ' * 50
+        result = {'keyPoint': short_original}
+
+        with mock.patch('proc_ai._retry_short_keypoint', return_value=fifty_char_retry):
+            proc_ai._process_keypoint_quality(result, _DUMMY_ARTICLES, 1, 'minimal')
+
+        self.assertTrue(result['_kpFallback'], '100 字未満なので fallback=True')
+        # 50 字 >= 50 かつ > 10 字 → 採用する
+        self.assertEqual(result['keyPoint'], fifty_char_retry, '50 字ちょうどは採用する')
+
+    def test_retry_result_49chars_not_adopted(self):
+        """retry=49字 は 50 字未満なので不採用。"""
+        short_original = 'あ' * 10
+        fortynine_char_retry = 'あ' * 49
+        result = {'keyPoint': short_original}
+
+        with mock.patch('proc_ai._retry_short_keypoint', return_value=fortynine_char_retry):
+            proc_ai._process_keypoint_quality(result, _DUMMY_ARTICLES, 1, 'minimal')
+
+        self.assertTrue(result['_kpFallback'])
+        self.assertEqual(result['keyPoint'], short_original, '49 字は不採用 → original を残す')
 
 
 if __name__ == '__main__':

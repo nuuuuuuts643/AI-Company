@@ -229,13 +229,13 @@ _GENRE_KEYPOINT_HINTS = {
 # 新ジャンルを追加するときはここに 1 エントリ追加するだけでよい。
 _GENRE_KEYPOINT_EXAMPLES = {
     'エンタメ': (
-        '  ◎ 良い例 (初動): 「人気声優Aが所属事務所スタッフへの暴行をSNSで告発し、投稿は公開24時間で100万インプレッションを突破した。なぜこれほど長期間表面化しなかったのか、芸能界の不透明な雇用構造が改めて問われている」\n'
-        '  ◎ 良い例 (変化): 「無名作品と見られていた映画Bが公開3日で興行収入20億円を突破、当初予測の5倍に達した。SNS口コミが従来の宣伝モデルを覆しており、配給会社が戦略の見直しを迫られている」\n'
+        '  ◎ 良い例 (初動/降幡愛DV告発): 「人気声優の降幡愛（アニメ主演多数）が元交際相手によるDV被害をSNSで告発し、投稿は24時間で300万インプレッションを超えた。なぜこれほど長期間表面化しなかったか、芸能事務所の閉鎖的な雇用構造が改めて問われている」\n'
+        '  ◎ 良い例 (変化/興行収入急伸): 「無名作品と見られていた映画Bが公開3日で興行収入20億円を突破、当初予測の5倍に達した。SNS口コミが従来の宣伝モデルを覆しており、配給会社が戦略の見直しを迫られている」\n'
         '  × 悪い例: 「俳優Cの新作が公開された。話題になっている。今後の展開に注目だ。」（反響規模の数字なし・なぜ重要かが不明・一般論）\n'
     ),
     'テクノロジー': (
-        '  ◎ 良い例 (初動): 「新興AI企業が発表した専用チップは同等性能を従来比10分の1の消費電力で実現するとされ、データセンターの電力コスト構造を根本から変える可能性がある。これまで電力制約がAI大規模展開の壁だったが、その前提が崩れる」\n'
-        '  ◎ 良い例 (変化): 「Googleが量子コンピュータで古典コンピュータの1億年相当の計算を5分で完了したと発表した。これまで量子優位性は理論上の概念とされていたが、特定用途では実用段階に入った可能性がある」\n'
+        '  ◎ 良い例 (初動/NTT AIOWN): 「NTT（日本電信電話）のIOWN（次世代通信基盤）にAI処理を統合した新アーキテクチャが公開実験で現行比消費電力100分の1を記録した。これまで電力コストがAI大規模展開の壁だったが、その前提が崩れ始めており、データセンター設計の見直しを迫られる可能性がある」\n'
+        '  ◎ 良い例 (変化/量子優位性): 「Googleが量子コンピュータで古典コンピュータの1億年相当の計算を5分で完了したと発表した。これまで量子優位性は理論上の概念とされていたが、特定用途では実用段階に入った可能性がある」\n'
         '  × 悪い例: 「新技術が発表された。業界への影響が注目される。今後の動向を見守りたい。」（性能比数値なし・何が変わるか不明・一般論）\n'
     ),
 }
@@ -1010,25 +1010,28 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
 # → +50 retry call/サイクル × 2 サイクル/日 = ~100 retry/日。Haiku 4.5 の retry は
 # system prompt cache hit + max_tokens=400 で 1 call ~$0.001 → +$0.10/日 ≒ +$3/月 で許容範囲。
 def _retry_short_keypoint(articles: list, cnt: int, mode: str,
-                          original_keypoint: str) -> str | None:
+                          original_keypoint: str,
+                          genre: str | None = None) -> str | None:
     """T2026-0430-A: keyPoint が 100 字未満だった場合に 1 回だけ再生成する。
 
-    元の keyPoint を渡し、「短すぎたので最低 100 字以上で具体的な数字・固有名詞を含めて拡張」
-    と指示する。retry 専用の縮小スキーマ (keyPoint のみ) で max_tokens を抑え、
-    system prompt は同一文字列を渡すことで cache hit を維持する (Haiku 2048 tokens 必要)。
+    T2026-0501-K: genre を受け取り、ジャンル別角度ヒント (_build_keypoint_genre_hint) を
+    retry プロンプトに注入する。エンタメ/テクノロジーは短文率が高く (各35%/37.5%)、
+    retry でもジャンル固有の「何を数字にするか」ヒントがないと汎用短文が返り続けた。
 
     Returns:
         新しい keyPoint (str) — 失敗時は None。
     """
     headlines, _ = _build_headlines(articles, limit=5)
     original_len = len((original_keypoint or '').strip())
+    genre_hint_block = _build_keypoint_genre_hint(genre) if genre else ''
     prompt = (
         '【keyPoint 再生成リクエスト (T2026-0430-A)】\n'
         f'前回の keyPoint は {original_len} 字と短すぎました (基準: 100 字以上)。\n'
         '同じトピックに対し、最低 100 字以上で、**具体的な数字・固有名詞・変化**を含む内容に拡張してください。\n'
         '一般論・抽象論・「〜が注目される」「動向に注目」のような曖昧表現は禁止。\n'
         f'モード: {mode} (記事 {cnt} 件)。記事 1 件 = 初動フェーズ 3 要素 / 2 件以上 = 変化フェーズ 4 文構成。\n'
-        f'【元の (短すぎた) keyPoint】\n{original_keypoint}\n\n'
+        + (genre_hint_block if genre_hint_block else '')
+        + f'【元の (短すぎた) keyPoint】\n{original_keypoint}\n\n'
         f'【記事情報 ({cnt} 件)】\n{headlines}\n'
     )
     # T2026-0501-D (2026-05-01): retry schema を `minLength: 60` で物理ガード化。
@@ -1069,8 +1072,10 @@ def _retry_short_keypoint(articles: list, cnt: int, mode: str,
 
 
 def _process_keypoint_quality(result: dict, articles: list, cnt: int,
-                              mode: str, topic_id: str | None = None) -> None:
+                              mode: str, topic_id: str | None = None,
+                              genre: str | None = None) -> None:
     """T2026-0430-A: keyPoint 長さ検証 + 1 回 retry + SHORT_FALLBACK フラグ + KP_QUALITY ログ。
+    T2026-0501-K: genre を受け取り、retry 時にジャンル別角度ヒントを注入する。
 
     result を in-place で更新する:
       - 必要なら result['keyPoint'] を retry 結果に差し替え
@@ -1088,14 +1093,16 @@ def _process_keypoint_quality(result: dict, articles: list, cnt: int,
 
     if _keypoint_too_short(original_kp):
         retried = True
-        new_kp = _retry_short_keypoint(articles, cnt, mode, original_kp)
+        new_kp = _retry_short_keypoint(articles, cnt, mode, original_kp, genre=genre)
         new_len = len((new_kp or '').strip())
         if new_kp and not _keypoint_too_short(new_kp):
             # retry 成功 (>= 100 字)
             result['keyPoint'] = new_kp
         else:
-            # retry も短い → fallback。長い方を残す (空文字より短文の方が情報量がある)。
-            if new_kp and new_len > original_len:
+            # retry も短い → fallback。
+            # T2026-0501-K: retry 結果が 50 字未満は明確なゴミ (10〜30 字短文) のため使わない。
+            # 50 字以上なら長い方を残す (空文字より短文の方が情報量がある)。
+            if new_kp and new_len >= 50 and new_len > original_len:
                 result['keyPoint'] = new_kp
             fallback = True
 
@@ -1173,7 +1180,7 @@ def _generate_story_minimal(articles: list, genre: str | None = None) -> dict | 
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
         # T2026-0430-A: 100 字未満なら 1 回 retry + KP_QUALITY ログ + SHORT_FALLBACK フラグ。
-        _process_keypoint_quality(result, articles, cnt, 'minimal')
+        _process_keypoint_quality(result, articles, cnt, 'minimal', genre=genre)
         return _normalize_story_result(result, 'minimal')
     except Exception as e:
         print(f'generate_story (minimal) error: {e}')
@@ -1199,8 +1206,8 @@ _STORY_PROMPT_RULES = (
     '    ① 何が起きたか（具体的事実・驚き・逆説で始める）\n'
     '    ② なぜ重要か（読者への影響を明示）\n'
     '    ③ なぜこうなったか・構造的背景（「背景には〜」「なぜなら〜」で根拠を示す）\n'
-    '    ◎ 良い例: 「トランプ政権が中国製品に対し60%の追加関税を発動した。これにより日本の対中輸出依存企業への影響が懸念され、自動車・半導体業界が即日対応策の検討を始めた」\n'
-    '    × 悪い例: 「トランプ大統領の関税政策は国際貿易に影響を与える可能性がある」（一般論・抽象的・何も起きていないように見える）\n'
+    '    ◎ 良い例 (エンタメ): 「人気声優の降幡愛（アニメ主演多数）が元交際相手によるDV被害をSNSで告発し、投稿は24時間で300万インプレッションを超えた。なぜこれほど長期間表面化しなかったか、芸能事務所の閉鎖的な雇用構造が改めて問われている」\n'
+    '    × 悪い例: 「有名声優がSNSで告発した。話題になっている。今後の展開に注目だ」（反響規模の数字なし・なぜ重要かが不明・一般論で終わっている）\n'
     '\n'
     '  【記事 2 件以上 = 変化フェーズ】 構造（4 文）:\n'
     '    必須: 1 文目で「今回の記事によって何が変わったか」を驚き・逆説で始める。「前まではどうだったか」と「今回どう変わったか」を対比で書く。トピックの流れの中での現在位置を示す。今後どう進みそうかを示唆する。\n'
@@ -1208,8 +1215,8 @@ _STORY_PROMPT_RULES = (
     '    2 文目: 以前の状況（例: これまでは〜だった）\n'
     '    3 文目: 今回の追加情報・具体内容（数字・固有名詞必須）\n'
     '    4 文目: 読者への影響（「背景には〜」「なぜなら〜」で構造的理由を示す）\n'
-    '    ◎ 良い例: 「日銀が利上げ幅を0.25%から0.5%に引き上げた。これまでは慎重姿勢を維持していたが、円安加速を受けて方針を転換した。追加利上げの可能性も示唆しており、住宅ローン金利への波及が焦点となる」\n'
-    '    × 悪い例: 「日銀の金融政策は経済に大きな影響を与えるため、今後の動向に注目が必要だ」（一般論・抽象的・何が変わったか書けていない）\n'
+    '    ◎ 良い例 (テクノロジー): 「NTT（日本電信電話）のIOWN（次世代通信基盤）にAI処理を統合した新アーキテクチャが公開実験で現行比消費電力100分の1を記録した。これまで電力コストがAI大規模展開の壁だったが、その前提が崩れ始めており、データセンター設計の見直しを迫られる可能性がある」\n'
+    '    × 悪い例: 「NTTが新技術を発表した。業界への影響が注目される。今後の動向を見守りたい」（性能比数値なし・何が変わるか不明・一般論で終わっている）\n'
     '\n'
     '  禁止（共通）: 一般論から書く / 単なる記事要約 / 背景説明だけで終わる / 抽象的表現で逃げる / タイトル風 1 行 / 「〇〇が△△した」の繰り返し / 今後の見通し・予測（outlook の役割）。\n'
     '  × 悪い例（事実羅列型）: 「〇〇社が発表した。△△億円の売上となった。◻◻氏はコメントを出した。」（事実を並べただけで「なぜ重要か」「何が変わったか」が一切ない）\n'
@@ -1314,7 +1321,7 @@ def _generate_story_standard(articles: list, cnt: int, genre: str | None = None)
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
         # T2026-0430-A: 100 字未満なら 1 回 retry + KP_QUALITY ログ + SHORT_FALLBACK フラグ。
-        _process_keypoint_quality(result, articles, cnt, 'standard')
+        _process_keypoint_quality(result, articles, cnt, 'standard', genre=genre)
         return _normalize_story_result(result, 'standard')
     except Exception as e:
         print(f'generate_story (standard) error: {e}')
@@ -1398,7 +1405,7 @@ def _generate_story_full(articles: list, cnt: int, genre: str | None = None) -> 
         if not result or not str(result.get('aiSummary') or '').strip():
             return None
         # T2026-0430-A: 100 字未満なら 1 回 retry + KP_QUALITY ログ + SHORT_FALLBACK フラグ。
-        _process_keypoint_quality(result, articles, cnt, 'full')
+        _process_keypoint_quality(result, articles, cnt, 'full', genre=genre)
         return _normalize_story_result(result, 'full')
     except Exception as e:
         print(f'generate_story (full) error: {e}')
