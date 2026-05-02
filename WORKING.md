@@ -30,7 +30,7 @@
 - #2 `p003-security-audit-aws` — 月1 1日09:30 Haiku・AWS MCP read-only でIAM/S3/secrets チェック (~15k/月)
 - #1 `p003-rule-monthly-audit` — 月1 1日09:00 Haiku・CLAUDE.md/docs/rules/ 整合性チェック (~10k/月)
 
-**最新 Dispatch (auto-v2)** 2026-05-02 09:18 JST | staleness=3.3min | 過去2h saves=116件 | 直近1h Errors=0件 | outcome=A 異常なし・次回run まで観測のみ。T2026-0502-A は WORKING.md 上 PR #122 merged 済だが TASKS.md 緊急対処欄が未消し込み (Code セッションが ~~取消線~~ 化 + HISTORY.md 移動を担当)。
+**最新 Dispatch (auto-v2)** 2026-05-02 13:01 JST | staleness=23.2min | 過去2h saves=117件 | 直近1h Errors=0件 | outcome=A 異常なし・次回run (18:00 JST) まで観測のみ。WORKING.md に [Code] T2026-0502-MU-FOLLOWUP 進行中 (13:00 JST 開始) のため新規コードセッション起動なし。TASKS.md 🆘 SEC1/SEC2/O は PO アクション待ち督促のまま継続。
 
 **実在スケジューラー**: p003-haiku (7:08am daily) / p003-dispatch-auto-v2 (4x/日 08/13/18/22 JST) / p003-sonnet (手動のみ) / security-audit.yml (週次・GitHub Actions)
 **FUSE 環境メモ**: Cowork セッションでは git CLI が index.lock を unlink できない場合がある。`scripts/cowork_commit.py "msg" file...` で GitHub API 直接コミットに迂回可能（.git/config の token 自動取得）。
