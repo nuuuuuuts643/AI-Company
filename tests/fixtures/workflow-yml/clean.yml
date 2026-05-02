@@ -1,0 +1,17 @@
+name: clean workflow (no anti-pattern)
+on: [push]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: deploy lambda
+        run: |
+          cd projects/P003-news-timeline/lambda/fetcher
+          zip -q function.zip *.py
+          aws lambda update-function-code --function-name foo --zip-file fileb://function.zip
+          echo "done"
+      - name: cd scripts safe
+        run: |
+          cd scripts
+          python3 bluesky_agent.py --dry-run

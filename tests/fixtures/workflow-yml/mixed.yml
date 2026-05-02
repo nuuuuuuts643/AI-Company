@@ -1,0 +1,16 @@
+name: mixed workflow (one clean step, one bad step)
+on: [push]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: clean step
+        run: |
+          cd scripts
+          python3 bluesky_agent.py --dry-run
+      - name: broken step
+        run: |
+          cd projects/P003-news-timeline/lambda/processor
+          pip install Pillow -q
+          bash scripts/post_deploy_verify.sh
