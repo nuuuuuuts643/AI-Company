@@ -91,3 +91,12 @@
 | ~~T2026-0428-Q~~ | ~~中~~ | ~~**success-but-empty 抽象パターンの他コンポーネント横展開スキャン** — keyPoint 充填率 11.5% を「aiGenerated フラグだけ見る SLI」が素通りした問題の横展開。要監視: ① fetcher articleCount=0 cycle、② processor processed=0 cycle、③ bluesky_agent post 失敗、④ SES bounce、⑤ CloudFront 5xx、⑥ CI green-but-skipped、⑦ topic 個別 JSON の meta=2フィールドだけパターン (T260)。~~ ✅ 2026-04-30 `scripts/scan_success_but_empty.py` を 7 観点 (③ keyPoint / ④ perspectives / ⑤ freshness 24h / ⑥ workflows skip / ⑦ aiGenerated=False placeholder) に拡張 + `--ci-status` モード追加。①② は CloudWatch Logs 連携が大きいため TODO で残し、既存 `fetcher-health-check.yml` / `sli-keypoint-fill-rate.yml` で等価観測中。`.github/workflows/success-but-empty-scan.yml` 週次 (月 06:00 JST) で実行 + Slack 通知。初回スキャン結果: keyPoint short=77.68% / perspectives short=55.36% / fresh24h=18.75% / placeholder=0 (T260 効果) → 別タスクで根本対応。 | `scripts/scan_success_but_empty.py` 拡張, `.github/workflows/success-but-empty-scan.yml` 新規 | 2026-04-28 |
 
 </details>
+
+
+### 自動 triage: 2026-05-02 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T2026-0502-A~~ | ~~🟠 高~~ | ~~**freshness-check + fetcher-health-check が false-failure**~~ → **2026-05-02 09:50 JST 完了 (PR #122 merged, commit 253a67bb)** — 根本原因: 両 workflow に `actions/checkout@v4` step が無く、scripts/*.py を呼ぶ前に runner にリポジトリが存在しなかった。両 yml の steps 先頭に checkout 追加。**Verified-Effect**: post-fix で freshness-check #21/#22, fetcher-health-check #9/#10 = いずれも 2 連続 success（直前 5 件は連続 failure）。lessons-learned.md L1432〜 に Why1〜Why5 + 横展開チェックリスト追記済。 | (実装完了) | 2026-05-02 |
+
+</details>
