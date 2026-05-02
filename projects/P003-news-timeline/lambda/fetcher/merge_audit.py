@@ -106,8 +106,12 @@ class MergeAuditor:
 
 # 7 日 (秒)。隣接記事の publishedAt がこれ以上離れていたら別事件混入を疑う。
 _MISMERGE_TIME_GAP_SECONDS = 7 * 86400
+# 30 日超の time_gap は「精査中」フラグ + split 候補キュー登録に昇格。
+_MISMERGE_REVIEW_GAP_SECONDS = 30 * 86400
 # entity_split 判定: 各エンティティクラスタに必要な最小記事数
 _MISMERGE_MIN_CLUSTER_SIZE = 2
+# count_spike 単独フラグが誤検知しやすいジャンル (スポーツ/エンタメ は急増が正常)。
+_COUNT_SPIKE_SUPPRESS_GENRES = {'スポーツ', 'エンタメ'}
 
 
 def _parse_pubms(a: dict) -> int:
@@ -139,6 +143,7 @@ def detect_mismerge_signals(
     extract_entities_fn=None,
     *,
     prev_article_count: int = 0,
+    genre: str = '',
 ) -> dict:
     """記事リストから誤マージシグナルを検出して reasons を返す。
 
@@ -147,14 +152,19 @@ def detect_mismerge_signals(
       extract_entities_fn: 各記事タイトルから固有エンティティ集合を返す関数。
         None なら entity_split 判定はスキップ。
       prev_article_count: 直前 run / SNAP の articleCount。0 ならスパイク判定スキップ。
+      genre: トピックのジャンル文字列。count_spike 誤検知抑制に使用。
 
     Returns:
-      {'suspectedMismerge': bool, 'reasons': [str], 'detail': {...}}
+      {'suspectedMismerge': bool, 'reasons': [str], 'detail': {...},
+       'split_candidate': bool}
+      split_candidate=True は time_gap>=30日 の場合に立つ。
+      呼び出し側で AI 生成スキップ + statusLabel='精査中' + S3 split 候補キュー登録を行うこと。
     """
     reasons: list = []
     detail: dict = {}
+    split_candidate = False
     if not articles:
-        return {'suspectedMismerge': False, 'reasons': [], 'detail': {}}
+        return {'suspectedMismerge': False, 'reasons': [], 'detail': {}, 'split_candidate': False}
 
     # ---- 1) time_gap ----
     pubs = sorted(filter(lambda x: x > 0, (_parse_pubms(a) for a in articles)))
@@ -162,7 +172,12 @@ def detect_mismerge_signals(
         max_gap = max(pubs[i + 1] - pubs[i] for i in range(len(pubs) - 1))
         if max_gap > _MISMERGE_TIME_GAP_SECONDS * 1000:
             reasons.append('time_gap')
-            detail['maxGapDays'] = int(max_gap // (86400 * 1000))
+            gap_days = int(max_gap // (86400 * 1000))
+            detail['maxGapDays'] = gap_days
+            # T2026-0502-N: 30日超は「精査中」に昇格して AI 生成をスキップし split 候補に。
+            if max_gap > _MISMERGE_REVIEW_GAP_SECONDS * 1000:
+                split_candidate = True
+                detail['requiresReview'] = True
 
     # ---- 2) entity_split ----
     if extract_entities_fn is not None and len(articles) >= 4:
@@ -197,8 +212,16 @@ def detect_mismerge_signals(
         detail['articleCountBefore'] = prev_article_count
         detail['articleCountAfter'] = len(articles)
 
+    # T2026-0502-N: count_spike 単独かつスポーツ/エンタメは誤検知率が高いため除外。
+    # スポーツ/エンタメは試合・公演など突発的な大量記事が正常で count_spike が誤判定しやすい。
+    if reasons == ['count_spike'] and genre in _COUNT_SPIKE_SUPPRESS_GENRES:
+        reasons = []
+        detail.pop('articleCountBefore', None)
+        detail.pop('articleCountAfter', None)
+
     return {
         'suspectedMismerge': bool(reasons),
         'reasons': reasons,
         'detail': detail,
+        'split_candidate': split_candidate,
     }
