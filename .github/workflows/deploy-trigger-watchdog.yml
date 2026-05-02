@@ -125,17 +125,7 @@ jobs:
               exit 2
             fi
 
-            LAMBDA_TS=$(python3 -c "
-          from datetime import datetime
-          s = '$LAMBDA_LAST_MODIFIED'
-          for fmt in ('%Y-%m-%dT%H:%M:%S.%f%z', '%Y-%m-%dT%H:%M:%S%z'):
-              try:
-                  dt = datetime.strptime(s, fmt)
-                  print(int(dt.timestamp()))
-                  break
-          else:
-              print(-1)
-          " 2>/dev/null)
+            LAMBDA_TS=$(python3 scripts/parse_lambda_timestamp.py "$LAMBDA_LAST_MODIFIED" 2>/dev/null)
 
             DIFF_SEC=$(( LAMBDA_TS - COMMIT_TIME ))
             DIFF_MIN=$(( DIFF_SEC / 60 ))
