@@ -64,12 +64,16 @@ def _ip_hash(event) -> str:
     return hashlib.sha256(f'{salt}:{ip}'.encode('utf-8')).hexdigest()[:24]
 
 
-def check_contact_rate_limit(ip_hash: str, window_seconds: int, max_in_window: int, label: str) -> bool:
+def check_contact_rate_limit(ip_hash: str, window_seconds: int, max_in_window: int, label: str,
+                             fail_closed: bool = True) -> bool:
     """flotopic-rate-limits を使った時間窓カウンタ。Returns True=allowed / False=denied。
 
     pk = `contact#<label>#<ip_hash>#w<window>#b<bucket>` で衝突回避。
     ttl = 窓終了時刻 + 60s。
-    例外時は True (fail-open) で送信を止めない。
+
+    T2026-0502-SEC15 (2026-05-02): 旧実装はエラー時に fail-open (True) で送信を通していたため、
+    rate-limits テーブルへの IAM 権限剥奪 / DDB エラー時に SES コスト爆発リスクあり。
+    contact form は重要 (SES 送信 + DynamoDB 永続化) なのでデフォルト fail_closed=True。
     """
     try:
         now    = int(time.time())
@@ -85,8 +89,9 @@ def check_contact_rate_limit(ip_hash: str, window_seconds: int, max_in_window: i
         count = int(result['Attributes']['count'])
         return count <= max_in_window
     except Exception as e:
-        print(f'[contact rate-limit] {label} fail-open due to: {e}')
-        return True
+        # T2026-0502-SEC15: 例外時の挙動を fail_closed フラグで制御。
+        print(f'[SEC15] contact rate-limit {label} fail_closed={fail_closed}: {type(e).__name__}: {e}')
+        return not fail_closed
 
 
 def verify_admin_token(event) -> bool:

@@ -26,6 +26,9 @@ import urllib.request
 from html.parser import HTMLParser
 from urllib.parse import urlparse
 
+# T2026-0502-SEC13 (2026-05-02): SSRF 防御
+from url_safety import is_safe_url
+
 
 # fetcher/score_utils.py と同一定義 (processor は独立 zip のためコピー)
 _MEDIA_CAT_A = frozenset([
@@ -233,8 +236,15 @@ def fetch_full_text(url: str, timeout: float = 5.0, max_retries: int = 1) -> str
 
     timeout はホスト別マップで上書きされる (_HOST_TIMEOUT_MAP)。
     max_retries=1 のとき最大 2 回試みる (initial + 1 retry)。
+
+    T2026-0502-SEC13 (2026-05-02): SSRF 防御 — internal IP / metadata endpoint へのアクセスを reject する。
     """
     if not url:
+        return ''
+    # T2026-0502-SEC13: SSRF 防御
+    safe, reason = is_safe_url(url)
+    if not safe:
+        print(f'[SEC13] fetch_full_text blocked: {url} ({reason})')
         return ''
     effective_timeout = _get_timeout(url, default=timeout)
     netloc = ''
