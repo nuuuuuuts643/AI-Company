@@ -30,6 +30,7 @@ on:
 permissions:
   contents: read
   issues: write
+  id-token: write   # OIDC で必須
 
 jobs:
   watchdog:
@@ -50,8 +51,8 @@ jobs:
       - name: AWS 認証
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # T2026-0502-SEC10-CODE: OIDC 専用化 (両建て廃止)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
           aws-region: ap-northeast-1
 
       # PR merge 時: 変更ファイルが lambda paths にマッチするか確認
