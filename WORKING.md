@@ -30,7 +30,7 @@
 - #2 `p003-security-audit-aws` — 月1 1日09:30 Haiku・AWS MCP read-only でIAM/S3/secrets チェック (~15k/月)
 - #1 `p003-rule-monthly-audit` — 月1 1日09:00 Haiku・CLAUDE.md/docs/rules/ 整合性チェック (~10k/月)
 
-**最新 Dispatch (auto-v2)** 2026-05-02 13:01 JST | staleness=23.2min | 過去2h saves=117件 | 直近1h Errors=0件 | outcome=A 異常なし・次回run (18:00 JST) まで観測のみ。WORKING.md に [Code] T2026-0502-MU-FOLLOWUP 進行中 (13:00 JST 開始) のため新規コードセッション起動なし。TASKS.md 🆘 SEC1/SEC2/O は PO アクション待ち督促のまま継続。
+**最新 Dispatch (auto-v2)** 2026-05-02 18:02 JST | staleness=17.4min | 過去2h saves=99件 | 直近1h Errors=0件 | outcome=C SLI 全 healthy・[Code] 行なし・フェーズ1 タスク残存。次の優先タスク: **T2026-0502-Y** (🔴 高・要 Code セッション・コスト規律 MCP 物理化・Phase-Impact: 1 運用安定 / Eval-Due: 2026-05-09)。次に T2026-0502-BB (フェーズ1 完了宣言 vs 実態の乖離・docs 修正) と T2026-0502-T (API GW 5xx 原因特定・サンプル蓄積待ち)。**次セッション (Cowork デスクトップ) でコードセッション起動可**: model=sonnet・prompt=「TASKS.md の T2026-0502-Y を読み、scripts/cowork_aws_guard_mcp.py 新設 or PreToolUse hook 追加で Cowork の AWS MCP `lambda invoke` 2 回目を MCP レベルで物理 reject。テストとして同一セッション 2 回連投で RateLimitExceeded エラー確認。完了後 PR + done.sh」。
 
 **実在スケジューラー**: p003-haiku (7:08am daily) / p003-dispatch-auto-v2 (4x/日 08/13/18/22 JST) / p003-sonnet (手動のみ) / security-audit.yml (週次・GitHub Actions)
 **FUSE 環境メモ**: Cowork セッションでは git CLI が index.lock を unlink できない場合がある。`scripts/cowork_commit.py "msg" file...` で GitHub API 直接コミットに迂回可能（.git/config の token 自動取得）。
