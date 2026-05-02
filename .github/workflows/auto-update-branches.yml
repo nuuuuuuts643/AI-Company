@@ -6,8 +6,17 @@
 #   Cowork/Code の両セッションが並走して main に頻繁にコミットするため、
 #   PR 作成後すぐにブランチが stale になって手動更新が必要な状態が常態化していた。
 #
+# CI 再発火について (恒久対処):
+#   gh pr update-branch は GITHUB_TOKEN 経由で merge commit を push するため、
+#   GitHub のループ防止仕様により pull_request synchronize イベントが発火しない。
+#   → 新 HEAD で CI が走らず mergeable_state=blocked のまま詰まる。
+#   対処: 更新成功した PR ブランチに対して ci.yml / meta-doc-guard.yml を
+#          workflow_dispatch で明示的に再発火する (ci.yml / meta-doc-guard.yml に
+#          workflow_dispatch トリガーが必要)。
+#
 # 動作:
 #   push to main → 全オープン (non-draft) PR に対して gh pr update-branch を実行。
+#   更新成功時は CI を workflow_dispatch で再発火。
 #   コンフリクト時はスキップして続行 (他の PR への影響なし)。
 name: Auto-update PR branches on main push
 
@@ -18,39 +27,49 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 jobs:
   update-branches:
     name: update open PR branches
     runs-on: ubuntu-latest
     steps:
-      - name: Update all open non-draft PR branches
+      - name: Update all open non-draft PR branches and re-trigger CI
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
-          pr_numbers=$(gh pr list \
+          pr_list=$(gh pr list \
             --repo "${{ github.repository }}" \
             --state open \
-            --json number,isDraft \
-            --jq '.[] | select(.isDraft == false) | .number')
+            --json number,isDraft,headRefName \
+            --jq '.[] | select(.isDraft == false) | "\(.number) \(.headRefName)"')
 
-          if [ -z "$pr_numbers" ]; then
+          if [ -z "$pr_list" ]; then
             echo "オープン PR なし、スキップ"
             exit 0
           fi
 
           updated=0
           skipped=0
-          for pr in $pr_numbers; do
+          while IFS=' ' read -r pr branch; do
             if gh pr update-branch "$pr" --repo "${{ github.repository }}" 2>/dev/null; then
-              echo "✅ PR #$pr 更新完了"
+              echo "✅ PR #$pr 更新完了 (branch: $branch)"
               updated=$((updated + 1))
+              # GITHUB_TOKEN push は pull_request synchronize を発火しないため手動 dispatch
+              gh workflow run ci.yml \
+                --repo "${{ github.repository }}" \
+                --ref "$branch" 2>/dev/null \
+                && echo "  🔄 ci.yml dispatched" || echo "  ⚠️ ci.yml dispatch スキップ (workflow_dispatch 未対応 branch)"
+              gh workflow run meta-doc-guard.yml \
+                --repo "${{ github.repository }}" \
+                --ref "$branch" 2>/dev/null \
+                && echo "  🔄 meta-doc-guard.yml dispatched" || echo "  ⚠️ meta-doc-guard.yml dispatch スキップ"
             else
               echo "⏭️  PR #$pr スキップ (最新済み or コンフリクト)"
               skipped=$((skipped + 1))
             fi
-          done
+          done <<< "$pr_list"
 
           echo "完了: 更新=${updated}件 スキップ=${skipped}件"
