@@ -1,0 +1,12 @@
+name: bad workflow (cd .. but still detects as anti-pattern)
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: uses relative dotdot cd (unsafe — false positive OK per spec)
+        run: |
+          cd projects/P003-news-timeline/lambda/fetcher
+          cd ..
+          python3 scripts/ci_lambda_merge_env.py
