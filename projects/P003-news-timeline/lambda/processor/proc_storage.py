@@ -553,7 +553,7 @@ def get_pending_topics(max_topics=100):
             try:
                 r = table.get_item(
                     Key={'topicId': tid, 'SK': 'META'},
-                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints',
+                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints,lifecycleStatus',
                 )
                 item = r.get('Item')
                 if item and needs_ai_processing(item):
@@ -598,7 +598,7 @@ def get_pending_topics(max_topics=100):
                     try:
                         r = table.get_item(
                             Key={'topicId': tid, 'SK': 'META'},
-                            ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints',
+                            ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints,lifecycleStatus',
                         )
                         item = r.get('Item')
                         if item and needs_ai_processing(item):
@@ -617,8 +617,21 @@ def get_pending_topics(max_topics=100):
             # トピックで keyPoint が空なのは新規未生成と同等のユーザー影響なので priority 0。
             # T2026-0428-BH: 「欠落」判定を「100 字未満の不十分も含む」に拡張。
             # 過去 (2026-04-26〜27) の短い keyPoint (平均 43.8 字) を priority 0 に救済する。
+            # T2026-0502-AE-FOLLOWUP-2: archived だが high-value (ac>=6 AND score>=100) は
+            # 可視扱いで priority 0 に昇格。これがないと quality_heal で pendingAI=True セットしても
+            # 100 件枠から弾かれて永遠に処理されない (本番 4bf3a46568f1189c で実害確認)。
+            # 閾値根拠: 2026-05-02 実測で対象わずか 1 件・コスト爆発リスクなし。
+            try:
+                _ac = int(x.get('articleCount', 0) or 0)
+                _score = int(x.get('score', 0) or 0)
+            except (ValueError, TypeError):
+                _ac, _score = 0, 0
+            is_high_value_archived = (
+                x.get('lifecycleStatus') == 'archived'
+                and _ac >= 6 and _score >= 100
+            )
             kp_missing = _is_keypoint_inadequate(x.get('keyPoint'))
-            if is_visible and (not x.get('aiGenerated') or kp_missing):
+            if (is_visible or is_high_value_archived) and (not x.get('aiGenerated') or kp_missing):
                 priority = 0
             elif x.get('pendingAI'):
                 priority = 1
@@ -653,7 +666,7 @@ def get_pending_topics(max_topics=100):
     # フォールバック: DynamoDBスキャン
     # pending_ai.json が空 or 未作成のとき、処理必要なトピックを全スキャンして pending_ai.json を再生成
     print('get_pending_topics: pending_ai.json空のためDynamoDBフルスキャン（storyTimeline欠如含む）')
-    proj = 'topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,statusLabel,watchPoints,schemaVersion'
+    proj = 'topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,statusLabel,watchPoints,schemaVersion,lifecycleStatus'
     filt = (
         Attr('SK').eq('META') & (
             Attr('pendingAI').eq(True) |
@@ -686,7 +699,18 @@ def get_pending_topics(max_topics=100):
     def _scan_sort_key(x):
         tid = x.get('topicId', '')
         is_visible = tid in visible_tids
-        if is_visible and not x.get('aiGenerated'):
+        # T2026-0502-AE-FOLLOWUP-2: archived high-value (ac>=6 AND score>=100) も
+        # 可視扱いで priority 0。_sort_key と論理同期。
+        try:
+            _ac = int(x.get('articleCount', 0) or 0)
+            _score = int(x.get('score', 0) or 0)
+        except (ValueError, TypeError):
+            _ac, _score = 0, 0
+        is_high_value_archived = (
+            x.get('lifecycleStatus') == 'archived'
+            and _ac >= 6 and _score >= 100
+        )
+        if (is_visible or is_high_value_archived) and not x.get('aiGenerated'):
             priority = 0
         elif x.get('pendingAI'):
             priority = 1
