@@ -235,7 +235,7 @@ def _title_dedup_key(title: str) -> str:
 #   - その他                                          → 別トピック
 #   失敗時 / API key 未設定は failsafe = "別トピック" (現状挙動と同等)
 _JACCARD_TITLE_THRESHOLD = 0.35  # cluster_utils と同じ閾値
-_JACCARD_BORDERLINE_LOW = 0.10  # T2026-0501-H: borderline 下限 (T2026-0501-M: 0.15→0.10 entity guard で誤マージ防止)
+_JACCARD_BORDERLINE_LOW = 0.15  # T2026-0501-H: borderline 下限 (T2026-0502-COST: 0.10→0.15 戻し・Haiku 呼び出しが pairs ~1100/run に膨らみ月$380追加→品質効果未検証のため戻す。within-run dedup と entity guard は維持)
 _JACCARD_RECENT_TOPICS_MAX = 500  # T2026-0501-H: 14d→30d lookback 拡張に合わせて 200→500
 _TID_COLLISION_LOOKBACK_DAYS = 30  # T2026-0501-H: 14→30 で継続イベントの再分裂を抑える
 
