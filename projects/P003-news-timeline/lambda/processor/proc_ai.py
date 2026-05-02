@@ -686,6 +686,64 @@ def _build_causal_outlook_hint(genre):
     )
 
 
+# T2026-0502-AE: aiSummary 内で「なぜ今・何が引き金・誰の利害」(causal chain)
+# を強制する genre 別フレーム。元苦情 (4bf3a46568f1189c EU 自動車関税): 要約が
+# 「合意違反」止まりで「なぜ今 EU 関税を 25% に上げたか」「何が引き金か」「誰の
+# 利害が衝突しているか」が出ない問題への対処。
+#
+# 既存 _GENRE_KEYPOINT_HINTS は keyPoint (200-300 字) の角度を指定するが、
+# aiSummary (150 字 2 文) の causal frame は別途必要。aiSummary はトピック詳細
+# ページの最上部に出る最重要要素なので causal を含めないと「読んだ気にならない」。
+#
+# system prompt は変更しないため prompt cache を維持 (T2026-0428-AJ 設計を踏襲)。
+_GENRE_AISUMMARY_CAUSAL_FRAMES = {
+    '国際': '「なぜ今 (政治日程・選挙圧力・経済環境変化)」「何が引き金 (具体的事件・声明・統計)」「誰の利害が衝突 (国・産業・市民層)」を 2 文目に必ず含める。例: 「合意違反」だけでなく「EU が約束した N% 関税撤廃を未実施 → 米産業界が圧力 → 11月選挙前に強硬姿勢」レベルまで踏み込む。',
+    '政治':  '「なぜ今 (支持率・選挙日程・解散時期)」「何が引き金 (世論調査結果・連立内対立・国会審議)」「誰の利害 (与党 / 野党 / 派閥 / 業界)」を 2 文目に必ず含める。例: 「方針転換」だけでなく「内閣支持率 N% 低下 + ◯派の反発 → 解散カード示唆で求心力回復狙い」レベル。',
+    'ビジネス': '「なぜ今 (決算サイクル・規制変更・競合動向)」「何が引き金 (具体的業績数字・M&A 報道・人事)」「誰の利害 (株主 / 顧客 / 競合 / 従業員)」を 2 文目に必ず含める。例: 「業績悪化」だけでなく「主力事業の売上前年比 N% 減 + 競合 X 社のシェア拡大 → 株主圧力で CEO 交代観測」レベル。',
+    '株・金融': '「なぜ今 (FOMC 日程・決算発表・経済指標発表)」「何が引き金 (具体的数値変化・要人発言・地政学リスク)」「誰の利害 (機関投資家 / 個人 / 政策当局)」を 2 文目に必ず含める。',
+    'テクノロジー': '「なぜ今 (新製品サイクル・規制動向・競合発表)」「何が引き金 (技術ブレイクスルー数値・特許訴訟・大型契約)」「誰の利害 (既存業界 / 新興企業 / 規制当局 / ユーザー)」を 2 文目に必ず含める。',
+    '科学': '「なぜ今 (論文発表・学会・予算サイクル)」「何が引き金 (発見の意外性・データ規模)」「誰の利害 (研究者 / 産業 / 規制 / 患者)」を 2 文目に必ず含める。',
+    '健康': '「なぜ今 (流行期・薬事承認サイクル・季節要因)」「何が引き金 (有効率 / 副作用率 / 患者数の具体値)」「誰の利害 (患者 / 医療従事者 / 保険者 / 製薬)」を 2 文目に必ず含める。',
+    '社会': '「なぜ今 (制度施行日・事件発覚タイミング)」「何が引き金 (事件・統計・法改正)」「誰の利害 (当事者 / 行政 / 関連業界 / 市民)」を 2 文目に必ず含める。',
+}
+
+
+def _build_aisummary_causal_hint(genre):
+    """T2026-0502-AE: aiSummary に causal chain (なぜ今/引き金/利害) を強制注入する。
+
+    aiSummary は 150 字 2 文構成 (1 文目=何が起きたか / 2 文目=なぜ重要か) だが、
+    現状は 2 文目が「対立軸が深刻化」「業界に影響を与える」のような抽象表現に
+    流れがち。本ヒントは genre 別に「なぜ今/引き金/利害」の具体化を要求する。
+
+    対象 mode: standard / full のみ (minimal は字数余裕なし)。
+    対象 genre: _GENRE_AISUMMARY_CAUSAL_FRAMES のキー (国際/政治/ビジネス 等の
+    causal が読者価値を生みやすいジャンル)。それ以外のジャンルは空文字を返す
+    (エンタメ/グルメ等は keyPoint で十分なため重複させない)。
+
+    `_build_keypoint_genre_hint` / `_build_perspective_actor_hint` /
+    `_build_causal_outlook_hint` と同じ設計パターン。
+
+    Args:
+        genre: トピックの主ジャンル文字列。None or 未対応ジャンルは空文字。
+
+    Returns:
+        str: ユーザープロンプトに直結するブロック。空文字の場合あり。
+    """
+    if not genre:
+        return ''
+    frame = _GENRE_AISUMMARY_CAUSAL_FRAMES.get(genre)
+    if not frame:
+        return ''
+    return (
+        '【aiSummary causal chain (T2026-0502-AE)】★必ず従うこと\n'
+        f'{frame}\n'
+        '★ 1 文目で事実を述べたあと、2 文目を「なぜ今 / 何が引き金 / 誰の利害」の少なくとも 2 要素を具体名詞で含める形にする。\n'
+        '★ 抽象表現禁止: 「対立が深刻化」「影響を与える」「動向に注目」「波及が懸念」は失格。\n'
+        '★ 150 字制約は厳守。書き切れない場合は 1 文目を短縮して 2 文目に causal を寄せる。\n'
+        '\n'
+    )
+
+
 def _validate_genres(raw):
     """AI が返した genres を _VALID_GENRE_SET 内に絞り込む。
     - 文字列が来たら 1 要素配列扱い
@@ -1349,12 +1407,15 @@ def _generate_story_standard(articles: list, cnt: int, genre: str | None = None)
     causal_outlook_hint = _build_causal_outlook_hint(genre)
     # T2026-0501-KPG: ジャンル別 keyPoint 角度ヒント。
     keypoint_genre_hint = _build_keypoint_genre_hint(genre)
+    # T2026-0502-AE: aiSummary に「なぜ今/引き金/利害」(causal chain) 強制注入。
+    aisummary_causal_hint = _build_aisummary_causal_hint(genre)
     prompt = (
         f'【今回のモード: standard (記事 {cnt} 件)】\n'
         'phase は「拡散 / ピーク / 現在地 / 収束」のみ (発端は禁止)。timeline は最大3件。\n'
         'forecast は schema に存在しないため出力しない (full モードのみ)。\n'
         # T-keypoint-prompt (2026-04-30): 記事 2 件以上は変化フェーズ。
         '【keyPoint のフェーズ判定】記事 2 件以上 = 変化フェーズ → 4 文構成（1文目=今回の変化 / 2文目=以前の状況 / 3文目=追加情報 / 4文目=意味・今後）。1 文目で「何が変わったか」を必ず明示する。書けない場合は空文字を返す。\n\n'
+        + aisummary_causal_hint
         + keypoint_genre_hint
         + perspective_actor_hint
         + outlook_actor_hint
@@ -1421,6 +1482,8 @@ def _generate_story_full(articles: list, cnt: int, genre: str | None = None) -> 
     causal_outlook_hint = _build_causal_outlook_hint(genre)
     # T2026-0501-KPG: ジャンル別 keyPoint 角度ヒント。
     keypoint_genre_hint = _build_keypoint_genre_hint(genre)
+    # T2026-0502-AE: aiSummary に「なぜ今/引き金/利害」(causal chain) 強制注入。
+    aisummary_causal_hint = _build_aisummary_causal_hint(genre)
     prompt = (
         '【最重要: 必ず守ること】\n'
         '1. keyPoint は必ずフェーズ判定に従って書く（記事1件=初動3要素 / 2件以上=変化4文構成）。\n'
@@ -1430,12 +1493,14 @@ def _generate_story_full(articles: list, cnt: int, genre: str | None = None) -> 
         '5. perspectives は 2〜3 アクターを等しく扱う (下記アクター指定参照)。1 アクターだけ詳述は禁止。論調差が薄ければ「概ね同様」と書く。\n'
         '6. outlook / forecast の文末に必ず [確信度:高] / [確信度:中] / [確信度:低] のいずれかを付ける。\n'
         '7. ★ outlook は読者ペルソナ視点で「もし〜なら N週/Nヶ月以内に □□となる」の条件付き仮説で書く (下記 outlook 生成方針参照)。当たり障りなく観測する書き方は禁止。\n'
-        '8. ★ causalChain は outlook の根拠として 3〜6 ステップで必ず出力 (下記 OL2 ルール参照)。1 次効果で止まらず 2 次/3 次連鎖まで踏み込む。\n\n'
+        '8. ★ causalChain は outlook の根拠として 3〜6 ステップで必ず出力 (下記 OL2 ルール参照)。1 次効果で止まらず 2 次/3 次連鎖まで踏み込む。\n'
+        '9. ★ aiSummary は 150 字 2 文構成 — 国際/政治/ビジネス等は 2 文目に「なぜ今/引き金/利害」を必ず具体名詞で含める (下記 AE ルール参照)。「対立深刻化」「影響を与える」等の抽象表現は禁止。\n\n'
         f'【今回のモード: full (記事 {cnt} 件)】\n'
         'phase は「拡散 / ピーク / 現在地 / 収束」のみ (発端は禁止)。timeline は 3〜6 件出力。\n'
         'forecast は必ず出力する (確信度タグ必須)。\n'
         # T-keypoint-prompt (2026-04-30): 記事 2 件以上は変化フェーズ。
         '【keyPoint のフェーズ判定】記事 2 件以上 = 変化フェーズ → 4 文構成（1文目=今回の変化 / 2文目=以前の状況 / 3文目=追加情報 / 4文目=意味・今後）。1 文目で「何が変わったか」を必ず明示する。書けない場合は空文字を返す。\n\n'
+        + aisummary_causal_hint
         + keypoint_genre_hint
         + perspective_actor_hint
         + outlook_actor_hint
