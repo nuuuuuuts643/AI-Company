@@ -536,5 +536,154 @@ class EntityPatternMilitaryTest(unittest.TestCase):
                       'ドイツ⊂欧州 ペアが Haiku に別事件と判定される可能性。')
 
 
+class WithinRunMergeFixtureTest(unittest.TestCase):
+    """T2026-0501-M: 「欧州米軍削減」vs「ドイツ米軍削減」fixture — 同一クラスタに収まることを assert。
+
+    PO 実機確認 2026-05-01: flotopic.com で別カードとして表示された事例を再現。
+    handler.py _merge_within_run_duplicates の核心ロジックをローカル再現して検証。
+    """
+
+    # handler.py と同じ定義を local で再現 (boto3 import 回避)
+    _THRESHOLD = 0.35
+    _BORDERLINE_LOW = 0.10
+
+    # ENTITY_PATTERNS (config.py) の代表パターン local 再現
+    _EP = [
+        r'アメリカ|米国|アメリカ合衆国',
+        r'選挙|大統領|首相|首脳',
+        r'軍事|戦争|攻撃|爆撃|ミサイル|米軍|自衛隊|駐留',
+        r'トランプ',
+    ]
+    # _MERGE_ENTITY_KANJI_SUPPLEMENT (text_utils.py) の代表エントリ local 再現
+    _SUPPLEMENT = [
+        ('日本', re.compile(r'日本')),
+        ('英国', re.compile(r'英国|イギリス')),
+        ('独国', re.compile(r'ドイツ|独国')),
+        ('仏国', re.compile(r'フランス|仏国')),
+    ]
+    # 主体性ゼロの汎用語 (最低限)
+    _STOP = {'ニュース', '速報', '最新', 'AI', 'IT'}
+
+    def _ents(self, text):
+        if not text:
+            return set()
+        entities = set()
+        for pat in self._EP:
+            if re.search(pat, text):
+                entities.add(pat.split('|')[0])
+        for canonical, rx in self._SUPPLEMENT:
+            if rx.search(text):
+                entities.add(canonical)
+        for m in re.findall(r'[ァ-ヶー]{3,}', text):
+            if m not in self._STOP:
+                entities.add(m)
+        return entities
+
+    TITLE_A = 'トランプ大統領の欧州駐留米軍削減'
+    TITLE_B = 'トランプ氏がドイツ駐留米軍削減'
+
+    def test_jaccard_above_hard_merge_threshold(self):
+        """Bigram Jaccard >= 0.35 → _merge_within_run_duplicates で hard merge 対象。"""
+        sim = _jaccard_title_sim(self.TITLE_A, self.TITLE_B)
+        self.assertGreaterEqual(
+            sim, self._THRESHOLD,
+            f'Jaccard={sim:.3f} < {self._THRESHOLD}。'
+            '欧州/ドイツ米軍削減ペアが hard merge されない。'
+            '閾値調整または地理的包含エンティティ追加が必要。',
+        )
+
+    def test_shared_entities_non_empty(self):
+        """共有エンティティが存在すること → entity gate を通過。"""
+        ents_a = self._ents(self.TITLE_A)
+        ents_b = self._ents(self.TITLE_B)
+        shared = ents_a & ents_b
+        self.assertTrue(
+            shared,
+            f'shared_ents が空: title_a={ents_a} title_b={ents_b}。'
+            'entity gate で弾かれ merge に到達しない。',
+        )
+
+    def test_within_run_merge_same_cluster(self):
+        """_merge_within_run_duplicates ロジック再現: 2クラスタが1つにまとまること。
+
+        同一 run 内の別クラスタとして入力し、Jaccard+entity gate を通じて
+        hard merge が発動することを確認する。
+        """
+        art_a = {'url': 'https://nhk.example.com/a1', 'title': self.TITLE_A, 'source': 'NHK'}
+        art_b = {'url': 'https://asahi.example.com/b1', 'title': self.TITLE_B, 'source': '朝日新聞'}
+        group_tids = [([art_a], 'tid_A'), ([art_b], 'tid_B')]
+        existing_tids: set = set()
+
+        # _merge_within_run_duplicates の核心: new_indices 全て処理
+        new_indices = [i for i, (_g, tid) in enumerate(group_tids) if tid not in existing_tids]
+        cands = []
+        for i in new_indices:
+            g, tid = group_tids[i]
+            title = g[0].get('title', '')
+            bg = _title_bigrams(title)
+            ents = self._ents(title)
+            cands.append((i, g, tid, title, bg, ents))
+
+        # Union-Find (path compression)
+        parent = {c[0]: c[0] for c in cands}
+        def find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        hard_merged = 0
+        for a_pos, (i, _gi, _ti, _ta, bg_i, ents_i) in enumerate(cands):
+            for b_pos in range(a_pos + 1, len(cands)):
+                j, _gj, _tj, _tj2, bg_j, ents_j = cands[b_pos]
+                if find(i) == find(j) or not bg_i or not bg_j:
+                    continue
+                inter = bg_i & bg_j
+                if not inter:
+                    continue
+                sim = len(inter) / len(bg_i | bg_j)
+                if sim < self._BORDERLINE_LOW:
+                    continue
+                shared_ents = ents_i & ents_j
+                if not shared_ents:
+                    continue
+                if sim >= self._THRESHOLD:
+                    parent[find(j)] = find(i)
+                    hard_merged += 1
+
+        roots = {find(c[0]) for c in cands}
+        self.assertEqual(
+            len(roots), 1,
+            f'{self.TITLE_A!r} と {self.TITLE_B!r} が同一クラスタに収まらない。'
+            f'hard_merged={hard_merged} roots={roots}。'
+            '_merge_within_run_duplicates で統合されていない。',
+        )
+
+    def test_cross_run_jaccard_borderline_passes_entity_gate(self):
+        """異なる run での検出: より長い RSS タイトル同士でも borderline 以上の Jaccard になること。
+
+        実際の RSS article title は generatedTitle より長い。
+        extractive_title vs generatedTitle 比較で Jaccard が 0.10 以上になれば
+        Haiku 判定に到達できる。
+        """
+        # 実際のRSSタイトル風 (longer)
+        rss_title_a = 'トランプ大統領 欧州への駐留米軍を大幅削減する方針を固める NATO同盟国に衝撃'
+        rss_title_b = 'トランプ氏がドイツ駐留の米軍削減を指示 欧州安全保障に懸念'
+        sim = _jaccard_title_sim(rss_title_a, rss_title_b)
+        self.assertGreaterEqual(
+            sim, self._BORDERLINE_LOW,
+            f'長いRSSタイトルでも Jaccard={sim:.3f} >= {self._BORDERLINE_LOW} が必要。'
+            'Haiku borderline 判定に到達できない。',
+        )
+        # entity gate も通過すること
+        ents_a = self._ents(rss_title_a)
+        ents_b = self._ents(rss_title_b)
+        shared = ents_a & ents_b
+        self.assertTrue(
+            shared,
+            f'長いRSSタイトルでも entity が共有されること: {ents_a} ∩ {ents_b} = {shared}',
+        )
+
+
 if __name__ == '__main__':
     unittest.main()
