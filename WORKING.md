@@ -30,7 +30,17 @@
 - #2 `p003-security-audit-aws` — 月1 1日09:30 Haiku・AWS MCP read-only でIAM/S3/secrets チェック (~15k/月)
 - #1 `p003-rule-monthly-audit` — 月1 1日09:00 Haiku・CLAUDE.md/docs/rules/ 整合性チェック (~10k/月)
 
-**最新 Dispatch (auto-v2)** 2026-05-02 18:02 JST | staleness=17.4min | 過去2h saves=99件 | 直近1h Errors=0件 | outcome=C SLI 全 healthy・[Code] 行なし・フェーズ1 タスク残存。次の優先タスク: **T2026-0502-Y** (🔴 高・要 Code セッション・コスト規律 MCP 物理化・Phase-Impact: 1 運用安定 / Eval-Due: 2026-05-09)。次に T2026-0502-BB (フェーズ1 完了宣言 vs 実態の乖離・docs 修正) と T2026-0502-T (API GW 5xx 原因特定・サンプル蓄積待ち)。**次セッション (Cowork デスクトップ) でコードセッション起動可**: model=sonnet・prompt=「TASKS.md の T2026-0502-Y を読み、scripts/cowork_aws_guard_mcp.py 新設 or PreToolUse hook 追加で Cowork の AWS MCP `lambda invoke` 2 回目を MCP レベルで物理 reject。テストとして同一セッション 2 回連投で RateLimitExceeded エラー確認。完了後 PR + done.sh」。
+**最新 Dispatch (Cowork)** 2026-05-02 22:50 JST PO「AWSコスト下げて理想0・品質上げる方向」→ 4 PR で着地済 ✅:
+- PR #291 (削減プラン docs) / #293 (A1 検証結果) / #298 (深掘り §8) / #299 (TASKS.md 整合化) merge ✅
+- 衝撃の発見: Lambda/API GW/CloudFront/CloudWatch は全て無料枠内 ($0)。実コストの 95% は DynamoDB R/W $6.42 + S3 PUT $2.17。当初プラン A2/A3/A5/B1/B2/B3/B4/C2/C3 は撤回。本命は A1-CODE / D1 / C1 / D2 / D3 / D4。
+- 副産物 CI 修正 2 PR: PR #302 (LINT-YAML-FIX2: iam-policy-drift-check.yml の python3 -c → scripts/iam_canon.py) / PR #303 (IAM-CANON-RESCUE: c521a846 不完全 merge で commit 漏れだった iam_canon.py を初 commit) — 両方 effect 確認済 (workflow_dispatch run success)
+- 改訂後の現実的削減見立て: 月 $11 → $7 (約 36% カット)。理想ゼロは脱 AWS 必須
+
+**次セッション (Cowork デスクトップ → Code セッション起動推奨)**:
+1. **T2026-0502-COST-A1-CODE** (推奨 #1・規律タスク) — `docs/code-session-prompts/T2026-0502-COST-A1-CODE.md` の prompt をコピペで Code セッション起動。deploy.sh L69-80 + IAM policy 4 ARN 削除 → PR → 慎重に 1 つずつ delete-table。Sonnet・30 分。
+2. **T2026-0502-COST-D1** (推奨 #2・調査のみ) — `docs/code-session-prompts/T2026-0502-COST-D1-INVESTIGATE.md` の prompt。lambda/ の DDB Read コードパス全網羅 + 1 候補設計案。Sonnet・1〜2 時間。
+3. **T2026-0502-Y** (要 Code セッション) — コスト規律 MCP 物理化 (前回未着手)
+4. (フェーズ2 完了条件達成までフェーズ3/4/5 タスクは凍結)
 
 **実在スケジューラー**: p003-haiku (7:08am daily) / p003-dispatch-auto-v2 (4x/日 08/13/18/22 JST) / p003-sonnet (手動のみ) / security-audit.yml (週次・GitHub Actions)
 **FUSE 環境メモ**: Cowork セッションでは git CLI が index.lock を unlink できない場合がある。`scripts/cowork_commit.py "msg" file...` で GitHub API 直接コミットに迂回可能（.git/config の token 自動取得）。
@@ -128,4 +138,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 |---|---|---|---|---|
 | [Cowork] T2026-0502-BI 静的トピックHTML JSON-LD 適正化 (NewsArticle化/dateModified ISO化/BreadcrumbList/publisher.logo) | Cowork | projects/P003-news-timeline/lambda/processor/proc_storage.py | 2026-05-02 20:05 | yes |
 | [Cowork] T2026-0502-BI-REVERT UX 破壊事故 revert (内部リンク 22 箇所 + CFF Rule 4 + check_seo Rule 2) | Cowork | projects/P003-news-timeline/frontend/{app.js,detail.js,mypage.html,profile.html,catchup.html,storymap.html} projects/P003-news-timeline/infra/cf-redirect-function.js scripts/check_seo_regression.sh docs/lessons-learned.md TASKS.md | 2026-05-02 22:31 | yes |
-| [Cowork] T2026-0502-IAM-CANON-RESCUE scripts/iam_canon.py を初 commit (c521a846 不完全 merge 補修・apply.sh と drift check 双方が参照) | Cowork | scripts/iam_canon.py | 2026-05-02 22:50 | yes |
