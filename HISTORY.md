@@ -114,3 +114,12 @@
 | ~~T2026-0502-H~~ | ~~🔴 最優先~~ | ~~**deploy-lambdas.yml の `ci_lambda_merge_env.py` パス解決バグ修正**~~ → **2026-05-02 10:25 JST 完了 (PR #141 merged)** — Cowork 推奨案 (a) `$GITHUB_WORKSPACE/scripts/ci_lambda_merge_env.py` の絶対パス参照に修正。Verified-Effect: 手動 dispatch run #372 success（11 Lambda 全 deploy）。**注**: 同 ID T2026-0502-H が別 dispatch session で「shared-docs conflict 物理ガード」にも採番されており PR #138 で landing 済（HISTORY.md 参照）。ID 重複は Cowork ↔ 別 dispatch 間の調整不足が原因。 | (実装完了) | 2026-05-02 |
 
 </details>
+
+
+### 自動 triage: 2026-05-02 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T2026-0502-S~~ | ~~🟡 中~~ | ~~**flotopic-bluesky governance check が起動以来 0 回成功**~~ → **2026-05-02 10:32 JST 解決 (Cowork が AWS API 直接実行)** — DynamoDB テーブル `ai-company-agent-status` を `aws dynamodb create-table --billing-mode PAY_PER_REQUEST --partition-key agent_name` で作成 (TableArn: `arn:aws:dynamodb:ap-northeast-1:946554699567:table/ai-company-agent-status`)。IAM 権限は `p003-lambda-role` の `flotopic-least-privilege` policy に該当テーブルの `GetItem/PutItem/...` が**既に付与済み**を確認 → IAM 修正不要。Verified-Effect: 次回 flotopic-bluesky 起動 (rate(30 min)) で `[governance] ガバナンスチェック失敗` ログが消え `[governance] xxx: ステータス未登録 → active扱いで続行` に切り替わる想定。観察は `p003-haiku` (毎朝 7:08 JST) に委ねて即 close。 | (実装完了) | 2026-05-02 |
+
+</details>
