@@ -266,6 +266,67 @@ audit_aws() {
       log_warn "E2 [CF $dist]: HTTPS 非強制 (allow-all)。redirect-to-https に変更推奨"
     fi
   done
+
+  # ────────────────────────────────────────────────────────────
+  section "F. SES 送信権限ドリフト確認 (T2026-0502-S)"
+  # 経緯: 2026-04-26 13:13 JST に p003-contact が ses:SendEmail で AccessDenied
+  # (ADMIN_EMAIL identity ARN が p003-ses-send-policy の Resource に欠けていた)。
+  # その後 policy 修正済だが、再発防止として両 identity ARN が常に含まれるか CI で観測する。
+
+  log_info "F1. p003-ses-send-policy が想定 identity ARN を網羅しているか..."
+  # 想定: FROM_EMAIL のドメイン identity (flotopic.com) と TO/ADMIN identity (mrkm 個人 gmail) の両方
+  EXPECTED_IDENTITIES=("flotopic.com" "mrkm.naoya643@gmail.com")
+  POLICY_DOC=$(aws iam get-role-policy --role-name p003-lambda-role \
+    --policy-name p003-ses-send-policy 2>/dev/null || echo "{}")
+  if [ "$POLICY_DOC" = "{}" ]; then
+    log_warn "F1: p003-ses-send-policy が取得できません (policy 名変更 or role 削除の可能性)"
+  else
+    for ident in "${EXPECTED_IDENTITIES[@]}"; do
+      MATCH=$(echo "$POLICY_DOC" | python3 -c "
+import sys, json
+doc = json.load(sys.stdin).get('PolicyDocument', {})
+target = sys.argv[1]
+found = False
+for s in doc.get('Statement', []):
+    if 'ses:SendEmail' not in (s.get('Action') or []) and s.get('Action') != 'ses:SendEmail':
+        continue
+    res = s.get('Resource') or []
+    if isinstance(res, str): res = [res]
+    if any(target in r for r in res):
+        found = True
+        break
+print('YES' if found else 'NO')
+" "$ident" 2>/dev/null || echo "ERR")
+      if [ "$MATCH" = "YES" ]; then
+        log_ok "F1 [$ident]: p003-ses-send-policy.Resource に含まれる"
+      else
+        log_warn "F1 [$ident]: p003-ses-send-policy.Resource に含まれない (再発リスク)"
+      fi
+    done
+  fi
+
+  log_info "F2. SES Production Access / Sandbox 状態..."
+  SES_ACCT=$(aws sesv2 get-account --region us-east-1 2>/dev/null || echo "{}")
+  PROD=$(echo "$SES_ACCT" | python3 -c \
+    "import sys,json; d=json.load(sys.stdin); print(d.get('ProductionAccessEnabled', False))" 2>/dev/null || echo "False")
+  ENF=$(echo "$SES_ACCT" | python3 -c \
+    "import sys,json; d=json.load(sys.stdin); print(d.get('EnforcementStatus', 'UNKNOWN'))" 2>/dev/null || echo "UNKNOWN")
+  if [ "$PROD" = "True" ] && [ "$ENF" = "HEALTHY" ]; then
+    log_ok "F2: SES Production Access GRANTED / EnforcementStatus=HEALTHY"
+  else
+    log_warn "F2: SES Production=$PROD EnforcementStatus=$ENF (送信不可リスク)"
+  fi
+
+  log_info "F3. flotopic.com identity が SES で Verified か..."
+  VERIF=$(aws ses get-identity-verification-attributes \
+    --identities flotopic.com --region us-east-1 2>/dev/null | python3 -c \
+    "import sys,json; d=json.load(sys.stdin); print(d.get('VerificationAttributes',{}).get('flotopic.com',{}).get('VerificationStatus','Unknown'))" \
+    2>/dev/null || echo "Unknown")
+  if [ "$VERIF" = "Success" ]; then
+    log_ok "F3: flotopic.com identity Verified"
+  else
+    log_warn "F3: flotopic.com identity = $VERIF (send-email が失敗する)"
+  fi
 }
 
 # ────────────────────────────────────────────────────────────────

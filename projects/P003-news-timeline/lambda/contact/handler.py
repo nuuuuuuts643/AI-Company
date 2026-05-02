@@ -228,7 +228,9 @@ def send_ses_notification(data, contact_id):
             ReplyToAddresses=[data['email']],
         )
     except Exception as e:
-        print(f'SES通知スキップ: {e}')
+        # T2026-0502-S: print 一行を [ERROR] プレフィックス付きにし CloudWatch Logs metric filter で観測可能化。
+        # 以前は silent print で過去 1 度 IAM AccessDenied が握り潰されていた (4/26 13:13)。
+        print(f'[ERROR] SES send (notification) failed: {e}')
 
 
 # T2026-0428-Z: カテゴリ別返信テンプレート（ADMIN_EMAIL宛ドラフト用）
@@ -315,7 +317,8 @@ Flotopic 運営チーム
         )
         print(f'send_draft_to_admin: sent to {ADMIN_EMAIL} (contact_id={contact_id})')
     except Exception as e:
-        print(f'send_draft_to_admin: SESエラー（スキップ）: {e}')
+        # T2026-0502-S: 同 metric filter で観測可能にする統一プレフィックス。
+        print(f'[ERROR] SES send (draft) failed: {e}')
 
 
 def list_contacts(limit=100) -> list:
