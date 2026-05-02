@@ -497,13 +497,15 @@ class WithinRunDedupGuardTest(unittest.TestCase):
                            '_merge_within_run_duplicates が _resolve_tid_collisions_by_title より前にある')
 
     def test_borderline_threshold_lowered(self):
-        """_JACCARD_BORDERLINE_LOW が 0.10 以下に設定されていること (T2026-0501-M 調整)。"""
+        """_JACCARD_BORDERLINE_LOW が 0.20 以下に設定されていること。
+        T2026-0501-M の false-split は T2026-0502-U-V3 (entity hierarchy) で解消済み。
+        0.10 への引き下げ (PR #118) は月 $380 追加コストで取り消し → 0.15 が現行値。
+        hierarchy 導入後は borderline 判定への到達より entity gate 拡張で解決する方針。"""
         m = re.search(r'_JACCARD_BORDERLINE_LOW\s*=\s*([0-9.]+)', self.source)
         self.assertIsNotNone(m, '_JACCARD_BORDERLINE_LOW 定数が見つからない')
         val = float(m.group(1))
-        self.assertLessEqual(val, 0.10,
-                             f'_JACCARD_BORDERLINE_LOW={val} が 0.10 より大きい。'
-                             '欧州/ドイツ米軍削減ペアが Haiku 判定に到達しない。')
+        self.assertLessEqual(val, 0.20,
+                             f'_JACCARD_BORDERLINE_LOW={val} が 0.20 より大きすぎる。')
 
 
 class EntityPatternMilitaryTest(unittest.TestCase):
