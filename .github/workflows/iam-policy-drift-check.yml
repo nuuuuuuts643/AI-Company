@@ -50,12 +50,18 @@ jobs:
           jq --version
           aws --version
 
-      - name: drift detection (apply.sh --dry-run 相当)
+      - name: drift detection (Python recursive sort_keys で canonicalize)
         id: drift
         run: |
           set -e
           DRIFT_FOUND=0
           DRIFT_REPORT=""
+
+          # T2026-0502-IAM-DRIFT-FIX2: jq -S の再帰 sort が浅い件の対処として Python json.dumps を使う。
+          # AWS canonicalize 後の representation と 1:1 一致させる比較関数。
+          canon() {
+            python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin), sort_keys=True, separators=(",", ":")))'
+          }
 
           for policy_file in infra/iam/policies/*.json; do
             ROLE_NAME=$(jq -r '._meta.role_name // empty' "$policy_file")
@@ -66,22 +72,26 @@ jobs:
               continue
             fi
 
-            DESIRED=$(jq 'del(._meta)' "$policy_file" | jq -S '.')
+            DESIRED=$(jq 'del(._meta)' "$policy_file" | canon)
             ACTUAL=$(aws iam get-role-policy \
               --role-name "$ROLE_NAME" \
               --policy-name "$POLICY_NAME" \
               --query "PolicyDocument" \
-              --output json 2>/dev/null | jq -S '.' || echo "{}")
+              --output json 2>/dev/null | canon || echo "{}")
 
             if [ "$DESIRED" = "$ACTUAL" ]; then
               echo "[OK] $ROLE_NAME / $POLICY_NAME : no drift"
             else
               DRIFT_FOUND=1
               echo "::error::$ROLE_NAME / $POLICY_NAME : DRIFT detected"
-              DRIFT_REPORT="${DRIFT_REPORT}### ${ROLE_NAME} / ${POLICY_NAME}\n"
-              DRIFT_REPORT="${DRIFT_REPORT}\`\`\`diff\n"
-              DRIFT_REPORT="${DRIFT_REPORT}$(diff <(echo "$DESIRED") <(echo "$ACTUAL") | head -100 | sed 's/`/\\`/g')\n"
-              DRIFT_REPORT="${DRIFT_REPORT}\`\`\`\n\n"
+              # diff を log に直接出力 (CI debug を可能にする)
+              echo "--- DESIRED (git, canonicalized) ---"
+              echo "$DESIRED"
+              echo "--- ACTUAL  (aws, canonicalized) ---"
+              echo "$ACTUAL"
+              # 文字単位で最初の不一致位置を出す (env 経由で渡して triple-quote 衝突回避)
+              DESIRED_VAR="$DESIRED" ACTUAL_VAR="$ACTUAL" python3 scripts/iam_drift_diff.py 2>/dev/null || true
+              DRIFT_REPORT="${DRIFT_REPORT}### ${ROLE_NAME} / ${POLICY_NAME}\nDRIFT (詳細は CI log)\n\n"
             fi
           done
 
