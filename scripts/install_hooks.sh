@@ -121,6 +121,30 @@ if [ -n "$COST_HITS" ]; then
     exit 1
 fi
 
+# T2026-0502-IAM-DRIFT-FIX2 (2026-05-02): IAM apply は infra/iam/apply.sh 経由必須
+# 直接 `aws iam put-role-policy` / `put-user-policy` / `put-group-policy` を呼ぶスクリプトや
+# workflow YAML を staged に追加することを物理 reject。
+# 例外: infra/iam/apply.sh 自体 + テスト fixture + 本 install_hooks.sh + ドキュメント (.md) 内の説明引用。
+IAM_HITS=$(git diff --cached --no-color -U0 \
+    | grep -E '^\+' \
+    | grep -vE '^\+\+\+' \
+    | grep -vE 'infra/iam/apply\.sh|install_hooks\.sh|\.md:|test.*iam|iam_apply.*test|lessons-learned' \
+    | grep -E '(aws[ ]+iam[ ]+put-role-policy|aws[ ]+iam[ ]+put-user-policy|aws[ ]+iam[ ]+put-group-policy)' \
+    || true)
+if [ -n "$IAM_HITS" ]; then
+    echo "❌ pre-commit blocked: 直接 \`aws iam put-*-policy\` 呼び出しは禁止 (T2026-0502-IAM-DRIFT-FIX2)"
+    echo "$IAM_HITS" | head -10 | sed 's/^/   /'
+    echo ""
+    echo "   IAM 変更は infra/iam/apply.sh 経由必須:"
+    echo "   1. infra/iam/policies/<name>.json を編集 (git tracked source of truth)"
+    echo "   2. PR で diff review"
+    echo "   3. merge 後 bash infra/iam/apply.sh で同期 (post-apply 自己検証込み)"
+    echo "   詳細: docs/runbooks/iam-policy-management.md"
+    echo ""
+    echo "   緊急 bypass: git commit --no-verify (要 WORKING.md 理由記録)"
+    exit 1
+fi
+
 exit 0
 HOOK
 
