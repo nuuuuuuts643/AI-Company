@@ -71,6 +71,9 @@ jobs:
   audit-aws:
     name: AWS インフラ監査
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # OIDC で必須
     outputs:
       aws_result: ${{ steps.aws.outcome }}
 
@@ -81,8 +84,8 @@ jobs:
       - name: AWS 認証
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # T2026-0502-SEC10-CODE: OIDC 専用化 (両建て廃止)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: 監査ログ用 S3 バケット作成（初回のみ・存在済みは無視）
@@ -119,6 +122,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [scan-code, audit-aws]
     if: always()
+    permissions:
+      contents: read
+      id-token: write   # OIDC で必須 (SES アラートメール送信用)
 
     steps:
       - name: 結果判定
@@ -145,8 +151,8 @@ jobs:
         if: steps.result.outputs.failed == '1'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # T2026-0502-SEC10-CODE: OIDC 専用化 (両建て廃止)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
           aws-region: ap-northeast-1
 
       - name: SES アラートメール送信

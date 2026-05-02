@@ -20,14 +20,13 @@ on:
 
 permissions:
   contents: read
+  id-token: write   # OIDC で必須
 
 jobs:
   heal:
     name: quality_heal
     runs-on: ubuntu-latest
     env:
-      AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION:    ap-northeast-1
       S3_BUCKET:             p003-news-946554699567
     steps:
@@ -42,6 +41,13 @@ jobs:
       - name: install boto3
         shell: bash
         run: pip install boto3==1.34.0
+
+      - name: AWS 認証 (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # T2026-0502-SEC10-CODE: OIDC 専用化 (両建て廃止)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
+          aws-region: ap-northeast-1
 
       - name: run quality_heal
         id: heal

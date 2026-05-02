@@ -36,6 +36,9 @@ jobs:
   post:
     name: BlueSky 投稿
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # OIDC で必須
 
     steps:
       - uses: actions/checkout@v4
@@ -47,6 +50,13 @@ jobs:
 
       - name: 依存パッケージインストール
         run: pip install atproto boto3
+
+      - name: AWS 認証 (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # T2026-0502-SEC10-CODE: OIDC 専用化 (両建て廃止)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
+          aws-region: ap-northeast-1
 
       - name: モード自動判定
         id: mode
@@ -70,8 +80,6 @@ jobs:
           BLUESKY_HANDLE:        ${{ secrets.BLUESKY_HANDLE }}
           BLUESKY_APP_PASSWORD:  ${{ secrets.BLUESKY_APP_PASSWORD }}
           SLACK_WEBHOOK:         ${{ secrets.SLACK_WEBHOOK }}
-          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION:    ap-northeast-1
           S3_BUCKET:             p003-news-946554699567
         run: |
