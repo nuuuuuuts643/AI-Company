@@ -2,8 +2,10 @@
 
 > **目的**: fetcher の bigram Jaccard + Haiku borderline 構成を embedding ベースに移行し、kill switch (`AI_MERGE_ENABLED=false`) で停止中の merge judge 機能を **コスト発生なしで品質維持** で復活させる。さらに processor 側の冗長 AI 生成も embedding 事前フィルタで削減。
 >
-> **状態**: 2026-05-02 15:30 JST Phase 1 bench 実施済 → multilingual-e5-small **不採用** (misses=3/6・diff_max > same_min で閾値分離不可能)
-> **次アクション**: voyage-3-lite API 評価 (T2026-0502-U-V2) or 現状維持 (AI_MERGE_ENABLED=false) — PO 判断待ち
+> **状態**: 2026-05-02 16:30 JST embedding 移行不採用 → **rule-based entity hierarchy に pivot (T2026-0502-U-V3)**
+> **理由**: Phase 1 bench で multilingual-e5-small misses=3/6 (§9)・voyage 評価は API 依存と「まだ確実な改善」未保証で見送り。問題の本質は意味類似ではなく階層関係 (欧州⊃ドイツ等) → rule で恒久解消可能。
+> **次アクション**: T2026-0502-U-V3 (`docs/session-prompts/T2026-0502-U-V3-entity-hierarchy.md`) を Code 担当 → ENTITY_HIERARCHY dict + hierarchy_aware_overlap() で false-split を rule-based 解消。月 $0 維持・unit test で品質物理担保。
+> **embedding 路線**: 退避路として `lambda/fetcher/embedding_judge.py` は disabled 状態で残す。将来 rule で取れない 5-10% (真の意味類似) が観察されたら voyage 評価で復活検討 (Tier 2)。
 
 ---
 
