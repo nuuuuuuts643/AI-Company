@@ -127,4 +127,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Cowork] T2026-0502-SES-METRIC-FILTER SLI 14 追加 | Cowork | scripts/check_ses_error_sli.sh, .github/workflows/freshness-check.yml | 2026-05-02 12:25 | yes |
-| [Code] T2026-0502-DEPLOY-WATCHDOG Lambda deploy 自動 trigger 故障検知 + 自動 fallback | Code | .github/workflows/deploy-trigger-watchdog.yml, .github/workflows/lambda-freshness-monitor.yml, scripts/check_lambda_freshness.sh, docs/lessons-learned.md, scripts/check_lessons_landings.sh, tests/test_lambda_freshness.sh | 2026-05-02 13:00 | yes |
