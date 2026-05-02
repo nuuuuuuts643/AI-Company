@@ -126,4 +126,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T2026-0502-BA pendingAI idempotent ガード | コスト最適化+品質UP | lambda/processor/proc_storage.py, lambda/processor/handler.py, tests/test_idempotent_guard.py (新設) | 2026-05-02 19:05 | yes |
