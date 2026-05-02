@@ -30,13 +30,13 @@ sys.path.insert(0, os.path.join(ROOT, 'lambda', 'processor'))
 
 os.environ.setdefault('S3_BUCKET', 'test-bucket')
 os.environ.setdefault('AWS_REGION', 'ap-northeast-1')
-os.environ.setdefault('ANTHROPIC_API_KEY', 'sk-ant-test')
+os.environ.setdefault('ANTHROPIC_API_KEY', 'dummy-test-not-a-real-key')
 
 import proc_ai  # noqa: E402
 
 # proc_config はモジュール load 時に Secrets Manager 経由 or env から読む。
 # テスト用に直接 ANTHROPIC_API_KEY をセット (proc_ai は import 時の値を使う)。
-proc_ai.ANTHROPIC_API_KEY = 'sk-ant-test-key'
+proc_ai.ANTHROPIC_API_KEY = 'dummy-test-not-a-real-key-key'
 
 
 def _mock_response(body_bytes: bytes):
