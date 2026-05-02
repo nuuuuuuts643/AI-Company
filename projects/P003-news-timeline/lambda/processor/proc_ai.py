@@ -1117,7 +1117,7 @@ def _build_story_schema(mode: str, *, cnt: int = 1) -> dict:
             'minItems': 2,
             'maxItems': 8,
         },
-        'topicTitle': {'type': 'string', 'description': '15文字以内のテーマ名(体言止め)。具体的な固有名詞を含む。例: 岸田政権の解散戦略。'},
+        'topicTitle': {'type': 'string', 'description': '30文字以内のテーマ名(体言止め)。具体的な固有名詞を含む。例: 岸田政権の解散戦略。日本語で15字制限は体言止めの語句が途中で切れて意味不明になる事故 (2026-05-02 UX 観察) のため 30 字に緩和済。'},
         'latestUpdateHeadline': {'type': 'string', 'description': '最新の動きを40文字以内の1文(〜が〜した形式)。'},
         'isCoherent': {'type': 'boolean', 'description': 'true=全記事が同一主語・同一流れ。false=異主語/異論点混在。'},
         'topicLevel': {'type': 'string', 'enum': _VALID_LEVELS, 'description': 'major=国家間・産業横断/sub=majorの一側面/detail=個別発表'},
@@ -1236,7 +1236,7 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
             'timeline':               [],
             'phase':                  None,
             'summaryMode':            'minimal',
-            'topicTitle':             str(result.get('topicTitle') or '').strip()[:15],
+            'topicTitle':             str(result.get('topicTitle') or '').strip()[:30],  # T2026-0502-UX 15→30: 日本語15字は体言止めの語句が途中で切れて意味不明になる事故の恒久対処
             'latestUpdateHeadline':   str(result.get('latestUpdateHeadline') or '').strip()[:40],
             'isCoherent':             result.get('isCoherent') is not False,
             'topicLevel':             result.get('topicLevel') if result.get('topicLevel') in _VALID_LEVELS else 'detail',
@@ -1270,7 +1270,7 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
         'timeline':               _sanitize_timeline(result.get('timeline'), max_items=6 if mode == 'full' else 3),
         'phase':                  raw_phase if raw_phase in _VALID_PHASES else '現在地',
         'summaryMode':            mode,
-        'topicTitle':             str(result.get('topicTitle') or '').strip()[:15],
+        'topicTitle':             str(result.get('topicTitle') or '').strip()[:30],  # T2026-0502-UX 15→30: 日本語15字は体言止めの語句が途中で切れて意味不明になる事故の恒久対処
         'latestUpdateHeadline':   str(result.get('latestUpdateHeadline') or '').strip()[:40],
         'isCoherent':             result.get('isCoherent') is not False,
         'topicLevel':             result.get('topicLevel') if result.get('topicLevel') in _VALID_LEVELS else 'detail',
@@ -1520,7 +1520,7 @@ _STORY_PROMPT_RULES = (
     'デフォルトは「拡散」。タイムライン上で同じ話題が繰り返し報じられ熱量が高ければ「ピーク」、'
     '報道が落ち着き同じ局面で続いていれば「現在地」、明確に下火・解決しているなら「収束」。\n'
     '【isCoherent判定】true=全記事が同一主語・同一流れ。false=異主語/異論点混在。\n'
-    '【topicTitle】15字以内、体言止め、具体的固有名詞を含む。\n'
+    '【topicTitle】30字以内、体言止め、具体的固有名詞を含む。15-25字を狙うが体言止めの語句は絶対に途中で切らない。\n'
     '【topicLevel】major=国家間・産業横断/sub=majorの一側面/detail=個別発表。\n'
     '【parentTopicTitle】明確に上位テーマの一部の場合のみ。独立は null。\n'
     '【ストーリー分岐の指針 (T2026-0429-B)】\n'
@@ -1558,7 +1558,7 @@ _SYSTEM_PROMPT = (
     '  → 一般論から書く / 単なる記事要約 / 背景説明だけで終わる / 抽象的表現で逃げる は全て禁止。\n'
     '- perspectives は 2〜3 社を等しい分量で扱う。1 社だけ詳述しない。論調差が薄ければ「概ね同様」と書く。\n'
     '- outlook / forecast の文末に必ず [確信度:高] / [確信度:中] / [確信度:低] のいずれかを付与する。\n'
-    '- topicTitle は 15 字以内・体言止め・固有名詞を含む。「〜の最新動向」「〜まとめ」のような曖昧表現は禁止。\n'
+    '- topicTitle は 30 字以内・体言止め・固有名詞を含む。「〜の最新動向」「〜まとめ」のような曖昧表現は禁止。15-25 字を狙うが、句や名詞句が途中で切れる長さは絶対に避ける (例: 「ホルムズ海峡通過「友」← NG・最後の語句が壊れている)。\n'
     '- latestUpdateHeadline は 40 字以内・「〜が〜した」形式。\n'
     '【記事データの渡し方】\n'
     '- user メッセージには「記事情報（N件）」のブロックがあり、必要に応じて「メディア各社の本文 (perspectives 比較用)」が続く。\n'
