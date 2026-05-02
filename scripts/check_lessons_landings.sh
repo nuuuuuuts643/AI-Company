@@ -116,4 +116,37 @@ if ! grep -q 'pre-push' "$REPO_ROOT/scripts/install_hooks.sh"; then
 fi
 echo "✅ PR #160: install_hooks.sh landing verified"
 
+# T2026-0502-DEPLOY-WATCHDOG landing 検証:
+# 1) check_lambda_freshness.sh が存在して空でないこと
+if [ ! -f "$REPO_ROOT/scripts/check_lambda_freshness.sh" ]; then
+  echo "❌ T2026-0502-DEPLOY-WATCHDOG: scripts/check_lambda_freshness.sh not found" >&2
+  exit 1
+fi
+if [ ! -s "$REPO_ROOT/scripts/check_lambda_freshness.sh" ]; then
+  echo "❌ T2026-0502-DEPLOY-WATCHDOG: scripts/check_lambda_freshness.sh is empty" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-DEPLOY-WATCHDOG: scripts/check_lambda_freshness.sh landing verified"
+
+# 2) deploy-trigger-watchdog.yml が存在すること
+if [ ! -f "$REPO_ROOT/.github/workflows/deploy-trigger-watchdog.yml" ]; then
+  echo "❌ T2026-0502-DEPLOY-WATCHDOG: .github/workflows/deploy-trigger-watchdog.yml not found" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-DEPLOY-WATCHDOG: deploy-trigger-watchdog.yml landing verified"
+
+# 3) lambda-freshness-monitor.yml が存在すること
+if [ ! -f "$REPO_ROOT/.github/workflows/lambda-freshness-monitor.yml" ]; then
+  echo "❌ T2026-0502-DEPLOY-WATCHDOG: .github/workflows/lambda-freshness-monitor.yml not found" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-DEPLOY-WATCHDOG: lambda-freshness-monitor.yml landing verified"
+
+# 4) tests/test_lambda_freshness.sh が存在すること
+if [ ! -f "$REPO_ROOT/tests/test_lambda_freshness.sh" ]; then
+  echo "❌ T2026-0502-DEPLOY-WATCHDOG: tests/test_lambda_freshness.sh not found" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-DEPLOY-WATCHDOG: tests/test_lambda_freshness.sh landing verified"
+
 exit 0

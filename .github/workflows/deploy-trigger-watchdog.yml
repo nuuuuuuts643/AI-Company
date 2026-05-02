@@ -1,0 +1,238 @@
+name: Deploy Trigger Watchdog (T2026-0502-DEPLOY-WATCHDOG)
+
+# T2026-0502-DEPLOY-WATCHDOG
+# 目的: PR merge 後 5min 以内に Lambda が更新されているか poll し、
+#       されていなければ auto-fallback (deploy-lambdas.yml を手動発火) + Slack 通知 + GitHub Issue 自動起票。
+#
+# 背景: PR #152/#154/#156/#162 が merge されたにも関わらず deploy-lambdas.yml の
+#       push event auto-trigger が機能せず本番反映ゼロが長期継続した。
+#       再発防止として「merge されたら自動確認」「駄目なら自動 fallback」を追加。
+#
+# トリガー:
+#   - pull_request: types: [closed] — PR merge 検知 (lambda paths にマッチするか判定)
+#   - push: branches: [main]        — push 直後 fallback (lambda paths filter)
+#   - schedule: cron '5 * * * *'    — 毎時 5 分 UTC (定期ヘルスチェック)
+
+on:
+  pull_request:
+    types: [closed]
+  push:
+    branches:
+      - main
+    paths:
+      - "projects/P003-news-timeline/lambda/**"
+      - "scripts/bluesky_agent.py"
+      - "scripts/_governance_check.py"
+  schedule:
+    - cron: '5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watchdog:
+    name: deploy trigger watchdog
+    runs-on: ubuntu-latest
+    # PR merge 時: lambda paths にマッチする変更があった PR merge のみ対象
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+
+      - name: AWS 認証
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      # PR merge 時: 変更ファイルが lambda paths にマッチするか確認
+      - name: PR 変更ファイルの lambda paths マッチ判定
+        id: path_check
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          CHANGED_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' 2>/dev/null || echo "")
+          echo "Changed files in PR #$PR_NUMBER:"
+          echo "$CHANGED_FILES"
+
+          # lambda paths パターンとマッチするか確認
+          LAMBDA_PATTERNS=(
+            "projects/P003-news-timeline/lambda/"
+            "scripts/bluesky_agent.py"
+            "scripts/_governance_check.py"
+          )
+
+          MATCHED=false
+          while IFS= read -r file; do
+            for pat in "${LAMBDA_PATTERNS[@]}"; do
+              if [[ "$file" == "$pat"* ]] || [[ "$file" == "$pat" ]]; then
+                echo "[MATCH] $file matches lambda pattern $pat"
+                MATCHED=true
+                break
+              fi
+            done
+          done <<< "$CHANGED_FILES"
+
+          echo "matched=$MATCHED" >> "$GITHUB_OUTPUT"
+          if [ "$MATCHED" = "false" ]; then
+            echo "[INFO] PR #$PR_NUMBER does not touch lambda paths; skipping watchdog."
+          fi
+
+      # PR merge で lambda path マッチなし → skip
+      - name: lambda path マッチなし → skip
+        if: github.event_name == 'pull_request' && steps.path_check.outputs.matched == 'false'
+        run: |
+          echo "PR does not touch lambda paths. No watchdog action needed."
+          exit 0
+
+      # Lambda freshness チェック (5min まで待つ)
+      - name: Lambda freshness poll (最大 5 分)
+        id: freshness_poll
+        run: |
+          echo "[INFO] Polling Lambda freshness (max 5 minutes)..."
+          THRESHOLD=1800  # 30min lag threshold
+
+          for attempt in 1 2 3; do
+            echo "[INFO] Attempt $attempt/3 (${attempt}m elapsed)"
+
+            COMMIT_TIME=$(git log -1 --format="%ct" -- projects/P003-news-timeline/lambda/ 2>/dev/null || echo "")
+            if [ -z "$COMMIT_TIME" ]; then
+              echo "[INFO] No lambda commits found; no action needed."
+              echo "status=ok" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            LAMBDA_LAST_MODIFIED=$(aws lambda get-function-configuration \
+              --function-name p003-processor \
+              --region ap-northeast-1 \
+              --query 'LastModified' \
+              --output text 2>&1)
+            AWS_EXIT=$?
+            if [ $AWS_EXIT -ne 0 ]; then
+              echo "[ERROR] aws lambda get-function-configuration failed: $LAMBDA_LAST_MODIFIED" >&2
+              echo "status=aws_error" >> "$GITHUB_OUTPUT"
+              exit 2
+            fi
+
+            LAMBDA_TS=$(python3 -c "
+          from datetime import datetime
+          s = '$LAMBDA_LAST_MODIFIED'
+          for fmt in ('%Y-%m-%dT%H:%M:%S.%f%z', '%Y-%m-%dT%H:%M:%S%z'):
+              try:
+                  dt = datetime.strptime(s, fmt)
+                  print(int(dt.timestamp()))
+                  break
+          else:
+              print(-1)
+          " 2>/dev/null)
+
+            DIFF_SEC=$(( LAMBDA_TS - COMMIT_TIME ))
+            DIFF_MIN=$(( DIFF_SEC / 60 ))
+            echo "[INFO] Deploy lag: ${DIFF_MIN}min (threshold=30min)"
+
+            if [ $DIFF_SEC -ge $THRESHOLD ] || [ $DIFF_SEC -lt $(( -THRESHOLD )) ]; then
+              if [ $attempt -lt 3 ]; then
+                echo "[WAIT] Lag detected (${DIFF_MIN}min), waiting 100s before retry..."
+                sleep 100
+              else
+                echo "[FAIL] Lag still detected after 3 attempts: ${DIFF_MIN}min"
+                echo "status=lag_detected" >> "$GITHUB_OUTPUT"
+                echo "diff_min=$DIFF_MIN" >> "$GITHUB_OUTPUT"
+                echo "commit_time=$COMMIT_TIME" >> "$GITHUB_OUTPUT"
+                echo "lambda_ts=$LAMBDA_TS" >> "$GITHUB_OUTPUT"
+                exit 1
+              fi
+            else
+              echo "[OK] Lambda freshness OK (lag=${DIFF_MIN}min)"
+              echo "status=ok" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+
+      # Auto-fallback: deploy-lambdas.yml を手動発火
+      - name: "Auto-fallback: deploy-lambdas.yml を発火"
+        if: failure() && steps.freshness_poll.outputs.status == 'lag_detected'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "[ACTION] Triggering deploy-lambdas.yml as fallback..."
+          gh workflow run deploy-lambdas.yml --ref main
+          TRIGGER_EXIT=$?
+          if [ $TRIGGER_EXIT -ne 0 ]; then
+            echo "[ERROR] Failed to trigger deploy-lambdas.yml (exit=$TRIGGER_EXIT)" >&2
+          else
+            echo "[OK] deploy-lambdas.yml triggered successfully"
+          fi
+          exit $TRIGGER_EXIT
+
+      # Slack 通知
+      - name: Slack 通知 (deploy lag 検知)
+        if: failure() && steps.freshness_poll.outputs.status == 'lag_detected'
+        env:
+          SLACK_WEBHOOK: ${{ secrets.FAILURE_SLACK_WEBHOOK }}
+        run: |
+          TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S UTC')
+          DIFF_MIN="${{ steps.freshness_poll.outputs.diff_min }}"
+          TRIGGER="${{ github.event_name }}"
+          curl -fsS -X POST "$SLACK_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"text\": \"🚨 *Deploy trigger 故障検知 + 自動 fallback 発火* ($TIMESTAMP)\nfunction: p003-processor\nlag: ${DIFF_MIN}min\ntrigger: $TRIGGER\ndeploy-lambdas.yml を自動発火しました。\n<https://github.com/${{ github.repository }}/actions/workflows/deploy-lambdas.yml|deploy-lambdas.yml>\"
+            }"
+
+      # GitHub Issue 自動起票
+      - name: GitHub Issue 自動起票 (deploy-trigger-broken)
+        if: failure() && steps.freshness_poll.outputs.status == 'lag_detected'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S UTC')
+          DIFF_MIN="${{ steps.freshness_poll.outputs.diff_min }}"
+          TRIGGER="${{ github.event_name }}"
+
+          # 既に open の deploy-trigger-broken issue があれば重複起票しない
+          EXISTING=$(gh issue list \
+            --label "deploy-trigger-broken" \
+            --state open \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING" ]; then
+            echo "[SKIP] deploy-trigger-broken issue #$EXISTING already open; skipping duplicate."
+            exit 0
+          fi
+
+          gh issue create \
+            --title "🚨 [auto] Lambda deploy trigger 故障検知 ($TIMESTAMP)" \
+            --label "deploy-trigger-broken,auto-created" \
+            --body "## Deploy Trigger 故障を自動検知しました
+
+          **検知時刻**: $TIMESTAMP
+          **trigger**: $TRIGGER
+          **deploy lag**: ${DIFF_MIN}min (threshold: 30min)
+          **function**: p003-processor
+
+          ### 自動対処
+          - deploy-lambdas.yml を \`gh workflow run\` で自動発火しました
+
+          ### 確認事項
+          - [ ] deploy-lambdas.yml の push event trigger が正常に機能しているか確認
+          - [ ] 自動発火後のデプロイが成功しているか確認
+          - [ ] 根本原因を調査 (paths filter / branch filter / event mapping)
+
+          ### 関連
+          - [deploy-trigger-watchdog.yml](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - Ticket: T2026-0502-DEPLOY-WATCHDOG / T2026-0502-PATH-FILTER-AUDIT
+          "
