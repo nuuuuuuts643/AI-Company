@@ -442,7 +442,7 @@ function renderBranchCard(t, showStatus, idx, totalCount) {
     : '';
 
   return `
-    <a href="topics/${esc(t.topicId)}.html" class="sm-branch-card ${statusClass(status)}">
+    <a href="topic.html?id=${esc(t.topicId)}" class="sm-branch-card ${statusClass(status)}">
       <div class="sm-branch-card-title">${ordinalHtml}${stepHtml}${esc(title)}</div>
       ${summaryClamp}
       ${entityHtml ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">${entityHtml}</div>` : ''}
@@ -572,7 +572,7 @@ function renderStorymap(parent, allTopics) {
       const tTitle = t.generatedTitle || t.title || '';
       const tCnt   = parseInt(t.articleCount || 0, 10);
       const tPhase = t.storyPhase ? (_PL[t.storyPhase] || t.storyPhase) : '';
-      return `<a href="topics/${esc(t.topicId)}.html" class="sm-next-card">
+      return `<a href="topic.html?id=${esc(t.topicId)}" class="sm-next-card">
         <div class="sm-next-card-title">${esc(tTitle.length > 48 ? tTitle.slice(0,48)+'…' : tTitle)}</div>
         <div class="sm-next-card-meta">📄 ${tCnt}件${tPhase ? ' · '+esc(tPhase) : ''}</div>
       </a>`;
@@ -604,7 +604,7 @@ function renderStorymap(parent, allTopics) {
     ${breadcrumbHtml}
 
     <div class="sm-hero">
-      <a href="topics/${esc(parent.topicId)}.html" class="sm-back">← トピック詳細</a>
+      <a href="topic.html?id=${esc(parent.topicId)}" class="sm-back">← トピック詳細</a>
       ${genreBadge}
       <h2 class="sm-hero-title">${esc(parentTitle)}</h2>
       ${summaryHtml}
@@ -703,7 +703,7 @@ function renderSplitCandidates(topics) {
         const cnt    = parseInt(t.articleCount || 0, 10);
         const reasons = (t.mismergeReasons || []).join(', ');
         const isReview = t.statusLabel === '精査中';
-        return `<a href="topics/${esc(t.topicId)}.html" class="sm-branch-card">
+        return `<a href="topic.html?id=${esc(t.topicId)}" class="sm-branch-card">
           <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
             <span style="font-size:.6rem;font-weight:700;color:#b45309;background:rgba(251,191,36,.15);padding:1px 8px;border-radius:999px;">⚠️ 混入疑い</span>
             ${isReview ? `<span style="font-size:.6rem;font-weight:700;color:#6b7280;background:rgba(107,114,128,.12);padding:1px 8px;border-radius:999px;">精査中</span>` : ''}

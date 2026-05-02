@@ -555,7 +555,7 @@ async function loadProfile() {
       listEl.innerHTML = comments.map(c => {
         const info = topicMap[c.topicId] || {};
         const topicLabel = info.title || 'このトピックを見る';
-        const topicUrl   = `topics/${esc(c.topicId)}.html`;
+        const topicUrl   = `topic.html?id=${esc(c.topicId)}`;
         const likes = Number(c.likeCount) || 0;
         const quoted = c.quotedHandle ? `
           <div class="pc-quoted">
@@ -584,7 +584,7 @@ async function loadProfile() {
         const info = topicMap[tid] || {};
         const title = info.title || 'トピックを見る';
         const cnt = topicCounts[tid];
-        return `<a class="pt-card" href="topics/${esc(tid)}.html">
+        return `<a class="pt-card" href="topic.html?id=${esc(tid)}">
           <span class="pt-icon">📰</span>
           <div class="pt-body">
             <div class="pt-title">${esc(title)}</div>
@@ -635,7 +635,7 @@ async function loadProfile() {
       <div class="pc-card">
         <div style="font-size:.72rem;font-weight:700;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">直近のコメント</div>
         ${recentComment ? `
-          <a class="pc-topic-link" href="topics/${esc(recentComment.topicId)}.html">📰 ${esc((topicMap[recentComment.topicId]||{}).title||'トピックを見る')}</a>
+          <a class="pc-topic-link" href="topic.html?id=${esc(recentComment.topicId)}">📰 ${esc((topicMap[recentComment.topicId]||{}).title||'トピックを見る')}</a>
           <div class="pc-body" style="font-size:.88rem;">${esc(recentComment.body)}</div>
           <div class="pc-meta"><span>${fmtDate(recentComment.createdAt)}</span></div>
         ` : ''}

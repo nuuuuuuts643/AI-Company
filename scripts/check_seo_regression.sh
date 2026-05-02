@@ -2,26 +2,26 @@
 # scripts/check_seo_regression.sh
 #
 # T2026-0502-AQ (2026-05-02): 主要ページに noindex が入る変更を CI で物理 reject
-# T2026-0502-BI (2026-05-02): canonical 二重URL / JSON-LD 妥当性 / dynamic 内部リンク
-#                              の構造的 SEO regression を物理 reject に拡張
+# T2026-0502-BI (2026-05-02): canonical 二重URL / JSON-LD 妥当性 を物理 reject に拡張
+# T2026-0502-BI-REVERT (2026-05-02): Rule 2 (dynamic 内部リンク禁止) は UX 破壊だったため削除。
+#                                     ユーザー向け SPA topic.html?id=X は復活させる。
 #
 # 背景:
 #   - AQ: T2026-0502-ADSENSE-FIX (4/28) で frontend/topic.html / catchup.html に
 #         noindex を入れたところ Cloudflare PV 260→20 (1/10) に急減
 #         (docs/lessons-learned.md T2026-0502-AQ-NOINDEX-REGRESSION)
 #   - BI: 静的SEO HTML (topics/X.html) と動的SPA (topic.html?id=X) が両方 indexable
-#         で canonical が破綻していた。内部リンクは全て dynamic を指し、初期 canonical
-#         は "topic.html" (id 無し) の単独URL。Google が全 ID を topic.html に統合
-#         する重複URLとして処理 → ページランク分散 + indexing 不安定
-#         (docs/lessons-learned.md T2026-0502-BI-SEO-CANONICAL-DUPLICATE)
+#         で canonical が破綻していた。当初は内部リンクを静的に統一する方針だったが、
+#         静的ページは Googlebot 向け SEO 専用 (薄い AI まとめ) で、ユーザー導線を
+#         そこに送ると UX 破壊 (コメント / お気に入り / 関連トピック が消える)。
+#         REVERT 後は内部リンクを動的SPA (topic.html?id=X) に戻し、canonical 統一は
+#         別経路 (動的ページ noindex / JS canonical 書換) で再設計予定 (T2026-0502-BI-REDESIGN)。
 #
 # このスクリプトが reject するパターン:
 #   1. INDEXABLE_PAGES に noindex が入る (AQ)
-#   2. frontend/ の JS/HTML に topic.html?id= 形式の dynamic 内部リンクが残る (BI)
-#      → 例外: admin.html / legacy.html (どちらも noindex 済 or 開発用)
-#   3. proc_storage.py の生成 JSON-LD で @type が "Article" (BI)
+#   2. proc_storage.py の生成 JSON-LD で @type が "Article" (BI Rule 3)
 #      → "NewsArticle" 必須 (news-sitemap と整合)
-#   4. proc_storage.py の生成 JSON-LD で dateModified が date-only "YYYY-MM-DD" (BI)
+#   3. proc_storage.py の生成 JSON-LD で dateModified が date-only "YYYY-MM-DD" (BI Rule 4)
 #      → 完全 ISO 8601 必須 (Google が "modified < published" と誤読する)
 
 set -euo pipefail
@@ -52,27 +52,12 @@ for page in "${INDEXABLE_PAGES[@]}"; do
 done
 
 # ─────────────────────────────────────────────
-# Rule 2 (BI): dynamic 内部リンク禁止
-#   admin.html / legacy.html / detail.js が _自分自身_ を更新するための
-#   document.title 等は対象外 (URL リンクのみ)。
+# (削除) Rule 2 (BI): dynamic 内部リンク禁止
+#   T2026-0502-BI-REVERT で削除。静的 SEO ページ (topics/X.html) はあくまで
+#   Googlebot 向け一次ページであり、ユーザー導線を強制的にそこに送ると UX が
+#   破壊される (薄い AI まとめページ + AdSense + 関連記事のみ・コメント/お気に入り/
+#   関連トピック/ストーリー分岐すべて消える)。canonical 統一は別経路で再設計する。
 # ─────────────────────────────────────────────
-DYNAMIC_LINK_SCAN_DIRS=(
-  "projects/P003-news-timeline/frontend"
-)
-DYNAMIC_LINK_EXCLUDE_RE='^(.*/(admin|legacy)\.html|.*/node_modules/.*)$'
-
-violations_bi_link=()
-while IFS= read -r line; do
-  file="${line%%:*}"
-  if [[ "$file" =~ $DYNAMIC_LINK_EXCLUDE_RE ]]; then continue; fi
-  violations_bi_link+=("$line")
-done < <(
-  for d in "${DYNAMIC_LINK_SCAN_DIRS[@]}"; do
-    [[ -d "$d" ]] || continue
-    grep -rnE 'href[[:space:]]*=[[:space:]]*[`"'"'"']?[^`"'"'"' ]*topic\.html\?id=' "$d" \
-      --include="*.html" --include="*.js" 2>/dev/null || true
-  done
-)
 
 # ─────────────────────────────────────────────
 # Rule 3 (BI): proc_storage.py の生成 JSON-LD は NewsArticle
@@ -113,7 +98,7 @@ fi
 # ─────────────────────────────────────────────
 # 集計 & 出力
 # ─────────────────────────────────────────────
-total_violations=$(( ${#violations_aq[@]} + ${#violations_bi_link[@]} + ${#violations_bi_schema[@]} + ${#violations_bi_date[@]} ))
+total_violations=$(( ${#violations_aq[@]} + ${#violations_bi_schema[@]} + ${#violations_bi_date[@]} ))
 
 if (( total_violations > 0 )); then
   echo "[check_seo_regression] ❌ ERROR: SEO regression を検出しました" >&2
@@ -123,14 +108,6 @@ if (( total_violations > 0 )); then
     echo "── Rule 1 (T2026-0502-AQ): 主要ページに noindex" >&2
     for v in "${violations_aq[@]}"; do echo "  - $v" >&2; done
     echo "  ※ AdSense 対策で noindex を入れる前に lessons-learned.md T2026-0502-AQ を読むこと" >&2
-    echo "" >&2
-  fi
-
-  if (( ${#violations_bi_link[@]} > 0 )); then
-    echo "── Rule 2 (T2026-0502-BI): dynamic 内部リンク混入 (topic.html?id=)" >&2
-    for v in "${violations_bi_link[@]}"; do echo "  - $v" >&2; done
-    echo "  ※ 静的 URL に統一: topics/\${tid}.html を使う" >&2
-    echo "  ※ 多重防御: cf-redirect-function.js が 301 で吸収するが、内部リンクは静的を一次とする" >&2
     echo "" >&2
   fi
 
@@ -153,5 +130,5 @@ if (( total_violations > 0 )); then
   exit 1
 fi
 
-echo "[check_seo_regression] ✅ OK: noindex / dynamic-link / @type=NewsArticle / dateModified=ISO8601 すべて健全"
+echo "[check_seo_regression] ✅ OK: noindex / @type=NewsArticle / dateModified=ISO8601 すべて健全"
 exit 0
