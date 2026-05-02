@@ -162,9 +162,15 @@ aws iam put-role-policy \
        "Resource":"*"},
       {"Sid":"ProcessorDLQ","Effect":"Allow",
        "Action":"sqs:SendMessage",
-       "Resource":"arn:aws:sqs:ap-northeast-1:'"${ACCOUNT_ID}"':p003-processor-dlq"}
+       "Resource":"arn:aws:sqs:ap-northeast-1:'"${ACCOUNT_ID}"':p003-processor-dlq"},
+      {"Sid":"SecretsManagerRead","Effect":"Allow",
+       "Action":["secretsmanager:GetSecretValue"],
+       "Resource":[
+         "arn:aws:secretsmanager:ap-northeast-1:'"${ACCOUNT_ID}"':secret:flotopic/anthropic-api-key-*",
+         "arn:aws:secretsmanager:ap-northeast-1:'"${ACCOUNT_ID}"':secret:flotopic/slack-webhook-*"
+       ]}
     ]
-  }' 2>/dev/null && echo "  -> 最小権限ポリシー適用済み" || true
+  }' 2>/dev/null && echo "  -> 最小権限ポリシー適用済み (SEC9 Secrets Manager 含む)" || true
 
 # FullAccessが残っていたら剥がす（移行期対応）
 aws iam detach-role-policy --role-name "$ROLE" \
