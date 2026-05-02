@@ -123,3 +123,14 @@
 | ~~T2026-0502-S~~ | ~~🟡 中~~ | ~~**flotopic-bluesky governance check が起動以来 0 回成功**~~ → **2026-05-02 10:32 JST 解決 (Cowork が AWS API 直接実行)** — DynamoDB テーブル `ai-company-agent-status` を `aws dynamodb create-table --billing-mode PAY_PER_REQUEST --partition-key agent_name` で作成 (TableArn: `arn:aws:dynamodb:ap-northeast-1:946554699567:table/ai-company-agent-status`)。IAM 権限は `p003-lambda-role` の `flotopic-least-privilege` policy に該当テーブルの `GetItem/PutItem/...` が**既に付与済み**を確認 → IAM 修正不要。Verified-Effect: 次回 flotopic-bluesky 起動 (rate(30 min)) で `[governance] ガバナンスチェック失敗` ログが消え `[governance] xxx: ステータス未登録 → active扱いで続行` に切り替わる想定。観察は `p003-haiku` (毎朝 7:08 JST) に委ねて即 close。 | (実装完了) | 2026-05-02 |
 
 </details>
+
+
+### 自動 triage: 2026-05-02 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T2026-0502-C~~ | ~~🟡 中~~ | ~~**Bluesky 投稿系の恒久リファクタ** — T2026-0502-L で恒久対処化: debut を完全廃止せず `BLUESKY_POSTING_CONFIG` 集約 + `_check_rate_limit()` 単一エントリ + 24h cap 二重ガード + テスト14件で再発防止。EventBridge 構成は維持（rate 30min cron + 単発 morning cron）、debut は config で `enabled=False` 維持しつつ再有効化路を残した。~~ | ~~`scripts/bluesky_agent.py`, `projects/P003-news-timeline/tests/`, `docs/lessons-learned.md`~~ | ~~2026-05-02~~ |
+| ~~T2026-0502-I~~ | ~~🟢 低 (Code セッション dispatch 必要)~~ | ~~**API Gateway 廃止 route `POST /track` 削除**~~ → **2026-05-02 10:53 JST 完了 (Code セッション)** — `aws apigatewayv2 delete-route --route-id t8bq1kq` + `delete-integration --integration-id c8yyf01` 実行。`get-routes` で `POST /track` が `[]` 確認 (消去実証)。`deploy-lambdas.yml` および repo 全体に該当 route の参照なし確認済。Verified-Effect: 11:52 JST の `t2026-0502-t-5xx-analysis` schedule task が実行する access logs 解析で「routeKey=POST /track の 5xx は 0 件」が確認できる想定 (削除前 baseline は 5xx 率 17.6% (5/2 朝) のうち未推定割合)。 | (実装完了) | 2026-05-02 |
+| ~~T2026-0502-L~~ | ~~🟡 中~~ | ~~**Bluesky 投稿頻度 恒久対処（debut 設計欠陥修正・SSoT 化）**~~ → **2026-05-02 11:00〜11:35 JST 完了 (PR #150 + #155 merged)** — 5/1 debut 48件/日投稿事故 → `BLUESKY_POSTING_CONFIG` SSoT 化 + `_check_rate_limit()` 単一エントリ + 3重ガード (enabled/cooldown/24h cap) + テスト14件 + lessons-learned 追記。PO audit で発見した dead config (weekly/monthly entry・legacy alias) を PR #155 で削除。post_debut の TTL クリーンアップを rate-limit より先に実行する regression fix を当 PR で同梱。S3 `bluesky/pending/` 累積 85件のマーカーを `aws s3 rm --recursive` で整理済。Verified-Effect: 5/2 01:22 UTC 応急処置デプロイ後 56分で投稿1件のみ・実機で停止確認済 / 2026-05-03 朝に schedule task `p003-haiku` が日次合計 ≤4件 を観測予定。**Phase-Impact: 1 運用安定化** | `scripts/bluesky_agent.py`, `projects/P003-news-timeline/tests/test_bluesky_rate_limit.py`, `docs/lessons-learned.md`, S3 cleanup | 2026-05-02 |
+
+</details>
