@@ -12,6 +12,9 @@
 | [T2026-0502-COST-A1-CODE.md](T2026-0502-COST-A1-CODE.md) | 未使用 DynamoDB 4 個整理 (deploy.sh + 実 delete) | Sonnet | 30 分 | 起動待ち |
 | [T2026-0502-COST-D1-INVESTIGATE.md](T2026-0502-COST-D1-INVESTIGATE.md) | DynamoDB Read $4.02/月 の元コード特定 (調査のみ) | Sonnet | 1〜2 時間 | 起動待ち |
 | [T2026-0502-BC-CRON-FIX.md](T2026-0502-BC-CRON-FIX.md) | judge_prediction 専用 22:00 JST cron 追加 + コメント乖離修正 | Sonnet | 30〜60 分 | 起動待ち |
+| [T2026-0502-WORKFLOW-DEP-CLEANUP-FULL.md](T2026-0502-WORKFLOW-DEP-CLEANUP-FULL.md) | zz_test_missing_ref.yml を git rm で完全除去 (PR #312 auto-merge 事故残骸) | Haiku | 10 分 | 起動待ち |
+| [T2026-0502-AUTO-MERGE-GUARDS.md](T2026-0502-AUTO-MERGE-GUARDS.md) | auto-merge.yml に title `[DO NOT MERGE]` skip + branch `test/` skip 追加 | Sonnet | 1 時間 | 起動待ち |
+| [T2026-0502-CI-FAILURES-INVESTIGATE.md](T2026-0502-CI-FAILURES-INVESTIGATE.md) | 横展開 landing 検証 / 思想ドリフト 2 件 main 持続 failure 調査 (PR #316 由来) | Sonnet | 1 時間 | 起動待ち |
 
 ---
 
