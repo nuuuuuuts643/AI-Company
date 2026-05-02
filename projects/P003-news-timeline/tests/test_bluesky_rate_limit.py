@@ -42,12 +42,10 @@ def _import_agent():
 class TestBlueskyPostingConfig:
     """設定ブロックの不変条件をテスト (リグレッション防止)."""
 
-    def test_config_has_all_modes(self):
-        """全モードのエントリが存在する."""
+    def test_config_has_all_active_modes(self):
+        """_check_rate_limit を呼ぶ全モード (daily/morning/debut) のエントリがある."""
         agent = _import_agent()
-        assert set(agent.BLUESKY_POSTING_CONFIG.keys()) >= {
-            "daily", "morning", "debut", "weekly", "monthly"
-        }
+        assert set(agent.BLUESKY_POSTING_CONFIG.keys()) >= {"daily", "morning", "debut"}
 
     def test_config_each_mode_has_required_keys(self):
         """各モードに enabled / cooldown_hours / max_per_24h がある."""
@@ -70,11 +68,15 @@ class TestBlueskyPostingConfig:
             f"debut={debut_cap} 合計{total}). PO目標 4件/日"
         )
 
-    def test_legacy_aliases_match_config(self):
-        """旧コード互換 alias (DAILY_COOLDOWN_HOURS 等) が config と一致する."""
+    def test_only_active_modes_in_config(self):
+        """CONFIG には実際に _check_rate_limit を呼ぶモードしか入れない (dead config 禁止)."""
         agent = _import_agent()
-        assert agent.DAILY_COOLDOWN_HOURS == agent.BLUESKY_POSTING_CONFIG["daily"]["cooldown_hours"]
-        assert agent.MORNING_COOLDOWN_HOURS == agent.BLUESKY_POSTING_CONFIG["morning"]["cooldown_hours"]
+        # _check_rate_limit を呼ぶのは post_daily / post_morning / post_debut のみ
+        active = {"daily", "morning", "debut"}
+        assert set(agent.BLUESKY_POSTING_CONFIG.keys()) == active, (
+            f"CONFIG に未使用エントリがある (登録 {set(agent.BLUESKY_POSTING_CONFIG.keys())} / "
+            f"実際使用 {active})"
+        )
 
 
 class TestCheckRateLimitEnabled:
@@ -192,3 +194,76 @@ class TestRegressionDebut48PerDay:
                 assert "上限" in reason or "24h" in reason
         finally:
             agent.BLUESKY_POSTING_CONFIG["debut"] = original
+
+
+class TestPostingTemplates:
+    """T2026-0502-L: 投稿テンプレート (BLUESKY_POSTING_TEMPLATES + build_post_text) の SSoT 化検証."""
+
+    def test_templates_have_all_active_modes(self):
+        """テンプレートも CONFIG と同じ 3 モード分揃ってる."""
+        agent = _import_agent()
+        assert set(agent.BLUESKY_POSTING_TEMPLATES.keys()) == {"daily", "morning", "debut"}
+
+    def test_each_template_has_default_hook_and_footer(self):
+        """各モードに hooks._default と footer がある (フォールバック保証)."""
+        agent = _import_agent()
+        for mode, tmpl in agent.BLUESKY_POSTING_TEMPLATES.items():
+            assert "hooks" in tmpl, f"{mode} に hooks がない"
+            assert "_default" in tmpl["hooks"], f"{mode} の hooks に _default フォールバックがない"
+            assert "footer" in tmpl, f"{mode} に footer がない"
+
+    def test_build_post_text_daily_uses_storyphase_hook(self):
+        """post_daily で storyPhase に応じたフックが選ばれる."""
+        agent = _import_agent()
+        topic = {
+            "generatedTitle": "テストタイトル",
+            "generatedSummary": "テスト要約",
+            "articleCount": 5,
+            "storyPhase": "発端",
+            "genre": "テクノロジー",
+        }
+        out = agent.build_post_text("daily", topic)
+        assert "📰 速報" in out, "発端の hook が反映されていない"
+        assert "テストタイトル" in out
+        assert "テスト要約" in out
+        assert "5件の記事" in out
+        assert "#Flotopic" in out
+
+    def test_build_post_text_daily_falls_back_to_default_hook(self):
+        """storyPhase が未定義 / 空 / 未対応値なら _default にフォールバック."""
+        agent = _import_agent()
+        topic = {
+            "generatedTitle": "テスト", "articleCount": 3,
+            "storyPhase": "", "genre": "総合",
+        }
+        out = agent.build_post_text("daily", topic)
+        assert "🔥 急上昇" in out, "storyPhase 空のとき _default が選ばれていない"
+
+    def test_build_post_text_morning_uses_morning_template(self):
+        """morning モードは morning テンプレが使われる (#朝のニュース 等)."""
+        agent = _import_agent()
+        topic = {"generatedTitle": "朝", "articleCount": 1, "genre": "総合"}
+        out = agent.build_post_text("morning", topic)
+        assert "🌅 今朝の動き" in out
+        assert "#朝のニュース" in out
+
+    def test_build_post_text_debut_uses_debut_template(self):
+        """debut モードは debut テンプレが使われる (🆕)."""
+        agent = _import_agent()
+        topic = {"generatedTitle": "新", "articleCount": 4, "genre": "総合"}
+        out = agent.build_post_text("debut", topic)
+        assert "🆕 新トピック登場" in out
+        assert "初回スナップショット" in out
+
+    def test_build_post_text_truncates_at_bsky_max(self):
+        """組み立て結果は BSKY_MAX_CHARS (300) 以内に必ず収まる."""
+        agent = _import_agent()
+        topic = {
+            "generatedTitle": "あ" * 100,    # 故意に長い
+            "generatedSummary": "い" * 200,
+            "articleCount": 99,
+            "storyPhase": "発端",
+            "genre": "総合",
+        }
+        out = agent.build_post_text("daily", topic)
+        assert len(out) <= agent.BSKY_MAX_CHARS, f"BSKY_MAX_CHARS={agent.BSKY_MAX_CHARS} 超過 (len={len(out)})"

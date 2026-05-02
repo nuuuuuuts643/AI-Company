@@ -686,6 +686,57 @@ function renderStorymapList(topics) {
     </div>`;
 }
 
+function renderSplitCandidates(topics) {
+  const root = document.getElementById('sm-root');
+  if (!root) return;
+  document.title = '分岐候補リスト | Flotopic';
+
+  const candidates = topics
+    .filter(t => t.suspectedMismerge || t.statusLabel === '精査中')
+    .filter(t => t.lifecycleStatus !== 'archived')
+    .sort((a, b) => Number(b.score || b.velocityScore || 0) - Number(a.score || a.velocityScore || 0));
+
+  const cardsHtml = candidates.length === 0
+    ? `<p style="color:#94a3b8;font-size:.85rem;text-align:center;padding:20px 0;">現在、分岐候補として検出されているトピックはありません。</p>`
+    : candidates.map(t => {
+        const title  = t.generatedTitle || t.title || '';
+        const cnt    = parseInt(t.articleCount || 0, 10);
+        const reasons = (t.mismergeReasons || []).join(', ');
+        const isReview = t.statusLabel === '精査中';
+        return `<a href="topic.html?id=${esc(t.topicId)}" class="sm-branch-card">
+          <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
+            <span style="font-size:.6rem;font-weight:700;color:#b45309;background:rgba(251,191,36,.15);padding:1px 8px;border-radius:999px;">⚠️ 混入疑い</span>
+            ${isReview ? `<span style="font-size:.6rem;font-weight:700;color:#6b7280;background:rgba(107,114,128,.12);padding:1px 8px;border-radius:999px;">精査中</span>` : ''}
+          </div>
+          <div class="sm-branch-card-title">${esc(title)}</div>
+          <div class="sm-branch-card-foot">
+            <span class="sm-branch-card-count">📄 ${cnt}件</span>
+            ${reasons ? `<span style="font-size:.7rem;color:#9ca3af;">${esc(reasons)}</span>` : ''}
+          </div>
+        </a>`;
+      }).join('');
+
+  root.innerHTML = `
+    <div class="sm-breadcrumb">
+      <a href="index.html">🏠 トップ</a>
+      <span class="sep">›</span>
+      <a href="storymap.html">ストーリーマップ</a>
+      <span class="sep">›</span>
+      <span class="current">分岐候補リスト</span>
+    </div>
+    <div style="margin-bottom:16px;padding:12px 16px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35);border-radius:12px;font-size:.82rem;color:#92400e;line-height:1.6;">
+      ⚠️ 以下のトピックは、時間的ギャップや記事の話題分散から<strong>別話題の混入</strong>が疑われています。<br>
+      各トピックを確認し、必要であれば新しいトピックに分岐させてください。
+    </div>
+    <div class="sm-section">
+      <div class="sm-section-header">
+        <span class="sm-section-title">🔍 分岐候補</span>
+        <span class="sm-section-count">${candidates.length}件</span>
+      </div>
+      <div class="sm-branch-grid">${cardsHtml}</div>
+    </div>`;
+}
+
 // ===== Main =====
 document.addEventListener('DOMContentLoaded', async () => {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
@@ -693,6 +744,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const params  = new URLSearchParams(location.search);
   const topicId = params.get('id');
+  const showSplit = params.get('split') === '1';
 
   try {
     const r    = await fetch(apiUrl('topics'));
@@ -700,6 +752,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const data = await r.json();
     const topics = data.topics || [];
 
+    if (showSplit) { renderSplitCandidates(topics); return; }
     if (!topicId) { renderStorymapList(topics); return; }
 
     const parent = topics.find(t => t.topicId === topicId);

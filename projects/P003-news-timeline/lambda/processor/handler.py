@@ -39,6 +39,28 @@ _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTi
 # PRED# レコードを topics.json から除外するためのプレフィックスチェックは不要
 # (get_all_topics_for_s3 が SK='META' のみ取得するため自動除外)
 
+# T2026-0502-MU: summaryMode 昇格ヘルパ。proc_ai.py:723-728 と閾値を一致させる。
+_MODE_RANK = {'minimal': 0, 'standard': 1, 'full': 2}
+
+
+def _expected_mode(cnt: int) -> str:
+    """記事数から期待される summaryMode を返す (proc_ai.py の分岐と完全一致)。"""
+    if cnt <= 2:
+        return 'minimal'
+    if cnt <= 5:
+        return 'standard'
+    return 'full'
+
+
+def _is_mode_upgrade(current: str, expected: str) -> bool:
+    """current → expected がダウングレードでなく昇格である場合 True。
+    full→standard のようなダウングレードは抑制 (記事削除時に再 AI 呼びたくない)。
+    unknown mode は常に False (呼び元で bool(_current_mode) ガード推奨)。
+    """
+    if current not in _MODE_RANK or expected not in _MODE_RANK:
+        return False
+    return _MODE_RANK[expected] > _MODE_RANK[current]
+
 
 def lambda_handler(event, context):
     start_time = time.time()
@@ -323,8 +345,17 @@ def lambda_handler(event, context):
             (bool(topic.get('statusLabel')) or _is_minimal),   # T2026-0428-J/E: standard/full のみ必須
             (bool(topic.get('watchPoints'))  or _is_minimal),
         )
+        # T2026-0502-MU: current summaryMode が cnt に見合った mode より低い場合、昇格が必要。
+        # 例: cnt=6 (→full 期待) で summaryMode='standard' → full フィールドが一度も生成されない。
+        _current_mode = topic.get('summaryMode') or ''
+        _mode_upgrade_needed = (
+            bool(_current_mode)
+            and topic.get('aiGenerated')
+            and _is_mode_upgrade(_current_mode, _expected_mode(cnt))
+        )
         needs_story = (cnt >= MIN_ARTICLES_FOR_SUMMARY
-                       and not (topic.get('aiGenerated') and all(_required_full_fields)))
+                       and (not (topic.get('aiGenerated') and all(_required_full_fields))
+                            or _mode_upgrade_needed))
         # T2026-0428-AH: storyPhase=='発端' かつ articleCount>=3 は再生成対象に含める。
         # proc_storage.py get_pending_topics 側の例外と対で機能させ、handler.py 側の skip
         # ロジックでも同じ topic を弾かないようにする (T219 プロンプト強化済の効果反映用)。
@@ -348,10 +379,10 @@ def lambda_handler(event, context):
                 _hours_since_ai = (datetime.now(timezone.utc) - _ai_at).total_seconds() / 3600
                 _no_new_articles = (_last_upd is None) or (_last_upd <= _ai_at)
                 _kp_inadequate = _is_keypoint_inadequate(topic.get('keyPoint'))
-                if _hours_since_ai < 48 and _no_new_articles and not _kp_inadequate:
+                if _hours_since_ai < 48 and _no_new_articles and not _kp_inadequate and not _mode_upgrade_needed:
                     needs_story = False
                     skipped += 1
-                    print(f'  [skip] {tid[:8]}... aiGen後{_hours_since_ai:.1f}h・新記事なし・keyPoint充足 → 再生成 skip')
+                    print(f'  [skip] {tid[:8]}... aiGen後{_hours_since_ai:.1f}h・新記事なし・keyPoint充足・mode昇格不要 → 再生成 skip')
                     continue
             except Exception as _e:
                 pass  # パース失敗時は通常処理

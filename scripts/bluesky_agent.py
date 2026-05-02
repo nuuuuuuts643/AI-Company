@@ -103,6 +103,9 @@ BSKY_MAX_CHARS = 300
 #   morning 1件 (JST 08:00 cron 単発)
 #   debut   0件 (現在 enabled=False。再有効化時は max_per_24h=2 で最大2件/日)
 #   合計    最大 4件/日 (debut 有効化時 6件/日)
+#
+# weekly/monthly はここに含めない (cron が単発・実質キュー外。post_weekly/
+# post_monthly は CONFIG を参照しないので追加しても dead config になるだけ)。
 # ════════════════════════════════════════════════════════════════════════════
 BLUESKY_POSTING_CONFIG = {
     'daily': {
@@ -123,23 +126,104 @@ BLUESKY_POSTING_CONFIG = {
         'cooldown_hours': 12,
         'max_per_24h':    2,
     },
-    'weekly': {
-        'enabled':        True,
-        'cooldown_hours': 24 * 6,   # 月曜 cron 単発、念のため 6 日空ける
-        'max_per_24h':    1,
+}
+
+# ════════════════════════════════════════════════════════════════════════════
+# ⭐ Bluesky 投稿内容テンプレート（単一の真実の源 / Single Source of Truth）⭐
+# ════════════════════════════════════════════════════════════════════════════
+# T2026-0502-L: 投稿文言を変えたいときは **このブロックだけ** 編集すれば済むよう
+#   全モードのフック・絵文字・フッターをここに集約。実体は build_post_text()
+#   ヘルパーが組み立てる。各 post_xxx() 関数は build_post_text(mode, topic) を
+#   呼ぶだけで、独自の f-string を持たない。
+#
+# 将来 X (Twitter) など他プラットフォームに展開する際は、同じ shape の辞書を
+# x_agent.py に X_POSTING_TEMPLATES として複製し、char_limit と truncation
+# パラメータを差し替えるだけで使い回せる設計。
+#
+# プレースホルダ:
+#   {title_short}    — タイトル (デフォルト 36 字で truncate)
+#   {summary_block}  — 要約ブロック (空なら空文字・要約有なら truncate(95)\n\n)
+#   {hook}           — モード別の冒頭文（hooks 辞書から storyPhase 別に選択）
+#   {footer}         — 末尾の記事数 + ハッシュタグ
+#   {cnt}            — articleCount
+#   {tag}            — genre_tag(topic) (#エンタメ #芸能 等)
+# ════════════════════════════════════════════════════════════════════════════
+BLUESKY_POSTING_TEMPLATES = {
+    'daily': {
+        # storyPhase 別のフック (ロングテール SEO 狙いの問いかけ形式)
+        'hooks': {
+            '発端':   '📰 速報: {title_short}\n今何が起きているのか？',
+            '拡散':   '📢 注目: {title_short}\nなぜこれほど広がっているのか、背景と経緯',
+            'ピーク': '🔥 急上昇中: {title_short}\nなぜ今これほど話題になっているのか',
+            '現在地': '📍 進行中: {title_short}\n今どの段階まで進んでいるのか、経緯を追う',
+            '収束':   '📋 まとめ: {title_short}\n何が起きたのか、全容を振り返る',
+            '_default': '🔥 急上昇: {title_short}\nとは何か・なぜ注目される？',
+        },
+        'footer': '📄 {cnt}件の記事 {tag} #Flotopic',
     },
-    'monthly': {
-        'enabled':        True,
-        'cooldown_hours': 24 * 27,  # 月初 cron 単発、念のため 27 日空ける
-        'max_per_24h':    1,
+    'morning': {
+        'hooks': {
+            '_default': '🌅 今朝の動き: {title_short}\n昨夜から今朝にかけての動きをまとめました',
+        },
+        'footer': '📄 {cnt}件の記事 {tag} #Flotopic #朝のニュース',
+    },
+    'debut': {
+        'hooks': {
+            '_default': '🆕 新トピック登場: {title_short}\n初回スナップショットができました',
+        },
+        'footer': '📄 {cnt}件の記事 {tag} #Flotopic',
     },
 }
 
-# ── 旧コード互換シンボル（テスト・既存呼び出し向け alias） ────────────────
-# 設定値の真実の源は BLUESKY_POSTING_CONFIG。
-DAILY_COOLDOWN_HOURS    = BLUESKY_POSTING_CONFIG['daily']['cooldown_hours']
-MORNING_COOLDOWN_HOURS  = BLUESKY_POSTING_CONFIG['morning']['cooldown_hours']
-MORNING_RECENT_HOURS    = 24    # 「今朝の動き」として扱う最大経過時間
+# 全モード共通の本文構造 (mode を跨ぐ全体レイアウトを変えたいときはここだけ編集)
+BLUESKY_POSTING_BODY_TEMPLATE = '{hook}\n\n{summary_block}{footer}'
+
+# 切り詰め長 (将来 X agent では char_limit=280 に合わせて短縮)
+BLUESKY_TITLE_TRUNCATE     = 36
+BLUESKY_SUMMARY_TRUNCATE   = 95
+
+MORNING_RECENT_HOURS    = 24    # post_morning の topic フィルタ（投稿対象の鮮度上限）
+
+
+def build_post_text(mode: str, topic: dict) -> str:
+    """
+    BLUESKY_POSTING_TEMPLATES に基づき投稿本文を組み立てる単一エントリ。
+
+    全 post_xxx() 関数はこの関数を呼ぶだけで、独自の f-string を持たない。
+    文言・絵文字・ハッシュタグの調整は BLUESKY_POSTING_TEMPLATES の編集で完結する。
+
+    Args:
+      mode:  'daily' | 'morning' | 'debut'
+      topic: topics.json の 1 トピック (generatedTitle / generatedSummary /
+             articleCount / storyPhase / genre などを含む dict)
+
+    Returns:
+      組み立て済み投稿本文 (BSKY_MAX_CHARS で truncate 済み)
+    """
+    cfg = BLUESKY_POSTING_TEMPLATES.get(mode, {})
+    hooks = cfg.get('hooks', {})
+    footer_tmpl = cfg.get('footer', '')
+
+    title       = topic.get('generatedTitle') or topic.get('title', '')
+    summary     = topic.get('generatedSummary') or topic.get('extractiveSummary', '')
+    cnt         = int(topic.get('articleCount', 0) or 0)
+    phase       = topic.get('storyPhase', '')
+    tag         = genre_tag(topic)
+    title_short = truncate(title, BLUESKY_TITLE_TRUNCATE)
+
+    # storyPhase に該当 hook がなければ '_default' にフォールバック (空辞書なら空文字)
+    hook_tmpl = hooks.get(phase) or hooks.get('_default') or ''
+    hook = hook_tmpl.format(title_short=title_short)
+
+    summary_block = f'{truncate(summary, BLUESKY_SUMMARY_TRUNCATE)}\n\n' if summary else ''
+    footer = footer_tmpl.format(cnt=cnt, tag=tag)
+
+    body = BLUESKY_POSTING_BODY_TEMPLATE.format(
+        hook=hook,
+        summary_block=summary_block,
+        footer=footer,
+    )
+    return body[:BSKY_MAX_CHARS]
 
 # T2026-0428-AS: 初回 AI 要約完了 → 即時投稿 (debut) 用の S3 pending マーカー。
 # processor Lambda が初回 AI 要約成功時に bluesky/pending/{topicId}.json を書き込み、
@@ -672,34 +756,11 @@ def post_daily(client, dry_run=False):
     title     = topic.get('generatedTitle') or topic.get('title', '')
     summary   = topic.get('generatedSummary') or topic.get('extractiveSummary', '')
     tid       = topic.get('topicId', '')
-    cnt       = int(topic.get('articleCount', 0) or 0)
     image_url = topic.get('imageUrl') or ''
-    phase     = topic.get('storyPhase', '')
-    tag     = genre_tag(topic)
-    url     = f'{SITE_URL}/topic.html?id={tid}'
+    url       = f'{SITE_URL}/topic.html?id={tid}'
 
-    # storyPhaseに応じた問いかけ形式（ロングテールSEO狙い）
-    _t = truncate(title, 36)
-    if phase == '発端':
-        hook = f'📰 速報: {_t}\n今何が起きているのか？'
-    elif phase == '拡散':
-        hook = f'📢 注目: {_t}\nなぜこれほど広がっているのか、背景と経緯'
-    elif phase == 'ピーク':
-        hook = f'🔥 急上昇中: {_t}\nなぜ今これほど話題になっているのか'
-    elif phase == '現在地':
-        hook = f'📍 進行中: {_t}\n今どの段階まで進んでいるのか、経緯を追う'
-    elif phase == '収束':
-        hook = f'📋 まとめ: {_t}\n何が起きたのか、全容を振り返る'
-    else:
-        hook = f'🔥 急上昇: {_t}\nとは何か・なぜ注目される？'
-
-    summary_line = f'{truncate(summary, 95)}\n\n' if summary else ''
-    post_text = (
-        f'{hook}\n\n'
-        f'{summary_line}'
-        f'📄 {cnt}件の記事 {tag} #Flotopic'
-    )
-    post_text = post_text[:BSKY_MAX_CHARS]
+    # T2026-0502-L: 投稿文言は BLUESKY_POSTING_TEMPLATES['daily'] に集約済。
+    post_text = build_post_text('daily', topic)
 
     embed = make_link_embed(
         client=client,
@@ -914,39 +975,39 @@ def post_debut(client, dry_run: bool = False) -> bool:
     """
     print('[bluesky_agent] 初回投稿 (debut) チェック 開始')
 
+    # 期限切れマーカーの GC は enabled / cooldown に**先行**して実施する。
+    # 理由: enabled=False のとき rate-limit で早期 return すると S3 マーカーが
+    # 永遠に消費されず累積する事故 (T2026-0502-L follow-up で 85件発見)。
+    # GC は投稿しない安全な操作なので rate-limit 判定とは独立に走らせる。
+    pending = list_debut_pending()
+    if pending:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=DEBUT_MARKER_TTL_HOURS)
+        fresh = []
+        for m in pending:
+            try:
+                ca = datetime.fromisoformat(m['createdAt'].replace('Z', '+00:00'))
+            except Exception:
+                print(f'[bluesky_agent] 不正な createdAt のため破棄: {m["topicId"][:8]}...')
+                delete_debut_marker(m['key'])
+                continue
+            if ca < cutoff:
+                print(f'[bluesky_agent] 期限切れマーカー破棄 ({DEBUT_MARKER_TTL_HOURS}h超): {m["topicId"][:8]}...')
+                delete_debut_marker(m['key'])
+                continue
+            fresh.append(m)
+        pending = fresh
+
     # T2026-0502-L: enabled/cooldown/24h-cap を BLUESKY_POSTING_CONFIG に委譲。
-    # ⚠️ 過去の事故 (5/1 48件投稿) を再発させないため、pending マーカー処理の
-    #    前にレート判定する。enabled=False 時は早期 return で pending を無視する
-    #    （マーカーは消さない: enabled=True に戻したとき自然に再開できる）。
+    # GC のあとにレート判定する: enabled=False でもマーカーは TTL で掃除される。
     ok, reason = _check_rate_limit('debut')
     if not ok:
         print(f'[bluesky_agent] debut skip: {reason}')
         return False
 
-    pending = list_debut_pending()
     if not pending:
-        print('[bluesky_agent] 初回投稿対象なし (pending マーカー 0 件)')
-        return False
-
-    # 期限切れマーカーを物理削除 (リトライ無限ループ防止)
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=DEBUT_MARKER_TTL_HOURS)
-    fresh = []
-    for m in pending:
-        try:
-            ca = datetime.fromisoformat(m['createdAt'].replace('Z', '+00:00'))
-        except Exception:
-            print(f'[bluesky_agent] 不正な createdAt のため破棄: {m["topicId"][:8]}...')
-            delete_debut_marker(m['key'])
-            continue
-        if ca < cutoff:
-            print(f'[bluesky_agent] 期限切れマーカー破棄 ({DEBUT_MARKER_TTL_HOURS}h超): {m["topicId"][:8]}...')
-            delete_debut_marker(m['key'])
-            continue
-        fresh.append(m)
-
-    if not fresh:
         print('[bluesky_agent] 初回投稿対象なし (期限内マーカー 0 件)')
         return False
+    fresh = pending  # 以降の処理は fresh 変数を使う既存コードに合わせる
 
     # 既に debut 投稿済みの topicId を除外 (重複投稿防止)
     posted_debut_ids = get_recent_posted_ids('debut', limit=50)
@@ -995,20 +1056,11 @@ def post_debut(client, dry_run: bool = False) -> bool:
 
         title     = topic.get('generatedTitle') or topic.get('title', '')
         summary   = topic.get('generatedSummary') or topic.get('extractiveSummary', '')
-        cnt       = int(topic.get('articleCount', 0) or 0)
         image_url = topic.get('imageUrl') or ''
-        tag       = genre_tag(topic)
         url       = f'{SITE_URL}/topic.html?id={tid}'
 
-        _t = truncate(title, 36)
-        hook = f'🆕 新トピック登場: {_t}\n初回スナップショットができました'
-        summary_line = f'{truncate(summary, 95)}\n\n' if summary else ''
-        post_text = (
-            f'{hook}\n\n'
-            f'{summary_line}'
-            f'📄 {cnt}件の記事 {tag} #Flotopic'
-        )
-        post_text = post_text[:BSKY_MAX_CHARS]
+        # T2026-0502-L: 投稿文言は BLUESKY_POSTING_TEMPLATES['debut'] に集約済。
+        post_text = build_post_text('debut', topic)
 
         embed = make_link_embed(
             client=client,
@@ -1042,7 +1094,7 @@ def post_morning(client, dry_run=False):
 
     daily / debut とは独立した別系統:
       - mode='morning' で BLUESKY_POSTS_TABLE に記録
-      - MORNING_COOLDOWN_HOURS=20h で物理ガード (cron 揺らぎ + 二重発火対策)
+      - レート制御は BLUESKY_POSTING_CONFIG['morning'] (cron 揺らぎ + 二重発火対策)
       - 静的HTMLが存在するトピックのみ投稿 (OGP リンクカード正しく表示)
     """
     print('[bluesky_agent] 朝投稿 開始')
@@ -1107,22 +1159,12 @@ def post_morning(client, dry_run=False):
         return
 
     title     = topic.get('generatedTitle') or topic.get('title', '')
-    summary   = topic.get('generatedSummary') or topic.get('extractiveSummary', '')
     tid       = topic.get('topicId', '')
-    cnt       = int(topic.get('articleCount', 0) or 0)
     image_url = topic.get('imageUrl') or ''
-    tag       = genre_tag(topic)
     url       = f'{SITE_URL}/topic.html?id={tid}'
 
-    _t = truncate(title, 36)
-    hook = f'🌅 今朝の動き: {_t}\n昨夜から今朝にかけての動きをまとめました'
-    summary_line = f'{truncate(summary, 95)}\n\n' if summary else ''
-    post_text = (
-        f'{hook}\n\n'
-        f'{summary_line}'
-        f'📄 {cnt}件の記事 {tag} #Flotopic #朝のニュース'
-    )
-    post_text = post_text[:BSKY_MAX_CHARS]
+    # T2026-0502-L: 投稿文言は BLUESKY_POSTING_TEMPLATES['morning'] に集約済。
+    post_text = build_post_text('morning', topic)
 
     embed = make_link_embed(
         client=client,
