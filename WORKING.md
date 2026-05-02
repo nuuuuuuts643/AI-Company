@@ -126,5 +126,3 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Cowork] T2026-0502-G 実機検証 + T2026-0502-A/B 起票 (docs only) | Cowork | WORKING.md, TASKS.md, HISTORY.md | 2026-05-02 08:04 | no |
-| [Cowork] T2026-0502-Q 仮説外し訂正 + lessons-learned + T2026-0502-H 起票 (docs only) | Cowork | TASKS.md, docs/lessons-learned.md | 2026-05-02 10:25 | no |
