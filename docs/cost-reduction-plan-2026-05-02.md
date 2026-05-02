@@ -179,3 +179,93 @@
 
 > **次のステップ**: 本ドキュメントを PR で merge → TASKS.md に T2026-0502-COST-A1〜C3 を追記 → Phase A から実装開始。
 > 各 Phase 完了時に `aws ce get-cost-and-usage` で実測値を取得して本ドキュメントに追記する。
+
+---
+
+## 8. 深掘り調査結果 (2026-05-02 21:30 JST・Cowork セッション・Cost Explorer 実測)
+
+### 8.1 実コスト内訳 (2026年4月・確定値)
+
+`aws ce get-cost-and-usage --granularity MONTHLY` の実測:
+
+| サービス | 2026年4月 USD | 全体比 | 削減余地 |
+|---|---|---|---|
+| **Amazon DynamoDB** | **$6.42** | **58%** | あり (本命) |
+| **Amazon S3** | **$2.22** | **20%** | あり |
+| Route 53 | $1.01 | 9% | 不可 (HostedZone $0.50/zone × 2 = 固定) |
+| Tax | $0.98 | 9% | 不可 (連動) |
+| AWS Cost Explorer | $0.18 | 2% | 削減候補 ($0.01/API call) |
+| AWS Secrets Manager | $0.0000 | 0% | - |
+| AWS Lambda | $0.00002 | **ほぼゼロ** | **無料枠内・削減効果ゼロ** |
+| Amazon API Gateway | **$0** | 0% | **無料枠内・削減効果ゼロ** |
+| Amazon CloudFront | **$0** | 0% | **無料枠内・削減効果ゼロ** |
+| AmazonCloudWatch | **$0** | 0% | **無料枠内・削減効果ゼロ** |
+| **合計** | **約 $11/月** | 100% | 固定費 ~$2 を除き ~$9 が変動 |
+
+### 8.2 USAGE_TYPE 別 (DynamoDB / S3 の内訳)
+
+| USAGE_TYPE | USD | 意味 |
+|---|---|---|
+| **APN1-ReadRequestUnits** (DynamoDB Read) | **$4.02** | **最大ターゲット** |
+| **APN1-WriteRequestUnits** (DynamoDB Write) | **$2.39** | 第 2 ターゲット |
+| **APN1-Requests-Tier1** (S3 PUT/POST/LIST/COPY) | **$2.17** | 第 3 ターゲット (processor の PutObject 大半) |
+| HostedZone (Route 53) | $1.00 | 固定 |
+| USE1-APIRequest (Cost Explorer) | $0.18 | 微小 |
+| APN1-Requests-Tier2 (S3 GET/SELECT) | $0.047 | 微小 |
+| APN1-TimedPITRStorage-ByteHrs (DynamoDB PITR backup) | $0.0098 | 微小 |
+| APN1-TimedStorage-ByteHrs (DynamoDB / S3 storage) | $0 | 無料枠内 |
+
+### 8.3 当初プランの再評価 — **多くの候補が実コストゼロ削減**
+
+Phase A/B/C プランを実コストで再評価した結果、**期待削減量を大幅下方修正**:
+
+| 元 ID | 当初の期待削減 | **実コスト削減** | 判定 |
+|---|---|---|---|
+| COST-A1 (未使用 DynamoDB 4 個削除) | $1〜3 | **~$0.05** (ストレージ無料枠内・PITR も微小) | ⚠️ **規律タスクとして残す**: 監視対象削減・IAM 整理 |
+| COST-A2 (CloudWatch Logs retention) | $2〜5 | **$0** (CloudWatch コスト全体ゼロ) | ❌ **降格**: 規律のみ・コスト効果なし |
+| COST-A3 (Bluesky schedule 削減) | $1〜2 | **$0** (Lambda コスト全体ゼロ) | ⚠️ **品質タスクに再分類**: TL 汚染抑制 (UX) |
+| COST-A5 (S3 Lifecycle Policy) | $1〜3 | **~$0** (ストレージ無料枠内) | ❌ **降格**: 効果なし |
+| COST-B1 (API GW → Function URL) | $5〜15 | **$0** (API GW コストゼロ) | ❌ **撤回**: 移行コスト>削減 |
+| COST-B2 (CloudFront キャッシュ拡張) | $2〜8 | **$0** (CloudFront コストゼロ・既に効いてる) | ❌ **撤回**: UX 改善は別タスクで |
+| COST-B3 (cf-analytics 廃止) | $1〜3 | **~$0** | ❌ **降格**: 規律のみ |
+| COST-B4 (contact 重複解消) | $0.5 | **$0** | ❌ **降格**: 規律のみ |
+| COST-B5 (DynamoDB Provisioned 切替) | $1〜5 | 要計測 (低トラフィック前提崩れる可能性) | ⚠️ **慎重**: PAY_PER_REQUEST のままが正解の可能性 |
+| **COST-C1 (p003-topics 読取 S3 化)** | $5〜15 | **$1.5〜3** (DDB Read $4.02 の 30〜50% 削減見込み) | ✅ **昇格**: **最大の本命** |
+| COST-C2 (tracker → CF Functions) | $2〜5 | **$0** (Lambda コストゼロ) | ❌ **撤回** |
+| COST-C3 (analytics → Athena) | $1〜3 | **$0** (Lambda コストゼロ) | ❌ **撤回** |
+
+### 8.4 真の削減候補 (実コストベース・新規追加)
+
+| 新 ID | 内容 | 期待削減/月 | 実装コスト |
+|---|---|---|---|
+| **COST-D1** | **DynamoDB Read 削減** (`lambda/api/handler.py` の DDB Scan/Query 呼出パターン分析 → S3 JSON キャッシュ拡張・既存 `topics-card.json` 経路の活用) | **$1.5〜3** | 中 (要設計・コード変更) |
+| **COST-D2** | **DynamoDB Write 削減** (`lambda/processor/handler.py` の PutItem 頻度確認 → バッチ書き込み・差分のみ書込) | **$0.5〜1.2** | 中 (要設計) |
+| **COST-D3** | **S3 PutObject 削減** (`lambda/processor/handler.py` `lambda/fetcher/handler.py` の PutObject 頻度・冪等性チェック → 同一データの上書き回避) | **$0.5〜1** | 中 (要設計) |
+| **COST-D4** | **PITR 必要性再評価** (`p003-topics` 以外で PITR 有効化されているテーブル特定 → 重要テーブル以外で無効化) | **$0.005〜0.02** | 低 (微小だが規律) |
+
+### 8.5 改訂後の総削減見立て
+
+| Phase | 改訂後 (実コスト) | 当初見立て | 差分 |
+|---|---|---|---|
+| A 即時 (規律タスクとして残す) | $0.05 | $5〜13 | -98% (ほぼ規律) |
+| B 中期 (大半撤回) | $0 | $9〜31 | -100% |
+| C アーキ移行 (C1 のみ残し) | $1.5〜3 | $8〜23 | -85% |
+| **D 新規 (実コストターゲット)** | **$2.5〜5.2** | (新規) | (新規) |
+| **改訂後合計** | **月 $4〜8** | 月 $22〜67 | -82% |
+
+### 8.6 結論 — 削減余地の絶対値が小さい
+
+- **月総コスト ~$11 のうち、固定費 (Route 53 HostedZone $1.00 + Tax $0.98) を除いた変動費は ~$9**
+- このうち **DynamoDB Read $4.02 + Write $2.39 + S3 PUT $2.17 = $8.58** がほぼ全変動費
+- **理論最大削減量 ≈ $8.58**。実際には書き込み・読み込みパターン最適化で 30〜60% カット = **月 $2.5〜5.2 削減見込み**
+- **「理想ゼロ」は AWS 内残留前提では不可能**。Route 53 + Tax の固定費 ~$2/月は脱 AWS しない限り消えない
+- **「品質を上げる方向で」との両立**: フェーズ 2 (AI 品質) には Anthropic Claude API コスト ($AWS 外・別請求) が大きいので、AWS 削減はフェーズ 2 に副作用しない
+
+### 8.7 PO への提言
+
+1. **A1 (未使用テーブル削除) は実施する**が「コスト削減」ではなく**規律タスク**として位置付ける (監視対象削減・IAM 整理)
+2. **A2/A3/A5/B1/B2/B3/B4/C2/C3 は全部撤回または降格** — 実コストゼロのため工数対効果が悪い
+3. **D1〜D4 を新規優先タスク化** — DynamoDB / S3 の操作回数削減が真の本命
+4. **「真の削減目標」: 月 $11 → $7 (約 36% カット)** が現実的。**理想ゼロ**を目指すなら Cloudflare Workers / R2 への脱 AWS 移行が必要 (別プラン)
+5. **Anthropic Claude API コスト**は AWS 請求と別 → AWS 削減と独立して別タスクで管理 (フェーズ 2 進行に直結)
+
