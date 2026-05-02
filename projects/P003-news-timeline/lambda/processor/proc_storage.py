@@ -429,7 +429,7 @@ def _sort_by_recency(items: list) -> list:
 
 
 def _apply_tier0_budget(items: list, budget: int = 100) -> list:
-    """T2026-0428-O: 大規模クラスタ (articles>=10) で aiGenerated=False の topic を
+    """T2026-0428-O: 大規模クラスタ (ac>=6 or score>=100) で aiGenerated=False の topic を
     必ず先頭に固定 budget 件まで配置する。Tier-0 以外は updatedAt 降順 (新しい順) にソート。
 
     背景: T213 の 4段階優先度ソート後でも、可視 × 未生成の 0 番手の中で
@@ -442,6 +442,9 @@ def _apply_tier0_budget(items: list, budget: int = 100) -> list:
 
     2026-04-29 追加: Tier-0 以外の rest を _sort_by_recency で新しい順に並べ替える。
     MAX_API_CALLS=30 の予算を「最新トピック」から優先消費する。
+
+    T2026-0502-M: 閾値を ac>=10 → (ac>=6 or score>=100) に緩和。
+    「育つべきトピック」97件が summaryMode=None のまま放置されていた事象を解消。
     """
     if not items:
         return items
@@ -450,14 +453,16 @@ def _apply_tier0_budget(items: list, budget: int = 100) -> list:
     for it in items:
         try:
             ac = int(it.get('articleCount', 0) or 0)
+            score = int(it.get('score', 0) or 0)
         except (ValueError, TypeError):
             ac = 0
-        if ac >= 10 and not it.get('aiGenerated') and len(tier0) < budget:
+            score = 0
+        if (ac >= 6 or score >= 100) and not it.get('aiGenerated') and len(tier0) < budget:
             tier0.append(it)
         else:
             rest.append(it)
     if tier0:
-        print(f'[get_pending_topics] Tier-0 (articles>=10 × aiGenerated=False) を先頭に固定: {len(tier0)}件')
+        print(f'[get_pending_topics] Tier-0 (ac>=6 or score>=100, aiGenerated=False) を先頭に固定: {len(tier0)}件')
     rest = _sort_by_recency(rest)
     return tier0 + rest
 
