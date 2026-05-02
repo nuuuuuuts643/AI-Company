@@ -197,4 +197,17 @@ if [ ! -f "$REPO_ROOT/tests/test_quality_heal_mode_upgrade.py" ]; then
 fi
 echo "✅ T2026-0502-MU-FOLLOWUP: tests/test_quality_heal_mode_upgrade.py landing verified"
 
+# T2026-0502-WORKFLOW-DEP-PHYSICAL landing 検証 (2026-05-02 22:55 JST):
+# workflow YAML が repo に存在しない script を参照している commit miss を CI で物理 reject する
+# ガードの存在を verify。本ガード自体が消されたら check_lessons_landings.sh が fail する。
+if [ ! -x "$REPO_ROOT/scripts/ci_check_workflow_script_refs.sh" ]; then
+  echo "❌ T2026-0502-WORKFLOW-DEP-PHYSICAL: scripts/ci_check_workflow_script_refs.sh not found or not executable" >&2
+  exit 1
+fi
+if ! grep -q 'ci_check_workflow_script_refs.sh' "$REPO_ROOT/.github/workflows/lint-yaml-logic.yml"; then
+  echo "❌ T2026-0502-WORKFLOW-DEP-PHYSICAL: lint-yaml-logic.yml does not call ci_check_workflow_script_refs.sh" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-WORKFLOW-DEP-PHYSICAL: workflow ref check landed (script + workflow step)"
+
 exit 0
