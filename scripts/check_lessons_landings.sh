@@ -150,38 +150,50 @@ if [ -f "$HOOK_PP" ]; then
 fi
 echo "✅ PR #160: install_hooks.sh + .git/hooks/pre-push landing verified (main 直 push reject ロジック含む)"
 
-# T2026-0502-DEPLOY-WATCHDOG landing 検証:
-# 1) check_lambda_freshness.sh が存在して空でないこと
+# T2026-0502-DEPLOY-WATCHDOG landing 検証 (T2026-0502-BL で存在チェックから内容 grep に強化):
+# 1) check_lambda_freshness.sh が存在し、実装特徴文字列 THRESHOLD_SEC を含むこと
 if [ ! -f "$REPO_ROOT/scripts/check_lambda_freshness.sh" ]; then
   echo "❌ T2026-0502-DEPLOY-WATCHDOG: scripts/check_lambda_freshness.sh not found" >&2
   exit 1
 fi
-if [ ! -s "$REPO_ROOT/scripts/check_lambda_freshness.sh" ]; then
-  echo "❌ T2026-0502-DEPLOY-WATCHDOG: scripts/check_lambda_freshness.sh is empty" >&2
+if ! grep -q 'THRESHOLD_SEC' "$REPO_ROOT/scripts/check_lambda_freshness.sh"; then
+  echo "❌ T2026-0502-DEPLOY-WATCHDOG: check_lambda_freshness.sh は placeholder の可能性 (THRESHOLD_SEC なし)" >&2
   exit 1
 fi
-echo "✅ T2026-0502-DEPLOY-WATCHDOG: scripts/check_lambda_freshness.sh landing verified"
+echo "✅ T2026-0502-DEPLOY-WATCHDOG: scripts/check_lambda_freshness.sh landing verified (THRESHOLD_SEC 含む)"
 
-# 2) deploy-trigger-watchdog.yml が存在すること
+# 2) deploy-trigger-watchdog.yml が存在し、deploy-lambdas への参照を含むこと
 if [ ! -f "$REPO_ROOT/.github/workflows/deploy-trigger-watchdog.yml" ]; then
   echo "❌ T2026-0502-DEPLOY-WATCHDOG: .github/workflows/deploy-trigger-watchdog.yml not found" >&2
   exit 1
 fi
-echo "✅ T2026-0502-DEPLOY-WATCHDOG: deploy-trigger-watchdog.yml landing verified"
+if ! grep -q 'deploy-lambdas' "$REPO_ROOT/.github/workflows/deploy-trigger-watchdog.yml"; then
+  echo "❌ T2026-0502-DEPLOY-WATCHDOG: deploy-trigger-watchdog.yml は placeholder の可能性 (deploy-lambdas 参照なし)" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-DEPLOY-WATCHDOG: deploy-trigger-watchdog.yml landing verified (deploy-lambdas 参照含む)"
 
-# 3) lambda-freshness-monitor.yml が存在すること
+# 3) lambda-freshness-monitor.yml が存在し、check_lambda_freshness スクリプトを呼ぶこと
 if [ ! -f "$REPO_ROOT/.github/workflows/lambda-freshness-monitor.yml" ]; then
   echo "❌ T2026-0502-DEPLOY-WATCHDOG: .github/workflows/lambda-freshness-monitor.yml not found" >&2
   exit 1
 fi
-echo "✅ T2026-0502-DEPLOY-WATCHDOG: lambda-freshness-monitor.yml landing verified"
+if ! grep -q 'check_lambda_freshness' "$REPO_ROOT/.github/workflows/lambda-freshness-monitor.yml"; then
+  echo "❌ T2026-0502-DEPLOY-WATCHDOG: lambda-freshness-monitor.yml は placeholder の可能性 (check_lambda_freshness 参照なし)" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-DEPLOY-WATCHDOG: lambda-freshness-monitor.yml landing verified (check_lambda_freshness 参照含む)"
 
-# 4) tests/test_lambda_freshness.sh が存在すること
+# 4) tests/test_lambda_freshness.sh が存在し、実際のテストロジックを含むこと
 if [ ! -f "$REPO_ROOT/tests/test_lambda_freshness.sh" ]; then
   echo "❌ T2026-0502-DEPLOY-WATCHDOG: tests/test_lambda_freshness.sh not found" >&2
   exit 1
 fi
-echo "✅ T2026-0502-DEPLOY-WATCHDOG: tests/test_lambda_freshness.sh landing verified"
+if ! grep -q 'check_lambda_freshness.sh' "$REPO_ROOT/tests/test_lambda_freshness.sh"; then
+  echo "❌ T2026-0502-DEPLOY-WATCHDOG: test_lambda_freshness.sh は placeholder の可能性 (check_lambda_freshness.sh 参照なし)" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-DEPLOY-WATCHDOG: tests/test_lambda_freshness.sh landing verified (check_lambda_freshness.sh 参照含む)"
 
 # T2026-0502-MU-FOLLOWUP landing 検証: find_mode_mismatch_topics が quality_heal.py に実装済みであること
 if ! grep -q 'find_mode_mismatch_topics' "$REPO_ROOT/scripts/quality_heal.py"; then
@@ -190,14 +202,18 @@ if ! grep -q 'find_mode_mismatch_topics' "$REPO_ROOT/scripts/quality_heal.py"; t
 fi
 echo "✅ T2026-0502-MU-FOLLOWUP: find_mode_mismatch_topics landing verified"
 
-# T2026-0502-MU-FOLLOWUP landing 検証: test_quality_heal_mode_upgrade.py が存在すること
+# T2026-0502-MU-FOLLOWUP landing 検証: test_quality_heal_mode_upgrade.py が存在し、find_mode_mismatch_topics のテストを含むこと
 if [ ! -f "$REPO_ROOT/tests/test_quality_heal_mode_upgrade.py" ]; then
   echo "❌ T2026-0502-MU-FOLLOWUP: tests/test_quality_heal_mode_upgrade.py not found" >&2
   exit 1
 fi
-echo "✅ T2026-0502-MU-FOLLOWUP: tests/test_quality_heal_mode_upgrade.py landing verified"
+if ! grep -q 'find_mode_mismatch_topics' "$REPO_ROOT/tests/test_quality_heal_mode_upgrade.py"; then
+  echo "❌ T2026-0502-MU-FOLLOWUP: test_quality_heal_mode_upgrade.py は placeholder の可能性 (find_mode_mismatch_topics テストなし)" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-MU-FOLLOWUP: tests/test_quality_heal_mode_upgrade.py landing verified (find_mode_mismatch_topics テスト含む)"
 
-# T2026-0502-WORKFLOW-DEP-PHYSICAL landing 検証 (2026-05-02 22:55 JST):
+# T2026-0502-WORKFLOW-DEP-PHYSICAL landing 検証 (T2026-0502-BL で内容 grep を追加):
 # workflow YAML が repo に存在しない script を参照している commit miss を CI で物理 reject する
 # ガードの存在を verify。本ガード自体が消されたら check_lessons_landings.sh が fail する。
 # T2026-0502-LANDING-CHECK-RELAX (2026-05-02 23:30 JST): 旧 [ ! -x ] は PR #315 (950a5f6) で
@@ -208,10 +224,15 @@ if [ ! -f "$REPO_ROOT/scripts/ci_check_workflow_script_refs.sh" ]; then
   echo "❌ T2026-0502-WORKFLOW-DEP-PHYSICAL: scripts/ci_check_workflow_script_refs.sh not found" >&2
   exit 1
 fi
+# script 中に workflow ref 検出ロジックの実装特徴文字列があること (placeholder reject)
+if ! grep -qE 'python3\?|bash.*scripts/' "$REPO_ROOT/scripts/ci_check_workflow_script_refs.sh"; then
+  echo "❌ T2026-0502-WORKFLOW-DEP-PHYSICAL: ci_check_workflow_script_refs.sh は placeholder の可能性 (python3?/bash パターン検出ロジックなし)" >&2
+  exit 1
+fi
 if ! grep -q 'ci_check_workflow_script_refs.sh' "$REPO_ROOT/.github/workflows/lint-yaml-logic.yml"; then
   echo "❌ T2026-0502-WORKFLOW-DEP-PHYSICAL: lint-yaml-logic.yml does not call ci_check_workflow_script_refs.sh" >&2
   exit 1
 fi
-echo "✅ T2026-0502-WORKFLOW-DEP-PHYSICAL: workflow ref check landed (script + workflow step)"
+echo "✅ T2026-0502-WORKFLOW-DEP-PHYSICAL: workflow ref check landed (script content + workflow step)"
 
 exit 0
