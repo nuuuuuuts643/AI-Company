@@ -19,9 +19,33 @@ bash ~/ai-company/scripts/session_bootstrap.sh
 
 ---
 
+## ⚡ Dispatch / Cowork 起動時（毎回必須・行動前に実行）
+
+```
+1. WORKING.md の「Dispatch継続性」セクションを読む（状態把握）
+2. `cat WORKING.md | grep "\[Code\]"` で [Code] 行を確認 → 1件以上あれば新規コードセッション起動禁止
+3. `gh run list --branch main --limit 3` で直近 CI がすべて green であることを確認 → 失敗があれば先に修正セッションを起動してから次タスクへ
+4. 前セッション報告に ERROR/WARN 残存があれば先に解消させる
+5. コードセッションへのプロンプトに「PR→CI→merge→done.sh」を必ず明記
+6. 完了後: WORKING.md Dispatch継続性セクションを最新状態に書き換えて push
+```
+
+### ⚠️ Dispatch 絶対禁止パターン（思想ではなく禁止リスト・2026-05-01 制定）
+
+| 禁止行為 | 代わりにすること |
+|---|---|
+| 手動 invoke を提案する | スケジューラー（p003-haiku/p003-sonnet）に委ねる |
+| コードを読まずにパラメータを埋めてプロンプトを送る | 該当ファイルを Read してから書く |
+| 実機確認なしで「完了」と報告する | flotopic.com でブラウザ確認してから報告する |
+| 効果検証なしで「完了」と報告する | SLI数値の変化を確認するか、スケジューラーに委ねてから報告する |
+| CI失敗・ルール違反・stale エントリーに気づいて無視する | 気づいたら即対処またはTASKS.mdに積む |
+| Dispatchセッションを長期継続して判断を続ける | 往復20回を超えたらWORKING.mdにDispatch継続性を書き込みセッションを切り替える |
+
+---
+
 ## ⚡ 起動後の自動タスク実行
 
-**実行前に必ず**: `docs/project-phases.md` で現在フェーズと完了条件を確認 → `cat ~/ai-company/TASKS.md` で未着手を取得 → **現在フェーズに紐付くタスクを優先**して実行する。各セクション直下の `<!-- フェーズN -->` コメントが帰属判断の根拠。フェーズ1 完了条件未達のうちは、フェーズ2/3 のタスクは原則着手しない（ナオヤ明示指示があれば例外）。
+**実行前に必ず**: `docs/project-phases.md` で現在フェーズと完了条件を確認 → `cat ~/ai-company/TASKS.md` で未着手を取得 → **現在フェーズに紐付くタスクを優先**して実行する。各セクション直下の `<!-- フェーズN -->` コメントが帰属判断の根拠。フェーズ1 完了条件未達のうちは、フェーズ2/3 のタスクは原則着手しない（PO 明示指示があれば例外）。
 
 各タスクで以下を順守:
 
@@ -33,39 +57,51 @@ bash ~/ai-company/scripts/session_bootstrap.sh
 3. **実装する**
 4. **完了したら WORKING.md から自分の行を削除し commit & push**
 
-ナオヤから新指示があれば優先。未着手なし → 「タスクなし、待機中」と報告して待機。
+POから新指示があれば優先。未着手なし → 「タスクなし、待機中」と報告して待機。
 
 ---
 
 ## ⚡ 絶対ルール（最低限・全プロジェクト共通）
 
-| ルール | 内容 |
+> 物理 = CI / hook / scripts で物理ガードあり / 観測 = SLI・cron で外部観測あり / 思想 = テキストルールのみ（運用判断に依存）。
+> 思想ルールは「気を付ける」と同じ強度しかない。物理化できる対策は物理化する（global-baseline §6）。
+
+| ルール | 内容 | 強度 |
+|---|---|---|
+| **完了 = 動作確認済み + 効果検証済み** | `done.sh <task_id> <verify_target>` + `verify_effect.sh <fix_type>` (`ai_quality` / `mobile_layout` / `freshness` / `empty_topics`) で改善を数値で確認。閾値未達は未完了 | 物理 |
+| **Verified 行 commit 必須** | `feat:` `fix:` `perf:` には `Verified:` 行（commit-msg hook で reject）。効果検証時は `Verified-Effect:` も。helper: `verified_line.sh` / `verify_effect.sh` | 物理 |
+| **同名ファイル並行編集禁止** | WORKING.md 宣言なしで触らない。8h TTL 自動削除＋needs-push 滞留警告は session_bootstrap.sh | 物理 |
+| **scriptタグ defer/async 禁止** | chart.js / config.js / app.js / detail.js。CI で物理ブロック | 物理 |
+| **PII / secrets コード直書き禁止** | env var か AWS Secrets Manager 必須。CI で `sk-ant-` / `AKIA` grep 検出 | 物理 |
+| **CLAUDE.md は 250 行以内** | CI で物理ガード。超えたら `lessons-learned.md` / `rules/` / `system-status.md` に外出し | 物理 |
+| **タスクID 採番** | `bash scripts/next_task_id.sh`。CI で重複検出 (`triage_tasks.py --check-duplicate-task-ids`) | 物理 |
+| **schedule-task は [Schedule-KPI] 必須** | commit-msg hook で `implemented=N created=M closed=K queue_delta=±X` 行を必須化 | 物理 |
+| **AI 4 軸キーワード保持** | about.html に「状況解説」「各社の見解」「これからの注目ポイント」が残ること。CI content-drift-guard で物理ブロック | 物理 |
+| **freshness / 充填率の SLI** | freshness-check.yml SLI 1〜11 (updatedAt / keyPoint / perspectives / outlook / sitemap_reach 等)。閾値割れで Slack | 観測 |
+| **Lambda 主ループ wallclock guard** | 外部 API 呼び出しループは `context.get_remaining_time_in_millis()` で break | 思想 |
+| **新規 formatter は boundary test 同梱** | 0/null/undefined/NaN/未来日付を全部 assert | 思想 |
+| **新規外部システム統合の3ステップ** | ①公式ドキュメント通読 ②外部が独立に読みに来る全ファイルをリスト化 ③外部管理画面で「Verified」確認 | 思想 |
+| **対症療法ではなく根本原因** | band-aid より API 設計修正 | 思想 |
+| **なぜなぜは構造化 + 横展開チェックリスト追記** | Why1〜Why5 + 仕組み的対策 3 つ以上 + `docs/lessons-learned.md` の「横展開チェックリスト」表に 1 行追加（実装ファイルパスを書く）。CI `check_lessons_landings.sh` で landing 物理検証 | 物理 |
+| **deploy.sh は直接実行しない** | デプロイは GitHub Actions 任せ。インフラ新規作成のみ例外でPO確認 | 思想 |
+| **アドホックAPI呼び出し禁止** | flotopic.com APIはスケジューラー（p003-haiku/p003-sonnet）経由のみ。セッション内でのcurl/fetch確認は禁止。効果測定はスケジューラーに委ねてセッション即クローズ | 思想 |
+
+### 中断ルール（2026-04-28 PM 制定）
+
+| 規則 | 内容 |
 |---|---|
-| **完了 = mainマージ + deploy + 効果検証済み** | **feature branch push だけは未完了。** ①`git log origin/main \| head -5` で自分の commit が main に入っていることを確認してから完了宣言。②GH Actions deploy が green（本番 URL 目視 or CloudWatch エラーなし）。`done.sh <task_id> <verify_target>` で自動検証（main マージチェック内蔵）。③修正種別に応じて `bash scripts/verify_effect.sh <fix_type>` を実行し数値確認。fix_type: `ai_quality` / `mobile_layout` / `freshness`。閾値未達は未完了。 |
-| **Verified 行 commit 必須** | `feat:` `fix:` `perf:` の commit には ①`Verified: <url>:<status>:<JST_timestamp>`（本番URL到達）②`Verified-Deploy: git log main shows <commit_hash> @ <JST>`（**main に自分の commit が入っていること**）を必須で含める。効果検証時は ③`Verified-Effect: <fix_type> <metric>=<value> PASS @ <JST>` も追加。pre-commit hook で物理ゲート (`scripts/git-hooks/pre-commit`)。**`Verified:` は「サイトが生きている確認」。`Verified-Deploy:` が「変更が本番に反映された確認」。両方必須。** |
-| **変更前に副作用確認** | 「このファイルが何に依存されているか」を声に出す。言えなければ変更しない |
-| **同名ファイル並行編集禁止** | WORKING.md 宣言なしで触らない |
-| **scriptタグ defer/async 禁止** | chart.js / config.js / app.js / detail.js。CI で物理ブロック |
-| **新規 formatter は boundary test 同梱** | 0/null/undefined/NaN/未来日付を全部 assert |
-| **PII / secrets コード直書き禁止** | env var か AWS Secrets Manager 必須 |
-| **実装前に全体影響マップ必須** | 新機能追加・修正前に ①影響ファイル一覧 ②依存方向 ③副作用シナリオ を箇条書きで列挙し、ナオヤに確認してから着手。「とりあえず実装」禁止。調査→報告→承認→着手の順を物理ルールとする |
-| **リーガル観点は都度チェック** | 外部データソース追加・コンテンツ表示変更・新機能実装のたびに `docs/rules/legal-policy.md` のチェックリストを確認する。一度良しとしても次の変更で再確認。 |
-| **対症療法ではなく根本原因** | 足回りで誤魔化さない。band-aid (lenient parsing 等) より API 設計修正 |
-| **なぜなぜ分析は構造化** | 問題発生時 Why1〜Why5 + 仕組み的対策 3 つ以上を `docs/lessons-learned.md` に追記。テーブル 1 行追記は再発防止と呼ばない。仕組み的対策には「外部観測」「物理ゲート」を最低 1 つ含める |
-| **Lambda 主ループ wallclock guard 必須** | 外部 API 呼び出しを伴うループは `context.get_remaining_time_in_millis()` で残り時間を測り break。回数ベース上限と時間予算を整合させる |
-| **新規外部システム統合の3ステップ** | ①公式ドキュメント通読 ②外部が独立に読みに来る全ファイルをリスト化 ③全部実装→外部管理画面で「Verified」確認 してから完了宣言 |
-| **CLAUDE.md は 250 行以内** | CI で物理ガード。超えたら `docs/lessons-learned.md` / `docs/rules/` / `docs/system-status.md` に外出しする |
-| **タスクID 採番** | `bash scripts/next_task_id.sh` で取得。日付ベース ID で衝突防止。CI で重複検出 |
-| **deploy.sh は直接実行しない** | デプロイは GitHub Actions 任せ。インフラ新規作成のみ例外でナオヤ確認 |
+| **完了まで走る** | コードセッションは完了まで走り切る。「止める？再開する？」をPOに聞かない |
+| **中断条件** | 中断してPOに確認するのは「**実装の前提が根本的に変わった場合**」のみ。文言の好み・デザインの揺らぎは中断理由にしない |
+| **金がかかる場合** | 例外: 新規 AWS リソース作成 / API 課金 / 不可逆操作（DB drop 等）は事前確認 |
 
 ---
 
 ## ⚡ 完了の流れ
 
+0. **設定値・スケジュール・仕様を変更した場合、`docs/system-status.md` と関連コメント（handler.py 先頭・detail.js・deploy.sh 等）を同時に更新する（後回し禁止）**。CI `docs-sync-check.yml` + PR テンプレチェックリストで物理担保
 1. 完了タスクを `HISTORY.md` に追記。CLAUDE.md には1行痕跡のみ
-2. **main マージを確認**: `git log origin/main --oneline | head -5` で自分の commit が入っていること（feature branch push だけでは手順2に進まない）
-3. `bash done.sh <task_id> <verify_target>` で動作確認込みで完了処理（main マージチェック内蔵・未マージなら exit 1）
-4. commit メッセージに `Verified: <url>:<status>:<timestamp>` + `Verified-Deploy: git log main shows <hash> @ <JST>` 行を含める
+2. `bash done.sh <task_id> <verify_target>` で動作確認込みで完了処理
+3. commit メッセージに `Verified: <url>:<status>:<timestamp>` 行を含める
 
 ---
 
@@ -92,27 +128,81 @@ bash ~/ai-company/scripts/session_bootstrap.sh
 
 ## ⚡ Cowork ↔ Code 連携ルール
 
+**Dispatch（Cowork スマホ/デスクトップ）= POから指示を受け取り、コードセッションをキューで管理し、完了を報告する。判断は最小化する。**
+
 両方が同一リポジトリに git push する。役割分担:
 
 **Code（Claude Code/CLI）**:
-- `lambda/` `frontend/` `scripts/` `.github/` のコード変更
-- テスト実行・Lambda 手動 invoke・デプロイ確認
+- `lambda/` `frontend/` `scripts/` `.github/` のコード変更（Mac ファイルシステム依存）
+- ローカルテスト実行（pytest 等・Mac 環境必要）
+- デプロイ確認（GitHub Actions と連動）
 - TASKS.md ステータス更新（実装完了後）
 
-**Cowork（スマホ/デスクトップアプリ）**:
+**Cowork / Dispatch（スマホ・デスクトップ）**:
 - `CLAUDE.md` `WORKING.md` `TASKS.md` `HISTORY.md` のドキュメント更新
-- CloudWatch 確認・S3 データ参照・ステータス報告
-- ナオヤとの会話・分析・計画立案
-- コードファイル編集も可（WORKING.md 明記してから）
-- git 操作も可（push 前に lock 退避: `mv .git/*.lock .git/_garbage/`）
+- **AWS MCP 経由で Lambda / CloudWatch / DynamoDB / S3 / EventBridge の運用操作**
+  - `mcp__awslabs_aws-mcp-server__call_aws` で `aws sts / lambda / cloudwatch / logs / events / s3 / dynamodb` 等
+  - read 全般可・write 系は invoke / メトリクス取得 / 設定参照は OK・**Lambda コード書換 (`update-function-code`) や DB 破壊 (`delete-table`) は禁止**
+  - 例: 障害調査・効果検証 (Errors / Invocations 集計) ・スケジュール確認 (`events list-rules`) は Cowork で完結
+- POとの会話・分析・計画立案
+- コードファイル編集も可（WORKING.md 明記してから・FUSE 経由で write 可能・unlink 不可は無視）
+- git 操作も可（FUSE で `git CLI` が詰まる場合は `scripts/cowork_commit.py` で GitHub API 経由 PR）
 
-> Cowork が実装〜push まで完結できる構造。lock 退避で競合を回避する。
+**詳細**: `docs/rules/cowork-aws-policy.md`（AWS MCP / git 役割分離・多重防御原則・IAM Deny 物理化候補）
+
+### セッション並走ルール（2026-04-28 PM 制定・物理ルール）
+
+| 規則 | 内容 |
+|---|---|
+| **同時起動上限** | Dispatch から起動するコードセッション = **同時 1 件まで**（Dispatch 自身含め 2 件以内）。新規タスクは前セッション完了までキューに積む |
+| **1セッション1タスク厳守** | 1つのコードセッションに渡すタスクは必ず1件のみ。「タスク1: …、タスク2: …」は絶対禁止。2件以上ある場合は順番にセッションを起動する |
+| **完了まで走る** | コードセッションは完了まで走り切ってから報告する。「止める？再開する？」を Dispatch がPOに聞かない |
+| **中断条件** | 中断してPOに確認するのは「**実装の前提が根本的に変わった場合**」のみ。それ以外は判断コストゼロで完走 |
+| **セッション名規則** | コードセッション名は「**何を commit するか**」が一目で分かる名前。✅「CI 構文チェック fix」 ❌「調査」「作業」 |
+| **物理担保** | `session_bootstrap.sh` が `[Code]` 行 2 件以上を ERROR で出す（既存 WARN を ERROR 化）。WORKING.md の並走 ≥2 件常態化はフェーズ 1 完了の阻害要因 |
+
+### コードセッションのモデル選択ルール（2026-05-01 制定）
+
+**Dispatch が `start_code_task` を呼ぶ際、必ず `model` パラメータを明示する。Opus はデフォルト禁止。**
+
+| モデル | 用途 |
+|---|---|
+| **Haiku** | TASKS.md 更新・git 操作・ドキュメント修正・1ファイルの軽微なバグ修正 |
+| **Sonnet** | 機能実装・アルゴリズム変更・複数ファイル修正・テスト追加（**原則これを使う**） |
+| **Opus** | 複雑な設計判断・多システム連携・アーキテクチャ変更など Sonnet では精度が足りないと判断した場合。使う際は理由を報告する |
+
+スケジュールタスクも同様: `p003-haiku`（Haiku）/ `p003-sonnet`（Sonnet）を目的に応じて使い分ける。
+
+> Cowork が実装〜push まで完結できる構造。lock 退避で競合を回避する。Dispatch 運用安定はフェーズ 1 完了条件 §C（`docs/project-phases.md`）。
+
+### 時間待ち確認はスケジューラーに渡す（2026-04-29 制定）
+
+**効果検証や データ伝播待ちで Dispatch / Code セッションを開いたままにしない。以下のスケジュールタスクに委ねてセッションは即クローズする。詳細・引き継ぎ手順は `docs/rules/global-baseline.md` §10。**
+
+| タスク | モデル | 用途 |
+|---|---|---|
+| `p003-haiku` | Haiku | 朝7時1回。CloudWatch エラー確認・未マージPR確認。外部API呼び出しなし |
+| `p003-sonnet` | Sonnet | 手動起動。SLI実測・根本原因分析・コードセッション起動判断 |
+
+**スケジュールタスクの使い方（2種類）**:
+1. **効果検証待ち**: PR merge 後「N時間後に SLI を再測定して TASKS.md に結果を積む」one-time task を登録して即クローズ
+2. **定常監視**: `p003-haiku` が毎朝確認。異常があれば WORKING.md に記録
+
+**スケジュールタスク定期精査**: 月1回、不要・重複タスクを棚卸しして削除する（2026-05-01 制定）。`p003-sonnet` を使って手動で実施。
+
+### CI 待ちは即クローズ（物理ルール・2026-04-30 追加）
+
+**PR を出したらコードセッションを即 exit する。Monitor ツールで CI 完了を待つな。**
+- **PR 作成前に `gh run list --branch <branch> --limit 3` で既存 CI 失敗がないことを必ず確認する。失敗がある場合は先に修正してから PR を作成する**
+- CI 結果確認はスケジューラーまたは次回 session_bootstrap.sh に任せる
+- 「CI pending → Monitor でポーリング」はコンテキスト消費 + コスト増の禁止パターン
+- 違反例: CI 待ち中に Monitor を呼ぶ / gh pr checks をループする / 既存 CI 失敗を無視して PR を出す
 
 ---
 
 ## ⚡ Team Operating Rules
 
-**完了条件**: build/compile 通過 + 主要機能動作確認 + 全テストパス + **main マージ + GH Actions deploy 完了** + フロントは本番 URL で目視 + Verified/Verified-Deploy 行付き commit。feature branch push のみ = 未完了。
+**完了条件**: build/compile 通過 + 主要機能動作確認 + 全テストパス + フロントは本番 URL で目視 + Verified 行付き commit。
 
 **完了報告ルール**: 「できた」の前に①エラーログ確認②動作確認③警告修正。自力で直せない場合は「ここで詰まっている」と報告する。
 
@@ -133,7 +223,7 @@ bash ~/ai-company/scripts/session_bootstrap.sh
 ## ⚡ 絶対ルール（毎セッション遵守）
 
 - 決まったことは会話で終わらせず即ファイルに書く
-- URL の確認・デプロイ確認は自分でやる（ナオヤに聞かない）
+- URL の確認・デプロイ確認は自分でやる（POに聞かない）
 - 「書きました」「やります」の宣言は信用されない。ファイル存在が証拠
 - 空報告禁止
 - 実装した≠動いている。実際にエンドユーザーが使えて初めて完了
