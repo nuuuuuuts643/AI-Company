@@ -167,11 +167,22 @@ else
   if ! git diff --cached --quiet 2>/dev/null; then
     git commit -m "chore: bootstrap sync $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" 2>/dev/null || true
   fi
-  git pull --no-rebase --no-edit origin main 2>&1 | _strip_fuse_noise | tail -2 || true
-  # PR #159 landing 検証用: git pull exit code を PIPESTATUS[0] で検出可能にする
+  git pull --no-rebase --no-edit origin main 2>&1 | _strip_fuse_noise | tail -2
+  # T2026-0502-PHYSICAL-GUARD-AUDIT: PR #159 landing を実 exit 経路に直結。
+  # `| tail -2 || true` だけだと失敗を握り潰すので PIPESTATUS[0] を BOOTSTRAP_EXIT に流す。
   _git_pull_status="${PIPESTATUS[0]:-0}"
+  if [ "$_git_pull_status" -ne 0 ]; then
+    echo "⚠️  git pull failed (exit=$_git_pull_status). 続行するが末尾で exit 1 する。" >&2
+    BOOTSTRAP_EXIT=1
+  fi
   mv .git/index.lock .git/_garbage/ 2>/dev/null
-  git push 2>&1 | _strip_fuse_noise | tail -2 || true
+  # main 直 push: pre-push hook が ALLOW_MAIN_PUSH=1 escape を要求する (T2026-0502-PHYSICAL-GUARD-AUDIT)
+  ALLOW_MAIN_PUSH=1 git push 2>&1 | _strip_fuse_noise | tail -2
+  _git_push_status="${PIPESTATUS[0]:-0}"
+  if [ "$_git_push_status" -ne 0 ]; then
+    echo "⚠️  git push failed (exit=$_git_push_status). 続行するが末尾で exit 1 する。" >&2
+    BOOTSTRAP_EXIT=1
+  fi
 fi
 
 # ---- 2b. shared docs conflict guard (T2026-0502-H) ----
@@ -246,8 +257,55 @@ if [ "$DRY_RUN" = "0" ]; then
     echo "     1. git remote set-url origin https://github.com/nuuuuuuts643/AI-Company.git" >&2
     echo "     2. git config --global credential.helper osxkeychain  # Mac" >&2
     echo "     3. gh auth login --web で Keychain 認証へ移行" >&2
-    echo "   詳細: docs/lessons-learned.md「T2026-0502-SEC2-RECURRENCE」セクション" >&2
+    echo "     4. (Cowork から push する場合) gh auth token > .cowork-token && chmod 600 .cowork-token" >&2
+    echo "   詳細: docs/lessons-learned.md「T2026-0502-SEC2-RECURRENCE」「T2026-0502-BJ」" >&2
     BOOTSTRAP_EXIT=1
+  fi
+fi
+
+# ---- 3e3. Cowork sandbox 認証経路の死活検査 (T2026-0502-BJ-RECURRENCE) ----
+# 背景: 2026-05-02 T2026-0502-BJ で「.git/config から PAT を剥がした結果、Cowork sandbox から
+#       auth 経路が一切なくなり cowork_commit.py が壊れた」事故が発生。原因は SEC2 対応単独で
+#       実施し、別経路 (.cowork-token) のセットアップを忘れたまま剥がしたため。
+# 検査: bootstrap 起動時に「Cowork から GitHub にアクセスできる経路」が 1 つ以上あるか確認。
+#       (a) .git/config URL に token 直書き (旧仕様・SEC2 違反だが動く)
+#       (b) workspace/.cowork-token ファイル (推奨経路・T2026-0502-BJ で導入)
+#       (c) env GITHUB_TOKEN / GH_TOKEN
+#       上記すべて NG = Cowork から push 不可状態 → WARN で警告
+# 対処: Mac で `gh auth token > ~/ai-company/.cowork-token && chmod 600 ~/ai-company/.cowork-token`
+# 注: Mac CLI 単独で git push する分には Mac の Keychain で OK。本検査は Cowork sandbox からの
+#     push 経路の死活が目的。Mac 単独セッションでも誤検知しないよう、検査結果は WARN 扱い (ERROR
+#     にせず BOOTSTRAP_EXIT を変えない)。これは「壊れていることを見えるようにする」ガード。
+if [ "$DRY_RUN" = "0" ]; then
+  COWORK_AUTH_OK=0
+  COWORK_AUTH_PATH=""
+
+  # 経路 (a): .git/config URL に token (SEC2 違反だが auth は通る)
+  if echo "$GIT_URL" | LANG=C grep -qE '://[^/]+:(gh[opsu]_|ghp_)[A-Za-z0-9_-]+@github\.com'; then
+    COWORK_AUTH_OK=1
+    COWORK_AUTH_PATH="(SEC2 違反: .git/config URL 直書き)"
+  fi
+
+  # 経路 (b): .cowork-token ファイル (推奨)
+  if [ "$COWORK_AUTH_OK" = "0" ] && [ -s .cowork-token ]; then
+    if head -c 4 .cowork-token | LANG=C grep -qE '^gh[opsu]_'; then
+      COWORK_AUTH_OK=1
+      COWORK_AUTH_PATH=".cowork-token (推奨経路)"
+    fi
+  fi
+
+  # 経路 (c): env
+  if [ "$COWORK_AUTH_OK" = "0" ] && { [ -n "${GITHUB_TOKEN:-}" ] || [ -n "${GH_TOKEN:-}" ]; }; then
+    COWORK_AUTH_OK=1
+    COWORK_AUTH_PATH="env GITHUB_TOKEN/GH_TOKEN"
+  fi
+
+  if [ "$COWORK_AUTH_OK" = "0" ]; then
+    echo "⚠️  WARN: Cowork sandbox 用の GitHub auth 経路が見つかりません (T2026-0502-BJ-RECURRENCE)" >&2
+    echo "   症状: cowork_commit.py / Cowork からの API 呼び出しが 401 になる" >&2
+    echo "   恒久対処 (Mac で 1 回): gh auth token > ~/ai-company/.cowork-token && chmod 600 ~/ai-company/.cowork-token" >&2
+    echo "   詳細: docs/lessons-learned.md「T2026-0502-BJ」セクション" >&2
+    # WARN なので BOOTSTRAP_EXIT は変えない (Mac CLI 単独セッションを break しない)
   fi
 fi
 

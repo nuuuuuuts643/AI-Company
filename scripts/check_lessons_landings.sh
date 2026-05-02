@@ -98,23 +98,57 @@ if [ $EXIT_CODE -ne 0 ]; then
   exit $EXIT_CODE
 fi
 
-# PR #159 landing 検証: session_bootstrap.sh に PIPESTATUS[0] と BOOTSTRAP_EXIT=1 が両方含まれる
-if ! grep -q 'PIPESTATUS\[0\]' "$REPO_ROOT/scripts/session_bootstrap.sh"; then
+# PR #159 landing 検証 (T2026-0502-PHYSICAL-GUARD-AUDIT で grep 強化):
+# 単に変数を取得しているだけでなく、失敗時に BOOTSTRAP_EXIT に流す経路が
+# session_bootstrap.sh に書かれていることまで verify する。
+# 旧: PIPESTATUS[0] / BOOTSTRAP_EXIT=1 が同ファイルに含まれることだけ検査 → 取得だけして
+#     未使用でも pass する弱い grep。今回 _git_pull_status / _git_push_status の
+#     条件分岐パターンまで要求する。
+SBS="$REPO_ROOT/scripts/session_bootstrap.sh"
+if ! grep -q 'PIPESTATUS\[0\]' "$SBS"; then
   echo "❌ PR #159: PIPESTATUS[0] not found in session_bootstrap.sh" >&2
   exit 1
 fi
-if ! grep -q 'BOOTSTRAP_EXIT=1' "$REPO_ROOT/scripts/session_bootstrap.sh"; then
+if ! grep -q 'BOOTSTRAP_EXIT=1' "$SBS"; then
   echo "❌ PR #159: BOOTSTRAP_EXIT=1 not found in session_bootstrap.sh" >&2
   exit 1
 fi
-echo "✅ PR #159: session_bootstrap.sh landing verified"
+# git pull / git push の失敗を BOOTSTRAP_EXIT に流す条件分岐があるか
+if ! grep -qE '_git_(pull|push)_status.*-ne[ ]+0' "$SBS"; then
+  echo "❌ PR #159: _git_pull_status / _git_push_status の失敗時 exit 経路が見つかりません" >&2
+  echo "   期待: if [ \"\$_git_pull_status\" -ne 0 ]; then BOOTSTRAP_EXIT=1; fi のような分岐" >&2
+  exit 1
+fi
+echo "✅ PR #159: session_bootstrap.sh landing verified (PIPESTATUS + exit 経路)"
 
-# PR #160 landing 検証: install_hooks.sh に pre-push hook 設置ブロックが含まれる
-if ! grep -q 'pre-push' "$REPO_ROOT/scripts/install_hooks.sh"; then
+# PR #160 landing 検証 (T2026-0502-PHYSICAL-GUARD-AUDIT で grep 強化):
+# 旧: install_hooks.sh に 'pre-push' という文字列が含まれるかだけ → placeholder
+#     `exit 0` でも pass。今回 main 直 push を実 reject するロジックの存在まで verify する。
+INSH="$REPO_ROOT/scripts/install_hooks.sh"
+if ! grep -q 'pre-push' "$INSH"; then
   echo "❌ PR #160: pre-push hook block not found in install_hooks.sh" >&2
   exit 1
 fi
-echo "✅ PR #160: install_hooks.sh landing verified"
+# install_hooks.sh の pre-push ブロック内で main 直 push を物理 reject する痕跡があるか
+# 期待: refs/heads/main の判定 + exit 1 経路 + ALLOW_MAIN_PUSH escape の3要素
+if ! grep -q 'refs/heads/main' "$INSH"; then
+  echo "❌ PR #160: install_hooks.sh の pre-push に refs/heads/main 判定がありません (placeholder のままの可能性)" >&2
+  exit 1
+fi
+if ! grep -qE 'ALLOW_MAIN_PUSH' "$INSH"; then
+  echo "❌ PR #160: install_hooks.sh の pre-push に ALLOW_MAIN_PUSH escape がありません" >&2
+  exit 1
+fi
+# 既存 .git/hooks/pre-push (実 install されているもの) も同条件で確認
+HOOK_PP="$REPO_ROOT/.git/hooks/pre-push"
+if [ -f "$HOOK_PP" ]; then
+  if ! grep -q 'refs/heads/main' "$HOOK_PP"; then
+    echo "❌ PR #160: .git/hooks/pre-push が placeholder のまま (refs/heads/main 判定なし)" >&2
+    echo "   修復: bash scripts/install_hooks.sh を実行" >&2
+    exit 1
+  fi
+fi
+echo "✅ PR #160: install_hooks.sh + .git/hooks/pre-push landing verified (main 直 push reject ロジック含む)"
 
 # T2026-0502-DEPLOY-WATCHDOG landing 検証:
 # 1) check_lambda_freshness.sh が存在して空でないこと
