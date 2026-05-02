@@ -1,0 +1,54 @@
+# T2026-0502-D: auto-merge 詰まり監視
+#
+# 背景:
+#   既存 .github/workflows/auto-merge.yml は PR 作成時に GitHub native auto-merge を ON にする役目。
+#   しかし auto_merge.enabled でも mergeable_state=blocked のまま GitHub bot が動かないことがある
+#   (2026-05-02 PR #125 / #130 / #132 で実害発生 — internal recompute ラグが原因と推定)。
+#   本 workflow は 10 分毎に open PR を走査し、stuck な PR を API 直 merge で救済する。
+#
+# 関係:
+#   - auto-merge.yml = enable する役 (pull_request イベント駆動)
+#   - automerge-stuck-watcher.yml = 救済する役 (cron 駆動・本ファイル)
+#
+# 参照: docs/lessons-learned.md「コンフリクト解決時に upstream 採用で破壊」横展開チェックリスト
+name: Auto-merge stuck PR watcher
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      threshold_minutes:
+        description: "Stuck threshold in minutes (default 5)"
+        required: false
+        default: "5"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  watcher:
+    name: detect & rescue stuck auto-merge PRs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run watcher
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          STUCK_THRESHOLD_MINUTES: ${{ github.event.inputs.threshold_minutes || '5' }}
+        run: |
+          python3 scripts/automerge_stuck_watcher.py
+
+      - name: Slack notify on failure
+        if: failure() && env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          payload=$(printf '{"text":"⚠️ auto-merge stuck watcher failed: %s"}' "$RUN_URL")
+          curl -sS -X POST -H "Content-Type: application/json" --data "$payload" "$SLACK_WEBHOOK_URL"
