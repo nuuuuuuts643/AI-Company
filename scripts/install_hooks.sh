@@ -213,8 +213,52 @@ MSGHOOK
 cat > "$HOOK_DIR/pre-push" <<'PUSHOOK'
 #!/bin/bash
 # AUTO-INSTALLED by scripts/install_hooks.sh
-# PR #160: pre-push hook setup block
-# Placeholder for pre-push validations; currently allows all pushes.
+# T2026-0502-PHYSICAL-GUARD-AUDIT: main 直 push を物理 reject
+# (PR #160 で「pre-push hook で物理ブロック ✅」と記録されていたが、
+#  実装は exit 0 placeholder のままだった。今回ようやく実装。)
+#
+# 例外: ALLOW_MAIN_PUSH=1 環境変数が立っており、push される全 commit が
+#       `chore: bootstrap sync` で始まる場合のみ allow
+#       (session_bootstrap.sh の sync push 用 escape)
+# bypass (緊急のみ): git push --no-verify
+
+# stdin: <local_ref> <local_sha> <remote_ref> <remote_sha> per push ref
+ZERO="0000000000000000000000000000000000000000"
+while read local_ref local_sha remote_ref remote_sha; do
+  # main 以外への push は素通し
+  [ "$remote_ref" = "refs/heads/main" ] || continue
+  # branch 削除 (local_sha が all zeros) は素通し
+  [ "$local_sha" = "$ZERO" ] && continue
+
+  if [ "${ALLOW_MAIN_PUSH:-0}" = "1" ]; then
+    # ALLOW_MAIN_PUSH escape は「全 commit が chore: bootstrap sync」の AND 条件
+    if [ "$remote_sha" = "$ZERO" ]; then
+      RANGE="${local_sha}~1..${local_sha}"
+    else
+      RANGE="${remote_sha}..${local_sha}"
+    fi
+    NON_BOOTSTRAP=$(git log --format='%s' "$RANGE" 2>/dev/null \
+      | grep -vE '^chore:[[:space:]]*bootstrap sync' | head -3 || true)
+    if [ -z "$NON_BOOTSTRAP" ]; then
+      continue
+    fi
+    echo "❌ pre-push blocked: ALLOW_MAIN_PUSH=1 でも 'chore: bootstrap sync' 以外の commit が含まれます" >&2
+    echo "$NON_BOOTSTRAP" | sed 's/^/   /' >&2
+    echo "   実コード変更は必ず branch + PR 経由 (cowork_commit.py / gh pr create)" >&2
+    echo "   緊急 bypass: git push --no-verify (要 WORKING.md 記録 + Verified-Effect:)" >&2
+    exit 1
+  fi
+
+  echo "❌ pre-push blocked: main への直接 push は禁止です (T2026-0502-M / -PHYSICAL-GUARD-AUDIT)" >&2
+  echo "   実コード変更は branch + PR 経由で行ってください:" >&2
+  echo "     - python3 scripts/cowork_commit.py --branch <name> --pr-title <title> ..." >&2
+  echo "     - もしくは git checkout -b <branch> && git push origin <branch> + gh pr create" >&2
+  echo "   bootstrap sync の場合: ALLOW_MAIN_PUSH=1 git push (session_bootstrap.sh が自動で付与)" >&2
+  echo "   緊急時 bypass: git push --no-verify" >&2
+  echo "     (使用時は WORKING.md に理由 + Verified-Effect: 行を必ず記録)" >&2
+  exit 1
+done
+
 exit 0
 PUSHOOK
 
@@ -224,10 +268,13 @@ echo "✅ installed: $HOOK_DIR/pre-commit"
 echo "✅ installed: $HOOK_DIR/commit-msg"
 echo "✅ installed: $HOOK_DIR/pre-push"
 echo ""
-echo "From now on, commits in this clone will fail if:"
+echo "From now on, commits/pushes in this clone will fail if:"
 echo "  - 旧4セクション / 旧フェーズ表記が混入したとき"
 echo "  - index.html の AdSense pub-id が ads.txt に無いとき"
 echo "  - feat:/fix:/perf: prefix の commit に 'Verified: <url>:<status>:<JST>' 行が無いとき"
+echo "  - feat:/fix:/perf: prefix の commit に 'Verified-Effect:' 系の行が無いとき (T2026-0502-AA)"
 echo "  - schedule-task を含む commit に '[Schedule-KPI] implemented=...' 行が無いとき"
+echo "  - PII / live secret / cost-discipline anti-pattern が staged されたとき"
+echo "  - main へ直接 push しようとしたとき (T2026-0502-PHYSICAL-GUARD-AUDIT で実装。bootstrap sync は ALLOW_MAIN_PUSH=1 で escape)"
 echo ""
-echo "Bypass (real emergency only):  git commit --no-verify"
+echo "Bypass (real emergency only):  git commit --no-verify  /  git push --no-verify"
