@@ -127,3 +127,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Cowork] T2026-0502-Z/AA/BB 観測ゼロ課題タスク積み | Cowork | TASKS.md | 2026-05-02 14:40 | no |
+| [Cowork] T2026-0502-AM AdSenseデプロイ未反映 root-cause起票 | Cowork | TASKS.md, HISTORY.md | 2026-05-02 17:55 | no |
