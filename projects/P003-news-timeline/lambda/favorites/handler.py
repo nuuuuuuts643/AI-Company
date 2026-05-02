@@ -71,7 +71,7 @@ def update_topic_fav_count(topic_id: str, delta: int):
 
 # ── ヘルパー ─────────────────────────────────────────────────────
 
-def cors_headers():
+def _cors_headers():
     return {
         'Content-Type':                 'application/json; charset=utf-8',
         'Access-Control-Allow-Origin':  '*',
@@ -80,15 +80,20 @@ def cors_headers():
     }
 
 
-def resp(code: int, body: dict):
+def _make_response(status: int, payload: dict, headers=None) -> dict:
+    """PayloadFormatVersion 2.0 準拠レスポンス (statusCode=int, body=str)"""
     return {
-        'statusCode': code,
-        'headers':    cors_headers(),
-        'body':       json.dumps(body, ensure_ascii=False, default=str),
+        'statusCode': int(status),
+        'headers':    headers if headers is not None else _cors_headers(),
+        'body':       json.dumps(payload, ensure_ascii=False, default=str),
     }
 
 
-def verify_google_token(id_token: str) -> dict | None:
+def resp(code: int, body: dict):
+    return _make_response(code, body)
+
+
+def verify_google_token(id_token: str):
     """Google tokeninfo で ID トークンを検証し、ペイロードを返す。失敗は None。"""
     try:
         url = GOOGLE_TOKENINFO_URL + id_token
@@ -246,7 +251,8 @@ def lambda_handler(event, context):
             else:
                 return resp(404, {'error': 'not found'})
         except Exception as e:
-            return resp(500, {'error': '取得に失敗しました', 'detail': str(e)})
+            print(f'[ERROR] GET {resource}/{user_id}: {type(e).__name__}: {e}')
+            return _make_response(500, {'error': '取得に失敗しました', 'detail': str(e)})
 
     # ── DELETE /user : アカウント全データ削除 ────────────────────
     if method == 'DELETE' and len(parts) >= 1 and parts[0] == 'user':
@@ -260,9 +266,10 @@ def lambda_handler(event, context):
             return resp(401, {'error': 'トークンの検証に失敗しました'})
         try:
             delete_all_user_data(user_id)
-            return resp(200, {'status': 'deleted', 'userId': user_id})
+            return _make_response(200, {'status': 'deleted', 'userId': user_id})
         except Exception as e:
-            return resp(500, {'error': 'データ削除に失敗しました', 'detail': str(e)})
+            print(f'[ERROR] DELETE user/{user_id}: {type(e).__name__}: {e}')
+            return _make_response(500, {'error': 'データ削除に失敗しました', 'detail': str(e)})
 
     # ── POST /history : 閲覧履歴追加 ─────────────────────────────
     if method == 'POST' and len(parts) >= 1 and parts[0] == 'history':
@@ -279,9 +286,10 @@ def lambda_handler(event, context):
             return resp(401, {'error': 'トークンの検証に失敗しました'})
         try:
             add_history_item(user_id, topic_id, title, viewed_at)
-            return resp(200, {'status': 'added', 'topicId': topic_id})
+            return _make_response(200, {'status': 'added', 'topicId': topic_id})
         except Exception as e:
-            return resp(500, {'error': '履歴追加に失敗しました', 'detail': str(e)})
+            print(f'[ERROR] POST history/{user_id}/{topic_id}: {type(e).__name__}: {e}')
+            return _make_response(500, {'error': '履歴追加に失敗しました', 'detail': str(e)})
 
     # ── DELETE /history : 閲覧履歴削除 (topicId省略=全削除) ───────
     if method == 'DELETE' and len(parts) >= 1 and parts[0] == 'history':
@@ -297,12 +305,13 @@ def lambda_handler(event, context):
         try:
             if topic_id:
                 remove_history_item(user_id, topic_id)
-                return resp(200, {'status': 'removed', 'topicId': topic_id})
+                return _make_response(200, {'status': 'removed', 'topicId': topic_id})
             else:
                 clear_history(user_id)
-                return resp(200, {'status': 'cleared', 'userId': user_id})
+                return _make_response(200, {'status': 'cleared', 'userId': user_id})
         except Exception as e:
-            return resp(500, {'error': '履歴削除に失敗しました', 'detail': str(e)})
+            print(f'[ERROR] DELETE history/{user_id}: {type(e).__name__}: {e}')
+            return _make_response(500, {'error': '履歴削除に失敗しました', 'detail': str(e)})
 
     # ── PUT /prefs: ジャンル設定保存 ─────────────────────────────
     if method == 'PUT' and len(parts) >= 1 and parts[0] == 'prefs':
@@ -317,9 +326,10 @@ def lambda_handler(event, context):
             return resp(401, {'error': 'トークンの検証に失敗しました'})
         try:
             save_prefs(user_id, genre)
-            return resp(200, {'status': 'saved', 'genre': genre})
+            return _make_response(200, {'status': 'saved', 'genre': genre})
         except Exception as e:
-            return resp(500, {'error': '設定保存に失敗しました', 'detail': str(e)})
+            print(f'[ERROR] PUT prefs/{user_id}: {type(e).__name__}: {e}')
+            return _make_response(500, {'error': '設定保存に失敗しました', 'detail': str(e)})
 
     # ── POST / DELETE /favorites: 認証付き書き込み ───────────────
     if method in ('POST', 'DELETE'):
@@ -348,11 +358,12 @@ def lambda_handler(event, context):
         try:
             if method == 'POST':
                 add_favorite(user_id, topic_id)
-                return resp(200, {'status': 'added', 'userId': user_id, 'topicId': topic_id})
+                return _make_response(200, {'status': 'added', 'userId': user_id, 'topicId': topic_id})
             else:  # DELETE
                 remove_favorite(user_id, topic_id)
-                return resp(200, {'status': 'removed', 'userId': user_id, 'topicId': topic_id})
+                return _make_response(200, {'status': 'removed', 'userId': user_id, 'topicId': topic_id})
         except Exception as e:
-            return resp(500, {'error': 'お気に入りの更新に失敗しました', 'detail': str(e)})
+            print(f'[ERROR] {method} favorites/{user_id}/{topic_id}: {type(e).__name__}: {e}')
+            return _make_response(500, {'error': 'お気に入りの更新に失敗しました', 'detail': str(e)})
 
     return resp(405, {'error': 'method not allowed'})
