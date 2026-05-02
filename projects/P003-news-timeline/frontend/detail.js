@@ -238,7 +238,7 @@ function renderDetail(data) {
   // 親トピックリンク (思想: 縦の階層を一目で・冒頭に表示) — 2026-04-27
   const parentLinkEl = document.getElementById('parent-topic-link');
   if (parentLinkEl && meta.parentTopicId) {
-    parentLinkEl.innerHTML = `<a href="topic.html?id=${esc(meta.parentTopicId)}" style="color:inherit;text-decoration:none;">この話は${meta.parentTopicTitle ? `「${esc(meta.parentTopicTitle)}」` : '上位テーマ'}の一部です →</a>`;
+    parentLinkEl.innerHTML = `<a href="topics/${esc(meta.parentTopicId)}.html" style="color:inherit;text-decoration:none;">この話は${meta.parentTopicTitle ? `「${esc(meta.parentTopicTitle)}」` : '上位テーマ'}の一部です →</a>`;
     parentLinkEl.style.display = 'inline-flex';
   }
 
@@ -1353,7 +1353,7 @@ function renderDiscovery(meta) {
               ? `<span class="disc-card-meta">${metaText}</span>`
               : '<span class="disc-card-meta disc-card-meta-muted">続き読む →</span>';
             return `
-              <a href="topic.html?id=${esc(t.topicId)}" class="disc-card">
+              <a href="topics/${esc(t.topicId)}.html" class="disc-card">
                 ${thumbHtml}
                 <div class="disc-card-body">
                   ${badgeHtml}
@@ -1406,7 +1406,7 @@ function renderContinuationNav(meta) {
               ? `<img class="cnt-nav-thumb" src="${safeThumb}" alt="" loading="lazy" referrerpolicy="origin-when-cross-origin" onerror="this.style.display='none'">`
               : `<div class="cnt-nav-thumb cnt-nav-thumb-placeholder"></div>`;
             return `
-              <a href="topic.html?id=${esc(t.topicId)}" class="cnt-nav-item">
+              <a href="topics/${esc(t.topicId)}.html" class="cnt-nav-item">
                 ${thumbHtml}
                 <div class="cnt-nav-body">
                   ${genre ? `<span class="cnt-nav-genre">${esc(genre)}</span>` : ''}

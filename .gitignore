@@ -61,3 +61,7 @@ projects/P003-news-timeline/lambda/fetcher/*.so
 .claude/settings.json
 HISTORY.md
 AI-COMPANY/
+
+# 一時的なデバッグログ・probe 結果 (T2026-0502-BI cleanup)
+tmp_logs/
+test_pii_dummy.md
