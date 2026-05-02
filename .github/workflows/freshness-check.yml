@@ -496,12 +496,12 @@ jobs:
         continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # T2026-0502-SEC10: OIDC role assumption 優先 (AWS_ROLE_ARN_STANDARD が設定されていれば)、
-          # 未設定時は legacy access key にフォールバック。移行期間中の両建て運用。
+          # T2026-0502-SEC10: OIDC role assumption 専用に切替 (両建て廃止・2026-05-02 PM)。
+          # 旧両建ては aws-access-key-id 同梱で v4 が AssumeRole (NOT WebIdentity) を選んでしまい
+          # OIDC 経路が動かなかった。aws-access-key-id を削除して OIDC を強制する。
+          # AWS_ROLE_ARN_STANDARD 未設定環境では continue-on-error: true で skip。
           # 詳細: docs/runbooks/github-actions-oidc-migration.md
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_STANDARD }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-1
 
       - name: SES error rate 観測 (SLI 14)
