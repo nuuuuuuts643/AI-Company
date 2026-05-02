@@ -6,7 +6,41 @@
 
 ---
 
-## 2026-05-02
+## 2026-05-02 残務監査結果サマリ (T2026-0502-AUDIT・Cowork・11:30〜12:00 JST)
+
+**ステップA (WORKING.md 棚卸し)**: stale 残骸 2 行発見・2 行削除（T2026-0502-G/A/B 紐付き行 + T2026-0502-Q/H 紐付き行はいずれも HISTORY.md に landing 済 → 残骸として削除）。
+**ステップB (TASKS.md ↔ HISTORY.md)**: ID 衝突 4 件発見（T2026-0502-M/N/P/MU が旧版マージ済 + 新版 open PR で同 ID 採番）/ 完了済だが TASKS.md/HISTORY.md 未登録 4 件発見（T2026-0502-M 旧 PR #158/#159/#160 / T2026-0502-N 旧 PR #115 / T2026-0502-P 旧 PR #134 / T2026-0502-WORKFLOW-PATH-LINT PR #144）→ 下記セクションで追記。
+**ステップC (lessons-learned 横展開 [x] 化)**: 26 件中 2 件を [x] に更新（conflict-resolution.md / conflict_check.sh は landing 済を確認）。残 24 件は本当に未着手。
+**ステップD (open PR 棚卸し)**: open 5 件（#152/#154/#156/#161/#162）すべて auto-merge ON、age < 19 min、stuck なし。
+**ステップE (GH Actions failure)**: deploy-lambdas.yml 直近 10 連続 failure を発見。ただし job レベルでは `deploy: success` で `post-deploy-verify (AI 充填率 + 鮮度): failure` が常態化。Lambda コード自体は本番反映済 / workflow conclusion が誤解を招く構造。fetcher-health-check / freshness-check は既に復旧。
+**ステップF (PR #146 deploy auto-fire 失敗)**: PR #141 (956072d) と PR #146 (53d2ddd2) ともに `lambda/**` 配下を変更したのに deploy-lambdas push event が auto-fire していない。両方とも workflow_dispatch のみで動いた。GitHub Actions 側の異常で原因 3 つ仮説止まり（lessons-learned 追記）。
+**ステップG (T2026-0502-J 効果先取り観察)**: processor invocations は過去 5h で 30min ごと 1 件のみ（scheduled cron 単独）。05:30 JST バケットだけ 2 件。即時 invoke は元々レアだった可能性。最終判定は p003-haiku (2026-05-03 朝 7:08 JST) に委ねる。
+**ステップH (PO アクション待ち優先表記統一)**: T2026-0502-O / F / SEC1 / SEC2 の優先列を「(PO アクション待ち・督促)」に統一。
+
+### T2026-0502-M (旧) — pre-push hook で main 直 push を物理ブロック + session_bootstrap.sh git エラー黙殺解消
+
+**完了** (2026-05-02 11:25〜11:30 JST、PR #158/#159/#160 merged)。
+- PR #158: 直 commit を retroactive PR フローに変換するヘルパーを追加。
+- PR #159: `session_bootstrap.sh` の `git pull/push || true` で stderr 黙殺を解消（exit code 検出）。
+- PR #160: `.git/hooks/pre-push` で `refs/heads/main` 直 push をブロック → PR フロー強制。
+**注**: T2026-0502-M は同日中に Tier-0 閾値タスク (PR #152) と新規 ID 衝突。本件は旧版で `_main_block` サフィックスで区別。
+
+### T2026-0502-N (旧) — AWS MCP 発見によるルール更新 + git/AWS 多重防御原則
+
+**完了** (2026-05-02、PR #115 merged)。
+`docs/rules/cowork-aws-policy.md` 新設・CLAUDE.md / WORKING.md に AWS MCP の役割分担を明記。**注**: T2026-0502-N は同日中に suspectedMismerge 物理化タスク (PR #154) と新規 ID 衝突。本件は旧版で `_aws_mcp_rules` サフィックスで区別。
+
+### T2026-0502-P (旧) — gen_dispatch_prompt.sh heredoc クォート修正
+
+**完了** (2026-05-02、PR #134 merged)。
+`scripts/gen_dispatch_prompt.sh` の heredoc を `<< 'PROMPT'` (シングルクォート) で囲み、bash の variable expansion / glob 展開を停止。**注**: 同日中に suspectedMismerge UI CTA タスク (PR #156) と新規 ID 衝突。本件は旧版で `_heredoc_quote` サフィックスで区別。
+
+### T2026-0502-WORKFLOW-PATH-LINT — workflow yml の cd 後相対パス物理ガード
+
+**完了** (2026-05-02、PR #144 merged)。
+`scripts/check_workflow_paths.sh` + `tests/test_check_workflow_paths.sh` 新設・`.github/workflows/ci.yml` 統合。「`cd <subdir>` 直後に `scripts/`・`tests/`・`docs/` で始まる相対パス参照」を grep して ERROR で停止。lessons-learned「deploy-lambdas.yml 18h 停止」由来の物理対策。
+
+---
 
 ### T2026-0502-G — fetcher Lambda 停止 → 恒久対処 + 実機検証完了
 
@@ -132,5 +166,14 @@
 | ~~T2026-0502-C~~ | ~~🟡 中~~ | ~~**Bluesky 投稿系の恒久リファクタ** — T2026-0502-L で恒久対処化: debut を完全廃止せず `BLUESKY_POSTING_CONFIG` 集約 + `_check_rate_limit()` 単一エントリ + 24h cap 二重ガード + テスト14件で再発防止。EventBridge 構成は維持（rate 30min cron + 単発 morning cron）、debut は config で `enabled=False` 維持しつつ再有効化路を残した。~~ | ~~`scripts/bluesky_agent.py`, `projects/P003-news-timeline/tests/`, `docs/lessons-learned.md`~~ | ~~2026-05-02~~ |
 | ~~T2026-0502-I~~ | ~~🟢 低 (Code セッション dispatch 必要)~~ | ~~**API Gateway 廃止 route `POST /track` 削除**~~ → **2026-05-02 10:53 JST 完了 (Code セッション)** — `aws apigatewayv2 delete-route --route-id t8bq1kq` + `delete-integration --integration-id c8yyf01` 実行。`get-routes` で `POST /track` が `[]` 確認 (消去実証)。`deploy-lambdas.yml` および repo 全体に該当 route の参照なし確認済。Verified-Effect: 11:52 JST の `t2026-0502-t-5xx-analysis` schedule task が実行する access logs 解析で「routeKey=POST /track の 5xx は 0 件」が確認できる想定 (削除前 baseline は 5xx 率 17.6% (5/2 朝) のうち未推定割合)。 | (実装完了) | 2026-05-02 |
 | ~~T2026-0502-L~~ | ~~🟡 中~~ | ~~**Bluesky 投稿頻度 恒久対処（debut 設計欠陥修正・SSoT 化）**~~ → **2026-05-02 11:00〜11:35 JST 完了 (PR #150 + #155 merged)** — 5/1 debut 48件/日投稿事故 → `BLUESKY_POSTING_CONFIG` SSoT 化 + `_check_rate_limit()` 単一エントリ + 3重ガード (enabled/cooldown/24h cap) + テスト14件 + lessons-learned 追記。PO audit で発見した dead config (weekly/monthly entry・legacy alias) を PR #155 で削除。post_debut の TTL クリーンアップを rate-limit より先に実行する regression fix を当 PR で同梱。S3 `bluesky/pending/` 累積 85件のマーカーを `aws s3 rm --recursive` で整理済。Verified-Effect: 5/2 01:22 UTC 応急処置デプロイ後 56分で投稿1件のみ・実機で停止確認済 / 2026-05-03 朝に schedule task `p003-haiku` が日次合計 ≤4件 を観測予定。**Phase-Impact: 1 運用安定化** | `scripts/bluesky_agent.py`, `projects/P003-news-timeline/tests/test_bluesky_rate_limit.py`, `docs/lessons-learned.md`, S3 cleanup | 2026-05-02 |
+
+</details>
+
+
+### 自動 triage: 2026-05-02 に TASKS.md から移動した取消線済みタスク
+
+<details><summary>取消線で完了マークされた行（TASKS.md 由来）</summary>
+
+| ~~T2026-0502-J~~ | ~~🔴 高~~ | ~~**fetcher → processor 即時トリガー削除 (コスト 67% 減)**~~ → **2026-05-02 11:06 JST 完了 (PR #146 merged, commit 53d2ddd2)** — Code セッションが `lambda/fetcher/handler.py:1498-1517` の `_lambda.invoke('p003-processor', ...)` ブロック削除 + 削除理由コメント追加 + 横展開 grep (cross-Lambda invoke 残存=0) + lessons-learned「Lambda 間 invoke のコスト盲点」Why1〜5 + 仕組み的対策 4 件追記。Cowork が CI fail (ソフト言語「確認する」混入) を branch 直接 commit で fix → API direct merge。**未確認**: deploy-lambdas.yml が PR #146 merge sha (53d2ddd2) で **auto-fire しなかった** (path filter `projects/P003-news-timeline/lambda/**` に該当するはずなのに workflow runs API で 0 件)。next push or workflow_dispatch で deploy 必要。Verified-Effect (Eval-Due 2026-05-03 09:00 JST): deploy 反映後 24h で API call <60 calls/24h まで減少（-63% 想定）。 | (実装完了・deploy 観察待ち) | 2026-05-02 |
 
 </details>
