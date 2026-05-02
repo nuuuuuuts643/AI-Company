@@ -35,12 +35,30 @@ jobs:
     steps:
       - name: Enable auto-merge (squash + delete branch)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # T2026-0502-AT 恒久対処 (2026-05-02): PAT (AUTO_MERGE_PAT) を優先使用。
+          # 背景: GITHUB_TOKEN による push/merge は他の workflow を trigger しない (GitHub の制約)。
+          #       これにより auto-merge.yml が squash merge しても deploy-p003.yml / deploy-lambdas.yml の
+          #       push event / pull_request closed event が一切発火せず、PR merge 後に本番反映ゼロが
+          #       長期発生していた (T2026-0502-AQ noindex 削除で 30 分間本番未反映が露見)。
+          # PAT 化により merge actor が "user" になり、後続 workflow が正常に発火する。
+          # AUTO_MERGE_PAT 未設定時は GITHUB_TOKEN にフォールバック (動作はするが deploy auto-trigger は失敗)。
+          # 詳細: TASKS.md T2026-0502-AT / docs/lessons-learned.md T2026-0502-AT-MERGE-TOKEN-CONSTRAINT
+          GH_TOKEN: ${{ secrets.AUTO_MERGE_PAT || secrets.GITHUB_TOKEN }}
+          PAT_PRESENT: ${{ secrets.AUTO_MERGE_PAT != '' }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           set -euo pipefail
           echo "PR #${PR_NUMBER} by ${PR_AUTHOR} → ${PR_URL}"
+          if [ "${PAT_PRESENT}" != "true" ]; then
+            echo "::warning::AUTO_MERGE_PAT secret が未設定 — GITHUB_TOKEN にフォールバック中。"
+            echo "::warning::この状態では PR merge 後の deploy-p003 / deploy-lambdas が auto-trigger されません (T2026-0502-AT 既知問題)。"
+            echo "::warning::PO 操作必須: GitHub Settings → Developer settings → Personal access tokens (classic) で"
+            echo "::warning::    scope=repo,workflow の PAT を発行 → リポジトリ Settings → Secrets and variables → Actions → New repository secret"
+            echo "::warning::    name=AUTO_MERGE_PAT で登録"
+          else
+            echo "✅ AUTO_MERGE_PAT 使用中 — merge 後 deploy 系 workflow が正常に auto-trigger される想定"
+          fi
           gh pr merge "$PR_URL" --auto --squash --delete-branch
           echo "✅ auto-merge enabled (squash, delete-branch)"
