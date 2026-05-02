@@ -289,3 +289,152 @@ def test_threshold_env_var_overrides_default(monkeypatch):
     )
     assert code == 0
     assert fake.merge_calls == []
+
+
+# ============================================================================
+# T2026-0502-AB: dirty PR 自動 rebase テスト
+# ============================================================================
+
+
+class TestIsDirtyForRebase:
+    """is_dirty_for_rebase 境界値テスト。"""
+
+    def test_dirty_with_auto_merge_and_age_ok(self):
+        pr = _make_pr(mergeable_state="dirty", auto_merge=True, age_minutes=15.0)
+        ok, reason = watcher.is_dirty_for_rebase(pr, threshold_minutes=10, now=NOW)
+        assert ok, f"reason={reason}"
+
+    def test_dirty_but_too_young(self):
+        pr = _make_pr(mergeable_state="dirty", auto_merge=True, age_minutes=3.0)
+        ok, reason = watcher.is_dirty_for_rebase(pr, threshold_minutes=10, now=NOW)
+        assert not ok
+        assert "age=" in reason
+
+    def test_dirty_but_no_auto_merge(self):
+        pr = _make_pr(mergeable_state="dirty", auto_merge=False, age_minutes=15.0)
+        ok, reason = watcher.is_dirty_for_rebase(pr, threshold_minutes=10, now=NOW)
+        assert not ok
+        assert "auto_merge" in reason
+
+    def test_blocked_not_dirty_skipped(self):
+        pr = _make_pr(mergeable_state="blocked", auto_merge=True, age_minutes=15.0)
+        ok, reason = watcher.is_dirty_for_rebase(pr, threshold_minutes=10, now=NOW)
+        assert not ok
+
+    def test_clean_skipped(self):
+        pr = _make_pr(mergeable_state="clean", auto_merge=True, age_minutes=15.0)
+        ok, _ = watcher.is_dirty_for_rebase(pr, threshold_minutes=10, now=NOW)
+        assert not ok
+
+    def test_draft_skipped(self):
+        pr = _make_pr(mergeable_state="dirty", auto_merge=True, age_minutes=15.0)
+        pr["draft"] = True
+        ok, reason = watcher.is_dirty_for_rebase(pr, threshold_minutes=10, now=NOW)
+        assert not ok
+        assert reason == "draft PR"
+
+    def test_merged_skipped(self):
+        pr = _make_pr(mergeable_state="dirty", auto_merge=True, merged=True, age_minutes=15.0)
+        ok, _ = watcher.is_dirty_for_rebase(pr, threshold_minutes=10, now=NOW)
+        assert not ok
+
+    def test_closed_skipped(self):
+        pr = _make_pr(mergeable_state="dirty", auto_merge=True, state="closed", age_minutes=15.0)
+        ok, _ = watcher.is_dirty_for_rebase(pr, threshold_minutes=10, now=NOW)
+        assert not ok
+
+
+class TestTryRebasePr:
+    """try_rebase_pr の subprocess 実行をモック化したテスト。"""
+
+    def test_rebase_success(self, monkeypatch):
+        calls = []
+
+        def fake_run(cmd, capture_output, text, timeout):
+            calls.append(cmd)
+            class R:
+                returncode = 0
+                stdout = "ok"
+                stderr = ""
+            return R()
+
+        monkeypatch.setattr(watcher.subprocess, "run", fake_run)
+        ok, detail = watcher.try_rebase_pr("feature/test")
+        assert ok, f"detail={detail}"
+        assert "rebased" in detail.lower()
+        assert len(calls) == 4
+        assert calls[0][0:2] == ["git", "fetch"]
+        assert calls[2][0:3] == ["git", "rebase", "origin/main"]
+        assert calls[3][0:2] == ["git", "push"]
+        assert "--force-with-lease" in calls[3]
+
+    def test_rebase_conflict_aborts(self, monkeypatch):
+        calls = []
+
+        def fake_run(cmd, capture_output, text, timeout):
+            calls.append(cmd)
+            class R:
+                pass
+            r = R()
+            if cmd[0:3] == ["git", "rebase", "origin/main"]:
+                r.returncode = 1
+                r.stdout = ""
+                r.stderr = "CONFLICT (content): merge conflict in foo.py"
+            else:
+                r.returncode = 0
+                r.stdout = ""
+                r.stderr = ""
+            return r
+
+        monkeypatch.setattr(watcher.subprocess, "run", fake_run)
+        ok, detail = watcher.try_rebase_pr("feature/test")
+        assert not ok
+        assert "conflict" in detail.lower()
+        assert any(cmd[0:3] == ["git", "rebase", "--abort"] for cmd in calls)
+
+    def test_fetch_failure_short_circuits(self, monkeypatch):
+        calls = []
+
+        def fake_run(cmd, capture_output, text, timeout):
+            calls.append(cmd)
+            class R:
+                returncode = 128
+                stdout = ""
+                stderr = "fatal: could not read"
+            return R()
+
+        monkeypatch.setattr(watcher.subprocess, "run", fake_run)
+        ok, detail = watcher.try_rebase_pr("feature/test")
+        assert not ok
+        assert "fetch failed" in detail
+        assert len(calls) == 1
+
+    def test_push_failure_after_successful_rebase(self, monkeypatch):
+        def fake_run(cmd, capture_output, text, timeout):
+            class R:
+                pass
+            r = R()
+            if cmd[0:2] == ["git", "push"]:
+                r.returncode = 1
+                r.stdout = ""
+                r.stderr = "remote rejected"
+            else:
+                r.returncode = 0
+                r.stdout = ""
+                r.stderr = ""
+            return r
+
+        monkeypatch.setattr(watcher.subprocess, "run", fake_run)
+        ok, detail = watcher.try_rebase_pr("feature/test")
+        assert not ok
+        assert "push failed" in detail
+
+    def test_timeout_handled(self, monkeypatch):
+        import subprocess as sp_mod
+
+        def fake_run(cmd, capture_output, text, timeout):
+            raise sp_mod.TimeoutExpired(cmd=cmd, timeout=timeout)
+
+        monkeypatch.setattr(watcher.subprocess, "run", fake_run)
+        ok, detail = watcher.try_rebase_pr("feature/test")
+        assert not ok
