@@ -1,0 +1,90 @@
+# T2026-0502-M-FOLLOW-UP: pipe silence pattern の週次 audit
+#
+# 背景: T2026-0502-M (PR #170) で `scripts/audit_pipe_silence.sh` を新設したが、
+#       一度きりの手動実行に留まっており、新規スクリプトが `|| true` + `tail -N` で
+#       git エラーを黙殺する設計を再混入した場合、人間が監査するまで気付けない。
+# 目的: 週次 cron で audit を自動実行し、新規パターン検出で Slack 通知。
+#       audit 結果は artifact としてアップロードし、過去との差分を後追い可能に。
+# 関連: PR #158/#159/#160/#163/#170, lessons-learned T2026-0502-M
+name: Pipe silence audit (weekly)
+
+on:
+  schedule:
+    # 毎週月曜 03:00 JST = 日曜 18:00 UTC
+    - cron: "0 18 * * 0"
+  workflow_dispatch:
+    inputs:
+      notify_on_no_findings:
+        description: "no findings の場合も Slack 通知するか (default false)"
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: pipe silence audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run audit_pipe_silence.sh
+        id: audit
+        run: |
+          set -euo pipefail
+          chmod +x scripts/audit_pipe_silence.sh
+          bash scripts/audit_pipe_silence.sh > /tmp/audit_stdout.log 2>&1 || true
+          cat /tmp/audit_stdout.log
+          # finding 件数を数える: report 内の "🔴 Found" / "実害あり" マーカー
+          REPORT="docs/audit-reports/pipe-audit-2026-05-02.md"
+          if [ -f "$REPORT" ]; then
+            FINDINGS=$(grep -cE '🔴 Found|実害あり' "$REPORT" || echo 0)
+          else
+            FINDINGS=0
+          fi
+          echo "findings=${FINDINGS}" >> "$GITHUB_OUTPUT"
+          echo "report_exists=$([ -f "$REPORT" ] && echo 1 || echo 0)" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Pipe silence audit (weekly)"
+            echo ""
+            echo "- findings: ${FINDINGS}"
+            echo "- report: \`${REPORT}\`"
+            echo ""
+            echo "audit_pipe_silence.sh stdout (head 30):"
+            echo '```'
+            head -30 /tmp/audit_stdout.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report artifact
+        if: steps.audit.outputs.report_exists == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipe-audit-report
+          path: docs/audit-reports/pipe-audit-2026-05-02.md
+          retention-days: 90
+
+      - name: Slack notify on findings
+        if: steps.audit.outputs.findings != '0' || github.event.inputs.notify_on_no_findings == 'true'
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          set -euo pipefail
+          FINDINGS="${{ steps.audit.outputs.findings }}"
+          if [ -z "${SLACK_WEBHOOK:-}" ]; then
+            echo "SLACK_WEBHOOK not set — skipping notification"
+            exit 0
+          fi
+          MSG=":mag: Pipe silence audit (weekly) — findings: ${FINDINGS}"
+          if [ "${FINDINGS}" != "0" ]; then
+            MSG="${MSG} :rotating_light: 新規パターン検出。docs/audit-reports/pipe-audit-2026-05-02.md を確認してください。"
+          fi
+          # ci_slack_send.py があればそれを使い、なければ curl
+          if [ -x scripts/ci_slack_send.py ]; then
+            python3 scripts/ci_slack_send.py "${MSG}" || true
+          else
+            curl -s -X POST -H 'Content-type: application/json' \
+              --data "{\"text\":\"${MSG}\"}" "${SLACK_WEBHOOK}" || true
+          fi
