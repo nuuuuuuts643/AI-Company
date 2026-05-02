@@ -46,6 +46,29 @@ keyPoint（注目ポイント）は「ストーリー内容の中での注目す
 
 ---
 
+## フェーズ前提を壊さない原則（2026-05-02 制定 / T2026-0502-AQ 由来）
+
+**フェーズ N の前提を壊す可能性のある変更は、PR description に `Phase-Impact-Conflict:` 行で明示する。**
+
+由来: T2026-0502-ADSENSE-FIX (4/28) で AdSense 薄コンテンツ対策として `frontend/topic.html` を `noindex` 化した結果、Cloudflare PV が 4/27 260 → 4/28 20 (1/10) に急減し 5 日間誰も気づかなかった。フェーズ4 (収益化) 系の局所最適化が、フェーズ3 (UX/成長) の前提 (= SEO 流入経路) を壊した事例。
+
+**特に注意すべきフェーズ前提**:
+- **フェーズ3 の前提 = 流入経路**: SEO・SNS シェア・直接訪問・登録ユーザーの再訪。これらを縮小する変更 (noindex 化・URL 変更・robots.txt 制限・OGP タグ削除) は Phase-Impact-Conflict 必須
+- **フェーズ2 の前提 = AI 生成パイプライン**: fetcher / processor の cron 頻度・プロンプト・スキーマ。これらを変える PR は keyPoint 充填率や perspectives 充填率への影響を述べる
+- **フェーズ1 の前提 = 観測点**: SLI / freshness-check / cf-analytics. これらの SLI 計算式や閾値を緩める変更は、なぜ緩めるかを明示する
+
+**Phase-Impact-Conflict 記載例**:
+```
+Phase-Impact-Conflict: フェーズ3 (UX/成長) — topic.html を noindex 化することで
+SEO 流入が消失する可能性。Cloudflare PV の前日比 50% 落ちが想定される。
+許容根拠: AdSense 通過のため一時的に SEO を犠牲にする。AdSense 通過後 (Eval-Due 2026-05-09)
+直ちに noindex を外す PR を出す。
+```
+
+**物理化候補** (1 ヶ月運用後検討): PR template への `Phase-Impact-Conflict:` 必須行追加、`commit-msg` hook での grep 強制。
+
+---
+
 ## 長期ビジョン（2026-05-01 確定）
 
 ### 情報の地図

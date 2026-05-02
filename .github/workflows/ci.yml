@@ -496,6 +496,14 @@ jobs:
       - name: workflow yml の cd 後相対パス検出 (T2026-0502-WORKFLOW-PATH-LINT)
         run: bash scripts/check_workflow_paths.sh
 
+      - name: 主要ページの noindex 物理ガード (T2026-0502-AQ 再発防止)
+        run: |
+          # T2026-0502-ADSENSE-FIX で frontend/topic.html / frontend/catchup.html に
+          # noindex を入れたところ Cloudflare PV が 1/10 に急減 (4/27 260→4/28 20)。
+          # 主要ページに noindex が再追加される PR を物理 reject。
+          # 薄コンテンツ問題は app.js の frontend filter で代替対処済のため noindex は不要。
+          bash scripts/check_seo_regression.sh
+
       - name: 係数・パラメータ根拠 確認 (T2026-0429-N, WARNING のみ)
         if: github.event_name == 'pull_request'
         env:
