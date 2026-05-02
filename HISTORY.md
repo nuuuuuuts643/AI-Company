@@ -6,6 +6,30 @@
 
 ---
 
+## T2026-0502-COST-A1-CODE — deploy.sh 未使用 DDB 4 個整理 (PR #308)
+
+**完了 (deploy.sh 編集 portion)** (2026-05-02 22:55 JST、Cowork セッション)。delete-table 実行は別 step (PO 確認 待ち)。
+- **背景**: 月 AWS 実コスト $11 の深掘り (§8) で、ai-company-{memory,x-posts,agent-status,audit} 4 テーブルが実質未使用と判明。`agent-status` は今日 (2026-05-02 10:32 JST) 再作成された痕跡があり、**deploy.sh:69-80 が毎 deploy で create-table している**罠を発見。
+- **編集差分**: ①`projects/P003-news-timeline/deploy.sh` L69-80 `# ---- 1c. DynamoDB (エージェントステータス) ----` ブロック全体削除 (旧 1d → 1c に番号繰り上げ) ②同 L156 IAM policy DynamoDBSpecificTables Resource 配列から 4 ARN 削除 (`memory` / `x-posts` / `agent-status` / `audit`)。`ai-company-bluesky-posts` は稼働中なので維持。
+- **Verified**: `bash -n projects/P003-news-timeline/deploy.sh` exit 0
+- **Verified-Effect-Pending**: PR #308 merge → deploy-lambdas.yml 完了確認 → `aws dynamodb delete-table` を 3 テーブル (`memory` / `x-posts` / `agent-status`) に実行 → 24h 後に `describe-table` が ResourceNotFoundException を返すこと。`audit` は既に存在しないので skip。**Eval-Due: 2026-05-09**
+- **残タスク**: T2026-0502-COST-A1-DELETE-TABLE 起票 (PO 確認 + 1 件ずつ delete-table 実行)
+- **実コスト削減見込み**: 月 ~$0.05 (微小・規律タスク)。本タスクは「監視対象削減 / IAM policy 簡素化 / signal-to-noise 向上」が本旨
+
+---
+
+## T2026-0502-COST-D1-INVESTIGATE — DynamoDB Read 元コード分析 §9 追記 (PR #309)
+
+**完了** (2026-05-02 23:00 JST、Cowork セッション)。
+- **背景**: DynamoDB Read $4.02/月 = AWS 月総コスト $11 の 36% を占める最大削減候補。実装可能なレベルまで掘る調査タスク。
+- **追記内容** (`docs/cost-reduction-plan-2026-05-02.md` §9・約 130 行): 9.1 関数別×テーブル別 読取マトリクス (13 Lambda × 9 テーブル) / 9.2 既に S3 で配信されている同等データ一覧 (topics-card.json 等) / 9.3 削減施策の優先度 (D1-α / β / γ + ❌ 提案しない) / 9.4 採用候補 D1-α (`/topics` 経路の S3 直配信化) の具体設計案 (3-step・PR 分割) / 9.5 §C1 (Phase C) との関係整理 / 9.6 D1 投資判断
+- **核となる発見**: `frontend/app.js` は既に `topics-card.json` (S3) を直接 fetch している → `/topics` API (DDB Scan) は遺物の可能性 → CloudWatch Logs Insights で直撃分析が次の Step
+- **Verified**: PR #309 merge ✅ (main 9bf13e45)
+- **次タスク**: T2026-0502-COST-D1-α-INVESTIGATE 起票 (アクセス実態調査・Step 1) → 結果次第で Step 2-A (Lambda が S3 読む) or 2-B (`/topics` 410 Gone) を判断
+- **期待削減**: $1.5〜3/月 (DDB Read $4.02 のうち API path 寄与を ~50% カット)
+
+---
+
 ## T2026-0502-BI-REVERT — UX 破壊事故からの復旧 (PR #304 + #306)
 
 **完了** (2026-05-02 22:58 JST、Cowork セッション)。
