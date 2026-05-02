@@ -613,21 +613,12 @@ def post_daily(client, dry_run=False):
     """
     print('[bluesky_agent] 日次投稿 開始')
 
-    # クールタイムチェック: 直近の daily 投稿から DAILY_COOLDOWN_HOURS 未満なら skip。
-    # ワークフローを 30分ごとに発火させて cron 遅延を吸収する設計のため、
-    # 実投稿レートはここで制御する（過剰投稿防止）。
-    last_posted = get_last_post_time('daily')
-    if last_posted is not None:
-        elapsed = datetime.now(timezone.utc) - last_posted
-        cooldown = timedelta(hours=DAILY_COOLDOWN_HOURS)
-        if elapsed < cooldown:
-            remaining_min = int((cooldown - elapsed).total_seconds() / 60)
-            elapsed_min   = int(elapsed.total_seconds() / 60)
-            print(
-                f'[bluesky_agent] クールタイム中（前回daily投稿から{elapsed_min}分・'
-                f'残り{remaining_min}分）。skipして終了。'
-            )
-            return
+    # T2026-0502-L: レート制御は BLUESKY_POSTING_CONFIG['daily'] に集約済み。
+    # _check_rate_limit() が enabled / cooldown / 24h cap の3重ガードを担う。
+    ok, reason = _check_rate_limit('daily')
+    if not ok:
+        print(f'[bluesky_agent] daily skip: {reason}')
+        return
 
     topics            = get_topics_from_s3(limit=50, sort_by='velocity')
     recent_posted_ids = get_recent_posted_ids('daily', limit=4)
@@ -907,17 +898,30 @@ def post_debut(client, dry_run: bool = False) -> bool:
     """
     新規トピックの初回 AI 要約完了マーカー (bluesky/pending/) を 1 件投稿する。
 
+    レート制御 (T2026-0502-L):
+      BLUESKY_POSTING_CONFIG['debut'] が単一の真実の源。
+      _check_rate_limit('debut') で enabled / cooldown / 24h cap の3重ガード。
+      enabled=False のときは pending マーカーに触らず即 return False。
+
     定期投稿 (post_daily) と完全に独立したトリガー:
       - 注目度フィルタなし (新トピック登場の通知が目的)
-      - DAILY_COOLDOWN_HOURS の影響を受けない (mode='debut' で別系統管理)
-      - 1 cron tick につき 1 件まで (DEBUT_MAX_PER_RUN)
+      - 1 cron tick につき DEBUT_MAX_PER_RUN 件まで
       - DEBUT_MARKER_TTL_HOURS を超えた古いマーカーは投稿せず破棄
 
     Returns:
       True  = 投稿（または dry-run 出力）した。同 tick の定期投稿はスキップ推奨。
-      False = 対象なし。呼び出し側は通常の mode 別投稿に進んでよい。
+      False = 対象なし or レート制限。呼び出し側は通常の mode 別投稿に進んでよい。
     """
     print('[bluesky_agent] 初回投稿 (debut) チェック 開始')
+
+    # T2026-0502-L: enabled/cooldown/24h-cap を BLUESKY_POSTING_CONFIG に委譲。
+    # ⚠️ 過去の事故 (5/1 48件投稿) を再発させないため、pending マーカー処理の
+    #    前にレート判定する。enabled=False 時は早期 return で pending を無視する
+    #    （マーカーは消さない: enabled=True に戻したとき自然に再開できる）。
+    ok, reason = _check_rate_limit('debut')
+    if not ok:
+        print(f'[bluesky_agent] debut skip: {reason}')
+        return False
 
     pending = list_debut_pending()
     if not pending:
@@ -1043,18 +1047,11 @@ def post_morning(client, dry_run=False):
     """
     print('[bluesky_agent] 朝投稿 開始')
 
-    last_posted = get_last_post_time('morning')
-    if last_posted is not None:
-        elapsed = datetime.now(timezone.utc) - last_posted
-        cooldown = timedelta(hours=MORNING_COOLDOWN_HOURS)
-        if elapsed < cooldown:
-            remaining_min = int((cooldown - elapsed).total_seconds() / 60)
-            elapsed_min   = int(elapsed.total_seconds() / 60)
-            print(
-                f'[bluesky_agent] 朝投稿クールタイム中（前回 morning 投稿から{elapsed_min}分・'
-                f'残り{remaining_min}分）。skipして終了。'
-            )
-            return
+    # T2026-0502-L: レート制御は BLUESKY_POSTING_CONFIG['morning'] に集約済み。
+    ok, reason = _check_rate_limit('morning')
+    if not ok:
+        print(f'[bluesky_agent] morning skip: {reason}')
+        return
 
     topics = get_topics_from_s3(limit=100, sort_by='velocity')
     cutoff = datetime.now(timezone.utc) - timedelta(hours=MORNING_RECENT_HOURS)
