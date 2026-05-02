@@ -126,3 +126,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Cowork] T2026-0502-SES-METRIC-FILTER SLI 14 追加 | Cowork | scripts/check_ses_error_sli.sh, .github/workflows/freshness-check.yml | 2026-05-02 12:25 | yes |
+| [Code] T2026-0502-E NHK timeout 恒久対処 | Code | lambda/processor/article_fetcher.py, tests/test_article_fetcher.py | 2026-05-02 12:40 | yes |
+| [Code] T2026-0502-PATH-FILTER-AUDIT push trigger 修正 | Code | .github/workflows/deploy-lambdas.yml, deploy-p003.yml | 2026-05-02 12:41 | yes |
+| [Code] PR #186 rebase 救済 (T2026-0502-T) | Code | 並走で前進した main との conflict 解消 | 2026-05-02 12:43 JST | yes |

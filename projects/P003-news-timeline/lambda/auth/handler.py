@@ -208,6 +208,7 @@ def lambda_handler(event, context):
         user = get_or_create_user(payload, new_handle, new_age, new_gender,
                                   new_nickname, new_interests, new_avatar)
     except Exception as e:
+        print(f'[ERROR] auth/user/{payload.get("sub","?")}: {type(e).__name__}: {e}')
         return resp(500, {'error': 'ユーザーの処理に失敗しました', 'detail': str(e)}, event)
 
     return resp(200, {
