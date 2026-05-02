@@ -74,8 +74,8 @@ bash scripts/session_bootstrap.sh
 | 旧フェーズ表記 / 旧 4 セクション | `pre-commit` hook で物理 reject |
 | タスク ID 重複（TASKS.md） | `python3 scripts/triage_tasks.py --check-duplicate-task-ids` で CI 検出（exit 1）|
 | CLAUDE.md 250 行超過 | CI で物理ガード |
-| **main 直接 push (T2026-0502-M)** | `pre-push` hook で物理 reject。実コード変更は branch + PR 経由のみ。緊急時 bypass `git push --no-verify` は WORKING.md に理由＋`Verified-Effect:` 必須 |
-| **scripts 内の git エラー黙殺 (T2026-0502-M)** | `git pull` / `git push` の戻り値を `PIPESTATUS[0]` で捕捉して非ゼロなら明示 exit。`\|\| true` + `tail -N` の組み合わせは禁止 |
+| **main 直接 push (T2026-0502-M / -PHYSICAL-GUARD-AUDIT)** | `pre-push` hook で物理 reject。`refs/heads/main` への push は `ALLOW_MAIN_PUSH=1` 環境変数 + 全 commit が `chore: bootstrap sync` の場合のみ escape 可（session_bootstrap.sh sync 用）。実コード変更は branch + PR 経由のみ。緊急 bypass `git push --no-verify` は WORKING.md に理由＋`Verified-Effect:` 必須。**注: PR #160 で「物理化 ✅」と記録された後も実装は `exit 0` placeholder のままだったため空転していた。2026-05-02 T2026-0502-PHYSICAL-GUARD-AUDIT で実 reject 化** |
+| **scripts 内の git エラー黙殺 (T2026-0502-M / -PHYSICAL-GUARD-AUDIT)** | `git pull` / `git push` の戻り値を `PIPESTATUS[0]` で捕捉し、`if [ "$_git_*_status" -ne 0 ]` で `BOOTSTRAP_EXIT=1` に流して末尾で `exit "$BOOTSTRAP_EXIT"`。`\|\| true` + `tail -N` の組み合わせは禁止。**注: PR #159 で「物理化 ✅」と記録された後も実装は変数取得のみで exit 経路欠落。2026-05-02 T2026-0502-PHYSICAL-GUARD-AUDIT で実 exit 経路化。`check_lessons_landings.sh` が `_git_*_status.*-ne 0` パターンまで grep 検証** |
 
 hook インストール: `bash scripts/install_hooks.sh`（clone 直後 1 回）。
 
