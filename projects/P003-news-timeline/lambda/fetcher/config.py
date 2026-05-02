@@ -1,14 +1,40 @@
+import json
 import os
 import boto3
 
 TABLE_NAME    = os.environ.get('TABLE_NAME', 'p003-topics')
 S3_BUCKET     = os.environ.get('S3_BUCKET', '')
 REGION        = os.environ.get('REGION', 'ap-northeast-1')
-SLACK_WEBHOOK = os.environ.get('SLACK_WEBHOOK', '')
 SITE_URL      = os.environ.get('SITE_URL', 'https://flotopic.com')
+
+
+def _load_secret_or_env(secret_id_env: str, fallback_env: str) -> str:
+    """T2026-0502-SEC9 (2026-05-02): AWS Secrets Manager 優先 + env fallback。
+    詳細は processor/proc_config.py の同名関数を参照。"""
+    secret_id = os.environ.get(secret_id_env, '').strip()
+    if secret_id:
+        try:
+            sm = boto3.client('secretsmanager', region_name=REGION)
+            resp = sm.get_secret_value(SecretId=secret_id)
+            raw = resp.get('SecretString') or ''
+            if raw.startswith('{'):
+                try:
+                    j = json.loads(raw)
+                    return str(j.get(fallback_env) or j.get('value') or raw)
+                except json.JSONDecodeError:
+                    return raw
+            return raw.strip()
+        except Exception as e:
+            print(f'[SEC9] Secrets Manager fetch failed ({secret_id}): {type(e).__name__}: {e}. Using env fallback.')
+    return os.environ.get(fallback_env, '')
+
+
+# T2026-0502-SEC9: SLACK_WEBHOOK と ANTHROPIC_API_KEY を Secrets Manager から取得 (env fallback)
+# 移行手順は docs/runbooks/secrets-manager-migration.md
+SLACK_WEBHOOK     = _load_secret_or_env('SLACK_WEBHOOK_SECRET_ID', 'SLACK_WEBHOOK')
 # T2026-0501-H: borderline トピック merge 判定 (Jaccard 0.15-0.35) を Haiku に委譲する。
 # 未設定時は failsafe で merge しない (現状挙動と同等)。
-ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+ANTHROPIC_API_KEY = _load_secret_or_env('ANTHROPIC_SECRET_ID', 'ANTHROPIC_API_KEY')
 
 from botocore.config import Config as BotocoreConfig
 _boto_cfg = BotocoreConfig(max_pool_connections=50)
