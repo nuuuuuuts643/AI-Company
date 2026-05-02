@@ -518,7 +518,7 @@ function renderTopicCard(t, i) {
         <div class="card-body">
           <div class="topic-status ${displayStatus}">${STATUS_LABEL[displayStatus] || displayStatus}${coolingAgeHtml}${phaseHtml}${continuationBadge}</div>
           ${velMeterHtml}
-          <h3>${esc(t.topicTitle || t.generatedTitle || stripMediaSuffix(t.title))}</h3>
+          <h3>${esc(t.generatedTitle || t.topicTitle || stripMediaSuffix(t.title))}</h3>
           ${t.latestUpdateHeadline ? `<p class="card-update-headline">${esc(t.latestUpdateHeadline)}</p>` : ''}
           ${watchHint ? `<p class="card-watch-hint">👁 ${esc(watchHint)}</p>` : ''}
           ${renderCardMeta(t)}
@@ -588,7 +588,7 @@ function renderHeroStoryPreview(list) {
   const t = candidates[0];
   if (!t) { el.style.display = 'none'; el.innerHTML = ''; return; }
   const phaseBadge = t.storyPhase && PHASE_BADGE[t.storyPhase] ? PHASE_BADGE[t.storyPhase] : '';
-  const title = t.topicTitle || t.generatedTitle || t.title || '';
+  const title = t.generatedTitle || t.topicTitle || t.title || '';
   const beat  = t.latestUpdateHeadline || t.keyPoint || cleanSummary(t.generatedSummary || '').slice(0, 50);
   const cnt   = parseInt(t.articleCount || 0, 10);
   el.innerHTML = `

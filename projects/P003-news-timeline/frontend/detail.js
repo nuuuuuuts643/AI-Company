@@ -238,7 +238,7 @@ function renderDetail(data) {
   updateOGP(meta);
 
   const titleEl = document.getElementById('topic-title');
-  if (titleEl) titleEl.textContent = meta.topicTitle || meta.generatedTitle || meta.title;
+  if (titleEl) titleEl.textContent = meta.generatedTitle || meta.topicTitle || meta.title;
 
   // 親トピックリンク (思想: 縦の階層を一目で・冒頭に表示) — 2026-04-27
   const parentLinkEl = document.getElementById('parent-topic-link');
@@ -540,7 +540,7 @@ function renderDetail(data) {
       // 要約エリア自体を消さず、要点プレースホルダー＋次回更新時刻＋追跡中ソース。
       const cnt = displayArticleCount || (Number(meta.articleCount) || 1);
       const sources = (meta.sources || []).slice(0, 3).join('・');
-      const titleFallback = esc(meta.topicTitle || meta.generatedTitle || meta.title || '');
+      const titleFallback = esc(meta.generatedTitle || meta.topicTitle || meta.title || '');
       aiAnalysisEl.innerHTML = `
         <div class="ai-analysis-inner ai-pending">
           <div class="ai-section ai-section-keypoint">
