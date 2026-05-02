@@ -65,3 +65,9 @@ AI-COMPANY/
 # 一時的なデバッグログ・probe 結果 (T2026-0502-BI cleanup)
 tmp_logs/
 test_pii_dummy.md
+
+# Cowork (Linux sandbox) 用 GitHub PAT (T2026-0502-BJ 恒久対処)
+# 中身: gh auth token の出力 (1 行・mode 0600)
+# 用途: cowork_commit.py が経路 0 で読む。Mac の Keychain は sandbox から
+#       見えないため、ファイル経由で token を渡す唯一の経路。
+.cowork-token
