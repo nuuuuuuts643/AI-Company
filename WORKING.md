@@ -126,4 +126,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0502-DIVERGE-SLI ローカル diverge SLI 実装 | Code | scripts/check_diverge_sli.sh, .github/workflows/freshness-check.yml, tests/test_check_diverge_sli.sh | 2026-05-02 11:41 | yes |
+| [Code] T2026-0502-DIVERGE-SLI merge + done | Code | (none, merge only) | 2026-05-02T12:00 | no |
