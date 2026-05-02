@@ -91,14 +91,36 @@ def increment_topic_comment_count(topic_id: str):
 
 
 # ── CORS ヘッダー ────────────────────────────────────────────────
+# T2026-0502-SEC8 (2026-05-02): CORS Allow-Origin を `*` から自社ドメインに固定。
+# CSRF 増幅・悪意あるサイトからの fetch を防ぐ。
+_ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get(
+        'ALLOWED_ORIGINS',
+        'https://flotopic.com,https://www.flotopic.com'
+    ).split(',') if o.strip()
+]
 
-CORS_HEADERS = {
-    'Content-Type':                 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin':  '*',
-    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Max-Age':       '86400',
-}
+
+def _resolve_origin(event) -> str:
+    headers = (event or {}).get('headers') or {}
+    raw = headers.get('origin') or headers.get('Origin') or ''
+    if raw in _ALLOWED_ORIGINS:
+        return raw
+    return _ALLOWED_ORIGINS[0] if _ALLOWED_ORIGINS else 'https://flotopic.com'
+
+
+def cors_headers(event=None):
+    return {
+        'Content-Type':                 'application/json; charset=utf-8',
+        'Access-Control-Allow-Origin':  _resolve_origin(event),
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+        'Access-Control-Max-Age':       '86400',
+        'Vary':                         'Origin',
+    }
+
+# 後方互換の定数 (古い参照用・event なし default)
+CORS_HEADERS = cors_headers()
 
 
 def _json_serial(obj):
@@ -108,10 +130,10 @@ def _json_serial(obj):
     return str(obj)
 
 
-def resp(code: int, body: dict):
+def resp(code: int, body: dict, event=None):
     return {
         'statusCode': code,
-        'headers':    CORS_HEADERS,
+        'headers':    cors_headers(event),
         'body':       json.dumps(body, ensure_ascii=False, default=_json_serial),
     }
 
@@ -130,11 +152,14 @@ def check_request_size(event):
     return len(body.encode('utf-8')) <= MAX_BODY_BYTES
 
 
-def check_rate_limit(identifier, action, max_per_minute=10):
+def check_rate_limit(identifier, action, max_per_minute=10, fail_closed: bool = False):
     """
     DynamoDB を使った IP/userId レート制限。
     identifier: IP or userId
     action: 'comment', 'auth', 'favorite'
+    fail_closed: T2026-0502-SEC15 (2026-05-02) — 旧実装はエラー時に通す (fail-open) だったため、
+                 攻撃者が rate-limits テーブルへの IAM 権限を剥がして全制限解除可能だった。
+                 重要書き込み (comments POST 等) では fail_closed=True にすること。
     Returns True if allowed, False if rate limited.
     """
     try:
@@ -152,8 +177,10 @@ def check_rate_limit(identifier, action, max_per_minute=10):
         count = int(result['Attributes']['count'])
         return count <= max_per_minute
     except Exception as e:
-        print(f'Rate limit check error: {e}')
-        return True  # エラー時は通す
+        # T2026-0502-SEC15: 例外時の挙動を fail_closed フラグで制御。
+        # CloudWatch metric filter で `[SEC15]` を観測対象に追加すること。
+        print(f'[SEC15] Rate limit check error (fail_closed={fail_closed}): {type(e).__name__}: {e}')
+        return not fail_closed
 
 
 def is_banned(user_id: str) -> bool:
@@ -313,22 +340,45 @@ HANDLE_RE = re.compile(r'^[A-Za-z0-9_]{1,20}$')
 
 def handle_like(event) -> dict:
     """
-    PUT /comments/like?topicId=xxx&commentId=yyy&userHash=zzz[&type=like|dislike|unlike|undislike]
+    PUT /comments/like?topicId=xxx&commentId=yyy[&type=like|dislike|unlike|undislike]
+    Body: {"idToken": "<Google ID token>"}  ← T2026-0502-SEC6: 必須
     like/dislike: ADD count, ADD to set (冪等: already-in-set で弾く)
     unlike/undislike: ADD count -1, DELETE from set (冪等: not-in-set で弾く)
+
+    T2026-0502-SEC6 (2026-05-02): 旧実装は client から userHash クエリをそのまま信用していた。
+    userHash は sha256(userId)[:16] の決定的ハッシュなので、任意 userId が分かれば誰でも
+    他人として like/dislike を打てた。本実装では idToken を verify_google_token で検証 →
+    server side で hash_str(payload.sub) を計算して使う。
+    後方互換: 旧 client が送る ?userHash= は無視 (server 側 hash と一致する保証がない)。
     """
     qs         = event.get('queryStringParameters') or {}
     topic_id   = (qs.get('topicId')   or '').strip()
     comment_id = (qs.get('commentId') or '').strip()
-    user_hash  = (qs.get('userHash')  or '').strip()
     like_type  = (qs.get('type')      or 'like').strip()
 
     if like_type not in ('like', 'dislike', 'unlike', 'undislike'):
         like_type = 'like'
-    if not topic_id or not comment_id or not user_hash:
-        return resp(400, {'error': 'topicId, commentId, userHash が必要です'})
-    if len(user_hash) > 32 or not re.match(r'^[0-9a-f]+$', user_hash):
-        return resp(400, {'error': 'userHash が不正です'})
+    if not topic_id or not comment_id:
+        return resp(400, {'error': 'topicId, commentId が必要です'})
+
+    # T2026-0502-SEC6: idToken 必須
+    try:
+        raw = event.get('body') or '{}'
+        if event.get('isBase64Encoded'):
+            raw = base64.b64decode(raw).decode('utf-8')
+        body_data = json.loads(raw)
+    except Exception:
+        body_data = {}
+    id_token = (body_data.get('idToken') or '').strip()
+    if not id_token:
+        return resp(401, {'error': '認証が必要です'})
+    payload = verify_google_token(id_token)
+    if not payload:
+        return resp(401, {'error': 'トークンの検証に失敗しました'})
+    user_id = payload.get('sub', '')
+    if not user_id:
+        return resp(401, {'error': 'トークンに sub がありません'})
+    user_hash = hash_str(user_id)  # server side で計算 (16 hex chars)
 
     is_undo     = like_type in ('unlike', 'undislike')
     base_type   = 'like'     if like_type in ('like', 'unlike') else 'dislike'
@@ -404,17 +454,41 @@ def handle_like(event) -> dict:
 
 # ── アバターアップロード URL 生成 ─────────────────────────────────
 
+def _bearer_id_token(event) -> str:
+    """Authorization: Bearer <idToken> ヘッダーを取り出す。空なら ''。"""
+    headers = event.get('headers') or {}
+    auth = headers.get('authorization') or headers.get('Authorization') or ''
+    if not auth.startswith('Bearer '):
+        return ''
+    return auth[7:].strip()
+
+
 def handle_avatar_upload_url(event) -> dict:
     """
     GET /avatar/upload-url?userId=xxx
+    Authorization: Bearer <Google ID token> 必須 (T2026-0502-SEC5)。
     S3 Presigned PUT URL を生成して返す。
     レスポンス: {"uploadUrl": "...", "avatarUrl": "https://flotopic.com/avatars/xxx.jpg"}
+
+    T2026-0502-SEC5 (2026-05-02): 旧実装は Google ID トークン検証なしで任意の userId を受け取り、
+    任意ユーザーのアバターを上書きできた (IDOR + 任意 image アップロード経由 XSS リスク)。
+    手順: Authorization Bearer の idToken を verify_google_token で検証 → token.sub == userId 強制。
     """
     qs      = event.get('queryStringParameters') or {}
     user_id = (qs.get('userId') or '').strip()
 
     if not user_id:
         return resp(400, {'error': 'userId が必要です'})
+
+    # T2026-0502-SEC5: 認証必須 — Authorization: Bearer <idToken>
+    id_token = _bearer_id_token(event)
+    if not id_token:
+        return resp(401, {'error': '認証が必要です'})
+    payload = verify_google_token(id_token)
+    if not payload:
+        return resp(401, {'error': 'トークンの検証に失敗しました'})
+    if payload.get('sub') != user_id:
+        return resp(403, {'error': 'userId とトークンが一致しません'})
 
     # userId を安全なファイル名に変換（英数字・ハイフン・アンダースコアのみ）
     safe_id = re.sub(r'[^A-Za-z0-9_\-]', '_', user_id)[:64]
@@ -434,7 +508,7 @@ def handle_avatar_upload_url(event) -> dict:
         return resp(200, {'uploadUrl': upload_url, 'avatarUrl': avatar_url})
 
     except Exception as e:
-        print(f'handle_avatar_upload_url error: {e}')
+        print(f'[ERROR] handle_avatar_upload_url: {type(e).__name__}: {e}')
         return resp(500, {'error': 'アップロードURLの生成に失敗しました'})
 
 
@@ -696,14 +770,15 @@ def lambda_handler(event, context):
             return resp(400, {'error': '不適切な表現が含まれています'})
 
         # レートリミット（userId ベース、1分に3投稿まで）
-        if not check_rate_limit(user_id, 'comment', max_per_minute=3):
+        # T2026-0502-SEC15: 重要書き込みなので fail_closed=True
+        if not check_rate_limit(user_id, 'comment', max_per_minute=3, fail_closed=True):
             return resp(429, {'error': '短時間に多くの投稿はできません。しばらくお待ちください'})
 
         # IP ベースのレートリミット（1分に10投稿まで）
         ip = (event.get('requestContext', {})
                    .get('http', {})
                    .get('sourceIp', 'unknown'))
-        if not check_rate_limit(ip, 'comment', max_per_minute=10):
+        if not check_rate_limit(ip, 'comment', max_per_minute=10, fail_closed=True):
             return resp(429, {'error': '短時間に多くのリクエストがありました。しばらくお待ちください'})
 
         # 引用コメント（optional）

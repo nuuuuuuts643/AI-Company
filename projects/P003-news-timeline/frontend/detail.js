@@ -1038,7 +1038,7 @@ function renderDetail(data) {
                         ? '<span class="primary-source-badge" title="この記事は一次情報源（公式機関・主要通信社）からの報道です">🔵 一次情報</span>'
                         : '';
                       return `<div class="timeline-article${a.isPrimary ? ' is-primary' : ''}">
-                        ${primaryBadge}<a href="${esc(a.url)}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}${isNew ? '<span class="new-badge">NEW</span>' : ''}</a>
+                        ${primaryBadge}<a href="${esc(safeHref(a.url))}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}${isNew ? '<span class="new-badge">NEW</span>' : ''}</a>
                         <div class="timeline-source">${srcFaviconImg(a.source)}${esc(a.source)}${a.isPrimary ? ' より引用' : ''}</div>
                       </div>`;
                     }).join('')}
@@ -1047,7 +1047,7 @@ function renderDetail(data) {
                         ? '<span class="primary-source-badge" title="この記事は一次情報源（公式機関・主要通信社）からの報道です">🔵 一次情報</span>'
                         : '';
                       return `<div class="timeline-article${a.isPrimary ? ' is-primary' : ''}">
-                        ${primaryBadge}<a href="${esc(a.url)}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
+                        ${primaryBadge}<a href="${esc(safeHref(a.url))}" class="timeline-article-link" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
                         <div class="timeline-source">${srcFaviconImg(a.source)}${esc(a.source)}${a.isPrimary ? ' より引用' : ''}</div>
                       </div>`;
                     }).join('')}</details>` : ''}
@@ -1137,7 +1137,7 @@ function renderDetail(data) {
             : '';
           return `
           <div class="article-item${a.isPrimary ? ' is-primary' : ''}">
-            ${primaryBadge}<a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
+            ${primaryBadge}<a href="${esc(safeHref(a.url))}" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
             <div class="article-meta">
               ${srcFaviconImg(a.source)}
               ${esc(a.source)}${a.isPrimary ? ' より引用' : ''} · ${fmtTl(a._snapTs)}

@@ -61,7 +61,44 @@ function isHotTopic(topic) {
   return nowSec - Number(topic.lastUpdated) < CONFIG.HOT_STRIP_HOURS * 3600;
 }
 
+/**
+ * URL を <a href> / src 等にレンダーする前にスキーム検証する。
+ * T2026-0502-SEC11 (2026-05-02): 旧実装は esc() で HTML entity escape のみ行い、
+ * `javascript:`/`data:`/`vbscript:` 等の dangerous scheme を block していなかった。
+ * RSS 由来の article URL に javascript: が混入すると clicked XSS が発火する。
+ *
+ * @param {string} url - 任意の URL 文字列
+ * @returns {string} 安全な URL ('#' フォールバック含む)
+ */
+function safeHref(url) {
+  if (url == null) return '#';
+  const s = String(url).trim();
+  if (!s) return '#';
+  // 許可: http(s):// 絶対 URL、/ 始まりの相対 URL、# 始まりの fragment、? 始まりの query
+  // 拒否: javascript:, data:, vbscript:, file:, blob: 等
+  if (/^(https?:\/\/|\/|#|\?)/i.test(s)) return s;
+  // mailto: も明示的に許可 (将来 contact link 用途で使う場合)
+  if (/^mailto:/i.test(s)) return s;
+  return '#';
+}
+
+/**
+ * 画像 src を安全に整形する。http:// は https:// に昇格、それ以外の dangerous scheme は ''。
+ * T2026-0502-SEC11 (2026-05-02): 旧 safeImgUrl は scheme 検証なしだった。
+ * <img src> の javascript: は modern browser では発火しないが、defense in depth として block。
+ */
+function safeImgUrl(url) {
+  if (url == null) return '';
+  const s = String(url).trim();
+  if (!s) return '';
+  // http(s) のみ許可。http は https に昇格。
+  if (/^https?:\/\//i.test(s)) return s.replace(/^http:\/\//i, 'https://');
+  // / 始まりの相対 URL も許可 (自社配信)
+  if (s.startsWith('/')) return s;
+  return '';
+}
+
 // utils.js から — ブラウザでは何もしない、Node では export
 if (typeof module !== 'undefined') {
-  module.exports = { CONFIG, LS_KEYS, relativeTime, isNewTopic, isHotTopic };
+  module.exports = { CONFIG, LS_KEYS, relativeTime, isNewTopic, isHotTopic, safeHref, safeImgUrl };
 }

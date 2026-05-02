@@ -680,6 +680,8 @@ aws s3 cp frontend/sw.js "s3://${BUCKET}/sw.js" \
 echo "  -> sw.js (no-cache) アップロード完了"
 
 # ---- Lambda 同時実行数制限（DDoS/コスト防衛） ----
+# T2026-0502-SEC17 (2026-05-02): fetcher / processor / lifecycle / contact / tracker にも
+# concurrency 上限を追加。fetcher / processor は API キー消費するのでコスト爆発防止が重要。
 echo "  -> Lambda 同時実行数制限を設定..."
 aws lambda put-function-concurrency \
   --function-name "$COMMENTS_FN" \
@@ -697,6 +699,27 @@ aws lambda put-function-concurrency \
   --function-name "$FAVORITES_FN" \
   --reserved-concurrent-executions 20 \
   --region "$REGION" > /dev/null 2>&1 && echo "  -> $FAVORITES_FN: max 20" || true
+# T2026-0502-SEC17: 追加分
+aws lambda put-function-concurrency \
+  --function-name "$FETCHER" \
+  --reserved-concurrent-executions 2 \
+  --region "$REGION" > /dev/null 2>&1 && echo "  -> $FETCHER: max 2 (SEC17)" || true
+aws lambda put-function-concurrency \
+  --function-name "$PROCESSOR" \
+  --reserved-concurrent-executions 2 \
+  --region "$REGION" > /dev/null 2>&1 && echo "  -> $PROCESSOR: max 2 (SEC17)" || true
+aws lambda put-function-concurrency \
+  --function-name "flotopic-lifecycle" \
+  --reserved-concurrent-executions 1 \
+  --region "$REGION" > /dev/null 2>&1 && echo "  -> flotopic-lifecycle: max 1 (SEC17)" || true
+aws lambda put-function-concurrency \
+  --function-name "flotopic-contact" \
+  --reserved-concurrent-executions 5 \
+  --region "$REGION" > /dev/null 2>&1 && echo "  -> flotopic-contact: max 5 (SEC17)" || true
+aws lambda put-function-concurrency \
+  --function-name "p003-tracker" \
+  --reserved-concurrent-executions 5 \
+  --region "$REGION" > /dev/null 2>&1 && echo "  -> p003-tracker: max 5 (SEC17)" || true
 echo "  -> 同時実行数制限設定完了"
 
 # ---- 6e. Lifecycle Lambda ----

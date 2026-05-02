@@ -25,6 +25,9 @@ ANALYTICS_TABLE = os.environ.get('ANALYTICS_TABLE', 'flotopic-analytics')
 S3_BUCKET       = os.environ.get('S3_BUCKET', 'p003-news-946554699567')
 CACHE_KEY       = 'api/analytics.json'
 CACHE_TTL_SEC   = 3600  # 1時間
+GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token='
+GOOGLE_CLIENT_ID  = os.environ.get('GOOGLE_CLIENT_ID', '')
+USERS_TABLE     = os.environ.get('USERS_TABLE', 'flotopic-users')
 
 dynamodb = boto3.resource('dynamodb', region_name=REGION)
 s3       = boto3.client('s3', region_name=REGION)
@@ -36,6 +39,34 @@ CORS_HEADERS = {
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
     'Access-Control-Max-Age':       '86400',
 }
+
+
+def _verify_user_or_403(event, user_id: str):
+    """T2026-0502-SEC7: Authorization Bearer の Google ID トークンで本人検証。
+    Returns: None=OK / dict=エラーレスポンス。"""
+    from urllib.request import urlopen
+    from urllib.error import URLError, HTTPError
+    headers = (event or {}).get('headers') or {}
+    auth = headers.get('authorization') or headers.get('Authorization') or ''
+    if not auth.startswith('Bearer '):
+        return resp(401, {'error': '認証が必要です'})
+    id_token = auth[7:].strip()
+    if not id_token:
+        return resp(401, {'error': '認証が必要です'})
+    try:
+        with urlopen(GOOGLE_TOKENINFO_URL + id_token, timeout=5) as r:
+            payload = json.loads(r.read().decode('utf-8'))
+    except (HTTPError, URLError, json.JSONDecodeError):
+        return resp(401, {'error': 'トークンの検証に失敗しました'})
+    if 'sub' not in payload:
+        return resp(401, {'error': 'トークンに sub がありません'})
+    if int(payload.get('exp', 0)) < time.time():
+        return resp(401, {'error': 'トークンの有効期限切れ'})
+    if GOOGLE_CLIENT_ID and payload.get('aud') != GOOGLE_CLIENT_ID:
+        return resp(401, {'error': 'audience 不一致'})
+    if payload.get('sub') != user_id:
+        return resp(403, {'error': 'userId とトークンが一致しません'})
+    return None
 
 
 # ── ヘルパー ─────────────────────────────────────────────────────
@@ -311,16 +342,22 @@ def lambda_handler(event, context):
             return err(500, 'トレンドの取得に失敗しました')
 
     # ── GET /analytics/user/{userId} ─────────────────────────────
+    # T2026-0502-SEC7: 認証必須化 (旧実装は IDOR で他人の閲覧傾向・アクティブ時間帯が読めた)
     if len(parts) >= 3 and parts[1] == 'user':
         user_id = parts[2]
         if not user_id:
             return err(400, 'userId が必要です')
 
+        # 本人検証
+        auth_err = _verify_user_or_403(event, user_id)
+        if auth_err is not None:
+            return auth_err
+
         try:
             summary = compute_user_summary(user_id)
             return resp(200, summary)
         except Exception as e:
-            print(f'User summary error: {e}')
+            print(f'[ERROR] User summary error: {e}')
             return err(500, 'ユーザーサマリーの取得に失敗しました')
 
     # ── GET /analytics/active ────────────────────────────────────

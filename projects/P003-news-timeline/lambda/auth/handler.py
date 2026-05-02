@@ -208,8 +208,9 @@ def lambda_handler(event, context):
         user = get_or_create_user(payload, new_handle, new_age, new_gender,
                                   new_nickname, new_interests, new_avatar)
     except Exception as e:
+        # T2026-0502-SEC16 (2026-05-02): 内部例外メッセージを返さない (情報露出抑制)
         print(f'[ERROR] auth/user/{payload.get("sub","?")}: {type(e).__name__}: {e}')
-        return resp(500, {'error': 'ユーザーの処理に失敗しました', 'detail': str(e)}, event)
+        return resp(500, {'error': 'ユーザーの処理に失敗しました'}, event)
 
     return resp(200, {
         'userId':    user['userId'],

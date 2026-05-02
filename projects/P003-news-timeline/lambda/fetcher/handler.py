@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import time
 import unicodedata
@@ -8,6 +9,9 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from decimal import Decimal
+
+# T2026-0502-SEC13/SEC14 (2026-05-02): SSRF + XXE 防御ヘルパ
+from url_safety import is_safe_url, parse_xml_safely
 
 from config import (
     SLACK_WEBHOOK, S3_BUCKET,
@@ -82,11 +86,17 @@ def fetch_rss(feed):
     articles = []
     url, genre, lang = feed['url'], feed['genre'], feed.get('lang', 'ja')
     feed_tier = feed.get('tier', 3)
+    # T2026-0502-SEC13: SSRF 防御 — RSS_FEEDS は curated だが defense in depth
+    safe, reason = is_safe_url(url)
+    if not safe:
+        print(f'[SEC13] fetch_rss blocked: {url} ({reason})')
+        return articles
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'Flotopic/1.0'})
         with urllib.request.urlopen(req, timeout=15) as resp:
             content = resp.read()
-        root = ET.fromstring(content)
+        # T2026-0502-SEC14: XXE / billion laughs 防御
+        root = parse_xml_safely(content)
         items, is_rdf = _parse_rss_items(root)
         for item in items:
             if is_rdf:
@@ -137,6 +147,11 @@ def fetch_rss(feed):
 
 
 def fetch_ogp_image(url):
+    # T2026-0502-SEC13: SSRF 防御
+    safe, reason = is_safe_url(url)
+    if not safe:
+        print(f'[SEC13] fetch_ogp_image blocked: {url} ({reason})')
+        return None
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'Flotopic/1.0'})
         with urllib.request.urlopen(req, timeout=2) as resp:
@@ -773,8 +788,15 @@ def lambda_handler(event, context):
     _existing_topics_for_dedup = get_all_topics() if S3_BUCKET else []
     # T2026-0501-H: borderline (Jaccard 0.15-0.35) ペアを Haiku に「同一事件か」問う。
     # API key 未設定 / 失敗時は failsafe で merge せず (= 現状挙動)。
+    # T2026-0502-COST2 (2026-05-02 PO 指示「最小コスト構成へ」): env `AI_MERGE_ENABLED` で gate。
+    # default=false → Haiku 呼び出しゼロ (月 ~$120 削減)。borderline ペアは failsafe=False で別事象判定に倒す。
+    # PR #84/#118 で入れた false-split 統合 (例「欧州駐留米軍」vs「ドイツ駐留米軍」) の効果は
+    # SLI 検証されないまま投入されたため、コスト正当化が出来るまで disable。
     from config import ANTHROPIC_API_KEY as _ANTHROPIC_API_KEY  # noqa: E402  (ローカル import で依存最小化)
-    _ai_judge = AIMergeJudge(api_key=_ANTHROPIC_API_KEY) if _ANTHROPIC_API_KEY else None
+    _AI_MERGE_ENABLED = os.environ.get('AI_MERGE_ENABLED', 'false').lower() == 'true'
+    _ai_judge = AIMergeJudge(api_key=_ANTHROPIC_API_KEY) if (_ANTHROPIC_API_KEY and _AI_MERGE_ENABLED) else None
+    if _ANTHROPIC_API_KEY and not _AI_MERGE_ENABLED:
+        print('[ai_merge_judge] disabled by env AI_MERGE_ENABLED!=true (T2026-0502-COST2 最小コスト構成)')
     # T2026-0501-H: マージ監査ログ (S3 JSONL)。1 run 終わりに flush_to_s3() でまとめて書き込む。
     _merge_auditor = MergeAuditor(s3_client=s3 if S3_BUCKET else None, bucket=S3_BUCKET)
     group_tids = _resolve_tid_collisions_by_title(
