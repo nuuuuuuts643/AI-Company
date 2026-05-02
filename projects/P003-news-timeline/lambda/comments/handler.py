@@ -1,3 +1,4 @@
+# T2026-0502-PATH-FILTER-AUDIT verify: pull_request trigger test
 """
 P003 コメント掲示板 Lambda
 - GET  /comments/{topicId}         → コメント一覧取得（最新100件）
