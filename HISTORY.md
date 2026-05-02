@@ -239,3 +239,38 @@
 | ~~T2026-0502-SEC9~~ | ~~🟡 中~~ | ~~**Anthropic API key を AWS Secrets Manager に移行**~~ → **2026-05-02 PM 完了** — PO 実機操作: ①IAM policy `flotopic-least-privilege` に `SecretsManagerRead` (`secretsmanager:GetSecretValue` on `flotopic/anthropic-api-key-*`) 追加 ②Secrets Manager に `flotopic/anthropic-api-key` 作成 ③Lambda env (fetcher + processor) に `ANTHROPIC_SECRET_ID=flotopic/anthropic-api-key` 追加 ④CloudWatch Logs で `Secrets Manager fetch failed` が両 Lambda で 0 件確認 ⑤両 Lambda env から `ANTHROPIC_API_KEY` 平文削除。**Verified-Effect**: `aws lambda get-function-configuration --function-name p003-fetcher --query 'Environment.Variables.ANTHROPIC_API_KEY'` = `null` / `ANTHROPIC_SECRET_ID` = `"flotopic/anthropic-api-key"` (両 Lambda)。Lambda 設定読み取り権限 IAM principal が live key を取得できる脆弱性消失。コード側準備は PR #228、runbook は `docs/runbooks/secrets-manager-migration.md`。 | (完了済) | 2026-05-02 |
 
 </details>
+
+---
+
+## 2026-05-02 PM 〜 19:13 JST: 流入消失恒久対処 + 観測 + Bluesky 朝投稿 (Cowork セッション)
+
+PO の「流入は実測で増えてる？」「悪くはないか」問題提起を起点に、本日後半で発覚した構造欠陥を一気に対処。
+
+**完了 (本日 PM)**:
+1. **T2026-0502-AQ noindex 流入消失 恒久対処+再発防止 (PR #263 merged)** — Cloudflare Web Analytics PV が 4/27 260 → 4/28 20 (1/10 急減) の真因を特定: `T2026-0502-ADSENSE-FIX` で `frontend/topic.html` `frontend/catchup.html` に `noindex,follow` を追加していた。AdSense 薄コンテンツ対策。恒久対処: noindex 削除 + `scripts/check_seo_regression.sh` で主要 7 ページ noindex 物理ガード CI + freshness-check.yml SLI 15 (Cloudflare PV 前日比急変 Slack alert・UTC 22 時台のみ判定) + `docs/product-direction.md` に「フェーズ前提を壊さない原則」+ lessons-learned Why1〜5 + 横展開 5 件。**実機 verify 済**: topic.html / catchup.html / index.html すべて noindex 削除確認 (T2026-0502-ADSENSE-FIX 由来で AdSense 通過のために流入を捨てていた状況を解消)。
+2. **T2026-0502-AQ-FOLLOWUP scanner regex 修正 (PR #268)** — `scripts/check_sli_field_coverage.sh` の `t.get(...)` regex に `\b` 単語境界を追加し、SLI 15 で書いた `latest.get('count')` の末尾 `t.get('count')` への誤マッチを修正。本日 ci.yml SLI 乖離検出 step が連続失敗していた問題を解消。
+3. **T2026-0502-AT auto-merge.yml PAT 化 (PR #271 merged)** — 真因特定: `auto-merge.yml` が `secrets.GITHUB_TOKEN` で `gh pr merge` を実行 → GitHub の制約「`GITHUB_TOKEN` による push/merge は他の workflow を trigger しない」で deploy-p003.yml の **pull_request 由来 run = 過去 30 日 total=0**。本日 PR #263 merge 後 30 分間本番未反映。恒久対処: `GH_TOKEN: ${{ secrets.AUTO_MERGE_PAT \|\| secrets.GITHUB_TOKEN }}` に 1 行修正 + フォールバック警告ログ + 継ぎ足し watchdog 案は撤回 (PO 指摘「とりあえず動かすのはやめてくれ」)。Cowork が **既存 PAT (scope=repo,workflow) を pynacl で AWS 暗号化して `AUTO_MERGE_PAT` secret に自動登録**。lessons-learned Why1〜5 + 横展開 6 件。**Verified-Effect-Pending**: 次の frontend PR merge で deploy-p003 の pull_request event run が success することを確認 (Eval-Due 2026-05-03)。
+4. **T2026-0502-AS deploy-p003 CloudFront Function publish step 失敗 解消** — 真因: PR #265 (T2026-0502-SEC10-CODE OIDC 専用化) で `flotopic-actions-deploy` IAM policy に CloudFront Function 系 Action (`DescribeFunction`/`CreateFunction`/`UpdateFunction`/`PublishFunction`/`GetFunction`/`ListDistributions` 等) が含まれていなかった。run#426 step 7 が `aws cloudfront describe-function` で 2 秒で AccessDenied 即落ち。`aws iam put-role-policy` で `CloudFrontFunctionAndDistribution` Statement 追加。run#427 (workflow_dispatch) で動作中。
+5. **T2026-0502-AW Daily PV Slack 通知 (PR #272)** — 「PV をわかるように見たい」要望に対処。`.github/workflows/daily-pv-slack.yml` 新設・cron='5 22 * * *' (JST 07:05・cf-analytics 更新直後)・急変 alert 込み・コスト 0 円。
+6. **T2026-0502-AX Bluesky 朝投稿 EventBridge rule (AWS 直接実装)** — Bluesky 公式 @flotopic.bsky.social (フォロワー 3・投稿 104) が **daily mode で動いている**ことを Chrome MCP で確認。ただし朝投稿の保証なし (直近 16:30 JST 等)。新規 EventBridge rule `flotopic-bluesky-morning-cron` (cron(0 21 * * ? *) = JST 06:00) + target = flotopic-bluesky Lambda + input `{"mode":"morning"}` + Lambda permission 追加。既存 30 分毎 rule (daily) はそのまま (cooldown 20h でガード)。**Verified-Effect-Pending**: 明日朝 5/3 06:00 JST 発火・Bluesky で morning mode 投稿確認。
+
+**新規起票 (TASKS.md)**:
+- T2026-0502-Z (DAU/WAU/再訪率/滞在時間ベースライン観測)
+- T2026-0502-AA (毎日来る理由 MVP・候補 3 → AX で B② Bluesky 朝投稿のみ完了)
+- T2026-0502-BB (フェーズ1 完了宣言の再検証)
+- T2026-0502-AR (admin Hero strip・本日 PO 方針切り替えで中断・継続)
+- T2026-0502-AS (CloudFront Function publish 失敗・本日 IAM policy 更新で解消)
+- T2026-0502-AT (auto-merge PAT 化・PR #271 + AUTO_MERGE_PAT secret 登録済)
+- T2026-0502-AU (CI 23% 失敗 棚卸し・各 workflow 個別対処)
+- T2026-0502-AV (GitHub App 化・1 ヶ月後検討)
+
+**継続観察項目** (次セッション or scheduled):
+- run#427 (deploy-p003 CloudFront Function policy 追加後の verify) 結果
+- 5/3 朝 7:05 JST: PV Slack 朝報の初回到達
+- 5/3 朝 06:00 JST: Bluesky morning mode 初回発火
+- 5/9 まで: Cloudflare PV 回復観察 (noindex 削除後 1〜2 週間で Google 再 index 想定)
+
+**未着手 (中断)**:
+- T2026-0502-AR (admin Hero strip) — ローカル admin.html 編集が残っているが commit していない・次セッションで AR 再開時の素材として残置
+
+**メタ教訓**: 本日の構造欠陥 4 件 (AQ/AS/AT/AQ-FOLLOWUP) はいずれも「Verified-Effect-Pending のまま実機検証されずに landing」が原因。`docs/lessons-learned.md` に「CI green = 完了 と思い込む癖」「workflow 単体 success と本番反映は別軸」記述を追加 (T2026-0502-AT セクション)。
