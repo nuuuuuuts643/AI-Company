@@ -38,6 +38,7 @@
 - [ ] **設定値変更なし** or `docs/system-status.md` を更新済み
 - [ ] **新規ルール追加なし** or `CLAUDE.md` / `docs/rules/` を更新済み
 - [ ] **API仕様変更なし** or 関連コメント・ドキュメントを更新済み
+- [ ] **Lambda/API/データフロー変更なし** or `docs/system-map.md` の内容と `last_verified` を更新済み
 
 ### SLI / 観測
 - [ ] **対応 SLI を `docs/sli-slo.md` に追記したか** (該当なしの場合は理由を記載) — T2026-0428-AD
