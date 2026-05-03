@@ -176,6 +176,16 @@
 
 ---
 
+## 🔧 セッション運用 / 開発基盤
+
+| ID | 優先 | 軸 | 内容 | 変更予定ファイル | 追加日 |
+|---|---|---|---|---|---|
+| T2026-0503-U | 🟡 中 | インフラ・運用 | **worktree 完全自動クリーンアップ** — `scripts/cleanup_stale_worktrees.sh` を `session_bootstrap.sh` 起動時に自動実行（現在は手動トリガー待ち）。セッション乱立後の worktree 溜まりを防ぐ。**実装スコープ**: ①`scripts/session_bootstrap.sh` の起動時 git 操作の直後に `bash scripts/cleanup_stale_worktrees.sh` 呼び出しを追加 ②スクリプトが既に存在する場合はそのまま利用・なければ作成。**Phase-Impact: 1 インフラ** / **Eval-Due: 2026-05-10** | `scripts/session_bootstrap.sh` | 2026-05-03 |
+| T2026-0503-V | 🟡 中 | インフラ・運用 | **bootstrap で install_hooks.sh を自動実行** — `session_bootstrap.sh` の先頭で `bash scripts/install_hooks.sh` を自動実行する。新しい worktree でも hook が必ず有効になるようにする。**実装スコープ**: ①`scripts/session_bootstrap.sh` の第1ステップ（git lock 退避の直後）に `bash scripts/install_hooks.sh` を追加 ②hook 実行エラーは BOOTSTRAP_EXIT=1 で捕捉・exit 1 ③ログ出力で「✅ hooks installed」or「⚠️ hook install failed」を表示。**Phase-Impact: 1 インフラ** / **Eval-Due: 2026-05-10** | `scripts/session_bootstrap.sh` | 2026-05-03 |
+| T2026-0503-W | 🟠 中 | UX・フェーズ1 | **about.html / terms.html / privacy.html を Phase A 実態に修正** — ログイン・コメント機能を「準備中」に変更、AI 更新頻度を 1 日 2 回に修正、フェーズ説明を `docs/feature-phases.md` に合わせる。嘘のないページにする。**実装スコープ**: ①`frontend/about.html` の「コメント機能」→「🔄 準備中」 ②「ユーザーログイン」→「🔄 準備中」 ③「AI 更新」セクション： `毎日 24 回` → `毎日 2 回（朝 5:30 / 夕方 17:30 JST）` ④フェーズ説明を `docs/feature-phases.md` / `docs/current-phase.md` と対応させる（現在フェーズ2「AI 品質改善」の説明を追加）⑤`frontend/terms.html` / `frontend/privacy.html` で references to feature 更新（必要に応じて） ⑥実機確認 (`flotopic.com/about.html` で全項目確認・false claim がないこと validate）。**Phase-Impact: 1 UX / 信頼性** / **Eval-Due: 2026-05-10** / **Verified**: 実機 flotopic.com でページ表示確認 | `frontend/about.html`, `frontend/terms.html`, `frontend/privacy.html` | 2026-05-03 |
+
+---
+
 ## 📦 アーカイブ（将来検討）
 
 > 上記「今週やること」以外のタスクをここに集約。週次レビューで必要なものをメインキューに昇格させる。
