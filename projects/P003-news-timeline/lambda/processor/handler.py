@@ -229,11 +229,12 @@ def lambda_handler(event, context):
     # 結果: 短い keyPoint 87件 (77.7%) が 2026-04-26〜29 から数日滞留。
     #
     # 新実装 (T2026-0430-J): kp-rescue を pending **先頭** に挿入。
-    # KP_RESCUE_PER_RUN=2 件/run × 48 runs/day (fetcher_trigger) = 96 救済/day 上限 →
-    # 87 件は ~1 日で全消化。トレードオフ: fetcher 指定の fresh topic 処理が
-    # 1〜2 件/run 後ろ倒しになるが、次回 fetcher_trigger (30分後) で復帰可能。
-    # コスト: 2 topic × 2 calls = 4 API call/run (既存 budget 10 内なので増加なし)。
-    KP_RESCUE_PER_RUN = 2
+    # T2026-0503-UX-NO-KEYPOINT-23: KP_RESCUE_PER_RUN を 2 → 5 に引き上げ。
+    # 旧: 2件/run × 48 runs/day = 96 救済/day → 69件が ~1 日かかる。
+    # 新: 5件/run × 48 runs/day = 240 救済/day → 69件が ~7h で消化 (MAX_API_CALLS=10 内)。
+    # コスト: 5 topic × 2 calls = 10 API call/run = fetcher budget (10) のちょうど上限。
+    # トレードオフ: fetcher 指定の fresh topic が 0 件になるが、30 分後に復帰可能。
+    KP_RESCUE_PER_RUN = 5
     if topic_id_filter:
         try:
             rescue = get_pending_topics(max_topics=KP_RESCUE_PER_RUN)

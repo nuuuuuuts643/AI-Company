@@ -54,6 +54,13 @@ bash scripts/session_bootstrap.sh
 2. ローカル変更を sync commit & pull (`--no-rebase` 固定で中断作らない) & push
    - **git pull / git push の終了コードは `PIPESTATUS[0]` で捕捉する（T2026-0502-M）**。`|| true` + `tail -N` で黙殺するのは禁止。失敗時は `BOOTSTRAP_EXIT=1` を立てて末尾で物理 exit 1。FUSE noise filter (`_strip_fuse_noise`) は維持
    - **push 失敗時は salvage 手順 (`cowork_commit.py --branch salvage/local-diverge-...`) を stderr に出力**
+   - **git HTTP タイムアウト設定（T2026-05-03-GIT-TIMEOUT）**。`~/.gitconfig` に以下を設定して「30秒間 1KB/s 以下」の hang を自動検出・abort:
+     ```bash
+     git config --global http.lowSpeedLimit 1000      # 1KB/s 以上
+     git config --global http.lowSpeedTime 30         # 30秒間続いたら abort
+     git config --global http.postBuffer 524288000    # 500MB POST buffer
+     ```
+     `session_bootstrap.sh` の `git pull` / `git push` コマンドは `timeout 60` / `timeout 120` で追加ラップ。network 無応答時の無限待機を防止する物理ガード。
 3. `CLAUDE.md` の最近の commit を表示（変更検知 → 再読指示）
 4. `WORKING.md` の 8h 超 stale 行を自動削除
 5. `TASKS.md` の取消線済み行を `HISTORY.md` に集約移動

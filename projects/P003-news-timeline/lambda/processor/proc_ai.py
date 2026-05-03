@@ -1121,7 +1121,10 @@ def _build_story_schema(mode: str, *, cnt: int = 1) -> dict:
         # ①驚き・逆説で始める ②数字・固有名詞 ③読者影響の明示 ④「なぜなら〜」で構造提示。
         # T2026-0501-G (2026-05-01): 初動③を「今後どうなりそうか」→「なぜこうなったか・構造的背景」に修正。
         # 「今後の見通し・予測」は outlook 専任フィールドと内容重複するため keyPoint から除外。
-        'keyPoint': {'type': 'string', 'minLength': 0, 'description': '読者の「え、なんで？」「自分にどう関係する？」を引き出すフック型で書く。フック型4原則: ①驚き・逆説で始める（「〇〇なのに〇〇」「実は〜」「意外にも〜」）②具体的な数字・固有名詞を必ず含む ③読者への影響を明示する ④「なぜなら〜」「背景には〜」で構造的理由を示す。【記事1件・初動フェーズ】: ①何が起きたか（驚き・逆説で始める）②なぜ重要か（読者への影響）③なぜこうなったか・構造的背景（「背景には〜」「なぜなら〜」で根拠を示す）。【記事2件以上・変化フェーズ】: 1文目=今回何が変わったか（驚き・逆説で始める）2文目=以前の状況（これまでは〜だった）3文目=今回の追加情報・具体数字・固有名詞 4文目=読者への影響（「なぜなら〜」「背景には〜」）。禁止: 一般論から始める/単なる記事要約/背景説明だけで終わる/抽象的表現で逃げる/人名・組織を略称や苗字単独で書く（読者の前提知識を要求しない=情報の地図原則）/今後の見通し・予測を含めない（それは outlook の役割）。「何が変わったのか」が不明確な場合は空文字を返す（無理に生成しない）。100字以上必須（書ける場合）。人名・組織名は段落内で1回は「肩書き＋正式名称」で書く。2回目以降は略称可。'},
+        # T2026-0503-UX-NO-KEYPOINT-23 (2026-05-03): 「空文字を返す」脱出ハッチを削除。
+        # 23.1% の topic で keyPoint 未生成 → 「何が変わったのか不明確」でも必ず書く。
+        # 変化が不明確な場合は「何が起きたか」「なぜ重要か」「構造的背景」の3点で代替。
+        'keyPoint': {'type': 'string', 'minLength': 0, 'description': '読者の「え、なんで？」「自分にどう関係する？」を引き出すフック型で書く。フック型4原則: ①驚き・逆説で始める（「〇〇なのに〇〇」「実は〜」「意外にも〜」）②具体的な数字・固有名詞を必ず含む ③読者への影響を明示する ④「なぜなら〜」「背景には〜」で構造的理由を示す。【記事1件・初動フェーズ】: ①何が起きたか（驚き・逆説で始める）②なぜ重要か（読者への影響）③なぜこうなったか・構造的背景（「背景には〜」「なぜなら〜」で根拠を示す）。【記事2件以上・変化フェーズ】: 1文目=今回何が変わったか（驚き・逆説で始める）2文目=以前の状況（これまでは〜だった）3文目=今回の追加情報・具体数字・固有名詞 4文目=読者への影響（「なぜなら〜」「背景には〜」）。変化が不明確な場合は「何が起きたか」「なぜ重要か」「構造的背景」の3点から100字以上で書く（空文字禁止）。禁止: 一般論から始める/単なる記事要約/背景説明だけで終わる/抽象的表現で逃げる/人名・組織を略称や苗字単独で書く（読者の前提知識を要求しない=情報の地図原則）/今後の見通し・予測を含めない（それは outlook の役割）。100字以上必須。人名・組織名は段落内で1回は「肩書き＋正式名称」で書く。2回目以降は略称可。'},
         'outlook': {'type': 'string', 'minLength': _OUTLOOK_MIN_CHARS, 'description': 'AI予想として「この先どうなるか」を1文で。**60 字以上 必須**。〜が予想される/〜の可能性があるで締める。文末に [確信度:高] [確信度:中] [確信度:低] のいずれかを必ず付与 (例: 「合意成立の可能性がある [確信度:中]」)。記事内に明示根拠あり=高、複数の状況証拠=中、推測ベース=低。後で新記事と照合して当否判定するため、検証可能な仮説として書くこと。'},
         # T2026-0501-OL2: outlook の根拠となる因果チェーン。情報の地図ビジョンの中核。
         # 1 次効果で止まらず 2 次/3 次連鎖まで踏み込ませるため、構造化フィールドとして強制。
@@ -1328,27 +1331,44 @@ def _normalize_story_result(result: dict, mode: str) -> dict:
 # → +50 retry call/サイクル × 2 サイクル/日 = ~100 retry/日。Haiku 4.5 の retry は
 # system prompt cache hit + max_tokens=400 で 1 call ~$0.001 → +$0.10/日 ≒ +$3/月 で許容範囲。
 def _retry_short_keypoint(articles: list, cnt: int, mode: str,
-                          original_keypoint: str) -> str | None:
+                          original_keypoint: str,
+                          ai_summary: str | None = None) -> str | None:
     """T2026-0430-A: keyPoint が 100 字未満だった場合に 1 回だけ再生成する。
 
     元の keyPoint を渡し、「短すぎたので最低 100 字以上で具体的な数字・固有名詞を含めて拡張」
     と指示する。retry 専用の縮小スキーマ (keyPoint のみ) で max_tokens を抑え、
     system prompt は同一文字列を渡すことで cache hit を維持する (Haiku 2048 tokens 必要)。
 
+    T2026-0503-UX-NO-KEYPOINT-23: ai_summary を追加コンテキストとして渡せるように拡張。
+    original_keypoint が空文字の場合、aiSummary をヒントに keyPoint を生成させる。
+
     Returns:
         新しい keyPoint (str) — 失敗時は None。
     """
     headlines, _ = _build_headlines(articles, limit=5)
     original_len = len((original_keypoint or '').strip())
-    prompt = (
-        '【keyPoint 再生成リクエスト (T2026-0430-A)】\n'
-        f'前回の keyPoint は {original_len} 字と短すぎました (基準: 100 字以上)。\n'
-        '同じトピックに対し、最低 100 字以上で、**具体的な数字・固有名詞・変化**を含む内容に拡張してください。\n'
-        '一般論・抽象論・「〜が注目される」「動向に注目」のような曖昧表現は禁止。\n'
-        f'モード: {mode} (記事 {cnt} 件)。記事 1 件 = 初動フェーズ 3 要素 / 2 件以上 = 変化フェーズ 4 文構成。\n'
-        f'【元の (短すぎた) keyPoint】\n{original_keypoint}\n\n'
-        f'【記事情報 ({cnt} 件)】\n{headlines}\n'
-    )
+    summary_block = f'【aiSummary (参考・keyPoint 生成のヒントに使うこと)】\n{ai_summary}\n\n' if ai_summary else ''
+    if original_len == 0:
+        prompt = (
+            '【keyPoint 初回生成リクエスト (T2026-0503-UX)】\n'
+            'このトピックの keyPoint が未生成のため、100 字以上で生成してください。\n'
+            '「何が起きたか」「なぜ重要か」「構造的背景」の3点を具体的な数字・固有名詞を用いて書く。\n'
+            '一般論・抽象論・「〜が注目される」のような曖昧表現は禁止。\n'
+            f'モード: {mode} (記事 {cnt} 件)。\n'
+            f'{summary_block}'
+            f'【記事情報 ({cnt} 件)】\n{headlines}\n'
+        )
+    else:
+        prompt = (
+            '【keyPoint 再生成リクエスト (T2026-0430-A)】\n'
+            f'前回の keyPoint は {original_len} 字と短すぎました (基準: 100 字以上)。\n'
+            '同じトピックに対し、最低 100 字以上で、**具体的な数字・固有名詞・変化**を含む内容に拡張してください。\n'
+            '一般論・抽象論・「〜が注目される」「動向に注目」のような曖昧表現は禁止。\n'
+            f'モード: {mode} (記事 {cnt} 件)。記事 1 件 = 初動フェーズ 3 要素 / 2 件以上 = 変化フェーズ 4 文構成。\n'
+            f'【元の (短すぎた) keyPoint】\n{original_keypoint}\n\n'
+            f'{summary_block}'
+            f'【記事情報 ({cnt} 件)】\n{headlines}\n'
+        )
     # T2026-0501-D (2026-05-01): retry schema を `minLength: 60` で物理ガード化。
     # 旧設計 (minLength: 0) では Tool Use API のスキーマ強制が効かず、retry でも
     # 10〜30 字の短文が返り続けて SHORT_FALLBACK で永続化される構造的バグがあった。
@@ -1406,7 +1426,8 @@ def _process_keypoint_quality(result: dict, articles: list, cnt: int,
 
     if _keypoint_too_short(original_kp):
         retried = True
-        new_kp = _retry_short_keypoint(articles, cnt, mode, original_kp)
+        ai_summary_ctx = str(result.get('aiSummary') or '').strip() or None
+        new_kp = _retry_short_keypoint(articles, cnt, mode, original_kp, ai_summary=ai_summary_ctx)
         new_len = len((new_kp or '').strip())
         if new_kp and not _keypoint_too_short(new_kp):
             # retry 成功 (>= 100 字)
@@ -1418,6 +1439,17 @@ def _process_keypoint_quality(result: dict, articles: list, cnt: int,
             fallback = True
 
     final_kp = str(result.get('keyPoint') or '').strip()
+
+    # T2026-0503-UX-NO-KEYPOINT-23: 両方空のとき aiSummary を keyPoint 代用として保存。
+    # Claude が「何が変わったのか不明確」で空を返し続ける topic が 23.1% 滞留していた。
+    # aiSummary は aiGenerated フロー上必ず非空なので、空 keyPoint を "準備中" から救済する。
+    if not final_kp:
+        ai_summary = str(result.get('aiSummary') or '').strip()
+        if ai_summary:
+            result['keyPoint'] = ai_summary
+            final_kp = ai_summary
+            print(f'[KP_QUALITY] aiSummary fallback used topic={topic_id[:8] + "..." if topic_id else "n/a"} len={len(final_kp)}')
+
     final_len = len(final_kp)
     result['_kpRetried']  = retried
     result['_kpFallback'] = fallback
