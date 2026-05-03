@@ -71,3 +71,12 @@ test_pii_dummy.md
 # 用途: cowork_commit.py が経路 0 で読む。Mac の Keychain は sandbox から
 #       見えないため、ファイル経由で token を渡す唯一の経路。
 .cowork-token
+
+# 一時スクラッチファイル恒久ガード (T2026-0502 git-error-fix)
+# .NEW/.NEW2/.NEW3/.TEST 等のスクリプト中間生成物が staged されないようにする
+*.NEW
+*.NEW[0-9]
+*.NEW[0-9][0-9]
+*.TEST
+# 検証用 placeholder workflow (zztest_*.yml は CI 物理 noop なので無視)
+.github/workflows/zztest_*.yml
