@@ -48,7 +48,10 @@ cd "$REPO_ROOT"
 # ─────────────────────────────────────────────
 INDEXABLE_PAGES=(
   "projects/P003-news-timeline/frontend/index.html"
-  "projects/P003-news-timeline/frontend/topic.html"
+  # topic.html は T2026-0502-BI-REDESIGN (2026-05-03) で noindex 追加済み。
+  # 静的 topics/{id}.html が indexed 済みの今、動的 SPA に noindex を入れることで
+  # "Duplicate, Google chose different canonical" を解消する。
+  # catchup.html / storymap.html は引き続き indexable のまま。
   "projects/P003-news-timeline/frontend/catchup.html"
   "projects/P003-news-timeline/frontend/storymap.html"
   "projects/P003-news-timeline/frontend/about.html"
