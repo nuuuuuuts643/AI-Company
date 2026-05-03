@@ -142,10 +142,12 @@ _cleanup_merged_branches() {
   # リモート削除済みの追跡ブランチを削除
   git fetch --prune origin >/dev/null 2>&1 || true
   # main にマージ済みのローカルブランチを削除（main 自身は除外）
+  # git branch の出力は "  branch-name" (leading space)、"* current" (*)、"+ worktree" (+) を含むため
+  # sed で prefix を削除してからフィルタリング
   while IFS= read -r branch; do
     [ -z "$branch" ] && continue
     git branch -d "$branch" 2>/dev/null && count=$((count + 1)) || true
-  done < <(git branch --merged main | grep -v '^\* main' | grep -v '^  main')
+  done < <(git branch --merged main | sed 's/^[* +] *//' | grep -v '^main$')
   [ $count -gt 0 ] && echo "🧹 merged branches 削除: $count 件"
 }
 if [ "$DRY_RUN" = "0" ]; then
