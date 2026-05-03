@@ -1240,6 +1240,10 @@ def lambda_handler(event, context):
 
     if S3_BUCKET:
         topics = get_all_topics()
+        # T2026-0503-N: api/topics.json に含まれる ID = 前サイクル validate 済み。
+        # validate_topics_exist に渡すことで、これらの DDB batch_get_item を省略する。
+        # current_run_metas（今回新規）は api/topics.json 未収録なので DDB 検証が引き続き走る。
+        _s3_known_ids = {t['topicId'] for t in topics}
 
         # 今回のrun で書いたトピック（DynamoDB確定）をtopics.jsonにマージ
         # 既存エントリはフレッシュデータで上書き（旧実装は新規追加のみで更新を取りこぼしていた）
@@ -1285,13 +1289,12 @@ def lambda_handler(event, context):
         if _inactive_archived:
             print(f'[T2026-0501-F2] lifecycle 再計算: {_inactive_archived}件を archived に移行 (memory only)')
 
-        # 幽霊エントリ除去: T2026-0429-H で skip_tids 最適化を撤廃。
-        # 旧実装は「今回 run の saved_ids は DDB 確定」と仮定して skip していたが、
-        # batch_writer の例外が ThreadPool で silently drop されてゴーストが saved_ids に
-        # 残るケースを観測 (本番 7件/run keyPoint 永続未生成)。validate_topics_exist が
-        # ConsistentRead=True で全件検証する設計に変えたので、skip しなくても安全。
+        # 幽霊エントリ除去: T2026-0503-N known_good_ids 最適化。
+        # _s3_known_ids（api/topics.json = 前サイクル validate 済み）はDDB照合をスキップ。
+        # current_run_metas 由来の新規 topicId は _s3_known_ids に含まれないため
+        # ConsistentRead=True で DDB 検証され、ThreadPool silent drop によるゴーストを検出する。
         pre_count  = len(topics)
-        topics     = validate_topics_exist(topics)
+        topics     = validate_topics_exist(topics, known_good_ids=_s3_known_ids)
         if len(topics) < pre_count:
             print(f'幽霊エントリ除去: {pre_count - len(topics)}件削除')
         # 幽霊が消えた tid は saved_ids / current_run_metas からも除去 (pending 計算の整合性確保)

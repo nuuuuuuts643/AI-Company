@@ -79,23 +79,35 @@ class ValidateTopicsExistStubRejectTest(unittest.TestCase):
         result = self._run_with_fake_batch_get(topics, responses)
         self.assertEqual(result, [], 'lastUpdated 欠如 stub も除去')
 
-    def test_skip_tids_no_longer_bypasses_validation(self):
-        """T2026-0429-H: skip_tids は no-op になった (saved_ids ゴースト混入防止のため)。
+    def test_known_good_ids_skips_ddb_for_previous_cycle_topics(self):
+        """T2026-0503-N: known_good_ids に含まれる ID は DDB を叩かずに valid 扱い。
 
-        旧挙動: skip_tids 渡したら batch_get_item 自体を呼ばない (高速化)。
-        新挙動: skip_tids は無視。常に DDB を ConsistentRead=True で検証する。
-        理由: fetcher の batch_writer 並列書き込みで silently drop された topicId が
-        saved_ids に残り、skip されると幽霊エントリが topics.json に永続滞留した
-        (本番 7件/run keyPoint 永続未生成、processor 側で「ゴーストID検知 7件全件」)。
+        api/topics.json 収録 = 前サイクル validate 済みのため DDB 不要。
+        DDB が呼ばれないことを assert する (RCU 削減の物理確認)。
         """
-        topics = [{'topicId': 'd' * 16, 'articleCount': 7}]
+        prev_id = 'd' * 16
+        topics = [{'topicId': prev_id, 'articleCount': 7}]
+        fake_db = mock.MagicMock()
+        with mock.patch.object(self.storage, 'dynamodb', fake_db):
+            result = self.storage.validate_topics_exist(topics, known_good_ids={prev_id})
+        self.assertEqual(len(result), 1, 'known_good_ids に含まれるトピックは有効として残る')
+        fake_db.batch_get_item.assert_not_called()
+
+    def test_new_topic_not_in_known_good_ids_still_ddb_checked(self):
+        """T2026-0503-N: known_good_ids に含まれない新規 topicId は DDB 検証される。
+
+        current_run_metas 由来の新規 topicId は api/topics.json 未収録のため
+        ConsistentRead=True で DDB 照合し、ゴーストを検出する（T2026-0429-H 保護の維持）。
+        """
+        new_id = 'e' * 16
+        topics = [{'topicId': new_id, 'articleCount': 3}]
         # DDB に存在しない (= 並列書き込みで silently drop された ghost)
         responses = [{'Responses': {self.storage.TABLE_NAME: []}}]
         fake_db = mock.MagicMock()
         fake_db.batch_get_item.side_effect = responses
         with mock.patch.object(self.storage, 'dynamodb', fake_db):
-            result = self.storage.validate_topics_exist(topics, skip_tids={'d' * 16})
-        self.assertEqual(result, [], 'skip_tids でも DDB 不在なら除去 (ゴースト保護)')
+            result = self.storage.validate_topics_exist(topics, known_good_ids=set())
+        self.assertEqual(result, [], 'known_good_ids 外の DDB 不在トピックは除去 (ゴースト保護)')
         fake_db.batch_get_item.assert_called_once()
 
     def test_consistent_read_used(self):
