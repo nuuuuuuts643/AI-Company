@@ -1,3 +1,16 @@
+# T2026-0503-L (2026-05-03): 設計意図の永続化
+#
+# このワークフローは「Lambda デプロイ後の SLI 監視」専用。
+# トリガーは workflow_run のみ — pull_request では一切起動しない。
+#
+# ⚠️  branch protection の required status checks に「post-deploy-verify」を登録してはいけない。
+#    PR では起動しないため、登録するとすべての PR が "Waiting for status to be reported" で
+#    永久にブロックされ、--admin 強制マージを強いられる原因になる。
+#    (T2026-0503-L で実際にこの問題が発生したため、required checks から除外済み)
+#
+# 正しい用途: Lambda deploy 後の充填率・鮮度を自動確認する独立した観測ループ。
+#             PR ゲートではなく、デプロイ後の SLI モニタリング。
+
 name: post-deploy-verify
 
 on:
