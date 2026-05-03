@@ -147,6 +147,9 @@ def _capture_prompts_for_mode(mode, genre, articles):
     captured = {}
 
     def fake_call(prompt, tool_name, schema, *args, **kwargs):
+        # T2026-0502-AZ: prompt is now a list of content blocks; flatten for backward-compat assertions
+        if isinstance(prompt, list):
+            prompt = '\n'.join(b.get('text', '') for b in prompt if isinstance(b, dict))
         captured['prompt'] = prompt
         captured['system'] = kwargs.get('system') or ''
         # 最低限のフィールドを返して None ガードを通す
