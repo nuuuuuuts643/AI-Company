@@ -701,6 +701,9 @@ def get_pending_topics(max_topics=100, force=False):
     # pending_ai.json が空 or 未作成のとき、処理必要なトピックを全スキャンして pending_ai.json を再生成
     print('get_pending_topics: pending_ai.json空のためDynamoDBフルスキャン（storyTimeline欠如含む）')
     proj = 'topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,statusLabel,watchPoints,schemaVersion,lifecycleStatus'
+    # T2026-0503-UX-NO-KEYPOINT-23: keyPoint 欠落 (NULL or 空文字) も再処理対象に追加。
+    # 旧フィルタでは aiGenerated=True かつ他フィールド揃い but keyPoint=None の topic が
+    # フォールバックスキャンで拾えず永久に未生成のまま残っていた。
     filt = (
         Attr('SK').eq('META') & (
             Attr('pendingAI').eq(True) |
@@ -709,7 +712,9 @@ def get_pending_topics(max_topics=100, force=False):
             ~Attr('storyPhase').exists() |
             ~Attr('imageUrl').exists() |
             ~Attr('schemaVersion').exists() |
-            Attr('schemaVersion').lt(PROCESSOR_SCHEMA_VERSION)
+            Attr('schemaVersion').lt(PROCESSOR_SCHEMA_VERSION) |
+            ~Attr('keyPoint').exists() |
+            Attr('keyPoint').eq('')
         )
     )
     items, kwargs = [], {
