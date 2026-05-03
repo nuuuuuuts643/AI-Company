@@ -139,6 +139,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Dispatch] T2026-0502-COST-D1 調査シーズン: DDB read パスコード特定・設計意図確認 | Dispatch | lambda/api/handler.py, lambda/processor/handler.py | 2026-05-03 15:20 JST | no |
+<<<<<<< HEAD
 | [Code] T2026-0503-E session_bootstrap.sh timeout コマンド修正 | Code | scripts/session_bootstrap.sh | 2026-05-03 22:50 JST | yes |
 
 <!-- [Code] T2026-0503-BRANCH-CLEANUP 完了 2026-05-03 16:40 JST
@@ -151,3 +152,5 @@ git add -A && git commit -m "done: [タスク名]" && git push
   実績: 437 → 269 に削減（62%削減）
 毎セッション起動時に自動でブランチクリーンアップが実行される恒久化完了 -->
 <!-- [Cowork] T2026-0502-UX-CARDTITLE 完了 (2026-05-03 00:00 JST): PR #318 merge ✅ + PR #323 (lessons-learned 補完) auto-merge 待ち。実機検証 (flotopic.com) で12/12カード語句完整性 100% 確認・平均長 29字 (修正前 14.2字)。one-time scheduled task p003-verify-cardtitle-fix-20260504 で 2026-05-04 09:00 JST 自動再検証予定 -->
+=======
+>>>>>>> 9c1d0ba0ab2fbe69aaa3d3572e65b4cb185a231e
