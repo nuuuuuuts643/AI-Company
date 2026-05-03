@@ -59,28 +59,45 @@ def get_all_topics():
     return items
 
 
-def validate_topics_exist(topics, skip_tids=None):
+def validate_topics_exist(topics, known_good_ids=None):
     """topics.jsonからDynamoDBに存在しない or 中身がスタブの幽霊エントリを除去する。
-    skip_tids: 今回のrunで書いたため確実に存在するtopicIdのset（スキップして高速化）。
 
     T2026-0428-AE: 「META が存在するか」だけでなく「META が実コンテンツを持つか」も検証。
     具体的には articleCount と lastUpdated が両方揃っているもののみ valid とする。
     旧 force_reset_pending_all() が無条件 update で量産していた
     {topicId, pendingAI, aiGenerated} だけのスタブ META を topics.json から駆除するため。
 
-    T2026-0429-H: ConsistentRead=True を使い、saved_tids も含めて全件検証する。
+    T2026-0429-H: ConsistentRead=True を使い全件検証する。
     背景: handler.py 側の batch_writer 並列書き込みで例外が ThreadPool に閉じ込められ
     f.result() 未呼び出しで silently drop されるケースを観測 (本番 7件/run のゴーストID 永続化)。
-    saved_tids を skip すると DDB 書き込み失敗の topicId が topics.json に混入し、processor 側
+    DDB 書き込み失敗の topicId が topics.json に混入すると、processor 側
     (get_topics_by_ids) で「ゴーストID検知 7件/全7件」となり keyPoint 生成が永久に走らなくなる。
-    対策: skip_tids の最適化を撤廃し、ConsistentRead=True で just-written 検証も可能にする。
+
+    T2026-0503-N (known_good_ids 最適化): DDB RCU を 93% 削減。
+    # CALLER_DOC: known_good_ids は handler.py の get_all_topics() 結果から抽出した
+    # IDセット（api/topics.json = 前サイクル処理済み）。前回 validate 済みなので
+    # ConsistentRead DDB 照合を省略できる。
+    # 今回の run で新規作成した topicId は api/topics.json にまだ含まれておらず
+    # known_good_ids に入らないため、引き続き DDB ConsistentRead で検証する
+    # （ThreadPool silent drop によるゴースト検出を維持）。
+    # None の場合は従来通り全件 DDB 検証（後退互換）。
     """
     if not topics:
         return topics
     valid_ids = set()
     stub_dropped = 0
-    for i in range(0, len(topics), 100):
-        chunk = topics[i:i+100]
+
+    if known_good_ids is not None:
+        # api/topics.json 収録済み = 前サイクル validate 済み → DDB 不要
+        for t in topics:
+            if t['topicId'] in known_good_ids:
+                valid_ids.add(t['topicId'])
+
+    # known_good_ids に含まれない topics のみ DDB で検証（新規 topicId のゴースト検出）
+    ddb_targets = [t for t in topics if t['topicId'] not in valid_ids]
+
+    for i in range(0, len(ddb_targets), 100):
+        chunk = ddb_targets[i:i+100]
         keys  = [{'topicId': t['topicId'], 'SK': 'META'} for t in chunk]
         try:
             resp = dynamodb.batch_get_item(
@@ -101,8 +118,12 @@ def validate_topics_exist(topics, skip_tids=None):
             print(f'validate_topics_exist error (chunk {i}): {e}')
             for t in chunk:
                 valid_ids.add(t['topicId'])  # エラー時は通す
+
     if stub_dropped:
         print(f'validate_topics_exist: stub META {stub_dropped}件を除去')
+    skipped = len(topics) - len(ddb_targets)
+    if skipped:
+        print(f'validate_topics_exist: known_good {skipped}件スキップ / DDB検証 {len(ddb_targets)}件')
     return [t for t in topics if t['topicId'] in valid_ids]
 
 
