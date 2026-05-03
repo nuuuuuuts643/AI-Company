@@ -489,6 +489,12 @@ jobs:
           # ✅/⚠ 状態の対策は landing していなければ CI ブロック。
           bash scripts/check_lessons_landings.sh
 
+      - name: landing grep 強化テスト (T2026-0502-BL)
+        run: |
+          # check_lessons_landings.sh の各 landing grep が placeholder を reject し、
+          # 実装済みファイルを pass することを検証 (存在チェックのみでは空約束を検出できない問題を物理化)。
+          bash tests/test_check_lessons_landings.sh
+
       - name: 形骸化検出 grep (T2026-0428-BD)
         run: |
           # CLAUDE.md / global-baseline.md / lessons-learned.md の
