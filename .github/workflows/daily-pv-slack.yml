@@ -7,7 +7,7 @@ name: Daily PV Slack 通知 (T2026-0502-AW)
 # 背景: 2026-05-02 PO 議論「他のなんかPVとかわかるように見たい話」。
 #       admin はログイン認証 + 読み込み待ちで遅く、毎朝の確認には重い。
 #       既存 cf-analytics Lambda が毎朝 7:00 JST に S3 (api/cf-analytics.json) を更新するので
-#       その直後 (7:05 JST) に内容を Slack に POST する。
+#       その30分後 (7:30 JST) に内容を Slack に POST する。
 #
 # データソース: https://flotopic.com/api/cf-analytics.json (CloudFront 経由・公開)
 # 急変 alert: 前日比 PV が -50% 未満で 🚨 強調表示・-20% 未満で ⚠️
@@ -15,7 +15,7 @@ name: Daily PV Slack 通知 (T2026-0502-AW)
 
 on:
   schedule:
-    - cron: '5 22 * * *'   # UTC 22:05 = JST 07:05 (cf-analytics 更新直後)
+    - cron: '30 22 * * *'  # UTC 22:30 = JST 07:30 (cf-analytics Lambda 22:00 UTC から30分後)
   workflow_dispatch:        # 手動でも発火可
 
 permissions:
@@ -37,15 +37,15 @@ jobs:
             exit 0
           fi
 
-          # cf-analytics.json を取得
-          curl -sS -m 15 'https://flotopic.com/api/cf-analytics.json' -o /tmp/cf.json
-          if [ ! -s /tmp/cf.json ]; then
-            echo "::error::cf-analytics.json fetch failed"
+          # cf-analytics.json を取得 (-f で 4xx/5xx を exit 22 で明示化)
+          # set -euo pipefail 下では || { } でエラー捕捉する
+          curl -sSf -m 15 'https://flotopic.com/api/cf-analytics.json' -o /tmp/cf.json || {
+            echo "::error::cf-analytics.json fetch failed (HTTP error or timeout)"
             curl -fsS -X POST -H 'Content-Type: application/json' \
-              -d '{"text": ":warning: [Daily PV] cf-analytics.json fetch failed (毎朝 7:05 JST)"}' \
+              -d '{"text": ":warning: [Daily PV] cf-analytics.json fetch failed (毎朝 7:30 JST)"}' \
               "$SLACK_WEBHOOK_URL" || true
             exit 1
-          fi
+          }
 
           # Python で 1 行サマリー生成
           PAYLOAD=$(python3 <<'PY'
