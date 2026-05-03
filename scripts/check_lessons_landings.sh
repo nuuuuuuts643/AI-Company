@@ -252,4 +252,37 @@ if ! grep -q 'ci_check_workflow_script_refs.sh' "$REPO_ROOT/.github/workflows/li
 fi
 echo "✅ T2026-0502-WORKFLOW-DEP-PHYSICAL: workflow ref check landed (script + workflow step)"
 
+# T2026-0502-IAM-FILTER-FIX landing 検証 (T2026-0503-G):
+# IAM filter の file-path ベース exemption が 3 つの landing 点に存在することを verify する。
+# ① install_hooks.sh の IAM filter 実装 (file-path ベース・--name-only 使用)
+# ② tests/test_pre_commit_iam_filter.sh の回帰テスト
+# ③ ci.yml の hook-tests step (test_pre_commit_iam_filter.sh 呼び出し)
+INSH_IAM="$REPO_ROOT/scripts/install_hooks.sh"
+if ! grep -q 'IAM_EXEMPT_PATH_RE' "$INSH_IAM"; then
+  echo "❌ T2026-0502-IAM-FILTER-FIX: install_hooks.sh に IAM_EXEMPT_PATH_RE が見つかりません (file-path ベース exemption 未実装の可能性)" >&2
+  exit 1
+fi
+if ! grep -q 'name-only' "$INSH_IAM"; then
+  echo "❌ T2026-0502-IAM-FILTER-FIX: install_hooks.sh の IAM filter が --name-only を使用していません (diff 行内容ベースの旧実装が残っている可能性)" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-IAM-FILTER-FIX: install_hooks.sh IAM filter (file-path ベース exemption) landing verified"
+
+IAM_TEST="$REPO_ROOT/tests/test_pre_commit_iam_filter.sh"
+if [ ! -f "$IAM_TEST" ]; then
+  echo "❌ T2026-0502-IAM-FILTER-FIX: tests/test_pre_commit_iam_filter.sh が見つかりません" >&2
+  exit 1
+fi
+if ! grep -q 'IAM_EXEMPT_PATH_RE\|install_hooks\|put-role-policy' "$IAM_TEST"; then
+  echo "❌ T2026-0502-IAM-FILTER-FIX: tests/test_pre_commit_iam_filter.sh は placeholder の可能性 (IAM filter テストロジックなし)" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-IAM-FILTER-FIX: tests/test_pre_commit_iam_filter.sh landing verified (IAM filter 回帰テスト含む)"
+
+if ! grep -q 'test_pre_commit_iam_filter' "$REPO_ROOT/.github/workflows/ci.yml"; then
+  echo "❌ T2026-0502-IAM-FILTER-FIX: ci.yml が tests/test_pre_commit_iam_filter.sh を呼び出していません (hook-tests step 未設定)" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-IAM-FILTER-FIX: ci.yml hook-tests step (test_pre_commit_iam_filter.sh 呼び出し) landing verified"
+
 exit 0
