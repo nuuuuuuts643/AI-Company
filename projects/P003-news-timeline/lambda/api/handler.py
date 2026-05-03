@@ -105,6 +105,15 @@ def lambda_handler(event, context):
 
     if path.startswith('/topic/'):
         tid = path.split('/')[-1]
+        # COST-C1: S3優先・api/topic/{tid}.jsonが存在する場合はDDBクエリを省略。
+        if S3_BUCKET and s3:
+            try:
+                obj = s3.get_object(Bucket=S3_BUCKET, Key=f'api/topic/{tid}.json')
+                return resp(200, json.loads(obj['Body'].read()))
+            except s3.exceptions.NoSuchKey:
+                pass
+            except Exception as e:
+                print(f'[WARN] /topic/{tid} S3 read failed, falling back to DDB: {e}')
         meta, snaps = topic_detail(tid)
         if not meta:
             return resp(404, {'error': 'not found'})
