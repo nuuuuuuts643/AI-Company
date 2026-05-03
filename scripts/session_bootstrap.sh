@@ -133,6 +133,27 @@ if [ "$DRY_RUN" = "0" ]; then
   _cleanup_broken_worktrees || true
 fi
 
+# ---- 1c. ブランチ自動クリーンアップ (マージ済み/孤児削除) ----
+# 各セッションが新しいブランチを作るが、完了後に削除されないため、
+# session_bootstrap 起動のたびに old branches を削除する恒久対処。
+# 背景: T2026-0503-BRANCH-CLEANUP（根本原因特定: 435個溜積・worktree は削除されるがブランチ残存）
+_cleanup_merged_branches() {
+  local count=0
+  # リモート削除済みの追跡ブランチを削除
+  git fetch --prune origin >/dev/null 2>&1 || true
+  # main にマージ済みのローカルブランチを削除（main 自身は除外）
+  # git branch の出力は "  branch-name" (leading space)、"* current" (*)、"+ worktree" (+) を含むため
+  # sed で prefix を削除してからフィルタリング
+  while IFS= read -r branch; do
+    [ -z "$branch" ] && continue
+    git branch -d "$branch" 2>/dev/null && count=$((count + 1)) || true
+  done < <(git branch --merged main | sed 's/^[* +] *//' | grep -v '^main$')
+  [ $count -gt 0 ] && echo "🧹 merged branches 削除: $count 件"
+}
+if [ "$DRY_RUN" = "0" ]; then
+  _cleanup_merged_branches || true
+fi
+
 # ---- 2. sync commit & pull --no-rebase & push ----
 # rebase 系の中断を作らないため pull は merge 戦略で固定。
 #
