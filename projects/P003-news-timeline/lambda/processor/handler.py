@@ -44,8 +44,9 @@ _MODE_RANK = {'minimal': 0, 'standard': 1, 'full': 2}
 
 
 def _expected_mode(cnt: int) -> str:
-    """記事数から期待される summaryMode を返す (proc_ai.py の分岐と完全一致)。"""
-    if cnt <= 2:
+    """記事数から期待される summaryMode を返す (proc_ai.py の分岐と完全一致)。
+    T2026-0503-UX-WATCHPOINTS/PERSPECTIVES-FILL: cnt=2 → standard に昇格 (旧: minimal)。"""
+    if cnt <= 1:
         return 'minimal'
     if cnt <= 5:
         return 'standard'
@@ -332,7 +333,7 @@ def lambda_handler(event, context):
                 print(f'  [Claude タイトル] {tid[:8]}... → {new_title[:30]}')
 
         gen_story = None
-        _is_minimal = cnt <= 2
+        _is_minimal = cnt <= 1  # T2026-0503-UX-WATCHPOINTS/PERSPECTIVES-FILL: cnt=2 → standard
         # T255 (2026-04-28 Cowork): keyPoint も skip 必須フィールドへ追加。
         # 旧 aiGenerated topic は keyPoint プロンプト追加 (commit 963ff61) 以前の処理結果のため
         # keyPoint=None のまま永久に skip されていた (本番 0/115 で確認済)。
