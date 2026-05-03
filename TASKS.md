@@ -225,6 +225,7 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
+| T2026-0503-R | 🔴 高（今週最優先） | **flotopic.com 機能実態調査 — about/terms/privacy との整合性修正** — 実際に flotopic.com を操作して「動いている機能」と「動いていない・嘘になっている機能」を記録。調査結果をもとに about/terms/privacy を実態に合わせて修正。**調査項目**: (1) Google ログイン機能（動くか）(2) コメント投稿・削除（動くか）(3) お気に入り保存（動くか）(4) フェーズラベル（発端→拡散→ピーク→現在地→収束）が実際に表示されているか (5) 振り返る機能（削除済みか確認）(6) AI更新頻度（about 記載は「1日4回」→実態は「1日2回 JST 05:30/17:30」）(7) 収集メディアリストの確認。**完了条件**: 調査結果を docs/ に記録 + about.html/terms.html/privacy.html を実態に合わせて修正 + PR作成。**Phase-Impact: UX・信頼性 (フェーズ3 / ユーザー向け文言精度)** / **Eval-Due: 2026-05-10** / **Verified-Effect**: 実装後に flotopic.com を再確認し、表記と実装が一致することをスクリーンショット添付 | `frontend/{about.html, terms.html, privacy.html}`, `docs/{feature-status.md, media-sources.md}` (新規) | 2026-05-03 |
 
 ### 安定性・運用
 
