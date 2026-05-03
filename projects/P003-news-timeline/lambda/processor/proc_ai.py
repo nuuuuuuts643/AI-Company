@@ -1038,7 +1038,10 @@ def generate_story(articles, article_count: int | None = None, genre: str | None
 
     cnt = article_count if article_count is not None else len(articles)
 
-    if cnt <= 2:
+    # T2026-0503-UX-WATCHPOINTS-FILL / T2026-0503-UX-PERSPECTIVES-FILL (2026-05-03):
+    # 閾値を cnt<=2 → cnt<=1 に緩和。cnt=2 (aiGenerated の約49%) を standard mode に昇格。
+    # standard mode では watchPoints/perspectives が schema required → 充填率を 0%/14% から引き上げ。
+    if cnt <= 1:
         return _generate_story_minimal(articles, genre=genre)
     elif cnt <= 5:
         return _generate_story_standard(articles, cnt, genre=genre)
@@ -1636,7 +1639,8 @@ _SYSTEM_PROMPT = (
 
 
 def _generate_story_standard(articles: list, cnt: int, genre: str | None = None) -> dict | None:
-    """3〜5件: Tool Use で structured output 強制 (旧 JSON 構文エラー撲滅)。
+    """2〜5件: Tool Use で structured output 強制 (旧 JSON 構文エラー撲滅)。
+    T2026-0503-UX-WATCHPOINTS/PERSPECTIVES-FILL: cnt=2 も standard に昇格 (旧: 3〜5件)。
     T2026-0428-AL: 上位3記事の全文を取得し perspectives の比較根拠とする。
     T2026-0428-AJ: 共通プロンプトは _SYSTEM_PROMPT に集約 (cache_control 対象)。"""
     headlines, _ = _build_headlines(articles, limit=5)
