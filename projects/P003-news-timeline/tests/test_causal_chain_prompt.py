@@ -111,6 +111,20 @@ def test_kokusai_frame_specific_example():
         '国際 frame should keep the EU/関税 worked example for regression detection'
 
 
+def test_seiji_frame_specific_example():
+    """政治 frame は支持率/解散 の具体例を含むこと (ジャンル別フィクスチャ 政治パターン)。"""
+    hint = proc_ai._build_aisummary_causal_hint('政治')
+    assert '支持率' in hint or '解散' in hint, \
+        '政治 frame should include 支持率 or 解散 as concrete worked example'
+
+
+def test_business_frame_specific_example():
+    """ビジネス frame は業績/M&A の具体例を含むこと (ジャンル別フィクスチャ ビジネスパターン)。"""
+    hint = proc_ai._build_aisummary_causal_hint('ビジネス')
+    assert '業績' in hint or 'M&A' in hint, \
+        'ビジネス frame should include 業績 or M&A as concrete worked example'
+
+
 # ---------------------------------------------------------------------------
 # 統合: hint がプロンプト build に影響することの軽い smoke test
 # ---------------------------------------------------------------------------
