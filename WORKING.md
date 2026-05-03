@@ -32,7 +32,7 @@
 
 **最新 Dispatch (auto-v2)** 2026-05-03 08:01 JST | staleness=25.4min | 過去2h saves=42 | 直近1h errors=0 | 全SLI healthy・異常なし・次回 13:00 JST run まで観測のみ (outcome=A)
 
-**最新 Dispatch (Cowork)** 2026-05-02 22:50 JST PO「AWSコスト下げて理想0・品質上げる方向」→ 4 PR で着地済 ✅:
+**最新 Dispatch (Cowork)** 2026-05-03 10:30 JST PO「Slack通知の絞り込み＋日次keypoint評価スケジュール」→ PR #338 作成済 ✅:
 - PR #291 (削減プラン docs) / #293 (A1 検証結果) / #298 (深掘り §8) / #299 (TASKS.md 整合化) merge ✅
 - 衝撃の発見: Lambda/API GW/CloudFront/CloudWatch は全て無料枠内 ($0)。実コストの 95% は DynamoDB R/W $6.42 + S3 PUT $2.17。当初プラン A2/A3/A5/B1/B2/B3/B4/C2/C3 は撤回。本命は A1-CODE / D1 / C1 / D2 / D3 / D4。
 - 副産物 CI 修正 2 PR: PR #302 (LINT-YAML-FIX2: iam-policy-drift-check.yml の python3 -c → scripts/iam_canon.py) / PR #303 (IAM-CANON-RESCUE: c521a846 不完全 merge で commit 漏れだった iam_canon.py を初 commit) — 両方 effect 確認済 (workflow_dispatch run success)
@@ -139,5 +139,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Code] T2026-0502-AM CI 4件 known failure 完了確認 + Daily PV Slack タイミング修正 | Code | .github/workflows/daily-pv-slack.yml, TASKS.md | 2026-05-03 09:50 | yes |
-| [Cowork] T2026-0503-D PR作成後CI確認+マージを仕組み化 | Cowork | CLAUDE.md | 2026-05-03 10:35 | no |
 <!-- [Cowork] T2026-0502-UX-CARDTITLE 完了 (2026-05-03 00:00 JST): PR #318 merge ✅ + PR #323 (lessons-learned 補完) auto-merge 待ち。実機検証 (flotopic.com) で12/12カード語句完整性 100% 確認・平均長 29字 (修正前 14.2字)。one-time scheduled task p003-verify-cardtitle-fix-20260504 で 2026-05-04 09:00 JST 自動再検証予定 -->
