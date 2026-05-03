@@ -7,9 +7,11 @@ from boto3.dynamodb.conditions import Key
 
 TABLE_NAME = os.environ.get('TABLE_NAME', 'p003-topics')
 REGION     = os.environ.get('REGION', 'ap-northeast-1')
+S3_BUCKET  = os.environ.get('S3_BUCKET', '')
 
 dynamodb = boto3.resource('dynamodb', region_name=REGION)
 table    = dynamodb.Table(TABLE_NAME)
+s3       = boto3.client('s3', region_name=REGION) if S3_BUCKET else None
 
 
 def dec(obj):
@@ -49,8 +51,18 @@ def resp(code, body, event=None):
 
 
 def all_topics():
+    # COST-D1-α: S3 topics-card.json 直読みで DynamoDB Full Scan を回避。
+    # processor が最大5分ごとに再生成するため freshness は DDB 直読みと同等。
+    # parentTopicId / childTopics は _CARD_INCLUDE_KEYS に含まれ card 側に存在する。
+    if S3_BUCKET and s3:
+        try:
+            obj = s3.get_object(Bucket=S3_BUCKET, Key='api/topics-card.json')
+            data = json.loads(obj['Body'].read())
+            return data.get('topics', [])
+        except Exception as e:
+            print(f'[WARN] all_topics S3 read failed, falling back to DDB scan: {e}')
+    # DynamoDB Scan fallback (S3_BUCKET 未設定 または S3 読み込み失敗時のみ)
     items = []
-    # SK(sort key) は FilterExpression に使用不可 → 全件 Scan して Python 側で絞る
     kwargs = {
         'ProjectionExpression': 'topicId, title, #s, articleCount, articleCountDelta, lastUpdated, sources, SK',
         'ExpressionAttributeNames': {'#s': 'status'},
