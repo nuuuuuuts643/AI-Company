@@ -32,6 +32,13 @@ if 'proc_config' not in sys.modules:
 import proc_ai  # noqa: E402
 
 
+def _flatten_prompt(prompt):
+    """T2026-0502-AZ: prompt が list of content blocks の場合にテキストを結合して返す。"""
+    if isinstance(prompt, list):
+        return '\n'.join(b.get('text', '') for b in prompt if isinstance(b, dict))
+    return prompt or ''
+
+
 class _FakeResponse:
     def __init__(self, body):
         self._body = body if isinstance(body, bytes) else json.dumps(body).encode('utf-8')
@@ -259,7 +266,7 @@ class OutlookActorHintTest(unittest.TestCase):
         captured = {}
 
         def fake_call_tool(prompt, tool_name, schema, **kw):
-            captured['prompt'] = prompt
+            captured['prompt'] = _flatten_prompt(prompt)
             return {
                 'aiSummary': 'ダミー要約。これは何が起きたか。これは何を意味するか。',
                 'keyPoint': 'a' * 110,
@@ -285,7 +292,7 @@ class OutlookActorHintTest(unittest.TestCase):
         captured = {}
 
         def fake_call_tool(prompt, tool_name, schema, **kw):
-            captured['prompt'] = prompt
+            captured['prompt'] = _flatten_prompt(prompt)
             return {
                 'aiSummary': 'ダミー要約。これは何が起きたか。これは何を意味するか。',
                 'keyPoint': 'b' * 110,
@@ -317,7 +324,7 @@ class OutlookActorHintTest(unittest.TestCase):
         captured = {}
 
         def fake_call_tool(prompt, tool_name, schema, **kw):
-            captured['prompt'] = prompt
+            captured['prompt'] = _flatten_prompt(prompt)
             return {
                 'aiSummary': 'ダミー要約。これは何が起きたか。これは何を意味するか。',
                 'keyPoint': 'c' * 110,
@@ -530,7 +537,7 @@ class CausalChainTest(unittest.TestCase):
         captured = {}
 
         def fake_call_tool(prompt, tool_name, schema, **kw):
-            captured['prompt'] = prompt
+            captured['prompt'] = _flatten_prompt(prompt)
             return {
                 'aiSummary': 'ダミー',
                 'keyPoint': 'a' * 110,
@@ -564,7 +571,7 @@ class CausalChainTest(unittest.TestCase):
         captured = {}
 
         def fake_call_tool(prompt, tool_name, schema, **kw):
-            captured['prompt'] = prompt
+            captured['prompt'] = _flatten_prompt(prompt)
             return {
                 'aiSummary': 'ダミー',
                 'keyPoint': 'b' * 110,
@@ -601,7 +608,7 @@ class CausalChainTest(unittest.TestCase):
         captured = {}
 
         def fake_call_tool(prompt, tool_name, schema, **kw):
-            captured['prompt'] = prompt
+            captured['prompt'] = _flatten_prompt(prompt)
             return {
                 'aiSummary': 'ダミー',
                 'keyPoint': 'c' * 110,
