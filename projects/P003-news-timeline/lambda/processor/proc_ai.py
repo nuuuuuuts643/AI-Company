@@ -255,7 +255,7 @@ def build_batch_request(custom_id: str, prompt: str, tool_name: str, input_schem
 # ============================================================================
 # realtime path (T2026-0502-AY 以前から存在・既存挙動温存)
 # ============================================================================
-def _call_claude_tool(prompt: str, tool_name: str, input_schema: dict,
+def _call_claude_tool(prompt: str | list, tool_name: str, input_schema: dict,
                        max_tokens: int = 1500, timeout: int = 25,
                        model: str = 'claude-haiku-4-5-20251001',
                        system: str | None = None) -> dict | None:
@@ -1468,18 +1468,23 @@ def _generate_story_minimal(articles: list, genre: str | None = None) -> dict | 
     causal_outlook_hint = _build_causal_outlook_hint(genre)
     # T2026-0501-KPG: ジャンル別 keyPoint 角度ヒント (健康/テックの kp≥100% 低迷対策)。
     keypoint_genre_hint = _build_keypoint_genre_hint(genre)
-    prompt = (
+    # T2026-0502-AZ: Split into cached static block (pure genre hints) + dynamic block.
+    # keypoint_genre_hint / outlook_actor_hint / causal_outlook_hint depend only on genre → cacheable.
+    # schema_hint / keypoint_phase_hint / perspective_actor_hint depend on cnt → dynamic block.
+    _static_hints = keypoint_genre_hint + outlook_actor_hint + causal_outlook_hint
+    _dynamic_part = (
         f'【今回のモード: minimal (記事 {cnt} 件)】\n'
         + schema_hint
         + keypoint_phase_hint
-        + keypoint_genre_hint
         + perspective_actor_hint
-        + outlook_actor_hint
-        + causal_outlook_hint
         + '\n'
-        f'記事情報（{cnt}件）:\n{headlines}'
+        + f'記事情報（{cnt}件）:\n{headlines}'
         + (f'\n{media_block}' if media_block else '')
     )
+    prompt = [
+        {'type': 'text', 'text': _static_hints, 'cache_control': {'type': 'ephemeral'}},
+        {'type': 'text', 'text': _dynamic_part},
+    ]
     try:
         schema = _build_story_schema('minimal', cnt=cnt)
         # perspectives 生成時は出力 token を 600→900 に増量 (perspectives 60+ 字 + 余裕)
@@ -1612,8 +1617,11 @@ def _generate_story_standard(articles: list, cnt: int, genre: str | None = None)
     keypoint_genre_hint = _build_keypoint_genre_hint(genre)
     # T2026-0502-AE: aiSummary に「なぜ今/引き金/利害」(causal chain) 強制注入。
     aisummary_causal_hint = _build_aisummary_causal_hint(genre)
-    prompt = (
-        f'【今回のモード: standard (記事 {cnt} 件)】\n'
+    # T2026-0502-AZ: Split into cached static block (genre hints) + dynamic block (article data).
+    # Same-genre calls share the cached prefix → Haiku/Sonnet cache hit from 2nd topic onward.
+    # cnt is removed from the static block so different article counts reuse the same cache entry.
+    _static_hints = (
+        '【今回のモード: standard】\n'
         'phase は「拡散 / ピーク / 現在地 / 収束」のみ (発端は禁止)。timeline は最大3件。\n'
         'forecast は schema に存在しないため出力しない (full モードのみ)。\n'
         # T-keypoint-prompt (2026-04-30): 記事 2 件以上は変化フェーズ。
@@ -1624,9 +1632,11 @@ def _generate_story_standard(articles: list, cnt: int, genre: str | None = None)
         + perspective_actor_hint
         + outlook_actor_hint
         + causal_outlook_hint
-        + f'記事情報（{cnt}件）:\n{headlines}'
-        + (f'\n{media_block}' if media_block else '')
     )
+    prompt = [
+        {'type': 'text', 'text': _static_hints, 'cache_control': {'type': 'ephemeral'}},
+        {'type': 'text', 'text': f'記事情報（{cnt}件）:\n{headlines}' + (f'\n{media_block}' if media_block else '')},
+    ]
     try:
         schema = _build_story_schema('standard')
         result = _call_claude_tool(
@@ -1688,7 +1698,10 @@ def _generate_story_full(articles: list, cnt: int, genre: str | None = None) -> 
     keypoint_genre_hint = _build_keypoint_genre_hint(genre)
     # T2026-0502-AE: aiSummary に「なぜ今/引き金/利害」(causal chain) 強制注入。
     aisummary_causal_hint = _build_aisummary_causal_hint(genre)
-    prompt = (
+    # T2026-0502-AZ: Split into cached static block (genre hints) + dynamic block (article data).
+    # Same-genre calls share the cached prefix → Haiku/Sonnet cache hit from 2nd topic onward.
+    # cnt is removed from the static block so different article counts reuse the same cache entry.
+    _static_hints = (
         '【最重要: 必ず守ること】\n'
         '1. keyPoint は必ずフェーズ判定に従って書く（記事1件=初動3要素 / 2件以上=変化4文構成）。\n'
         '2. 一般論・抽象論・「〜が注目される」「〜に影響を与える」「動向に注目」は禁止。\n'
@@ -1699,7 +1712,7 @@ def _generate_story_full(articles: list, cnt: int, genre: str | None = None) -> 
         '7. ★ outlook は読者ペルソナ視点で「もし〜なら N週/Nヶ月以内に □□となる」の条件付き仮説で書く (下記 outlook 生成方針参照)。当たり障りなく観測する書き方は禁止。\n'
         '8. ★ causalChain は outlook の根拠として 3〜6 ステップで必ず出力 (下記 OL2 ルール参照)。1 次効果で止まらず 2 次/3 次連鎖まで踏み込む。\n'
         '9. ★ aiSummary は 150 字 2 文構成 — 国際/政治/ビジネス等は 2 文目に「なぜ今/引き金/利害」を必ず具体名詞で含める (下記 AE ルール参照)。「対立深刻化」「影響を与える」等の抽象表現は禁止。\n\n'
-        f'【今回のモード: full (記事 {cnt} 件)】\n'
+        '【今回のモード: full】\n'
         'phase は「拡散 / ピーク / 現在地 / 収束」のみ (発端は禁止)。timeline は 3〜6 件出力。\n'
         'forecast は必ず出力する (確信度タグ必須)。\n'
         # T-keypoint-prompt (2026-04-30): 記事 2 件以上は変化フェーズ。
@@ -1710,9 +1723,11 @@ def _generate_story_full(articles: list, cnt: int, genre: str | None = None) -> 
         + perspective_actor_hint
         + outlook_actor_hint
         + causal_outlook_hint
-        + f'記事情報（{cnt}件・見出しと概要）:\n{headlines}'
-        + (f'\n{media_block}' if media_block else '')
     )
+    prompt = [
+        {'type': 'text', 'text': _static_hints, 'cache_control': {'type': 'ephemeral'}},
+        {'type': 'text', 'text': f'記事情報（{cnt}件・見出しと概要）:\n{headlines}' + (f'\n{media_block}' if media_block else '')},
+    ]
     try:
         # T2026-0428-AL: 全文ブロック注入で prompt が ~6000 字伸びるため timeout を 60s に拡張。
         # T-haiku-full (2026-04-30): Haiku 4.5 に切替後も media_block で prompt が長いため 60s 維持。
