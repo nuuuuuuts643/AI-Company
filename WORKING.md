@@ -143,6 +143,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | [Code] T2026-0503-L CI branch protection 修正 (post-deploy-verify 除去 / Secret Scan 名前修正) | Code | .github/workflows/post-deploy-verify.yml, .github/workflows/secret-scan.yml | 2026-05-03 16:45 JST | yes |
 | [Code] T2026-0503-N validate_topics_exist known_good_ids 最適化 (DDB RCU 93% 削減) | Code | lambda/fetcher/storage.py, lambda/fetcher/handler.py | 2026-05-03 16:45 JST | yes |
 | [Code] T2026-0503-O proc_storage BatchGetItem 変換 (GetItem 96% 削減) | Code | lambda/processor/proc_storage.py | 2026-05-03 19:00 JST | yes |
+| [Cowork] T2026-0502-SEC3 完了処理 (TASKS.md取消線+HISTORY.md追記+PR) | Cowork | TASKS.md, HISTORY.md | 2026-05-03 17:00 JST | no |
 
 <!-- [Code] T2026-0503-BRANCH-CLEANUP 完了 2026-05-03 16:40 JST
 段階1: 根本原因特定 — session_bootstrap.sh に「マージ済みブランチ削除ロジック」がなかった
