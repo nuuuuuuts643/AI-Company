@@ -141,5 +141,4 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | [Cowork] T2026-0502-LAMBDA-CRON-GATE-CI 等 5 件残課題 TASKS.md 起票 (深掘り PR #329 横展開) | Cowork | TASKS.md, WORKING.md | 2026-05-03 10:50 JST | no |
 | [Cowork] T2026-0502-SEC-VERIFY-1〜5 起票 (動いてるっぽい排除・SEC-AUDIT セッション 70% 確信前提を task 化) | Cowork | TASKS.md | 2026-05-03 11:00 JST | yes |
 | [Code] T2026-0502-BC-CRON-FIX EventBridge cron 追加 + handler.py コメント修正 | Code | projects/P003-news-timeline/deploy.sh, lambda/processor/handler.py | 2026-05-03 13:01 JST | yes |
-| [Code] T2026-0503-UX-WATCHPOINTS-FILL + T2026-0503-UX-PERSPECTIVES-FILL watchPoints/perspectives 充填率修正 | Code | projects/P003-news-timeline/lambda/processor/proc_ai.py | 2026-05-03 13:30 JST | yes |
 <!-- [Cowork] T2026-0502-UX-CARDTITLE 完了 (2026-05-03 00:00 JST): PR #318 merge ✅ + PR #323 (lessons-learned 補完) auto-merge 待ち。実機検証 (flotopic.com) で12/12カード語句完整性 100% 確認・平均長 29字 (修正前 14.2字)。one-time scheduled task p003-verify-cardtitle-fix-20260504 で 2026-05-04 09:00 JST 自動再検証予定 -->
