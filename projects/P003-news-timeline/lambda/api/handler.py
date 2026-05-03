@@ -60,20 +60,6 @@ def all_topics():
 
 
 def topic_detail(topic_id):
-    # T2026-STEP2: S3 primary + DDB fallback (2 週間並走)。S3 404 → None。S3 5xx → DDB fallback。
-    if S3_BUCKET and s3:
-        try:
-            obj = s3.get_object(Bucket=S3_BUCKET, Key=f'api/topic/{topic_id}.json')
-            data = json.loads(obj['Body'].read())
-            return data.get('meta'), data.get('timeline', [])
-        except Exception as e:
-            if hasattr(e, 'response'):
-                code = e.response.get('Error', {}).get('Code', '')
-                if code in ('NoSuchKey', '404'):
-                    return None, []
-            print(f'[WARN] topic_detail S3 read failed, falling back to DDB: {e}')
-
-    # DDB fallback (S3 5xx または S3_BUCKET 未設定時)
     items = []
     kwargs = {'KeyConditionExpression': Key('topicId').eq(topic_id)}
     while True:
