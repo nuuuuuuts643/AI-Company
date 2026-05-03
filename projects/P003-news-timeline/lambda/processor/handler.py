@@ -596,8 +596,9 @@ def lambda_handler(event, context):
     # 対象数を JUDGE_MAX で抑制し、wallclock guard も尊重する。
     #
     # 2026-04-29 案D: コスト削減のため、judge_prediction は 1 日 1 回 (UTC 13:00 = JST 22:00 前後) のみ実行。
-    # fetcher_trigger 経由 (即時処理) でも skip。新スケジュール cron(30 20,8) には UTC 13 起動はないが、
-    # fetcher は 30 分毎に走るため UTC 13 台に fetcher_trigger が来た場合のみ判定が走る。
+    # fetcher_trigger 経由 (即時処理) でも skip。
+    # T2026-0502-BC-CRON-FIX (2026-05-02): 専用 cron `p003-processor-judge-schedule`
+    # (cron(0 13 * * ? *)) を deploy.sh で作成。これがないと judge_prediction 本体は一度も走らない。
     pred_judged = 0
     pred_skipped = 0
     pred_skipped_deadline = 0  # T2026-0502-BC: 期限未到来で skip した件数 (Anthropic API 課金回避)
