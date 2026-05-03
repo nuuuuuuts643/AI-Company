@@ -32,6 +32,8 @@
 
 **最新 Dispatch (auto-v2)** 2026-05-03 13:01 JST | staleness=24.5min | 過去2h saves=102 | 直近1h errors=0 | 全SLI healthy・異常なし・次回 18:00 JST run まで観測のみ (outcome=A) ※bootstrap exit=1 は 11:00 JST の Cowork needs-push:yes 滞留警告のみ (8h TTL 未到達・他セッション領域のため不介入)
 
+**最新 p003-haiku 朝次** 2026-05-04 07:08 JST | topics.json staleness=28min | p003-fetcher errors(24h)=0 | p003-processor errors(24h)=0 | 全SLI healthy・Phase2 keyPoint 改善は Eng Claude タスク (T2026-0501-K) 待ち・Cowork 領域のアクション無し・bootstrap exit=1 は 137行目 stale [Dispatch] 行を本セッションで除去 (outcome=A・観測のみ)
+
 **最新 Dispatch (Cowork)** 2026-05-03 10:30 JST PO「Slack通知の絞り込み＋日次keypoint評価スケジュール」→ PR #338 作成済 ✅:
 - PR #291 (削減プラン docs) / #293 (A1 検証結果) / #298 (深掘り §8) / #299 (TASKS.md 整合化) merge ✅
 - 衝撃の発見: Lambda/API GW/CloudFront/CloudWatch は全て無料枠内 ($0)。実コストの 95% は DynamoDB R/W $6.42 + S3 PUT $2.17。当初プラン A2/A3/A5/B1/B2/B3/B4/C2/C3 は撤回。本命は A1-CODE / D1 / C1 / D2 / D3 / D4。
