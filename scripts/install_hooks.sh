@@ -11,7 +11,11 @@
 set -e
 cd "$(dirname "$0")/.."
 REPO_ROOT="$(pwd)"
-HOOK_DIR="$REPO_ROOT/.git/hooks"
+GIT_DIR=$(git rev-parse --git-dir)
+if [[ "$GIT_DIR" != /* ]]; then
+  GIT_DIR="$REPO_ROOT/$GIT_DIR"
+fi
+HOOK_DIR="$GIT_DIR/hooks"
 
 mkdir -p "$HOOK_DIR"
 
@@ -181,6 +185,78 @@ if git diff --cached --name-only | grep -q "^CLAUDE\.md$"; then
         echo "   緊急 bypass: git commit --no-verify (要 WORKING.md 記録)"
         exit 1
     fi
+fi
+
+# T2026-0503-E (2026-05-03): deploy.sh 直接実行 reject (pre-commit 物理化)
+# 背景: CLAUDE.md「deploy.sh は直接実行しない。デプロイは GitHub Actions 任せ」
+#       この rule を commit 段階で物理 block する。
+# チェック対象: .sh ファイルのみ・false positive 回避のため
+# パターン: `bash deploy.sh` / `./deploy.sh` / `sh deploy.sh` 等
+DEPLOY_HITS=""
+for _sh_f in $(git diff --cached --name-only --diff-filter=AM | grep '\.sh$'); do
+    [ -f "$_sh_f" ] || continue
+    # test ファイルは exemption
+    if echo "$_sh_f" | grep -qE '^(scripts/test|tests?/|test.*\.sh$)'; then
+        continue
+    fi
+    _deploy_file_hits=$(git diff --cached --no-color -U0 -- "$_sh_f" \
+        | grep -E '^\+[^+]' \
+        | grep -E '(bash[[:space:]]+deploy\.sh|^\+[[:space:]]*\.\/deploy\.sh|sh[[:space:]]+deploy\.sh)' \
+        || true)
+    if [ -n "$_deploy_file_hits" ]; then
+        DEPLOY_HITS="${DEPLOY_HITS}--- ${_sh_f} ---"$'\n'"${_deploy_file_hits}"$'\n'
+    fi
+done
+if [ -n "$DEPLOY_HITS" ]; then
+    echo "❌ pre-commit blocked: deploy.sh の直接実行は禁止 (T2026-0503-E)"
+    printf '%s' "$DEPLOY_HITS" | head -20 | sed 's/^/   /'
+    echo ""
+    echo "   理由: CLAUDE.md 絶対ルール「deploy.sh は直接実行しない。デプロイは GitHub Actions 任せ」"
+    echo "   代替: 実コード変更を branch + PR で行う → GitHub Actions で自動デプロイ"
+    echo "   例外: 新規 AWS リソース作成時のみ PO 確認後に execute"
+    echo ""
+    echo "   緊急 bypass: git commit --no-verify (要 WORKING.md 記録 + Verified-Effect:)"
+    exit 1
+fi
+
+# T2026-0503-E: git pull || true / git push || true reject (pre-commit 物理化)
+# 背景: CLAUDE.md 絶対ルール「git エラー黙殺禁止」
+#       `git pull || true` / `git push || true` は終了コードを捨てる anti-pattern
+#       正しい: `PIPESTATUS[0]` で捕捉し条件分岐する
+GIT_SILENTFAIL_HITS=""
+for _sh_f in $(git diff --cached --name-only --diff-filter=AM | grep '\.sh$'); do
+    [ -f "$_sh_f" ] || continue
+    # test ファイルは exemption
+    if echo "$_sh_f" | grep -qE '^(scripts/test|tests?/|test.*\.sh$)'; then
+        continue
+    fi
+    _git_file_hits=$(git diff --cached --no-color -U0 -- "$_sh_f" \
+        | grep -E '^\+[^+]' \
+        | grep -E 'git[[:space:]]+(pull|push)[[:space:]]*(\|\||&&)[[:space:]]*(true|:)' \
+        || true)
+    if [ -n "$_git_file_hits" ]; then
+        GIT_SILENTFAIL_HITS="${GIT_SILENTFAIL_HITS}--- ${_sh_f} ---"$'\n'"${_git_file_hits}"$'\n'
+    fi
+done
+if [ -n "$GIT_SILENTFAIL_HITS" ]; then
+    echo "❌ pre-commit blocked: git pull/push の終了コード黙殺は禁止 (T2026-0503-E)"
+    printf '%s' "$GIT_SILENTFAIL_HITS" | head -20 | sed 's/^/   /'
+    echo ""
+    echo "   パターン: git pull || true / git push || true / git pull && true"
+    echo ""
+    echo "   正しい方法 (PIPESTATUS で終了コード捕捉):"
+    echo "     git pull"
+    echo "     _git_pull_status=\$? && [ \$_git_pull_status -ne 0 ] && BOOTSTRAP_EXIT=1"
+    echo ""
+    echo "   または (細粒度制御):"
+    echo "     if ! git pull; then"
+    echo "       echo 'git pull failed'; exit 1"
+    echo "     fi"
+    echo ""
+    echo "   詳細: CLAUDE.md 絶対ルール「git エラー黙殺禁止」(T2026-0502-M / -PHYSICAL-GUARD-AUDIT)"
+    echo ""
+    echo "   緊急 bypass: git commit --no-verify"
+    exit 1
 fi
 
 exit 0

@@ -138,6 +138,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0503-T pre-commit hook に deploy.sh・git pull\|\|push パターンを追加実装 | Code | scripts/install_hooks.sh | 2026-05-03 22:46 JST | yes |
 | [Dispatch] T2026-0502-COST-D1 調査シーズン: DDB read パスコード特定・設計意図確認 | Dispatch | lambda/api/handler.py, lambda/processor/handler.py | 2026-05-03 15:20 JST | no |
 
 <!-- [Code] T2026-0503-BRANCH-CLEANUP 完了 2026-05-03 16:40 JST
