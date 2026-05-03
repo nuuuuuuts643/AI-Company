@@ -138,10 +138,14 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0503-M Lambda デプロイワークフロー #434 OIDC 失敗調査・修正 (PR #374 マージ後) | Code | .github/workflows/deploy-lambdas.yml (検査のみ) | 2026-05-03 18:58 JST | no |
 | [Cowork] T2026-0502-LAMBDA-CRON-GATE-CI 等 5 件残課題 TASKS.md 起票 (深掘り PR #329 横展開) | Cowork | TASKS.md, WORKING.md | 2026-05-03 10:50 JST | no |
 | [Dispatch] T2026-0502-COST-D1 調査シーズン: DDB read パスコード特定・設計意図確認 | Dispatch | lambda/api/handler.py, lambda/processor/handler.py | 2026-05-03 15:20 JST | no |
 | [Code] T2026-0503-L CI branch protection 修正 (post-deploy-verify 除去 / Secret Scan 名前修正) | Code | .github/workflows/post-deploy-verify.yml, .github/workflows/secret-scan.yml | 2026-05-03 16:45 JST | yes |
+
+<!-- [Code] T2026-0503-M 完了 2026-05-03 19:00 JST
+OIDC 認証失敗（run 25275639877） → 再試行で解決（run 25275641942 成功）
+根本原因: AWS STS トークン生成遅延 → GitHub Actions が複数回リトライして自動解決
+修正不要: PR #374 変更は本番反映済（fetcher Lambda LastModified = 09:39:16） -->
 
 <!-- [Code] T2026-0503-BRANCH-CLEANUP 完了 2026-05-03 16:40 JST
 段階1: 根本原因特定 — session_bootstrap.sh に「マージ済みブランチ削除ロジック」がなかった
