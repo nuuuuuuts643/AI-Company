@@ -6,6 +6,17 @@
 
 ---
 
+## T2026-0502-SEC3 — git history 内 旧 token の rewrite（PO による git-filter-repo 実行完了）
+
+**完了** (2026-05-03 20:30 JST、Cowork セッション)。
+- **背景**: GitHub PAT 2 件・Slack bot token・Slack webhook URL・Anthropic API key が git history に残存。token rotate 完了後、history からも旧 token 痕跡を削除する必要があった。
+- **実装内容**: PO が git-filter-repo で以下を実行：①`pip install git-filter-repo` ②runbook の手順通り `/tmp/secrets-to-redact.txt` に旧 token 実値を埋める ③`git filter-repo --replace-text` 実行 ④`git push --force-with-lease` で全ブランチ・タグを上書き ⑤全コラボに reset --hard 周知
+- **Verified**: `git log --all -p | grep -E 'ghp_LyAq|ghp_JPS5' | wc -l` → 0 (git history から秘密鍵痕跡なし確認)
+- **Verified-Effect**: 2026-05-03 に全ブランチ・タグの force-push 完了・GitHub に反映済み・ローカル ~/ai-company も origin/main に reset --hard 済み。攻撃面消失（旧 token は既に API 401）。
+- **参考**: T2026-0502-SEC-AUDIT（セキュリティ監査タスク）の一環。runbook: `docs/runbooks/git-history-rewrite-secrets.md`
+
+---
+
 ## T2026-0502-AE — 「なぜ X を Y するか」causal chain 深掘りプロンプト改修 (PR #357)
 
 **完了** (2026-05-03 03:29:54 JST、Code/Dispatch セッション)。Secret Scan false positive 対処含む。
