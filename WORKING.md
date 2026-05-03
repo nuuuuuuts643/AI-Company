@@ -49,6 +49,12 @@
 
 ---
 
+## 進行中タスク
+
+| [Code] | T2026-0503-R flotopic.com 機能実態調査 | TASKS.md / frontend/*.html / docs/ | 2026-05-03 21:30 JST |
+
+---
+
 ## ⚠️ セッション種別ルール（2026-04-27 追加）
 
 このファイルは **Claude Code（Mac/CLI）と Cowork（スマホ/デスクトップアプリ）の両方が書き込む**。
