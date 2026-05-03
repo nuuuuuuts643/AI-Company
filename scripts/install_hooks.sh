@@ -153,6 +153,53 @@ if [ -n "$PYTHON_POLL_HITS" ]; then
     exit 1
 fi
 
+# T2026-0503-RULES-CLEANUP: deploy.sh 直接実行禁止 (pre-commit 物理化)
+# CLAUDE.md「deploy.sh は直接実行しない」思想ルールを物理ガード化。
+# *.md / .github/workflows/ / install_hooks.sh は除外 (deploy.sh を参照・説明するファイル)
+DEPLOY_HITS=""
+while IFS= read -r _df; do
+    [ -z "$_df" ] && continue
+    echo "$_df" | grep -qE '\.md$|^\.github/workflows/|install_hooks' && continue
+    _dh=$(git diff --cached -U0 -- "$_df" 2>/dev/null \
+        | grep -E '^\+[^+]' \
+        | grep -E '(bash|sh|\./)[[:space:]]*deploy\.sh' \
+        || true)
+    DEPLOY_HITS="${DEPLOY_HITS}${_dh}"
+done < <(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null)
+if [ -n "$DEPLOY_HITS" ]; then
+    echo "❌ pre-commit blocked: deploy.sh 直接実行は禁止です (T2026-0503-RULES-CLEANUP)"
+    echo "$DEPLOY_HITS" | head -5 | sed 's/^/   /'
+    echo ""
+    echo "   デプロイは GitHub Actions 経由のみ。手動が必要な場合は PO に確認してください"
+    echo "   緊急 bypass: git commit --no-verify (要 WORKING.md 記録)"
+    exit 1
+fi
+
+# T2026-0503-RULES-CLEANUP: git エラー黙殡禁止 (pre-commit 物理化)
+# CLAUDE.md「git エラー黙殡禁止」ルールを物理ガード化。T2026-0502-M の再発防止。
+# .sh ファイルに git pull/push を `|| true` で黙殡するパターンが追加された場合 reject。
+# 除外: audit / install_hooks / secret_scan (これらはファイル名に audit/install/secret を含む)
+GIT_SILENCE_HITS=""
+while IFS= read -r _gf; do
+    [ -z "$_gf" ] && continue
+    echo "$_gf" | grep -qE '\.sh$' || continue
+    echo "$_gf" | grep -qE '(^|/)audit|install_hooks|secret' && continue
+    _gh=$(git diff --cached -U0 -- "$_gf" 2>/dev/null \
+        | grep -E '^\+[^+]' \
+        | grep -E 'git (pull|push)[[:space:]].{0,60}\|\| true' \
+        || true)
+    GIT_SILENCE_HITS="${GIT_SILENCE_HITS}${_gh}"
+done < <(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null)
+if [ -n "$GIT_SILENCE_HITS" ]; then
+    echo "❌ pre-commit blocked: git pull/push の '|| true' 黙殡は禁止 (T2026-0502-M 再発防止)"
+    echo "$GIT_SILENCE_HITS" | head -5 | sed 's/^/   /'
+    echo ""
+    echo "   git push/pull は PIPESTATUS[0] で捕捉し、失敗時は BOOTSTRAP_EXIT=1 に流すこと"
+    echo "   参照: scripts/session_bootstrap.sh の実装例"
+    echo "   緊急 bypass: git commit --no-verify (要 WORKING.md 記録)"
+    exit 1
+fi
+
 # T2026-0502-IAM-DRIFT-FIX2 (初版 c521a846・file-path 修正 T2026-0502-IAM-FILTER-FIX 2026-05-02):
 # IAM apply は infra/iam/apply.sh 経由必須。直接 `aws iam put-role-policy` /
 # `put-user-policy` / `put-group-policy` を呼ぶスクリプトや workflow YAML を
