@@ -6,6 +6,18 @@
 
 ---
 
+## T2026-0502-AE — 「なぜ X を Y するか」causal chain 深掘りプロンプト改修 (PR #357)
+
+**完了** (2026-05-03 03:29:54 JST、Code/Dispatch セッション)。Secret Scan false positive 対処含む。
+- **背景**: 2026-05-02 PO 元苦情「EU自動車関税トピック (4bf3a46568f1189c) の要約が『合意違反』止まりで『なぜ今・何が引き金・誰の利害』の causal chain に踏み込まない」への対処。
+- **実装内容**: ①`lambda/processor/proc_ai.py` に `_build_aisummary_causal_hint` 関数追加・`_GENRE_AISUMMARY_CAUSAL_FRAMES` dict で国際/政治/ビジネス/株金融/テクノロジー/科学/健康/社会 8 ジャンル別の causal chain prompt template を定義 ②full/standard mode user prompt に「なぜ今 / 何が引き金 / 誰の利害」をジャンル別で強制注入 ③`tests/test_causal_chain_prompt.py` に政治 (支持率/解散)・ビジネス (業績/M&A)・国際 (EU/関税) のジャンル別フィクスチャテスト 3 ケース 追加 (全 46 PASS)
+- **Secret Scan 対処**: PR #357 の Secret Scan fail は `docs/runbooks/git-history-rewrite-secrets.md` 例文 `ghp_LyAq...` が原因。`scripts/secret_scan_allowlist.txt` に substring `ghp_LyAq` を追加（コメント行は skip される仕組みだったため一度失敗→修正）
+- **Verified**: `bash scripts/secret_scan.sh head` → ✅ no secrets detected (直後に CI green 確認)
+- **Verified-Effect-Pending**: 2026-05-09 で causal_score (なぜ含有率) SLI 測定予定。目標 30%→70% 向上。
+- **参考**: フェーズ 2 E2-1 AI プロンプト 4 構造化に紐付く。実装前に `docs/session-prompts/` 内の実装ガイドで全手順・fixture・失敗回避ガード確認済。
+
+---
+
 ## T2026-0502-COST-A1-CODE — deploy.sh 未使用 DDB 4 個整理 (PR #308)
 
 **完了 (deploy.sh 編集 portion)** (2026-05-02 22:55 JST、Cowork セッション)。delete-table 実行は別 step (PO 確認 待ち)。
