@@ -19,10 +19,11 @@ function commentsApiUrl(topicId) {
   return `${COMMENTS_URL.replace(/\/$/, '')}/comments/${topicId}`;
 }
 
-function commentsLikeUrl(topicId, commentId, userHash) {
+// T2026-0502-SEC6: userHash をクエリに含めない。認証は body の idToken で行う。
+function commentsLikeUrl(topicId, commentId) {
   if (typeof COMMENTS_URL === 'undefined' || !COMMENTS_URL) return null;
   const base = COMMENTS_URL.replace(/\/$/, '');
-  return `${base}/comments/like?topicId=${encodeURIComponent(topicId)}&commentId=${encodeURIComponent(commentId)}&userHash=${encodeURIComponent(userHash)}`;
+  return `${base}/comments/like?topicId=${encodeURIComponent(topicId)}&commentId=${encodeURIComponent(commentId)}`;
 }
 
 // ── 時刻フォーマット ──────────────────────────────────────────────
@@ -222,13 +223,17 @@ async function toggleLike(btn, topicId) {
   }
   localStorage.setItem(LIKES_KEY, JSON.stringify(likedSet));
 
-  const myHash = await getMyCommentHash();
-  if (!myHash) return;
-  const baseUrl = commentsLikeUrl(topicId, cid, myHash);
+  // T2026-0502-SEC6: idToken 必須 — ログイン必須
+  if (!currentUser) return;
+  const baseUrl = commentsLikeUrl(topicId, cid);
   if (!baseUrl) return;
   const url = isLiked ? baseUrl + '&type=unlike' : baseUrl;
   try {
-    const r = await fetch(url, { method: 'PUT' });
+    const r = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: currentUser.token }),
+    });
     if (r.ok) {
       const data = await r.json();
       if (typeof data.likeCount === 'number') {
@@ -259,14 +264,18 @@ async function toggleDislike(btn, topicId) {
   }
   localStorage.setItem(DISLIKES_KEY, JSON.stringify(dislikedSet));
 
-  const myHash = await getMyCommentHash();
-  if (!myHash) return;
-  const base = typeof COMMENTS_URL !== 'undefined' ? COMMENTS_URL.replace(/\/$/, '') : null;
-  if (!base) return;
+  // T2026-0502-SEC6: idToken 必須 — ログイン必須
+  if (!currentUser) return;
   const type = isDisliked ? 'undislike' : 'dislike';
-  const url = `${base}/comments/like?topicId=${encodeURIComponent(topicId)}&commentId=${encodeURIComponent(cid)}&userHash=${encodeURIComponent(myHash)}&type=${type}`;
+  const baseUrl = commentsLikeUrl(topicId, cid);
+  if (!baseUrl) return;
+  const url = `${baseUrl}&type=${type}`;
   try {
-    const r = await fetch(url, { method: 'PUT' });
+    const r = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: currentUser.token }),
+    });
     if (r.ok) {
       const data = await r.json();
       if (countEl && typeof data.dislikeCount === 'number') {
