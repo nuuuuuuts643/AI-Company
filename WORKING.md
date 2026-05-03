@@ -138,6 +138,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] T2026-0503-Y Step5 keyPoint background調査・修正 | Code | lambda/processor/proc_ai.py | 2026-05-04 | yes |
 
 ### Dispatch継続性
 | 種別 | ID | 内容 | 状態 |
