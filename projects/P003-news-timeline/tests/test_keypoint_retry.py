@@ -205,6 +205,41 @@ class GenerateStoryRetryTest(unittest.TestCase):
             '_process_keypoint_quality も新アーキの中核として存在するべき',
         )
 
+    def test_both_empty_uses_ai_summary_fallback(self):
+        """T2026-0503-UX-NO-KEYPOINT-23: 初回・retry 両方が空のとき aiSummary を keyPoint 代用。
+
+        原因: Claude が「何が変わったのか不明確」で空を返し続ける topic が 23.1% 滞留。
+        対策: aiSummary は必ず非空なので、空 keyPoint を aiSummary で補完する。
+        """
+        empty_stub = dict(_stub_standard_full(''))  # keyPoint=空
+        side = [empty_stub, _stub_retry_response('')]  # retry も空
+        with mock.patch('proc_ai._call_claude_tool', side_effect=side):
+            result = proc_ai._generate_story_standard(_DUMMY_ARTICLES, cnt=3)
+        self.assertIsNotNone(result)
+        self.assertTrue(result['keyPointRetried'], 'retry が呼ばれた')
+        self.assertTrue(result['keyPointFallback'], 'fallback フラグが立つ')
+        # aiSummary fallback で空にならないこと
+        self.assertGreater(len(result['keyPoint']), 0, 'aiSummary fallback で keyPoint は空にならない')
+        # aiSummary と一致していること
+        self.assertEqual(result['keyPoint'], empty_stub['aiSummary'], 'aiSummary が keyPoint に代用される')
+
+    def test_short_original_with_empty_retry_uses_longer_of_original_or_summary(self):
+        """T2026-0503-UX-NO-KEYPOINT-23: original 短文 + retry 空 → original と aiSummary の長い方を使う。
+
+        シナリオ: original=_SHORT_KP (17字), retry='', aiSummary=54字。
+        17字 < 54字 なので aiSummary fallback は原則適用されない (retry 空だが original は非空なので
+        _process_keypoint_quality は original を保持し、空文字チェック後に aiSummary 分岐は通らない)。
+        → result['keyPoint'] は _SHORT_KP のまま (従来の short-fallback 動作を維持)。
+        """
+        # retry が空でも original が非空なら keyPoint は _SHORT_KP のまま
+        side = [_stub_standard_full(_SHORT_KP), _stub_retry_response('')]
+        with mock.patch('proc_ai._call_claude_tool', side_effect=side):
+            result = proc_ai._generate_story_standard(_DUMMY_ARTICLES, cnt=3)
+        self.assertIsNotNone(result)
+        self.assertTrue(result['keyPointFallback'])
+        # original (17 字) が残る (aiSummary fallback は final_kp が空のときのみ)
+        self.assertEqual(result['keyPoint'], _SHORT_KP)
+
 
 class KeyPointQualityFieldsTest(unittest.TestCase):
     """T2026-0430-A: normalize 出力に keyPointLength / keyPointRetried / keyPointFallback が含まれる。"""
