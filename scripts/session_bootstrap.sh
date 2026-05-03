@@ -164,6 +164,16 @@ fi
 # これらは _garbage 退避ロジックで実害ゼロ。Claude のコンテキストを汚染するだけなので
 # grep -v で物理的に弾く (LANG=C で英語固定。i18n 環境でも安定)。
 # 実害ある warning/error は素通しする (フィルタは substring 一致のみ・正規表現使わない)。
+
+# ---- 2a. timeout コマンド検出 (macOS 互換性) ----
+# macOS に GNU timeout がない場合を対応。gtimeout (Homebrew) または timeout (Linux)
+# を優先して検出。見つからない場合はタイムアウトなしで実行。
+_TIMEOUT=""
+if command -v gtimeout &>/dev/null; then
+  _TIMEOUT="gtimeout"
+elif command -v timeout &>/dev/null; then
+  _TIMEOUT="timeout"
+fi
 _strip_fuse_noise() {
   # FUSE 環境 + 並行セッション起因の "実害ゼロ noise" のみ落とす。
   # 実害ある warning/error (push 失敗・auth・network など) は通すこと。
@@ -188,10 +198,10 @@ else
   if ! git diff --cached --quiet 2>/dev/null; then
     git commit -m "chore: bootstrap sync $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" 2>/dev/null || true
   fi
-  timeout 60 git pull --no-rebase --no-edit origin main 2>&1 | _strip_fuse_noise | tail -2
+  ${_TIMEOUT:+$_TIMEOUT 60} git pull --no-rebase --no-edit origin main 2>&1 | _strip_fuse_noise | tail -2
   # T2026-0502-PHYSICAL-GUARD-AUDIT: PR #159 landing を実 exit 経路に直結。
   # `| tail -2 || true` だけだと失敗を握り潰すので PIPESTATUS[0] を BOOTSTRAP_EXIT に流す。
-  # T2026-05-03-GIT-TIMEOUT: timeout 60 で git hang を 60 秒で強制終了。
+  # T2026-05-03-GIT-TIMEOUT: timeout/gtimeout で git hang を 60 秒で強制終了（macOS 互換性対応）。
   _git_pull_status="${PIPESTATUS[0]:-0}"
   if [ "$_git_pull_status" -ne 0 ]; then
     echo "⚠️  git pull failed (exit=$_git_pull_status). 続行するが末尾で exit 1 する。" >&2
@@ -199,8 +209,8 @@ else
   fi
   mv .git/index.lock .git/_garbage/ 2>/dev/null
   # main 直 push: pre-push hook が ALLOW_MAIN_PUSH=1 escape を要求する (T2026-0502-PHYSICAL-GUARD-AUDIT)
-  # T2026-05-03-GIT-TIMEOUT: timeout 120 で git hang を 120 秒で強制終了。
-  timeout 120 sh -c 'ALLOW_MAIN_PUSH=1 git push' 2>&1 | _strip_fuse_noise | tail -2
+  # T2026-05-03-GIT-TIMEOUT: timeout/gtimeout で git hang を 120 秒で強制終了（macOS 互換性対応）。
+  ${_TIMEOUT:+$_TIMEOUT 120} sh -c 'ALLOW_MAIN_PUSH=1 git push' 2>&1 | _strip_fuse_noise | tail -2
   _git_push_status="${PIPESTATUS[0]:-0}"
   if [ "$_git_push_status" -ne 0 ]; then
     echo "⚠️  git push failed (exit=$_git_push_status). 続行するが末尾で exit 1 する。" >&2
