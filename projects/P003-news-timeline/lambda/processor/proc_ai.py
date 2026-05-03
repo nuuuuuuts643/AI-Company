@@ -2121,4 +2121,3 @@ def log_skip_reason(tid: str, reason: str) -> None:
     現時点では既存のスキップ条件の動作は変えない。可視化のみ。
     """
     print(f'[SKIP] {tid[:8]}... reason={reason}')
-        return None
