@@ -1,9 +1,29 @@
+# 【手動作業メモ】git historyからトークンを完全削除する手順 (T2026-0502-SEC3)
+
+> **いつやる？**: 時間ができたときでOK（トークンはすでに無効化済み・緊急性なし）
+> **所要時間**: 30〜60分
+> **必要なもの**: ターミナル、Homebrew、GitHubアクセス権
+
+---
+
 # git history rewrite — 漏洩 secret の完全消去 runbook (T2026-0502-SEC3)
 
 > **対象**: 過去 commit に live secret が含まれ、token rotate 済 (= 旧 token は API 401) だが履歴記録としても消したいケース。
 > **重要度**: 🟡 中。旧 token が利用不可なので攻撃面は既に消失。だが「過去に漏れた事実」を可視化して fork や cache に残るのを完全に消す目的なら実施。
 >
 > **危険性**: history rewrite + force-push は **全コラボの local clone を壊す**。実行前に必ずコラボ全員に予告すること。
+
+---
+
+## 🗺️ 全体の流れ（5ステップ）
+
+```
+① 事前準備（バックアップ・branch protection無効化）
+② git-filter-repo インストール
+③ 置換ファイル作成（トークンの実値を調べて書く）
+④ historyを書き換えてforce-push
+⑤ 後片付け（branch protection再有効化・ファイル削除）
+```
 
 ---
 
@@ -20,119 +40,176 @@
 
 ---
 
-## 実施前チェックリスト
+## ① 実施前チェックリスト（全部チェックしてから次へ）
 
-- [ ] 全 token が revoke 済 (rotate 完了) — `curl -H "Authorization: token ghp_LyAq..."` が 401 を返すこと
-- [ ] 全コラボ (現状 PO 1 人) に「N 月 N 日 HH:MM JST に history rewrite + force-push します」を周知
-- [ ] 進行中の PR を全てマージ or close (history rewrite で対応 PR が conflict を起こすため)
-- [ ] main の最新 commit を控える (`git rev-parse HEAD`) — 戻す場合の参照点
-- [ ] バックアップ: `git clone --mirror https://github.com/nuuuuuuts643/AI-Company.git ~/ai-company-backup-$(date +%Y%m%d)`
-- [ ] GitHub branch protection を一時的に無効化 (force-push 許可・実施直後に再有効化)
+- [ ] **オープンPRがゼロであること** (`gh pr list` で確認。あればマージかクローズしておく)
+- [ ] **バックアップを作る**（下のコマンドをそのまま実行）:
+
+```bash
+# バックアップ作成（~/ai-company-backup-20260503 みたいな名前で保存される）
+git clone --mirror https://github.com/nuuuuuuts643/AI-Company.git ~/ai-company-backup-$(date +%Y%m%d)
+echo "バックアップ完了: ~/ai-company-backup-$(date +%Y%m%d)"
+```
+
+- [ ] **GitHub branch protectionを一時的に無効化**:
+  1. https://github.com/nuuuuuuts643/AI-Company/settings/branches を開く
+  2. "main" のルールをクリック
+  3. 一番下の "Delete" ではなく "Edit" → ルールを一時無効化（チェックを全部外してSave）
+  4. ※ force-pushが通るようにするため。作業後に必ず再有効化する
+
+- [ ] main の最新commit IDを控えておく（万が一のロールバック用）:
+
+```bash
+cd ~/ai-company
+git rev-parse HEAD
+# 出力例: a1b2c3d4e5f6... ← どこかにメモしておく
+```
 
 ---
 
 ## 手順
 
-### 1️⃣ git-filter-repo インストール
+### 2️⃣ git-filter-repo インストール
 
 ```bash
-# macOS (Homebrew)
+# macOS (Homebrew) ← まだ入っていない場合のみ
 brew install git-filter-repo
 
-# 確認
+# インストール確認（バージョン番号が出ればOK）
 git filter-repo --version
 ```
 
-### 2️⃣ 置換ルールファイル作成 (PO が手動で旧 token 値を埋める)
+### 3️⃣ 置換ルールファイル作成 (PO が手動で旧 token 値を埋める)
 
-旧 token の実値は **このファイルに書かない** (GitHub Push Protection で reject されるため)。
-PO は password manager / git log から実値を取り出して `/tmp/secrets-to-redact.txt` を作る:
+**まずgit historyに含まれるトークンの実値を調べる。** 以下のコマンドをそのまま実行すれば自動で抽出できる：
 
 ```bash
 cd ~/ai-company
 
-# テンプレ (PO がローカルで <PLACEHOLDER> を実値に置換):
-cat > /tmp/secrets-to-redact.txt <<'EOF'
-<OLD_GHP_LYAQ>==>***REDACTED-T2026-0502-SEC3***
-<OLD_GHP_JPS5>==>***REDACTED-T2026-0502-SEC3***
-<OLD_SLACK_BOT_TOKEN_1>==>***REDACTED-T2026-0502-SEC3***
-<OLD_SLACK_BOT_TOKEN_2>==>***REDACTED-T2026-0502-SEC3***
-<OLD_SLACK_WEBHOOK_URL_1>==>***REDACTED-T2026-0502-SEC3***
-<OLD_SLACK_WEBHOOK_URL_2>==>***REDACTED-T2026-0502-SEC3***
-<OLD_NOTION_TOKEN>==>***REDACTED-T2026-0502-SEC3***
-<OLD_ANTHROPIC_KEY>==>***REDACTED-T2026-0502-SEC3***
-EOF
+echo "=== Step 1: トークンの実値を抽出 ==="
 
-# 実値の取得方法 (revoke 済なので漏れても問題ないが慎重に):
-#   - <OLD_GHP_LYAQ>: 旧 P004-slack-bot/README.md commit 7ce172a2 から
-#       git show 7ce172a2:projects/P004-slack-bot/README.md | grep -oE 'ghp_[A-Za-z0-9]{36}'
-#   - <OLD_GHP_JPS5>: 旧 HOME-PC-CHECKLIST.md commit 8514d67f から
-#       git show 8514d67f:HOME-PC-CHECKLIST.md | grep -oE 'ghp_[A-Za-z0-9]{36}'
-#   - <OLD_SLACK_BOT_TOKEN_*>: git log --all -p | grep -oE 'xoxb-[0-9-]+[A-Za-z0-9]+' | sort -u
-#   - <OLD_SLACK_WEBHOOK_URL_*>: git log --all -p | grep -oE 'https://hooks\.slack\.com/services/[A-Z0-9/]+/[A-Za-z0-9]+' | sort -u
-#   - <OLD_NOTION_TOKEN>: git log --all -p | grep -oE 'ntn_[A-Za-z0-9]+' | sort -u
-#   - <OLD_ANTHROPIC_KEY>: git log --all -p | grep -oE 'sk-ant-api03-[A-Za-z0-9_-]+' | sort -u
+echo "--- GitHub PAT (ghp_LyAq系) ---"
+git show 7ce172a2:projects/P004-slack-bot/README.md 2>/dev/null | grep -oE 'ghp_[A-Za-z0-9]{36,40}'
 
-# 完成した /tmp/secrets-to-redact.txt の中身を sanity check
-cat /tmp/secrets-to-redact.txt
-# → 各行が `<実 token>==>***REDACTED-...***` 形式になっていること
-# → token が ghp_xxxxx... / xoxb-... / ntn_... / sk-ant-api03-... / https://hooks... のいずれかで始まること
+echo "--- GitHub PAT (ghp_JPS5系) ---"
+git log --all -p -- HOME-PC-CHECKLIST.md CLAUDE.md 2>/dev/null | grep -oE 'ghp_[A-Za-z0-9]{36,40}' | sort -u
+
+echo "--- Slack Bot Token ---"
+git log --all -p | grep -oE 'xoxb-[0-9-]+[A-Za-z0-9]+' | sort -u
+
+echo "--- Slack Webhook URL ---"
+git log --all -p | grep -oE 'https://hooks\.slack\.com/services/[A-Z0-9]+/[A-Z0-9]+/[A-Za-z0-9]+' | sort -u
+
+echo "--- Notion Token ---"
+git log --all -p | grep -oE 'ntn_[A-Za-z0-9]{40,}' | sort -u
+
+echo "--- Anthropic API Key ---"
+git log --all -p | grep -oE 'sk-ant-api03-[A-Za-z0-9_-]{80,}' | sort -u
 ```
 
-⚠️ `/tmp/secrets-to-redact.txt` は実 token を含むため、rewrite 完了後に `shred -u /tmp/secrets-to-redact.txt` で確実に消す。
-
-### 3️⃣ history を rewrite (dry-run で先に確認)
+出力された各トークンの値をコピーして、次のファイルを作る（`TOKEN_値` の部分を実値に置き換える）：
 
 ```bash
-# まず置換対象を確認 (実際の rewrite はしない・--analyze は別 dir に出力)
-git filter-repo --replace-text /tmp/secrets-to-redact.txt --analyze
-ls .git/filter-repo/analysis/
+# 注意: 下の <...> を上で抽出した実際のトークン値に置き換える
+# 例: ghp_LyAqXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+cat > /tmp/secrets-to-redact.txt << 'HEREDOC'
+<ghp_LyAqで始まるPAT>==>***REDACTED-SEC3***
+<ghp_JPS5で始まるPAT>==>***REDACTED-SEC3***
+<xoxb-で始まるSlack Bot Token>==>***REDACTED-SEC3***
+<2つ目のxoxb-Token（あれば）>==>***REDACTED-SEC3***
+<https://hooks.slack.comのURL>==>***REDACTED-SEC3***
+<ntn_で始まるNotionToken（あれば）>==>***REDACTED-SEC3***
+<sk-ant-api03-で始まるAnthropicKey（あれば）>==>***REDACTED-SEC3***
+HEREDOC
+```
 
-# 本番実行 (履歴を完全に書き換える・取り消し不可)
+**作成後に確認（実値が入っているかチェック）:**
+
+```bash
+cat /tmp/secrets-to-redact.txt
+# 各行が「実際のトークン文字列==>***REDACTED-SEC3***」形式になっていればOK
+# <xxx> のプレースホルダーが残っていたら置き換え漏れ
+```
+
+⚠️ このファイルは実トークンを含むためローカルだけに置く。作業後に削除する（後述）。
+
+### 4️⃣ historyを書き換えてforce-push
+
+**まずdry-runで確認（何も変更しない）:**
+
+```bash
+cd ~/ai-company
+
+# dry-runで確認（.git/filter-repo/analysis/に結果が出る）
+git filter-repo --replace-text /tmp/secrets-to-redact.txt --analyze
+# エラーが出なければ次へ
+```
+
+**本番実行（元に戻せないので慎重に）:**
+
+```bash
+# 本番実行 ← これでhistoryが書き換わる
 git filter-repo --replace-text /tmp/secrets-to-redact.txt --force
 ```
 
-実行後に local の `git log` で確認 (旧 token の prefix が 0 件):
+**書き換わったか確認（0が出ればOK）:**
 
 ```bash
-# 旧 token prefix で grep (実値ではなく prefix だけ書く)
-git log --all -p | grep -cE 'ghp_LyAq|ghp_JPS5|xoxb-8970641423616|B0AUJ9K64KE|B0AU4TV0M60|ntn_3865|sk-ant-api03-sKdL'
-# → 0 が表示されれば成功
+git log --all -p | grep -cE 'ghp_LyAq|ghp_JPS5|xoxb-89706414|B0AUJ9K64KE|B0AU4TV0M60|ntn_3865|sk-ant-api03-sKdL'
+# → 0 なら成功 / 1以上なら置換漏れあり
 ```
 
-### 4️⃣ remote 再設定 + force-push
-
-`git filter-repo` は安全のため remote を削除する。再追加して force-push:
+**force-push（git filter-repoがremoteを削除するので再追加が必要）:**
 
 ```bash
+# remoteを再追加
 git remote add origin https://github.com/nuuuuuuts643/AI-Company.git
 
-# 全 branch を force-push
-git push --force-with-lease --all origin
+# 全ブランチをforce-push
+git push --force --all origin
 
-# tags も
-git push --force-with-lease --tags origin
+# タグも
+git push --force --tags origin
 ```
 
-### 5️⃣ GitHub branch protection を再有効化
+### 5️⃣ 後片付け
 
-GitHub → Settings → Branches → main → 元の rule (require status checks / require PR review / etc) を再 enable。
+**branch protectionを再有効化:**
+1. https://github.com/nuuuuuuts643/AI-Company/settings/branches を開く
+2. ① で無効化したルールを元に戻す（require status checks 等を再チェック → Save）
 
-### 6️⃣ 全コラボに周知 + local clone 再構築指示
+**一時ファイルを削除:**
 
 ```bash
-# 各コラボが実行
+# /tmp/secrets-to-redact.txt を完全削除（上書き削除）
+shred -u /tmp/secrets-to-redact.txt 2>/dev/null || rm -f /tmp/secrets-to-redact.txt
+echo "削除完了"
+```
+
+**自分のローカルcloneを最新に更新:**
+
+```bash
 cd ~/ai-company
 git fetch origin
 git reset --hard origin/main
-
-# もしくは clone から
-cd ..
-rm -rf ai-company
-git clone https://github.com/nuuuuuuts643/AI-Company.git
 ```
 
-⚠️ **stash や local branch がある場合は別 dir に退避してから reset する**。
+### 6️⃣ 完了確認
+
+```bash
+# トークンが0件になっているか確認
+git log --all -p | grep -cE 'ghp_LyAq|ghp_JPS5|xoxb-89706414|B0AUJ9K64KE|B0AU4TV0M60|ntn_3865|sk-ant-api03-sKdL'
+# → 0 ならOK
+```
+
+GitHub WebUI でも確認:
+- https://github.com/nuuuuuuts643/AI-Company/commit/7ce172a2 を開く
+- `projects/P004-slack-bot/README.md` のトークンが `***REDACTED-SEC3***` になっていればOK
+
+**TASKS.md更新（Claudeに任せてもOK）:**
+```
+T2026-0502-SEC3 を完了にして HISTORY.md に移動して
+```
 
 ### 7️⃣ (任意) GitHub support に cache invalidation 申請
 
