@@ -571,25 +571,55 @@ def get_pending_topics(max_topics=100, force=False):
     if pending_ids:
         items = []
         still_pending = []
-        # 全IDを走査。削除済み・処理済みIDを取り除く（上限なし）。
-        # キャップなしで全件収集してから優先度ソートすることで、
-        # pending_ai.json 先頭の古いIDが新トピックをブロックする問題（T213）を解消。
-        for tid in pending_ids:
+        # CALLER_DOC: T2026-0503-O — pending_ids (~100件) を BatchGetItem で一括取得。
+        # sequential GetItem 100req → BatchGetItem 1req に削減（RCU 同等・RTT 96% 削減）。
+        # BatchGetItem 失敗時は chunk 単位で GetItem フォールバック（後退互換性）。
+        # 存在しないIDは still_pending に追加しない（pending_ai.json 自動クリーンアップ）。
+        fetched_pending: dict = {}   # topicId → item
+        failed_pending_tids: set = set()  # batch/get 両方失敗したID → 保留継続
+        for i in range(0, len(pending_ids), 100):
+            chunk = pending_ids[i:i + 100]
             try:
-                r = table.get_item(
-                    Key={'topicId': tid, 'SK': 'META'},
-                    ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints,lifecycleStatus,schemaVersion',
+                resp = dynamodb.batch_get_item(
+                    RequestItems={
+                        table.name: {
+                            'Keys': [{'topicId': tid, 'SK': 'META'} for tid in chunk],
+                            'ProjectionExpression': _PENDING_META_PROJ,
+                        }
+                    }
                 )
-                item = r.get('Item')
-                if item and needs_ai_processing(item, force=force):
-                    still_pending.append(tid)
-                    items.append(item)
-                elif item and (not force) and _is_fully_filled(item):
-                    # T2026-0502-BA: idempotent ガード命中。pending_ai.json から自動除去される。
-                    idempotent_skipped += 1
-                # 存在しないIDまたは処理済みIDはstill_pendingに追加しない（自動クリーンアップ）
+                for it in resp.get('Responses', {}).get(table.name, []):
+                    fetched_pending[it['topicId']] = it
+                for key in resp.get('UnprocessedKeys', {}).get(table.name, {}).get('Keys', []):
+                    # スロットリング等でスキップされたキーは GetItem で再取得
+                    tid = key['topicId']
+                    try:
+                        r = table.get_item(Key={'topicId': tid, 'SK': 'META'}, ProjectionExpression=_PENDING_META_PROJ)
+                        if r.get('Item'):
+                            fetched_pending[tid] = r['Item']
+                    except Exception:
+                        failed_pending_tids.add(tid)
             except Exception:
+                # BatchGetItem 自体が失敗した場合は chunk を sequential GetItem で再試行
+                for tid in chunk:
+                    try:
+                        r = table.get_item(Key={'topicId': tid, 'SK': 'META'}, ProjectionExpression=_PENDING_META_PROJ)
+                        if r.get('Item'):
+                            fetched_pending[tid] = r['Item']
+                    except Exception:
+                        failed_pending_tids.add(tid)
+        for tid in pending_ids:
+            if tid in failed_pending_tids:
+                still_pending.append(tid)  # 取得失敗は保留継続（次回再試行）
+                continue
+            item = fetched_pending.get(tid)
+            if item and needs_ai_processing(item, force=force):
                 still_pending.append(tid)
+                items.append(item)
+            elif item and (not force) and _is_fully_filled(item):
+                # T2026-0502-BA: idempotent ガード命中。pending_ai.json から自動除去される。
+                idempotent_skipped += 1
+            # 存在しないIDまたは処理済みIDはstill_pendingに追加しない（自動クリーンアップ）
 
         # pending_ai.jsonを処理済みIDを除去した状態に更新
         if S3_BUCKET and len(still_pending) < len(pending_ids):
@@ -622,21 +652,45 @@ def get_pending_topics(max_topics=100, force=False):
             missing_visible = [tid for tid in visible_tids if tid not in already_in_queue]
             if missing_visible:
                 print(f'[get_pending_topics] 可視untrackedトピック {len(missing_visible)}件をDynamoDBから補充')
-                for tid in missing_visible[:50]:  # 1回 50件まで補充(暴走防止)
-                    try:
-                        r = table.get_item(
-                            Key={'topicId': tid, 'SK': 'META'},
-                            ProjectionExpression='topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,summaryMode,statusLabel,watchPoints,lifecycleStatus,schemaVersion',
-                        )
-                        item = r.get('Item')
-                        if item and needs_ai_processing(item, force=force):
-                            still_pending.append(tid)
-                            items.append(item)
-                        elif item and (not force) and _is_fully_filled(item):
-                            # T2026-0502-BA: idempotent ガード命中
-                            idempotent_skipped += 1
-                    except Exception:
-                        pass
+                # CALLER_DOC: T2026-0503-O — 最大50件を BatchGetItem 1req で取得。
+                # 失敗時は sequential GetItem フォールバック。
+                vis_chunk = missing_visible[:50]
+                fetched_visible: dict = {}
+                try:
+                    resp = dynamodb.batch_get_item(
+                        RequestItems={
+                            table.name: {
+                                'Keys': [{'topicId': tid, 'SK': 'META'} for tid in vis_chunk],
+                                'ProjectionExpression': _PENDING_META_PROJ,
+                            }
+                        }
+                    )
+                    for it in resp.get('Responses', {}).get(table.name, []):
+                        fetched_visible[it['topicId']] = it
+                    for key in resp.get('UnprocessedKeys', {}).get(table.name, {}).get('Keys', []):
+                        tid = key['topicId']
+                        try:
+                            r = table.get_item(Key={'topicId': tid, 'SK': 'META'}, ProjectionExpression=_PENDING_META_PROJ)
+                            if r.get('Item'):
+                                fetched_visible[tid] = r['Item']
+                        except Exception:
+                            pass
+                except Exception:
+                    for tid in vis_chunk:
+                        try:
+                            r = table.get_item(Key={'topicId': tid, 'SK': 'META'}, ProjectionExpression=_PENDING_META_PROJ)
+                            if r.get('Item'):
+                                fetched_visible[tid] = r['Item']
+                        except Exception:
+                            pass
+                for tid in vis_chunk:
+                    item = fetched_visible.get(tid)
+                    if item and needs_ai_processing(item, force=force):
+                        still_pending.append(tid)
+                        items.append(item)
+                    elif item and (not force) and _is_fully_filled(item):
+                        # T2026-0502-BA: idempotent ガード命中
+                        idempotent_skipped += 1
 
         def _sort_key(x):
             tid = x.get('topicId', '')
@@ -1312,6 +1366,15 @@ _BACKFILL_AI_FIELDS = (
     'keyPoint', 'statusLabel', 'watchPoints', 'outlook', 'topicTitle',
     'latestUpdateHeadline', 'topicLevel', 'parentTopicTitle', 'relatedTopicTitles',
     'topicCoherent', 'perspectives', 'storyPhase', 'summaryMode',
+)
+
+# T2026-0503-O: get_pending_topics の GetItem 投影フィールド（L579/L627 共通）。
+# needs_ai_processing / _is_fully_filled が参照する全フィールドを含む。
+_PENDING_META_PROJ = (
+    'topicId,title,articleCount,score,velocityScore,lastUpdated,'
+    'generatedTitle,generatedSummary,storyTimeline,storyPhase,'
+    'aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,'
+    'keyPoint,summaryMode,statusLabel,watchPoints,lifecycleStatus,schemaVersion'
 )
 
 
