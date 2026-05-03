@@ -235,4 +235,21 @@ if ! grep -q 'ci_check_workflow_script_refs.sh' "$REPO_ROOT/.github/workflows/li
 fi
 echo "✅ T2026-0502-WORKFLOW-DEP-PHYSICAL: workflow ref check landed (script content + workflow step)"
 
+# T2026-0502-WORKFLOW-DEP-PHYSICAL landing 検証 (2026-05-02 22:55 JST):
+# workflow YAML が repo に存在しない script を参照している commit miss を CI で物理 reject する
+# ガードの存在を verify。本ガード自体が消されたら check_lessons_landings.sh が fail する。
+# T2026-0502-LANDING-CHECK-RELAX (2026-05-02 23:30 JST): 旧 [ ! -x ] は PR #315 (950a5f6) で
+# executable bit なしで commit された後 main で連続 CI 失敗を誘発した。
+# lint-yaml-logic.yml は `bash scripts/...` で起動するため executable bit は機能要件ではなく、
+# ガード本来の意図 (script の存在保証) は -f で満たせる。
+if [ ! -f "$REPO_ROOT/scripts/ci_check_workflow_script_refs.sh" ]; then
+  echo "❌ T2026-0502-WORKFLOW-DEP-PHYSICAL: scripts/ci_check_workflow_script_refs.sh not found" >&2
+  exit 1
+fi
+if ! grep -q 'ci_check_workflow_script_refs.sh' "$REPO_ROOT/.github/workflows/lint-yaml-logic.yml"; then
+  echo "❌ T2026-0502-WORKFLOW-DEP-PHYSICAL: lint-yaml-logic.yml does not call ci_check_workflow_script_refs.sh" >&2
+  exit 1
+fi
+echo "✅ T2026-0502-WORKFLOW-DEP-PHYSICAL: workflow ref check landed (script + workflow step)"
+
 exit 0
