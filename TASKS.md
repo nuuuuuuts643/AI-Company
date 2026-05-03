@@ -254,6 +254,15 @@
 | T241 | 低 | **アフィリエイトのセンシティブトピック自動非表示ロジック未実装** — CLAUDE.md「過去の設計ミスパターン」⑧で「事件・事故・医療・政治では非表示にする」とルール明記済み。affiliate.js で genre が `'社会'`/`'国際'`/`'健康'` × 記事タイトルが事件/事故/疾患キーワードを含む時は出さない実装が必要。AdSense 通過後・収益性確認後でよい。 | `frontend/js/affiliate.js`（推定）, `frontend/topic.html` | 2026-04-28 |
 | T253 | 低 | **AI 学習クローラー全禁止 vs AI Visibility (AEO/GEO) のトレードオフ判断** — `robots.txt` で GPTBot / ChatGPT-User / Claude-Web / anthropic-ai / Google-Extended / PerplexityBot / Applebot-Extended / CCBot 全て Disallow。ChatGPT/Perplexity で「Flotopic」の名前を引いた時に検索結果に出てこない機会損失が発生。AI生成要約の知的財産価値 vs AEO/GEO 流入の機会値を Naoya 判断。 | `frontend/robots.txt`, `searchfit-seo:ai-visibility` | 2026-04-28 |
 
+### フェーズ1 機能凍結（Phase C 条件未達・訪問者数未達）
+
+<!-- フェーズ1 (足回り安定) — ユーザー少数段階での機能凍結 -->
+
+| ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
+|---|---|---|---|---|
+| T2026-0503-U | 🟡 中 | **フロントエンド ログイン・コメント UI 完全削除** — 訪問者78/日の段階でアカウント機能・コメント機能は不要。コメント削除機能も未実装でGDPRリスクあり。Phase C条件（500visits/日・コメント削除実装）を満たすまで凍結。手順: ①frontend/ から ログインボタン・アカウント作成ボタン・コメント投稿フォーム・コメント表示エリアを非表示または削除 ②参照: docs/feature-phases.md Phase A/C ③効果確認は Phase C 移行判定時に実施。完了条件: ログイン・コメント関連の UI 要素が frontend に存在しないこと。**Phase-Impact: 1 (不要機能排除)** / **Eval-Due: 2026-05-16** | `projects/P003-news-timeline/frontend/` (index.html, detail.html 等) | 2026-05-03 |
+| T2026-0503-V | 🟡 中 | **コメント機能バックエンド調査（削除or凍結判断）** — comments Lambda・DynamoDB（comments, comment_reactions テーブル）が実際に使われているか調査。使われていなければ無効化候補リストに載せる。削除はPO確認後。手順: ①`aws dynamodb scan --table-name comment_reactions` で item_count 確認 ②`aws dynamodb scan --table-name comments` で item_count 確認 ③CloudWatch Logs で `/aws/lambda/comments` の最後の invocation タイムスタンプ確認（完全 unused であれば削除候補）。完了条件: comments/comment_reactions テーブルの使用状況が docs/system-map.md 削除・無効化候補リストに記載されること。**Phase-Impact: 1 (不要リソース特定)** / **Eval-Due: 2026-05-16** | `docs/system-map.md` (削除・無効化候補リスト更新) | 2026-05-03 |
+
 ### 運用ガバナンス（Cowork×Code 連携）
 
 <!-- フェーズ1 (足回り安定) — 運用ガバナンス・連携事故防止 -->
@@ -283,6 +292,8 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
+| T2026-0503-W | 🟡 中 | **開発フロー図の作成** — 「設計→実装→効果検証→振り返り」のフローを Mermaid で図にして docs/dev-flow.md に保存。誰が見ても「どう開発するか」が分かる1枚の絵を作る。目的: ブラックボックスにしない。次の大工事前に土台として使う。完了条件: docs/dev-flow.md に Mermaid フローチャートが存在し、session_bootstrap.sh で表示されていること。**Phase-Impact: インフラ (開発プロセス標準化)** / **Eval-Due: 2026-05-16** | `docs/dev-flow.md` (新規), `scripts/session_bootstrap.sh` (v3 display に追加) | 2026-05-03 |
+| T2026-0503-X | 🟡 中 | **運用設計の定期更新フロー確立** — CLAUDE.md・system-map.md・feature-phases.md・dev-flow.md を「いつ・何をきっかけに更新するか」を docs/update-cadence.md に定義する。目的: ドキュメントが腐らない運用の仕組みを作る（月次棚卸し・大工事後の強制更新など）。完了条件: docs/update-cadence.md が存在し、各ドキュメントの更新タイミングが明記されること（新規タスク・大工事・フェーズ移行などのトリガー条件を列挙）。**Phase-Impact: インフラ (ドキュメント運用)** / **Eval-Due: 2026-05-16** | `docs/update-cadence.md` (新規) | 2026-05-03 |
 
 ---
 
