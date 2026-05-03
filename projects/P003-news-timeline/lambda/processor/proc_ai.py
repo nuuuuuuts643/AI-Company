@@ -2110,4 +2110,15 @@ def judge_prediction(outlook: str, new_titles: list, min_titles: int = 5) -> dic
         return {'result': verdict, 'evidence': evidence}
     except Exception as e:
         print(f'judge_prediction error: {e}')
+
+
+def log_skip_reason(tid: str, reason: str) -> None:
+    """スキップ理由を統一フォーマットでログ出力する。
+
+    handler.py の各スキップ箇所から呼ぶことで、CloudWatch Logs Insights で
+    'filter @message like "[SKIP]"' として集計できるようになる。
+
+    現時点では既存のスキップ条件の動作は変えない。可視化のみ。
+    """
+    print(f'[SKIP] {tid[:8]}... reason={reason}')
         return None
