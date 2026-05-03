@@ -293,7 +293,7 @@
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
 | T2026-0503-W | 🟡 中 | **プロダクト設計図の作成** — ユーザーの情報フロー（どこから来てどう使うか）・画面遷移・Phase A/B/C/D それぞれで何が使えるかの全体像を Mermaid で図にして docs/product-design.md に保存。目的: 「情報の地図」というビジョンに向けた現在地と未来の設計を可視化する。大工事前の設計議論の土台。完了条件: docs/product-design.md に Mermaid 図が存在し、ユーザーの情報フロー・Phase別機能可視化・実装との乖離が一目で分かること。**Phase-Impact: 1 (フェーズ1・全体設計の透明化)** / **Eval-Due: 2026-05-16** | `docs/product-design.md` (新規), docs に参照リンク追加 | 2026-05-03 |
-| T2026-0503-X | 🟡 中 | **運用設計の定期更新フロー確立** — CLAUDE.md・system-map.md・feature-phases.md・dev-flow.md を「いつ・何をきっかけに更新するか」を docs/update-cadence.md に定義する。目的: ドキュメントが腐らない運用の仕組みを作る（月次棚卸し・大工事後の強制更新など）。完了条件: docs/update-cadence.md が存在し、各ドキュメントの更新タイミングが明記されること（新規タスク・大工事・フェーズ移行などのトリガー条件を列挙）。**Phase-Impact: インフラ (ドキュメント運用)** / **Eval-Due: 2026-05-16** | `docs/update-cadence.md` (新規) | 2026-05-03 |
+| T2026-0503-X | 🟡 中 | **運用設計の定期更新フロー確立** — 「地図は作るより生き続けさせる方が難しい。仕組みで担保する。」CLAUDE.md・system-map.md・feature-phases.md・product-design.md を「いつ・何をきっかけに更新するか」を docs/update-cadence.md に定義する。**定義する内容**: ①system-map.md の更新トリガー（Lambda/API/データフロー変更時は必須） ②Mermaid テキストで図を管理する理由（git diff で変更が追える・binary image は diff 不可） ③p003-sonnet の月次タスクで「system-map.md と実コードの乖離チェック」を実施する ④last_verified フィールドが30日超えたら bootstrap が警告する仕組み（session_bootstrap.sh に追加）。完了条件: docs/update-cadence.md が存在し、各ドキュメントの更新トリガー・乖離チェック・自動警告の仕組みが明記されること。**Phase-Impact: 1 (ドキュメント運用・腐り防止)** / **Eval-Due: 2026-05-16** | `docs/update-cadence.md` (新規), `scripts/session_bootstrap.sh` (last_verified 警告追加), scheduled-tasks (p003-sonnet 月次チェック・docs verify) | 2026-05-03 |
 
 ---
 
