@@ -292,7 +292,7 @@
 
 | ID | 優先 | 内容 | 変更予定ファイル | 追加日 |
 |---|---|---|---|---|
-| T2026-0503-W | 🟡 中 | **開発フロー図の作成** — 「設計→実装→効果検証→振り返り」のフローを Mermaid で図にして docs/dev-flow.md に保存。誰が見ても「どう開発するか」が分かる1枚の絵を作る。目的: ブラックボックスにしない。次の大工事前に土台として使う。完了条件: docs/dev-flow.md に Mermaid フローチャートが存在し、session_bootstrap.sh で表示されていること。**Phase-Impact: インフラ (開発プロセス標準化)** / **Eval-Due: 2026-05-16** | `docs/dev-flow.md` (新規), `scripts/session_bootstrap.sh` (v3 display に追加) | 2026-05-03 |
+| T2026-0503-W | 🟡 中 | **プロダクト設計図の作成** — ユーザーの情報フロー（どこから来てどう使うか）・画面遷移・Phase A/B/C/D それぞれで何が使えるかの全体像を Mermaid で図にして docs/product-design.md に保存。目的: 「情報の地図」というビジョンに向けた現在地と未来の設計を可視化する。大工事前の設計議論の土台。完了条件: docs/product-design.md に Mermaid 図が存在し、ユーザーの情報フロー・Phase別機能可視化・実装との乖離が一目で分かること。**Phase-Impact: 1 (フェーズ1・全体設計の透明化)** / **Eval-Due: 2026-05-16** | `docs/product-design.md` (新規), docs に参照リンク追加 | 2026-05-03 |
 | T2026-0503-X | 🟡 中 | **運用設計の定期更新フロー確立** — CLAUDE.md・system-map.md・feature-phases.md・dev-flow.md を「いつ・何をきっかけに更新するか」を docs/update-cadence.md に定義する。目的: ドキュメントが腐らない運用の仕組みを作る（月次棚卸し・大工事後の強制更新など）。完了条件: docs/update-cadence.md が存在し、各ドキュメントの更新タイミングが明記されること（新規タスク・大工事・フェーズ移行などのトリガー条件を列挙）。**Phase-Impact: インフラ (ドキュメント運用)** / **Eval-Due: 2026-05-16** | `docs/update-cadence.md` (新規) | 2026-05-03 |
 
 ---
