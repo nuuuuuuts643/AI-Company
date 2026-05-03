@@ -149,16 +149,18 @@ class BuildKeyPointGenreHintHookTest(unittest.TestCase):
     """_build_keypoint_genre_hint にフック型優先指示が含まれること。"""
 
     def test_hook_priority_in_block(self):
-        """生成ブロックに「フック型優先」が含まれる。"""
+        """生成ブロックに「具体論優先」のガード文言が含まれる。
+        T2026-0503-C 改修で 'フック型優先' → '一般論より短い具体論のほうがよい' に変更。"""
         block = proc_ai._build_keypoint_genre_hint('政治')
-        self.assertIn('フック型優先', block)
+        self.assertIn('具体論のほうがよい', block)
 
     def test_surprise_reversal_examples_in_block(self):
-        """「〇〇なのに〇〇」「実は〜」「意外にも〜」が含まれる。"""
+        """逆説ヒントが含まれる (T2026-0503-C: '〇〇なのに〇〇' 等はsystem promptに移動)。"""
         block = proc_ai._build_keypoint_genre_hint('健康')
-        self.assertIn('〇〇なのに〇〇', block)
-        self.assertIn('実は〜', block)
-        self.assertIn('意外にも〜', block)
+        # T2026-0503-C 以降、'〇〇なのに〇〇' 等の逆説フレーズは _STORY_PROMPT_RULES (system prompt) に移管。
+        # user prompt hint には '逆説ヒント' タグと健康ジャンル固有の逆説例が含まれる。
+        self.assertIn('逆説ヒント', block)
+        self.assertIn('意外な事実', block)
 
 
 class BoundaryTest(unittest.TestCase):
