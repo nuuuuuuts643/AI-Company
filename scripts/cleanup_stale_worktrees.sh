@@ -16,11 +16,18 @@
 #
 # フラグ:
 #   --dry-run : 削除せず一覧のみ表示
+#   --prune   : git worktree prune を使用（FUSE 環境で rm がブロックされる場合のオプション）
 
 set -u
 
 DRY_RUN=0
-case " $* " in *" --dry-run "*) DRY_RUN=1 ;; esac
+USE_PRUNE=0
+case " $* " in
+  *" --dry-run "*) DRY_RUN=1 ;;
+esac
+case " $* " in
+  *" --prune "*) USE_PRUNE=1 ;;
+esac
 
 REPO="${REPO:-}"
 if [ -z "$REPO" ]; then
@@ -163,8 +170,14 @@ while IFS='|' read -r wpath wbranch; do
     echo "[CLEANUP_WORKTREE] would remove: $wname (branch: $wbranch_short)"
     removed=$((removed + 1))
   else
+    # git worktree remove を試行（--force で ディレクトリ削除を試みる）
     if git -C "$REPO" worktree remove --force "$wpath" 2>/dev/null; then
-      echo "[CLEANUP_WORKTREE] removed: $wname (branch: $wbranch_short, kept)"
+      echo "[CLEANUP_WORKTREE] removed: $wname (branch: $wbranch_short)"
+      removed=$((removed + 1))
+    elif [ "$USE_PRUNE" = "1" ]; then
+      # FUSE 環境で rm がブロックされる場合: git worktree prune で git metadata のみ削除
+      # ディレクトリ自体は FUSE が後でクリーンアップ
+      git -C "$REPO" worktree prune 2>/dev/null && echo "[CLEANUP_WORKTREE] pruned: $wname (branch: $wbranch_short)" || true
       removed=$((removed + 1))
     else
       echo "[CLEANUP_WORKTREE] failed: $wname (branch: $wbranch_short)"

@@ -1,0 +1,25 @@
+name: Cleanup Merged Branches
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  cleanup:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Delete merged branch
+        run: |
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          if [ -n "$BRANCH" ] && [ "$BRANCH" != "main" ]; then
+            gh api -X DELETE repos/${{ github.repository }}/git/refs/heads/$BRANCH || true
+            echo "Deleted branch: $BRANCH"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
