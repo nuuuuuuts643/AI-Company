@@ -138,7 +138,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0502-COST-C1 DynamoDB Read S3化 /topic/{id} エンドポイント | Code | projects/P003-news-timeline/lambda/api/handler.py | 2026-05-04 JST | yes |
 
 ### Dispatch継続性
 | 種別 | ID | 内容 | 状態 |
