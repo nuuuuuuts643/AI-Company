@@ -138,7 +138,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] ARCH-AUDIT-D remove dead DynamoDB resources + fix _PROC_INTERNAL duplicate | Code | projects/P003-news-timeline/deploy.sh, lambda/handler.py, .github/workflows/*.md | 2026-05-03 15:45 JST | yes |
 | [Cowork] T2026-0502-LAMBDA-CRON-GATE-CI 等 5 件残課題 TASKS.md 起票 (深掘り PR #329 横展開) | Cowork | TASKS.md, WORKING.md | 2026-05-03 10:50 JST | no |
 | [Dispatch] T2026-0502-COST-D1 調査シーズン: DDB read パスコード特定・設計意図確認 | Dispatch | lambda/api/handler.py, lambda/processor/handler.py | 2026-05-03 15:20 JST | no |
+<!-- [Code] ARCH-AUDIT-D remove dead DynamoDB resources + GitHub Actions README (完了 2026-05-03 15:45 JST): PR #370 作成 → Dispatch がCI確認+マージ担当 -->
 <!-- [Cowork] T2026-0502-UX-CARDTITLE 完了 (2026-05-03 00:00 JST): PR #318 merge ✅ + PR #323 (lessons-learned 補完) auto-merge 待ち。実機検証 (flotopic.com) で12/12カード語句完整性 100% 確認・平均長 29字 (修正前 14.2字)。one-time scheduled task p003-verify-cardtitle-fix-20260504 で 2026-05-04 09:00 JST 自動再検証予定 -->
