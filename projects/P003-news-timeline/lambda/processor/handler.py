@@ -605,9 +605,10 @@ def lambda_handler(event, context):
     pred_skipped_deadline = 0  # T2026-0502-BC: 期限未到来で skip した件数 (Anthropic API 課金回避)
     JUDGE_MAX = 10
     _utc_hour = datetime.now(timezone.utc).hour
-    _should_judge = (source != 'fetcher_trigger') and (_utc_hour == 13)
+    # T2026-0503-UX-VERDICT-ZERO: source=='aws.events.judge' は時刻に関係なく実行 (手動 invoke + cron 両対応)
+    _should_judge = (source == 'aws.events.judge') or ((source != 'fetcher_trigger') and (_utc_hour == 13))
     if not _should_judge:
-        print(f'[Processor] judge_prediction skip (source={source}, UTC_hour={_utc_hour}) — JST 22:00 前後の scheduled invoke のみ実行')
+        print(f'[Processor] judge_prediction skip (source={source}, UTC_hour={_utc_hour}) — JST 22:00 前後の scheduled invoke または source=aws.events.judge のみ実行')
     try:
         if not _should_judge:
             candidates = []
@@ -629,8 +630,9 @@ def lambda_handler(event, context):
                 pred_skipped += 1
                 continue
             # T2026-0502-BC: outlook 文中の期限フレーズを解析し、期限未到来は Anthropic API 呼ばずスキップ
-            # (matched 0 件問題の対処 + コスト削減)。期限フレーズなしは fallback_days=7 で保守的判定。
-            if not is_eligible_for_judgment(outlook, since, fallback_days=7):
+            # (matched 0 件問題の対処 + コスト削減)。
+            # T2026-0503-UX-VERDICT-ZERO: fallback_days 7→3 に緩和 (期限フレーズなし outlook が 7 日待ちで verdict 0 件の主因)
+            if not is_eligible_for_judgment(outlook, since, fallback_days=3):
                 pred_skipped += 1
                 pred_skipped_deadline += 1
                 continue
