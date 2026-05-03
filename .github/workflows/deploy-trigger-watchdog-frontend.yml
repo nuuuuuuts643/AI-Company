@@ -38,6 +38,7 @@ on:
 permissions:
   contents: read
   issues: write
+  actions: write
 
 jobs:
   watchdog-frontend:
@@ -139,9 +140,11 @@ jobs:
 
             DIFF_SEC=$(( CF_TS - COMMIT_TIME ))
             DIFF_MIN=$(( DIFF_SEC / 60 ))
-            echo "[INFO] Deploy lag: ${DIFF_MIN}min (threshold=30min)"
+            echo "[INFO] CF vs commit delta: ${DIFF_MIN}min (negative=lag, threshold=-30min)"
 
-            if [ $DIFF_SEC -ge $THRESHOLD ] || [ $DIFF_SEC -lt $(( -THRESHOLD )) ]; then
+            # DIFF_SEC < -THRESHOLD のみ lag (CF が commit より古い) → alarm
+            # DIFF_SEC > 0 は CF が commit より新しい (deploy 済み) → 正常
+            if [ $DIFF_SEC -lt $(( -THRESHOLD )) ]; then
               if [ $attempt -lt 4 ]; then
                 echo "[WAIT] Lag detected (${DIFF_MIN}min), waiting 120s before retry..."
                 sleep 120
