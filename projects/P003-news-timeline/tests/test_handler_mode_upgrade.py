@@ -31,8 +31,9 @@ class ExpectedModeTest(unittest.TestCase):
     def test_cnt_1_is_minimal(self):
         self.assertEqual(_expected_mode(1), 'minimal')
 
-    def test_cnt_2_is_minimal(self):
-        self.assertEqual(_expected_mode(2), 'minimal')
+    def test_cnt_2_is_standard(self):
+        # T2026-0503-UX-WATCHPOINTS/PERSPECTIVES-FILL: cnt=2 → standard に昇格
+        self.assertEqual(_expected_mode(2), 'standard')
 
     def test_cnt_3_is_standard(self):
         self.assertEqual(_expected_mode(3), 'standard')
@@ -140,9 +141,13 @@ class ModeUpgradeIntegrationTest(unittest.TestCase):
         # 境界値: cnt=6 → full が期待値、現在 standard → upgrade 必要
         self.assertTrue(self._needs_upgrade('standard', 6))
 
-    def test_boundary_cnt2_minimal_no_upgrade(self):
-        # 境界値: cnt=2 → minimal、現在 minimal → upgrade 不要
-        self.assertFalse(self._needs_upgrade('minimal', 2))
+    def test_boundary_cnt2_minimal_needs_upgrade(self):
+        # T2026-0503-UX-WATCHPOINTS/PERSPECTIVES-FILL: cnt=2 → standard、現在 minimal → upgrade 必要
+        self.assertTrue(self._needs_upgrade('minimal', 2))
+
+    def test_boundary_cnt2_standard_no_upgrade(self):
+        # cnt=2 → standard、現在 standard → upgrade 不要
+        self.assertFalse(self._needs_upgrade('standard', 2))
 
     def test_boundary_cnt3_minimal_needs_upgrade(self):
         # 境界値: cnt=3 → standard、現在 minimal → upgrade 必要
