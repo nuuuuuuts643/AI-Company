@@ -30,7 +30,7 @@
 - #2 `p003-security-audit-aws` — 月1 1日09:30 Haiku・AWS MCP read-only でIAM/S3/secrets チェック (~15k/月)
 - #1 `p003-rule-monthly-audit` — 月1 1日09:00 Haiku・CLAUDE.md/docs/rules/ 整合性チェック (~10k/月)
 
-**最新 Dispatch (auto-v2)** 2026-05-03 13:01 JST | staleness=24.5min | 過去2h saves=102 | 直近1h errors=0 | 全SLI healthy・異常なし・次回 18:00 JST run まで観測のみ (outcome=A) ※bootstrap exit=1 は 11:00 JST の Cowork needs-push:yes 滞留警告のみ (8h TTL 未到達・他セッション領域のため不介入)
+**最新 Dispatch (auto-v2)** 2026-05-04 07:06 JST | staleness=1.7min | 過去2h saves=79 | 直近1h errors=0 | 全SLI healthy・異常なし・次回 13:00 JST run まで観測のみ (outcome=A) ※bootstrap exit=1 は「並走 3 件」WARN のみ (実態 0 件・テンプレ表ヘッダ等を誤計上) ・[Dispatch] T2026-0502-COST-D1 stale 行は p003-haiku 朝次 (07:08) で除去済
 
 **最新 Dispatch (Cowork)** 2026-05-03 10:30 JST PO「Slack通知の絞り込み＋日次keypoint評価スケジュール」→ PR #338 作成済 ✅:
 - PR #291 (削減プラン docs) / #293 (A1 検証結果) / #298 (深掘り §8) / #299 (TASKS.md 整合化) merge ✅
@@ -138,7 +138,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Dispatch] T2026-0502-COST-D1 調査シーズン: DDB read パスコード特定・設計意図確認 | Dispatch | lambda/api/handler.py, lambda/processor/handler.py | 2026-05-03 15:20 JST | no |
 
 ### Dispatch継続性
 | 種別 | ID | 内容 | 状態 |
