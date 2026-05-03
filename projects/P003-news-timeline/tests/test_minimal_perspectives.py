@@ -178,6 +178,9 @@ class MinimalPromptIncludesPerspectivesGuidanceTest(unittest.TestCase):
         """cnt=2 のとき prompt は perspectives を出力するよう指示する。"""
         captured = {}
         def _capture(prompt, *args, **kwargs):
+            # T2026-0502-AZ: prompt is now a list of content blocks; flatten for backward-compat
+            if isinstance(prompt, list):
+                prompt = '\n'.join(b.get('text', '') for b in prompt if isinstance(b, dict))
             captured['prompt'] = prompt
             return _stub_minimal_with_perspectives(_PERSPECTIVES_TEXT)
         with mock.patch('proc_ai._call_claude_tool', side_effect=_capture):
@@ -189,6 +192,9 @@ class MinimalPromptIncludesPerspectivesGuidanceTest(unittest.TestCase):
         """cnt=1 のとき prompt は perspectives を「出さない」と明示する。"""
         captured = {}
         def _capture(prompt, *args, **kwargs):
+            # T2026-0502-AZ: prompt is now a list of content blocks; flatten for backward-compat
+            if isinstance(prompt, list):
+                prompt = '\n'.join(b.get('text', '') for b in prompt if isinstance(b, dict))
             captured['prompt'] = prompt
             return _stub_minimal_with_perspectives(_PERSPECTIVES_TEXT)
         with mock.patch('proc_ai._call_claude_tool', side_effect=_capture):
