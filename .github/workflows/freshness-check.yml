@@ -665,3 +665,83 @@ jobs:
 
       # SLI-keypoint-fill-rate は別ワークフロー (sli-keypoint-fill-rate.yml) へ分離 (T2026-0428-BI)。
       # hourly DynamoDB scan は過剰だったため 6h scan へ削減 (-83%)。
+
+      # =====================================================================
+      # ユーザーアクティビティメトリクス (SLI 16-19 / T2026-0502-Z)
+      # 背景: DAU/WAU/再訪率 の計測インフラが未整備で「何人がサービスを使っているか」
+      #   が不明なまま品質改善を続けていた。tracker Lambda が IP+UA ベースの
+      #   匿名フィンガープリントを ANALYTICS#USER_DAY パーティションに書き込むことで
+      #   ユーザー単位の行動が計測可能になった。
+      # SLI-16: DAU (直近24h ユニークユーザー)   閾値 WARN < 1
+      # SLI-17: WAU (直近7日 ユニークユーザー)   閾値 WARN < 3
+      # SLI-18: 再訪率 (DAU ∩ 前日 / DAU)       観測のみ (閾値なし)
+      # SLI-19: 平均滞在時間                     セッション終了イベント未実装のため N/A
+      # データソース: DynamoDB p003-topics PK=ANALYTICS#USER_DAY SK=YYYYMMDD#fp16
+      # =====================================================================
+      - name: ユーザーアクティビティメトリクス (SLI 16-19)
+        id: user_metrics
+        continue-on-error: true
+        env:
+          TABLE_NAME: p003-topics
+          REGION: ap-northeast-1
+        shell: bash
+        run: |
+          set +e
+          # AWS 認証は aws_auth_sli14 ステップの OIDC credentials を引き継ぐ。
+          # sli_user_metrics.py の emit() が $GITHUB_OUTPUT と stdout 両方に key=value を書く。
+          # 認証不可・DynamoDB 疎通不可時は status=skipped で exit 0 (ジョブを赤くしない)。
+          METRICS=$(python3 scripts/sli_user_metrics.py 2>/dev/null) || METRICS=""
+          if [ -z "$METRICS" ]; then
+            echo "::warning::user_metrics: script failed — --dry-run fallback"
+            METRICS=$(python3 scripts/sli_user_metrics.py --dry-run 2>/dev/null) || METRICS=""
+          fi
+          DAU=$(echo "$METRICS" | grep "^dau=" | cut -d= -f2)
+          WAU=$(echo "$METRICS" | grep "^wau=" | cut -d= -f2)
+          RR=$(echo "$METRICS" | grep "^return_rate=" | cut -d= -f2)
+          DS=$(echo "$METRICS" | grep "^dau_status=" | cut -d= -f2)
+          WS=$(echo "$METRICS" | grep "^wau_status=" | cut -d= -f2)
+          ST=$(echo "$METRICS" | grep "^status=" | cut -d= -f2)
+          {
+            echo "### ユーザーアクティビティメトリクス (SLI 16-19)"
+            echo "- DAU (SLI-16): ${DAU:-n/a}  status=${DS:-skipped}  (閾値 WARN < 1)"
+            echo "- WAU (SLI-17): ${WAU:-n/a}  status=${WS:-skipped}  (閾値 WARN < 3)"
+            echo "- 再訪率 (SLI-18): ${RR:-n/a}"
+            echo "- 平均滞在時間 (SLI-19): n/a (セッション終了イベント未実装)"
+            echo "- overall: ${ST:-skipped}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: ユーザーアクティビティ WARN で Slack 通知
+        if: steps.user_metrics.outputs.status == 'warn'
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || secrets.SLACK_WEBHOOK }}
+          DAU: ${{ steps.user_metrics.outputs.dau }}
+          WAU: ${{ steps.user_metrics.outputs.wau }}
+          RETURN_RATE: ${{ steps.user_metrics.outputs.return_rate }}
+          DAU_STATUS: ${{ steps.user_metrics.outputs.dau_status }}
+          WAU_STATUS: ${{ steps.user_metrics.outputs.wau_status }}
+        shell: bash
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::warning::user_metrics: DAU=${DAU}(${DAU_STATUS}) WAU=${WAU}(${WAU_STATUS}) 閾値割れ"
+            exit 0
+          fi
+          PAYLOAD=$(python3 - <<'PY'
+          import json, os
+          dau = os.environ.get('DAU', 'n/a')
+          wau = os.environ.get('WAU', 'n/a')
+          rr  = os.environ.get('RETURN_RATE', 'n/a')
+          ds  = os.environ.get('DAU_STATUS', '')
+          ws  = os.environ.get('WAU_STATUS', '')
+          text = (
+              ":warning: *[SLI 16-19] ユーザーアクティビティ WARN*\n"
+              f"- DAU (SLI-16): {dau} ({'⚠️ WARN' if ds=='warn' else 'ok'}, 閾値≥1)\n"
+              f"- WAU (SLI-17): {wau} ({'⚠️ WARN' if ws=='warn' else 'ok'}, 閾値≥3)\n"
+              f"- 再訪率 (SLI-18): {rr}\n"
+              "- 由来: T2026-0502-Z DAU/WAU メトリクス計測インフラ"
+          )
+          print(json.dumps({"text": text}))
+          PY
+          )
+          curl -fsS -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true

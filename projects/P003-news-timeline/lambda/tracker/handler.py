@@ -1,8 +1,10 @@
+import hashlib
 import json
 import os
 import re
 import time
 import boto3
+from botocore.exceptions import ClientError
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -32,6 +34,39 @@ def _cors(event=None):
     }
 
 
+_ANALYTICS_PK = 'ANALYTICS#USER_DAY'
+_ANALYTICS_TTL_DAYS = 9  # 7 days WAU + 2 days buffer
+
+
+def _fingerprint(event) -> str:
+    """Anonymous fingerprint from IP + User-Agent (SHA256 first 16 hex chars)."""
+    req = (event.get('requestContext') or {}).get('http') or {}
+    ip = req.get('sourceIp', '')
+    headers = event.get('headers') or {}
+    ua = headers.get('user-agent') or headers.get('User-Agent') or ''
+    raw = f'{ip}|{ua}'
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def _record_user_visit(date: str, fp: str) -> None:
+    ttl_ts = int(time.time()) + _ANALYTICS_TTL_DAYS * 86400
+    try:
+        table.put_item(
+            Item={
+                'topicId': _ANALYTICS_PK,
+                'SK': f'{date}#{fp}',
+                'date': date,
+                'ttl': Decimal(str(ttl_ts)),
+            },
+            ConditionExpression='attribute_not_exists(SK)',
+        )
+    except ClientError as e:
+        if e.response['Error']['Code'] != 'ConditionalCheckFailedException':
+            print(f'[WARN] Tracker analytics write: {e.response["Error"]["Code"]}: {e}')
+    except Exception as e:
+        print(f'[WARN] Tracker analytics write: {type(e).__name__}: {e}')
+
+
 def lambda_handler(event, context):
     method = event.get('requestContext', {}).get('http', {}).get('method', '')
     cors = _cors(event)
@@ -52,6 +87,7 @@ def lambda_handler(event, context):
             ExpressionAttributeNames={'#c': 'count', '#d': 'date', '#ttl': 'ttl'},
             ExpressionAttributeValues={':one': Decimal('1'), ':date': date, ':ttl': Decimal(str(ttl_ts))},
         )
+        _record_user_visit(date, _fingerprint(event))
         return {'statusCode': 200, 'headers': cors, 'body': json.dumps({'ok': True})}
     except Exception as e:
         # T2026-0502-SEC16: 内部例外メッセージを返さず固定文言に。
