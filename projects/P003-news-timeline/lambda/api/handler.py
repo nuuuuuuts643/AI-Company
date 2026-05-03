@@ -51,31 +51,12 @@ def resp(code, body, event=None):
 
 
 def all_topics():
-    # COST-D1-α: S3 topics-card.json 直読みで DynamoDB Full Scan を回避。
-    # processor が最大5分ごとに再生成するため freshness は DDB 直読みと同等。
-    # parentTopicId / childTopics は _CARD_INCLUDE_KEYS に含まれ card 側に存在する。
-    if S3_BUCKET and s3:
-        try:
-            obj = s3.get_object(Bucket=S3_BUCKET, Key='api/topics-card.json')
-            data = json.loads(obj['Body'].read())
-            return data.get('topics', [])
-        except Exception as e:
-            print(f'[WARN] all_topics S3 read failed, falling back to DDB scan: {e}')
-    # DynamoDB Scan fallback (S3_BUCKET 未設定 または S3 読み込み失敗時のみ)
-    items = []
-    kwargs = {
-        'ProjectionExpression': 'topicId, title, #s, articleCount, articleCountDelta, lastUpdated, sources, SK',
-        'ExpressionAttributeNames': {'#s': 'status'},
-    }
-    while True:
-        r = table.scan(**kwargs)
-        items.extend(item for item in r.get('Items', []) if item.get('SK') == 'META')
-        last = r.get('LastEvaluatedKey')
-        if not last:
-            break
-        kwargs['ExclusiveStartKey'] = last
-    items.sort(key=lambda x: x.get('lastUpdated', ''), reverse=True)
-    return items
+    # T2026-STEP2: S3 のみ（DDB フォールバック削除）。S3 失敗時は例外を raise し呼び出し元が 503 を返す。
+    if not S3_BUCKET or not s3:
+        raise RuntimeError('S3_BUCKET not configured')
+    obj = s3.get_object(Bucket=S3_BUCKET, Key='api/topics-card.json')
+    data = json.loads(obj['Body'].read())
+    return data.get('topics', [])
 
 
 def topic_detail(topic_id):
@@ -101,7 +82,11 @@ def lambda_handler(event, context):
         return resp(200, {})
 
     if path in ('/', '/topics'):
-        return resp(200, {'topics': all_topics()})
+        try:
+            return resp(200, {'topics': all_topics()})
+        except Exception as e:
+            print(f'[ERROR] all_topics failed: {e}')
+            return resp(503, {'error': 'service unavailable'})
 
     if path.startswith('/topic/'):
         tid = path.split('/')[-1]
