@@ -405,6 +405,30 @@ aws events put-targets \
   --region "$REGION" > /dev/null
 echo "  -> Processor: JST 8:00/17:00 の自動実行を設定完了 (UTC 23:00/08:00)"
 
+# ---- judge_prediction 専用 cron (T2026-0502-BC-CRON-FIX) ----
+# 設計意図: judge_prediction は 1 日 1 回 UTC 13:00 (= JST 22:00) のみ実行 (案D・コスト削減)
+# 既存 p003-processor-schedule (UTC 20:30/08:30) には UTC 13 起動が無いため別 rule で確保
+aws events put-rule \
+  --name "p003-processor-judge-schedule" \
+  --schedule-expression "cron(0 13 * * ? *)" \
+  --state ENABLED \
+  --region "$REGION" \
+  --description "T2026-0502-BC judge_prediction を JST 22:00 (UTC 13:00) に1日1回起動" > /dev/null
+
+aws events put-targets \
+  --rule "p003-processor-judge-schedule" \
+  --targets "Id=1,Arn=${PROCESSOR_ARN},Input={\"source\":\"aws.events.judge\"}" \
+  --region "$REGION" > /dev/null
+
+aws lambda add-permission \
+  --function-name "$PROCESSOR" \
+  --statement-id "p003-processor-judge-schedule" \
+  --action lambda:InvokeFunction \
+  --principal events.amazonaws.com \
+  --source-arn "arn:aws:events:${REGION}:${ACCOUNT_ID}:rule/p003-processor-judge-schedule" \
+  --region "$REGION" 2>/dev/null || true  # 冪等
+echo "  -> Processor judge: JST 22:00 (UTC 13:00) の judge_prediction 専用 cron を設定完了"
+
 # ---- 8. フロントエンド (config.js は全Lambda URL確定後に書き込み) ----
 echo "[8/8] フロントエンドデプロイの準備..."
 SITE_URL="https://flotopic.com"
