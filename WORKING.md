@@ -139,6 +139,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Dispatch] T2026-0502-COST-D1 調査シーズン: DDB read パスコード特定・設計意図確認 | Dispatch | lambda/api/handler.py, lambda/processor/handler.py | 2026-05-03 15:20 JST | no |
+| [Code] T2026-0503-E session_bootstrap.sh timeout コマンド修正 | Code | scripts/session_bootstrap.sh | 2026-05-03 22:50 JST | yes |
 
 <!-- [Code] T2026-0503-BRANCH-CLEANUP 完了 2026-05-03 16:40 JST
 段階1: 根本原因特定 — session_bootstrap.sh に「マージ済みブランチ削除ロジック」がなかった
