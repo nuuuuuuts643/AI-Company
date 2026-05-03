@@ -167,9 +167,10 @@ else
   if ! git diff --cached --quiet 2>/dev/null; then
     git commit -m "chore: bootstrap sync $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" 2>/dev/null || true
   fi
-  git pull --no-rebase --no-edit origin main 2>&1 | _strip_fuse_noise | tail -2
+  timeout 60 git pull --no-rebase --no-edit origin main 2>&1 | _strip_fuse_noise | tail -2
   # T2026-0502-PHYSICAL-GUARD-AUDIT: PR #159 landing を実 exit 経路に直結。
   # `| tail -2 || true` だけだと失敗を握り潰すので PIPESTATUS[0] を BOOTSTRAP_EXIT に流す。
+  # T2026-05-03-GIT-TIMEOUT: timeout 60 で git hang を 60 秒で強制終了。
   _git_pull_status="${PIPESTATUS[0]:-0}"
   if [ "$_git_pull_status" -ne 0 ]; then
     echo "⚠️  git pull failed (exit=$_git_pull_status). 続行するが末尾で exit 1 する。" >&2
@@ -177,7 +178,8 @@ else
   fi
   mv .git/index.lock .git/_garbage/ 2>/dev/null
   # main 直 push: pre-push hook が ALLOW_MAIN_PUSH=1 escape を要求する (T2026-0502-PHYSICAL-GUARD-AUDIT)
-  ALLOW_MAIN_PUSH=1 git push 2>&1 | _strip_fuse_noise | tail -2
+  # T2026-05-03-GIT-TIMEOUT: timeout 120 で git hang を 120 秒で強制終了。
+  timeout 120 sh -c 'ALLOW_MAIN_PUSH=1 git push' 2>&1 | _strip_fuse_noise | tail -2
   _git_push_status="${PIPESTATUS[0]:-0}"
   if [ "$_git_push_status" -ne 0 ]; then
     echo "⚠️  git push failed (exit=$_git_push_status). 続行するが末尾で exit 1 する。" >&2
