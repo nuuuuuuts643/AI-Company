@@ -101,12 +101,19 @@ fi
 # 1. workflow_dispatch を curl で直接叩く (scripts/gh_workflow_dispatch.sh wrapper を使うこと)
 # 2. sleep N && curl / aws polling パターン (1 回確認 + schedule タスク委ね原則)
 # 3. for i in {1..N}; do curl/aws ... done パターン
-COST_HITS=$(git diff --cached --no-color -U0 \
-    | grep -E '^\+' \
-    | grep -vE '^\+\+\+' \
-    | grep -vE 'gh_workflow_dispatch\.sh|cost.*-discipline|COST-DISCIPLINE|install_hooks\.sh|test.*pattern|test.*aspect' \
-    | grep -E '(curl[^|&;]*-X[ ]*POST[^|&;]*actions/workflows/[^/]+/dispatches|sleep[ ]+[0-9]+[ ]*&&[ ]*curl|sleep[ ]+[0-9]+[ ]*;[ ]*curl|sleep[ ]+[0-9]+[ ]*&&[ ]*aws[ ]+lambda|for[ ]+[a-zA-Z_]+[ ]+in[ ]+[\\{`].*do[ ]+(curl|aws[ ]))' \
-    || true)
+# 4. Python time.sleep(N) + requests/boto3 API call の組み合わせ (同一ファイル内)
+# *.md ファイルはドキュメントとして除外（CLAUDE.md 等にパターン説明が含まれる誤検知防止）
+COST_HITS=""
+while IFS= read -r _cf; do
+    [ -z "$_cf" ] && continue
+    echo "$_cf" | grep -qE '\.md$' && continue
+    _ch=$(git diff --cached --no-color -U0 -- "$_cf" 2>/dev/null \
+        | grep -E '^\+[^+]' \
+        | grep -vE 'gh_workflow_dispatch\.sh|cost.*-discipline|COST-DISCIPLINE|install_hooks\.sh|test.*pattern|test.*aspect' \
+        | grep -E '(curl[^|&;]*-X[ ]*POST[^|&;]*actions/workflows/[^/]+/dispatches|sleep[ ]+[0-9]+[ ]*&&[ ]*curl|sleep[ ]+[0-9]+[ ]*;[ ]*curl|sleep[ ]+[0-9]+[ ]*&&[ ]*aws[ ]+lambda|for[ ]+[a-zA-Z_]+[ ]+in[ ]+[\\{`].*do[ ]+(curl|aws[ ]))' \
+        || true)
+    COST_HITS="${COST_HITS}${_ch}"
+done < <(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null)
 if [ -n "$COST_HITS" ]; then
     echo "❌ pre-commit blocked: cost-discipline anti-pattern が staged されています (T2026-0502-COST-DISCIPLINE-PHYSICAL)"
     echo "$COST_HITS" | head -10 | sed 's/^/   /'
@@ -118,6 +125,78 @@ if [ -n "$COST_HITS" ]; then
     echo ""
     echo "   緊急 bypass (テスト等): git commit --no-verify"
     echo "   (使用時は WORKING.md に理由記録必須)"
+    exit 1
+fi
+
+# Python polling: time.sleep(N) + requests/boto3/subprocess-curl が同一 staged ファイル内に共存
+# *.py かつテストファイル以外が対象。false positive を抑えるため「同一ファイル内に両パターン追加」のみ検出。
+PYTHON_POLL_HITS=""
+while IFS= read -r _py_f; do
+    [ -z "$_py_f" ] && continue
+    echo "$_py_f" | grep -qE '\.py$' || continue
+    echo "$_py_f" | grep -qE '(^|/)test[_/]|/tests?/|install_hooks' && continue
+    _sleep_cnt=$(git diff --cached -U0 -- "$_py_f" 2>/dev/null \
+        | grep -cE '^\+.*time\.sleep\([1-9]' || echo 0)
+    _api_cnt=$(git diff --cached -U0 -- "$_py_f" 2>/dev/null \
+        | grep -cE '^\+.*(requests\.(get|post|put|delete|patch)|boto3\.(client|resource|Session)|subprocess\.run.*curl)' || echo 0)
+    if [ "$_sleep_cnt" -gt 0 ] && [ "$_api_cnt" -gt 0 ]; then
+        PYTHON_POLL_HITS="${PYTHON_POLL_HITS}$_py_f "
+    fi
+done < <(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null)
+if [ -n "$PYTHON_POLL_HITS" ]; then
+    echo "❌ pre-commit blocked: Python polling pattern (time.sleep + API call) が staged されています"
+    echo "$PYTHON_POLL_HITS" | tr ' ' '\n' | grep -v '^$' | sed 's/^/   /'
+    echo ""
+    echo "   同一ファイル内に time.sleep(N) と requests/boto3/curl の組み合わせが追加されています"
+    echo "   代替: 1 回確認 + schedule (p003-haiku) 委ね"
+    echo "   緊急 bypass: git commit --no-verify (要 WORKING.md 記録)"
+    exit 1
+fi
+
+# T2026-0503-RULES-CLEANUP: deploy.sh 直接実行禁止 (pre-commit 物理化)
+# CLAUDE.md「deploy.sh は直接実行しない」思想ルールを物理ガード化。
+# *.md / .github/workflows/ / install_hooks.sh は除外 (deploy.sh を参照・説明するファイル)
+DEPLOY_HITS=""
+while IFS= read -r _df; do
+    [ -z "$_df" ] && continue
+    echo "$_df" | grep -qE '\.md$|^\.github/workflows/|install_hooks' && continue
+    _dh=$(git diff --cached -U0 -- "$_df" 2>/dev/null \
+        | grep -E '^\+[^+]' \
+        | grep -E '(bash|sh|\./)[[:space:]]*deploy\.sh' \
+        || true)
+    DEPLOY_HITS="${DEPLOY_HITS}${_dh}"
+done < <(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null)
+if [ -n "$DEPLOY_HITS" ]; then
+    echo "❌ pre-commit blocked: deploy.sh 直接実行は禁止です (T2026-0503-RULES-CLEANUP)"
+    echo "$DEPLOY_HITS" | head -5 | sed 's/^/   /'
+    echo ""
+    echo "   デプロイは GitHub Actions 経由のみ。手動が必要な場合は PO に確認してください"
+    echo "   緊急 bypass: git commit --no-verify (要 WORKING.md 記録)"
+    exit 1
+fi
+
+# T2026-0503-RULES-CLEANUP: git エラー黙殡禁止 (pre-commit 物理化)
+# CLAUDE.md「git エラー黙殡禁止」ルールを物理ガード化。T2026-0502-M の再発防止。
+# .sh ファイルに git pull/push を `|| true` で黙殡するパターンが追加された場合 reject。
+# 除外: audit / install_hooks / secret_scan (これらはファイル名に audit/install/secret を含む)
+GIT_SILENCE_HITS=""
+while IFS= read -r _gf; do
+    [ -z "$_gf" ] && continue
+    echo "$_gf" | grep -qE '\.sh$' || continue
+    echo "$_gf" | grep -qE '(^|/)audit|install_hooks|secret' && continue
+    _gh=$(git diff --cached -U0 -- "$_gf" 2>/dev/null \
+        | grep -E '^\+[^+]' \
+        | grep -E 'git (pull|push)[[:space:]].{0,60}\|\| true' \
+        || true)
+    GIT_SILENCE_HITS="${GIT_SILENCE_HITS}${_gh}"
+done < <(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null)
+if [ -n "$GIT_SILENCE_HITS" ]; then
+    echo "❌ pre-commit blocked: git pull/push の '|| true' 黙殡は禁止 (T2026-0502-M 再発防止)"
+    echo "$GIT_SILENCE_HITS" | head -5 | sed 's/^/   /'
+    echo ""
+    echo "   git push/pull は PIPESTATUS[0] で捕捉し、失敗時は BOOTSTRAP_EXIT=1 に流すこと"
+    echo "   参照: scripts/session_bootstrap.sh の実装例"
+    echo "   緊急 bypass: git commit --no-verify (要 WORKING.md 記録)"
     exit 1
 fi
 
