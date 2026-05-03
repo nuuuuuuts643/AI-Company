@@ -167,6 +167,22 @@ if [ -n "$IAM_HITS" ]; then
     exit 1
 fi
 
+# T2026-0503-D (2026-05-03): CLAUDE.md 250行以内ガード (pre-commit 物理化)
+# 背景: PR #339 で CLAUDE.md が 252 行になり CI の「メタドキュメント物理ガード」が failure。
+#       CLAUDE.md「250 行以内」ルールを commit 時点で先取り block して CI failure を防ぐ。
+if git diff --cached --name-only | grep -q "^CLAUDE\.md$"; then
+    CLAUDE_LINES=$(git show :CLAUDE.md 2>/dev/null | wc -l | tr -d ' ')
+    if [ -n "$CLAUDE_LINES" ] && [ "$CLAUDE_LINES" -gt 250 ]; then
+        echo "❌ pre-commit blocked: CLAUDE.md が ${CLAUDE_LINES} 行あります (上限 250 行)"
+        echo ""
+        echo "   超過分を docs/rules/ 配下に外出しして 250 行以内に収めてください。"
+        echo "   CLAUDE.md「250 行以内」ルール: CI meta-doc-guard と同じ条件 (T2026-0503-D)"
+        echo ""
+        echo "   緊急 bypass: git commit --no-verify (要 WORKING.md 記録)"
+        exit 1
+    fi
+fi
+
 exit 0
 HOOK
 
