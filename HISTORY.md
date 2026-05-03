@@ -41,6 +41,16 @@
 
 ---
 
+## T2026-0502-COST-A1-DELETE-TABLE — DynamoDB 未使用3テーブル削除
+
+**完了** (2026-05-04、PO がAWSコンソールから直接削除)。
+- **削除テーブル**: ai-company-memory / ai-company-x-posts / ai-company-agent-status
+- **方法**: PO がAWSコンソールから直接削除（audit テーブルは既に存在しないため skip）
+- **依存完了**: T2026-0502-COST-A1-CODE (PR #308) で deploy.sh の create-table ブロック削除済み → 次回 deploy でテーブルが再作成されないことを担保
+- **規律整理完了**
+
+---
+
 ## T2026-0502-COST-D1-INVESTIGATE — DynamoDB Read 元コード分析 §9 追記 (PR #309)
 
 **完了** (2026-05-02 23:00 JST、Cowork セッション)。
