@@ -428,8 +428,9 @@ class GenreKeypointExamplesTest(unittest.TestCase):
         self.assertIn('× 悪い例', result)
 
     def test_other_genre_no_example_block(self):
-        # 例が用意されていないジャンルはヒント本体だけが返ること
-        result = proc_ai._build_keypoint_genre_hint('政治')
+        # '総合' は _GENRE_KEYPOINT_EXAMPLES に登録されていないため ◎例ブロックは注入されない
+        # (政治は T2026-0501-K-EXT で examples が追加されたため '総合' で検証する)
+        result = proc_ai._build_keypoint_genre_hint('総合')
         self.assertIn('keyPoint', result)
         # ◎例ブロックは注入されない（ただしエラーにはならない）
         self.assertNotIn('◎ 良い例', result)
