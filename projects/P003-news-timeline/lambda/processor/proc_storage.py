@@ -410,9 +410,13 @@ def needs_ai_processing(item, force=False):
     # 過去 (2026-04-26〜27) に滞留した平均 43.8 字の短い keyPoint をキューに取り込む。
     if _is_keypoint_inadequate(item.get('keyPoint')):
         return True
+    # ac>=2 では perspectives が必須 (T2026-0430-G で minimal/cnt=2 も生成対象に)。
+    # 欠落トピックを再処理キューに取り込み、空のまま配信される状態を物理排除する。
+    _ac = int(item.get('articleCount', 0) or 0)
+    if _ac >= 2 and not str(item.get('perspectives') or '').strip():
+        return True
     # T2026-0428-J/E: standard/full mode (記事3件以上) では statusLabel / watchPoints も必須。
     # 新フィールドが空の旧 aiGenerated=True topic を再処理対象に取り込み、滞留を解消する。
-    _ac = int(item.get('articleCount', 0) or 0)
     if _ac >= 3:
         if not str(item.get('statusLabel') or '').strip():
             return True
@@ -421,7 +425,7 @@ def needs_ai_processing(item, force=False):
     # T2026-0428-AH: storyPhase=='発端' かつ articleCount>=3 は再生成対象に含める。
     # T219 で「記事3件以上で発端禁止」をプロンプト強化済だが、aiGenerated=True 旧 topic は
     # ここで skip されるため誤判定の発端が永続化していた（本番 54/93 = 58% で確認）。
-    if item.get('storyPhase') == '発端' and int(item.get('articleCount', 0) or 0) >= 3:
+    if item.get('storyPhase') == '発端' and _ac >= 3:
         return True
     return False
 
@@ -754,7 +758,7 @@ def get_pending_topics(max_topics=100, force=False):
     # フォールバック: DynamoDBスキャン
     # pending_ai.json が空 or 未作成のとき、処理必要なトピックを全スキャンして pending_ai.json を再生成
     print('get_pending_topics: pending_ai.json空のためDynamoDBフルスキャン（storyTimeline欠如含む）')
-    proj = 'topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,statusLabel,watchPoints,schemaVersion,lifecycleStatus'
+    proj = 'topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,keyPoint,statusLabel,watchPoints,perspectives,schemaVersion,lifecycleStatus'
     # T2026-0503-UX-NO-KEYPOINT-23: keyPoint 欠落 (NULL or 空文字) も再処理対象に追加。
     # 旧フィルタでは aiGenerated=True かつ他フィールド揃い but keyPoint=None の topic が
     # フォールバックスキャンで拾えず永久に未生成のまま残っていた。
@@ -858,7 +862,7 @@ def get_topics_by_ids(topic_ids, force=False):
     """
     proj = ('topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,'
             'generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,'
-            'imageUrl,genre,genres,keyPoint,schemaVersion,statusLabel,watchPoints,summaryMode')
+            'imageUrl,genre,genres,keyPoint,schemaVersion,statusLabel,watchPoints,perspectives,summaryMode')
     items = []
     ghost_ids = []
     skipped_ids = []  # 存在するが needs_ai_processing が False
@@ -1152,8 +1156,12 @@ def _is_fully_filled(item) -> bool:
     if _is_keypoint_inadequate(item.get('keyPoint')):
         return False
 
-    # ac>=3 では statusLabel / watchPoints が必須
+    # ac>=2 では perspectives が必須 (T2026-0430-G で minimal/cnt=2 も生成対象に)。
     ac = int(item.get('articleCount', 0) or 0)
+    if ac >= 2 and not str(item.get('perspectives') or '').strip():
+        return False
+
+    # ac>=3 では statusLabel / watchPoints が必須
     if ac >= 3:
         if not str(item.get('statusLabel') or '').strip():
             return False
@@ -1374,7 +1382,7 @@ _PENDING_META_PROJ = (
     'topicId,title,articleCount,score,velocityScore,lastUpdated,'
     'generatedTitle,generatedSummary,storyTimeline,storyPhase,'
     'aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,'
-    'keyPoint,summaryMode,statusLabel,watchPoints,lifecycleStatus,schemaVersion'
+    'keyPoint,summaryMode,statusLabel,watchPoints,perspectives,lifecycleStatus,schemaVersion'
 )
 
 
