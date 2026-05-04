@@ -330,7 +330,7 @@ if not final_kp:
 
 | フェーズ | 内容 | 前提 |
 |---|---|---|
-| **S0** | 手動設計: 政治経済カテゴリの記事数最多トピックで「正解サンプル」JSON を作る | POレビューまで |
+| **S0** | 手動設計: 政治経済カテゴリの記事数最多トピックで「正解サンプル」JSON を作る → **✅ 完了 2026-05-04: `docs/step6-s0-sample.json`（c678db8d3e5a82f6 / 在独米軍削減 / 3チャプター）** | POレビューまで |
 | **POレビュー** | S0 の正解サンプルを確認してプロンプト方針を確定 | S0完了後 |
 | **S1** | DynamoDB スキーマ拡張: `chapters` / `background` / `relatedTopicIds` フィールド追加。読み取り互換性確認 | POレビュー通過後 |
 | **S2** | processor 変更: 差分処理・`lastChapterDate` 以降の記事のみ送る・`CHAPTER_MODE_GENRES=politics` 環境変数でジャンル限定 | S1完了後 |
