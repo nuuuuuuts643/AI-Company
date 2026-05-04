@@ -324,14 +324,15 @@ jobs:
           echo "[OK] flotopic-bluesky 環境変数更新"
 
       # ----------------------------------------------------------------
-      # T193: 朝の定期投稿 (morning) 用 EventBridge cron 登録
-      # 目的: 「毎日来る理由」— JST 08:00 に必ず Bluesky で動きトピックを 1 件投稿。
-      # 既存 rate(30 minutes) ルール (任意のトピックを 2.5h cooldown で投稿) とは独立。
-      # 新ルール flotopic-bluesky-morning は cron(0 23 * * ? *) (UTC 23:00 = JST 08:00)。
-      # 既存 Lambda flotopic-bluesky を再利用し、Input='{"mode":"morning"}' で起動する。
+      # Bluesky 定期投稿 用 EventBridge cron 登録
+      # 目的: JST 09:00/17:00/21:00 の1日3回 Bluesky で動きトピックを投稿。
+      # Step4 (2026-05-04): rate(30min) → 1日3回に変更。
+      #   flotopic-bluesky-schedule (rate 30min): DISABLED
+      #   flotopic-bluesky-morning-cron (JST 06:00): DISABLED
+      #   flotopic-bluesky-morning: cron(0 0,8,12 * * ? *) = UTC 00/08/12 = JST 09/17/21
       # 冪等: put-rule / put-targets / add-permission をすべて存在チェック付きで実行。
       # ----------------------------------------------------------------
-      - name: bluesky-morning EventBridge cron 登録 (T193)
+      - name: bluesky EventBridge cron 登録 (1日3回)
         run: |
           set -e
           RULE_NAME=flotopic-bluesky-morning
@@ -340,14 +341,14 @@ jobs:
           LAMBDA_ARN=$(aws lambda get-function --function-name "$LAMBDA_NAME" --region "$REGION" --query 'Configuration.FunctionArn' --output text)
           echo "Lambda ARN: $LAMBDA_ARN"
 
-          # 1) ルール作成 or 更新 (UTC 23:00 = JST 08:00)
+          # 1) ルール作成 or 更新 (UTC 00:00/08:00/12:00 = JST 09:00/17:00/21:00)
           aws events put-rule \
             --name "$RULE_NAME" \
-            --schedule-expression "cron(0 23 * * ? *)" \
+            --schedule-expression "cron(0 0,8,12 * * ? *)" \
             --state ENABLED \
-            --description "T193 morning bluesky post — JST 08:00 daily" \
+            --description "Bluesky 1日3回: JST 09:00/17:00/21:00 (UTC 00/08/12)" \
             --region "$REGION" > /dev/null
-          echo "[OK] EventBridge ルール $RULE_NAME (cron 0 23 * * ? *)"
+          echo "[OK] EventBridge ルール $RULE_NAME (cron 0 0,8,12 * * ? *)"
 
           # 2) Lambda 側の invoke 許可 (既にあれば ResourceConflictException を黙殺)
           STATEMENT_ID="${RULE_NAME}-invoke"
