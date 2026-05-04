@@ -1259,13 +1259,6 @@ def update_topic_with_ai(tid, gen_title, gen_story, ai_succeeded=False, image_ur
             if gen_story.get('backgroundContext') and _can_write('backgroundContext'):
                 update_expr += ', backgroundContext = :bgctx'
                 expr_values[':bgctx'] = gen_story['backgroundContext']
-            if gen_story.get('background'):
-                if _can_write('background'):
-                    update_expr += ', background = :bg'
-                    expr_values[':bg'] = gen_story['background']
-            else:
-                # 空フィールド検出を CloudWatch で観測可能にする (T35 prompt 改善の効果計測)
-                print(f"[AI_FIELD_GAP] background empty topic={tid}")
             if gen_story.get('perspectives') is not None and str(gen_story.get('perspectives', '')).strip():
                 if _can_write('perspectives'):
                     update_expr += ', perspectives = :persp'
