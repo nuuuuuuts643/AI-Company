@@ -138,7 +138,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] T2026-0504-A proc_ai.py ファイル分割 | Code | lambda/processor/proc_ai.py, proc_genre.py, proc_prompts.py, proc_formatter.py | 2026-05-04 10:00 | yes |
 
 ### Dispatch継続性
 | 種別 | ID | 内容 | 状態 |
