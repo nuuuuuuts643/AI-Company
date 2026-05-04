@@ -69,13 +69,16 @@ schema_fields.update(re.findall(r"'([a-zA-Z][a-zA-Z0-9_]*)':\s*\{\s*'type':", pr
 # ────────────────────────────────────────────────────────────────────
 # 3) handler.py の ai_updates dict — proc_ai 出力を topics.json フィールド名に
 #    リネームしている層。ここの LHS が「最終的に topics.json に乗る AI フィールド」。
+#    T2026-0504-CI-FIX: handler.py に複数の ai_updates[tid] ブロックが存在する場合
+#    (例: chapter mode 用の専用ブロック + 通常処理用ブロック) があるため、
+#    re.search (最初の1件のみ) から re.findall (全件の union) に変更。
 # ────────────────────────────────────────────────────────────────────
 handler_src = read(handler_path)
-m = re.search(r"ai_updates\[tid\]\s*=\s*\{(.+?)\n\s*\}\n", handler_src, re.DOTALL)
+blocks = re.findall(r"ai_updates\[tid\]\s*=\s*\{(.+?)\n\s*\}", handler_src, re.DOTALL)
 ai_updates_keys = set()
-if m:
-    block = m.group(1)
-    ai_updates_keys = set(re.findall(r"'([a-zA-Z][a-zA-Z0-9_]*)'\s*:", block))
+if blocks:
+    for block in blocks:
+        ai_updates_keys.update(re.findall(r"'([a-zA-Z][a-zA-Z0-9_]*)'\s*:", block))
 else:
     print("ERROR: handler.py で ai_updates[tid] = {...} ブロックが見つからない (regex 要更新)", file=sys.stderr)
     sys.exit(1)
