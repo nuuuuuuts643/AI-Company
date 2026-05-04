@@ -138,7 +138,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] Step6-S2 チャプター差分処理 | Code | handler.py/proc_ai.py/proc_storage.py | 2026-05-04 12:00 | yes |
 
 ### Dispatch継続性
 | 種別 | ID | 内容 | 状態 |
