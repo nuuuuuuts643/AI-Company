@@ -13,11 +13,12 @@ Stage 2: バッチAI処理 Lambda
 ─────────────────────────────────────────────────────────────────────────────
 """
 import json
+import os
 import time
 from datetime import datetime, timezone
 
 from proc_config import MAX_API_CALLS, MIN_ARTICLES_FOR_TITLE, MIN_ARTICLES_FOR_SUMMARY, PROCESSOR_SCHEMA_VERSION
-from proc_ai import generate_title, generate_story, judge_prediction, log_skip_reason
+from proc_ai import generate_title, generate_story, judge_prediction, log_skip_reason, generate_chapter
 from proc_storage import (
     get_pending_topics, get_topics_by_ids, get_latest_articles_for_topic,
     update_topic_with_ai, get_all_topics_for_s3,
@@ -32,6 +33,17 @@ from proc_storage import (
     _is_keypoint_inadequate,
     _strip_title_markdown,
     normalize_minimal_phase,
+    get_new_articles_since,
+    append_chapter,
+)
+
+# Step 6 S2: CHAPTER_MODE_GENRES — カンマ区切りのジャンルリスト。
+# 未設定/空の場合はチャプターモードを使わない（既存挙動）。
+# 例: "politics" または "politics,tech"
+_CHAPTER_MODE_GENRES: frozenset = frozenset(
+    g.strip().lower()
+    for g in os.environ.get('CHAPTER_MODE_GENRES', '').split(',')
+    if g.strip()
 )
 
 _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline'}
@@ -312,6 +324,47 @@ def lambda_handler(event, context):
         if not articles:
             raw_title = topic.get('title', '')
             articles  = [{'title': raw_title}] if raw_title else []
+
+        # Step 6 S2: チャプターモード処理
+        # CHAPTER_MODE_GENRES に含まれるジャンルのトピックは差分チャプター生成を行う。
+        # 既存のストーリー生成処理は変更しない（チャプターモード専用の分岐）。
+        _topic_genre = (topic.get('genre') or '').lower()
+        if _topic_genre and _topic_genre in _CHAPTER_MODE_GENRES:
+            last_chapter_date = topic.get('lastChapterDate')
+            new_articles = get_new_articles_since(articles, last_chapter_date)
+            if not new_articles or cnt < MIN_ARTICLES_FOR_SUMMARY:
+                skipped += 1
+                log_skip_reason(tid, f'chapter_mode: no_new_articles since={last_chapter_date} cnt={cnt}')
+                continue
+            new_chap = generate_chapter(topic, new_articles)
+            api_calls += 1
+            time.sleep(1.5)
+            if new_chap:
+                append_chapter(tid, new_chap)
+                # S3 に反映されるよう ai_updates に chapters を含めて pass-through
+                # （S1 の passthrough ロジックが topics.json / topic/{id}.json に書き込む）
+                updated_chapters = list(topic.get('chapters') or []) + [new_chap]
+                ai_updates[tid] = {
+                    'generatedTitle':   _strip_title_markdown(topic.get('generatedTitle')),
+                    'generatedSummary': topic.get('generatedSummary'),
+                    'keyPoint':         topic.get('keyPoint'),
+                    'aiGenerated':      topic.get('aiGenerated', False),
+                    'imageUrl':         None,
+                    'chapters':         updated_chapters,
+                    'background':       topic.get('background'),
+                    'relatedTopicIds':  topic.get('relatedTopicIds'),
+                    'lastChapterDate':  new_chap['date'],
+                }
+                articles_cache[tid] = articles
+                incremental_map[tid] = True
+                processed += 1
+                if _is_t0:
+                    tier0_processed += 1
+                print(f'  [Claude チャプター] {tid[:8]}... date={new_chap["date"]}')
+            else:
+                skipped += 1
+                log_skip_reason(tid, 'chapter_mode: generate_chapter failed')
+            continue
 
         gen_title       = _strip_title_markdown(topic.get('generatedTitle'))
         title_succeeded = False

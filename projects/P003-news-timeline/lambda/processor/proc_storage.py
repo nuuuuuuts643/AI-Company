@@ -1064,6 +1064,67 @@ def get_latest_articles_for_topic(tid):
     return []
 
 
+def get_new_articles_since(articles: list, since_date: str | None) -> list:
+    """since_date (YYYY-MM-DD) より新しい記事を返す。since_date が None なら全件。
+
+    Step 6 S2: チャプター差分処理。lastChapterDate 以降に公開された記事だけを
+    Claude に送ることで API コストを削減する。
+    pubDate パース失敗の記事は「新しい記事」として含める（除外すると欠落リスク）。
+    """
+    if since_date is None:
+        return list(articles)
+    try:
+        since_dt = datetime.fromisoformat(since_date).replace(tzinfo=timezone.utc)
+    except Exception:
+        return list(articles)
+    result = []
+    for a in articles:
+        raw = a.get('pubDate', '') or a.get('publishedAt', '')
+        a_dt = _parse_pubdate(raw) if raw else None
+        if a_dt is None:
+            result.append(a)
+            continue
+        a_date_only = a_dt.date()
+        since_date_only = since_dt.date()
+        if a_date_only > since_date_only:
+            result.append(a)
+    return result
+
+
+def append_chapter(topic_id: str, new_chapter: dict, related_topic_ids: list | None = None) -> None:
+    """Step 6 S2: DynamoDB の chapters リストに新チャプターを追記し、lastChapterDate を更新する。
+
+    - chapters は append-only（過去チャプターは絶対に書き換えない）
+    - background / keyPoint は変更しない
+    - related_topic_ids が指定された場合のみ relatedTopicIds を更新
+    """
+    update_expr = 'SET lastChapterDate = :lcd'
+    expr_values: dict = {':lcd': new_chapter.get('date', '')}
+    expr_names: dict = {}
+
+    # chapters リストに追記（list_append で DynamoDB 側が atomic に処理）
+    # 初回（chapters が存在しない場合）は空リストから開始
+    update_expr += ', #ch = list_append(if_not_exists(#ch, :empty_list), :new_chapter)'
+    expr_names['#ch'] = 'chapters'
+    expr_values[':empty_list'] = []
+    expr_values[':new_chapter'] = [new_chapter]
+
+    if related_topic_ids is not None:
+        update_expr += ', relatedTopicIds = :rtids'
+        expr_values[':rtids'] = related_topic_ids
+
+    kwargs: dict = {
+        'Key': {'topicId': topic_id, 'SK': 'META'},
+        'UpdateExpression': update_expr,
+        'ExpressionAttributeValues': expr_values,
+    }
+    if expr_names:
+        kwargs['ExpressionAttributeNames'] = expr_names
+
+    table.update_item(**kwargs)
+    print(f'[append_chapter] {topic_id[:8]}... date={new_chapter.get("date")} appended')
+
+
 def _is_field_empty(v):
     """T2026-0428-AO: 既存フィールドが「空」かどうかを判定する。
     None / 空文字 / whitespace のみ / 空 list / 空 dict を空として扱う。

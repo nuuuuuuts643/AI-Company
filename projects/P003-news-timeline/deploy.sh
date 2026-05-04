@@ -254,10 +254,10 @@ _CURRENT_ANTHROPIC=$(aws lambda get-function-configuration \
   --query 'Environment.Variables.ANTHROPIC_API_KEY' --output text 2>/dev/null || echo "")
 _EFFECTIVE_ANTHROPIC="${ANTHROPIC_API_KEY:-$_CURRENT_ANTHROPIC}"
 if [ -n "$_EFFECTIVE_ANTHROPIC" ] && [ "$_EFFECTIVE_ANTHROPIC" != "None" ]; then
-  PROCESSOR_ENV_VARS="Variables={TABLE_NAME=${TABLE},S3_BUCKET=${BUCKET},REGION=${REGION},SITE_URL=https://flotopic.com,ANTHROPIC_API_KEY=${_EFFECTIVE_ANTHROPIC}}"
+  PROCESSOR_ENV_VARS="Variables={TABLE_NAME=${TABLE},S3_BUCKET=${BUCKET},REGION=${REGION},SITE_URL=https://flotopic.com,ANTHROPIC_API_KEY=${_EFFECTIVE_ANTHROPIC},CHAPTER_MODE_GENRES=politics}"
   echo "  -> ANTHROPIC_API_KEY: 設定済み"
 else
-  PROCESSOR_ENV_VARS="Variables={TABLE_NAME=${TABLE},S3_BUCKET=${BUCKET},REGION=${REGION},SITE_URL=https://flotopic.com}"
+  PROCESSOR_ENV_VARS="Variables={TABLE_NAME=${TABLE},S3_BUCKET=${BUCKET},REGION=${REGION},SITE_URL=https://flotopic.com,CHAPTER_MODE_GENRES=politics}"
   echo "  ⚠️  ANTHROPIC_API_KEY 未設定 — AI要約が動きません。手動で設定してください。"
 fi
 echo "[4b] Processor Lambda デプロイ（バッチAI処理）..."

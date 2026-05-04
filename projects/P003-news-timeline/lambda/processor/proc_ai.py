@@ -1128,6 +1128,104 @@ def judge_prediction(outlook: str, new_titles: list, min_titles: int = 5) -> dic
         print(f'judge_prediction error: {e}')
 
 
+_CHAPTER_SYSTEM_PROMPT = """あなたはニュース分析の専門家です。
+提供された新着記事を読み、トピックの最新チャプター（章）を生成してください。
+
+【絶対ルール】
+- summary: 事実のみ。意見・予想は一切入れない。箇条書き不可。1〜3文。
+- commentary: なぜ重要か・何が変わるか・何に影響するかのAI解説。文中で関連トピックに言及する場合は [topicId:xxxx] 形式のプレースホルダーを使ってよい。
+- prediction: 次に何が起きるか。「〜の可能性」「〜かもしれない」は禁止。断定形で書く。根拠を必ず示す。
+- articleIds: 使用した記事URLのリスト（全て含める）。
+- date: 新着記事の中で最も新しい記事の日付（YYYY-MM-DD形式）。
+"""
+
+
+def generate_chapter(topic_data: dict, new_articles: list) -> dict | None:
+    """Step 6 S2: チャプター型ストーリーの新チャプターを生成する。
+
+    topic_data: DynamoDB から取得したトピックメタ（background/keyPoint/chapters/topicTitle を使用）
+    new_articles: lastChapterDate 以降の新着記事リスト（title/url/pubDate フィールドを持つ）
+    Returns: 新チャプター dict または失敗時 None
+    """
+    if not new_articles:
+        return None
+
+    topic_title = topic_data.get('topicTitle') or topic_data.get('generatedTitle') or ''
+    background = topic_data.get('background') or ''
+    key_point = topic_data.get('keyPoint') or ''
+    existing_chapters = topic_data.get('chapters') or []
+    latest_chapter = existing_chapters[-1] if existing_chapters else None
+
+    # 新着記事ブロック
+    articles_block = '\n'.join(
+        f'- [{a.get("pubDate", "")[:10]}] {a.get("title", "")} ({a.get("url", "")})'
+        for a in new_articles
+    )
+
+    # 最新チャプターの文脈（あれば）
+    prev_chapter_block = ''
+    if latest_chapter:
+        prev_chapter_block = f"""
+【直前のチャプター（{latest_chapter.get('date', '')}）】
+summary: {latest_chapter.get('summary', '')}
+prediction: {latest_chapter.get('prediction', '')}
+"""
+
+    prompt = f"""トピック: {topic_title}
+
+【背景・文脈】
+{background}
+
+【このトピックの最大の注目点】
+{key_point}
+{prev_chapter_block}
+【新着記事】
+{articles_block}
+
+上記の新着記事を元に、このトピックの最新チャプターを生成してください。"""
+
+    schema = {
+        'type': 'object',
+        'properties': {
+            'date': {'type': 'string', 'description': '最新記事の日付 (YYYY-MM-DD)'},
+            'summary': {'type': 'string', 'description': '事実のみ・1〜3文'},
+            'commentary': {'type': 'string', 'description': 'AI解説・なぜ重要か'},
+            'prediction': {'type': 'string', 'description': '断定形の予測・根拠付き'},
+            'articleIds': {
+                'type': 'array',
+                'items': {'type': 'string'},
+                'description': '使用した記事のURL一覧',
+            },
+        },
+        'required': ['date', 'summary', 'commentary', 'prediction', 'articleIds'],
+    }
+
+    result = _call_claude_tool(
+        prompt=prompt,
+        tool_name='generate_chapter',
+        input_schema=schema,
+        max_tokens=1200,
+        system=_CHAPTER_SYSTEM_PROMPT,
+    )
+    if not result:
+        print('[generate_chapter] Claude API 失敗: result=None')
+        return None
+
+    # 最低限のバリデーション
+    for field in ('date', 'summary', 'commentary', 'prediction'):
+        if not str(result.get(field) or '').strip():
+            print(f'[generate_chapter] 必須フィールド欠落: {field}')
+            return None
+
+    return {
+        'date': str(result.get('date', '')).strip()[:10],
+        'summary': str(result.get('summary', '')).strip(),
+        'commentary': str(result.get('commentary', '')).strip(),
+        'prediction': str(result.get('prediction', '')).strip(),
+        'articleIds': [str(u) for u in (result.get('articleIds') or []) if u],
+    }
+
+
 def log_skip_reason(tid: str, reason: str) -> None:
     """スキップ理由を統一フォーマットでログ出力する。
 
