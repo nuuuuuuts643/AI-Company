@@ -34,7 +34,7 @@ from proc_storage import (
     normalize_minimal_phase,
 )
 
-_PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext', 'background'}
+_PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline'}
 
 # PRED# レコードを topics.json から除外するためのプレフィックスチェックは不要
 # (get_all_topics_for_s3 が SK='META' のみ取得するため自動除外)
