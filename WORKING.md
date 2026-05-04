@@ -138,6 +138,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] PR-A background dead code 削除 | Code | proc_storage.py, handler.py | 2026-05-04 今 | yes |
 
 ### Dispatch継続性
 | 種別 | ID | 内容 | 状態 |
