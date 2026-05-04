@@ -52,6 +52,7 @@ def _good_topic(**override):
                     'エンタープライズ採用は 30 日以内のベンチマーク結果次第になる。',
         'statusLabel': '主要ベンダーが対抗発表',
         'watchPoints': '推論ベンチマークの第三者検証 / 価格改定タイミング',
+        'perspectives': 'OpenAI側: 技術的優位性と差別化を主張。Google側: 既存サービスとの統合・コスト優位性を強調。両社で戦略の方向性が明確に分岐。',
     }
     base.update(override)
     return base
@@ -100,6 +101,42 @@ class NeedsAiProcessingAHTest(unittest.TestCase):
 
     def test_ah_phase_genzaichi_not_reprocessed(self):
         item = _good_topic(storyPhase='現在地', articleCount=10)
+        self.assertFalse(needs_ai(item))
+
+
+class PerspectivesCheckTest(unittest.TestCase):
+    """perspectives が ac>=2 で必須であることを物理確認。"""
+
+    def test_perspectives_missing_ac2_triggers_reprocess(self):
+        """ac>=2 で perspectives 欠落 → 再処理対象 (True)"""
+        item = _good_topic(perspectives='', articleCount=2, summaryMode='minimal',
+                           statusLabel='', watchPoints='', storyTimeline=[])
+        self.assertTrue(needs_ai(item))
+
+    def test_perspectives_none_ac5_triggers_reprocess(self):
+        """perspectives=None (ac=5) → 再処理対象"""
+        item = _good_topic(perspectives=None)
+        self.assertTrue(needs_ai(item))
+
+    def test_perspectives_missing_ac5_triggers_reprocess(self):
+        """perspectives='' (ac=5) → 再処理対象"""
+        item = _good_topic(perspectives='')
+        self.assertTrue(needs_ai(item))
+
+    def test_perspectives_present_ac2_no_reprocess(self):
+        """ac=2 で perspectives あり + 他全充足 → 再処理不要 (False)"""
+        item = _good_topic(
+            articleCount=2,
+            summaryMode='minimal',
+            storyTimeline=[],
+            statusLabel='',
+            watchPoints='',
+        )
+        self.assertFalse(needs_ai(item))
+
+    def test_perspectives_missing_ac1_not_required(self):
+        """ac=1 はフロント非表示・最初の早期 return で False (perspectives 不問)"""
+        item = _good_topic(perspectives='', articleCount=1)
         self.assertFalse(needs_ai(item))
 
 

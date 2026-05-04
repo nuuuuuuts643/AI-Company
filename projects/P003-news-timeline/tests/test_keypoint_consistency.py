@@ -70,6 +70,7 @@ def _full_topic(**override):
         'keyPoint': _LONG_KP,
         'statusLabel': '進行中',
         'watchPoints': '①治安部隊の対応 ②サヘル諸国の反応 ③民間人被害',
+        'perspectives': '政府側: 戒厳令を維持し国際支援を要請。反政府勢力側: 権力交代を求め攻勢を継続。国際社会は状況悪化に懸念を表明。',
     }
     base.update(override)
     return base

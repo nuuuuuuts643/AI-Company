@@ -351,6 +351,7 @@ def lambda_handler(event, context):
             (not _is_keypoint_inadequate(topic.get('keyPoint'))),  # T2026-0429-KP: 100字閾値 / proc_storage と一致
             (bool(topic.get('statusLabel')) or _is_minimal),   # T2026-0428-J/E: standard/full のみ必須
             (bool(topic.get('watchPoints'))  or _is_minimal),
+            (bool(topic.get('perspectives')) or _is_minimal),  # ac>=2 では必須 (proc_storage._is_fully_filled と同期)
         )
         # T2026-0502-MU: current summaryMode が cnt に見合った mode より低い場合、昇格が必要。
         # 例: cnt=6 (→full 期待) で summaryMode='standard' → full フィールドが一度も生成されない。
@@ -386,10 +387,11 @@ def lambda_handler(event, context):
                 _hours_since_ai = (datetime.now(timezone.utc) - _ai_at).total_seconds() / 3600
                 _no_new_articles = (_last_upd is None) or (_last_upd <= _ai_at)
                 _kp_inadequate = _is_keypoint_inadequate(topic.get('keyPoint'))
-                if _hours_since_ai < 48 and _no_new_articles and not _kp_inadequate and not _mode_upgrade_needed:
+                _perspectives_missing = (cnt >= 2 and not str(topic.get('perspectives') or '').strip())
+                if _hours_since_ai < 48 and _no_new_articles and not _kp_inadequate and not _mode_upgrade_needed and not _perspectives_missing:
                     needs_story = False
                     skipped += 1
-                    log_skip_reason(tid, f'aiGen後{_hours_since_ai:.1f}h・新記事なし・keyPoint充足・mode昇格不要')
+                    log_skip_reason(tid, f'aiGen後{_hours_since_ai:.1f}h・新記事なし・keyPoint充足・mode昇格不要・perspectives充足')
                     continue
             except Exception as _e:
                 pass  # パース失敗時は通常処理
