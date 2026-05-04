@@ -7,6 +7,7 @@ PayloadFormatVersion 2.0 準拠 + _make_response ヘルパーの境界値テス�
 - 境界値: 空リスト / 大量データ / None 値 / Decimal 型 / 未来日付
 """
 
+import importlib.util
 import json
 import sys
 import os
@@ -16,8 +17,23 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Lambda ディレクトリをパスに追加
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'lambda', 'favorites'))
+# favorites/handler.py を favorites_handler という一意な名前で読み込む。
+# 同 pytest セッション内で lambda/processor/handler.py も "handler" として
+# sys.modules にキャッシュされるため、単純な import handler では衝突する。
+_FAVORITES_HANDLER_PATH = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), '..', 'lambda', 'favorites', 'handler.py')
+)
+_favorites_sys_path = os.path.dirname(_FAVORITES_HANDLER_PATH)
+if _favorites_sys_path not in sys.path:
+    sys.path.insert(0, _favorites_sys_path)
+
+if 'favorites_handler' not in sys.modules:
+    _spec = importlib.util.spec_from_file_location('favorites_handler', _FAVORITES_HANDLER_PATH)
+    _mod = importlib.util.module_from_spec(_spec)
+    sys.modules['favorites_handler'] = _mod
+    _spec.loader.exec_module(_mod)
+
+import favorites_handler as _fh_module
 
 
 def _is_valid_payload_format_v2(resp: dict) -> None:
@@ -26,7 +42,6 @@ def _is_valid_payload_format_v2(resp: dict) -> None:
     assert isinstance(resp.get('statusCode'), int), f"statusCode must be int, got {type(resp.get('statusCode'))}"
     assert isinstance(resp.get('body'), str), f"body must be str, got {type(resp.get('body'))}"
     assert isinstance(resp.get('headers'), dict), "headers must be dict"
-    # body が valid JSON であること
     parsed = json.loads(resp['body'])
     assert parsed is not None
 
@@ -35,8 +50,7 @@ def _is_valid_payload_format_v2(resp: dict) -> None:
 
 class TestMakeResponse:
     def setup_method(self):
-        import handler
-        self.handler = handler
+        self.handler = _fh_module
 
     def test_normal_200(self):
         r = self.handler._make_response(200, {'key': 'value'})
@@ -71,7 +85,6 @@ class TestMakeResponse:
         assert len(parsed['favorites']) == 1000
 
     def test_decimal_values_serialized_as_string(self):
-        # DynamoDB が Decimal を返す場合
         r = self.handler._make_response(200, {'count': Decimal('42'), 'score': Decimal('3.14')})
         _is_valid_payload_format_v2(r)
         parsed = json.loads(r['body'])
@@ -111,7 +124,10 @@ class TestMakeResponse:
     def test_default_headers_include_cors(self):
         r = self.handler._make_response(200, {})
         assert 'Access-Control-Allow-Origin' in r['headers']
-        assert r['headers']['Access-Control-Allow-Origin'] == '*'
+        # T2026-0502-SEC8: CORS Allow-Origin は * から自社ドメインに変更された
+        assert r['headers']['Access-Control-Allow-Origin'] in (
+            'https://flotopic.com', 'https://www.flotopic.com'
+        )
 
     def test_nested_dict_payload(self):
         payload = {'a': {'b': {'c': [1, 2, {'d': Decimal('99')}]}}}
@@ -123,8 +139,7 @@ class TestMakeResponse:
 
 class TestLambdaHandlerGetFavorites:
     def setup_method(self):
-        import handler
-        self.handler = handler
+        self.handler = _fh_module
 
     def _make_event(self, user_id: str, method: str = 'GET') -> dict:
         return {
@@ -132,16 +147,18 @@ class TestLambdaHandlerGetFavorites:
             'rawPath': f'/favorites/{user_id}',
         }
 
-    @patch('handler.get_favorites')
-    def test_empty_favorites_list(self, mock_get):
+    @patch('favorites_handler._verify_user_or_403', return_value=None)
+    @patch('favorites_handler.get_favorites')
+    def test_empty_favorites_list(self, mock_get, mock_auth):
         mock_get.return_value = []
         r = self.handler.lambda_handler(self._make_event('user001'), None)
         _is_valid_payload_format_v2(r)
         assert r['statusCode'] == 200
         assert json.loads(r['body'])['favorites'] == []
 
-    @patch('handler.get_favorites')
-    def test_normal_favorites_list(self, mock_get):
+    @patch('favorites_handler._verify_user_or_403', return_value=None)
+    @patch('favorites_handler.get_favorites')
+    def test_normal_favorites_list(self, mock_get, mock_auth):
         mock_get.return_value = [
             {'topicId': 'abcdef1234567890', 'createdAt': '2026-01-01T00:00:00+00:00'},
             {'topicId': '1234567890abcdef', 'createdAt': '2026-02-01T00:00:00+00:00'},
@@ -152,16 +169,17 @@ class TestLambdaHandlerGetFavorites:
         parsed = json.loads(r['body'])
         assert len(parsed['favorites']) == 2
 
-    @patch('handler.get_favorites')
-    def test_favorites_with_decimal_createdAt(self, mock_get):
-        # 旧データ形式: createdAt が Decimal (Unix timestamp)
+    @patch('favorites_handler._verify_user_or_403', return_value=None)
+    @patch('favorites_handler.get_favorites')
+    def test_favorites_with_decimal_createdAt(self, mock_get, mock_auth):
         mock_get.return_value = [{'topicId': 'abcdef1234567890', 'createdAt': Decimal('1746153700')}]
         r = self.handler.lambda_handler(self._make_event('user001'), None)
         _is_valid_payload_format_v2(r)
         assert r['statusCode'] == 200
 
-    @patch('handler.get_favorites')
-    def test_large_favorites_list(self, mock_get):
+    @patch('favorites_handler._verify_user_or_403', return_value=None)
+    @patch('favorites_handler.get_favorites')
+    def test_large_favorites_list(self, mock_get, mock_auth):
         mock_get.return_value = [
             {'topicId': f'{i:016x}', 'createdAt': '2026-01-01T00:00:00+00:00'} for i in range(500)
         ]
@@ -170,13 +188,13 @@ class TestLambdaHandlerGetFavorites:
         assert r['statusCode'] == 200
         assert len(json.loads(r['body'])['favorites']) == 500
 
-    @patch('handler.get_favorites')
-    def test_dynamo_exception_returns_500_with_log(self, mock_get, capsys):
+    @patch('favorites_handler._verify_user_or_403', return_value=None)
+    @patch('favorites_handler.get_favorites')
+    def test_dynamo_exception_returns_500_with_log(self, mock_get, mock_auth, capsys):
         mock_get.side_effect = Exception('DynamoDB connection timeout')
         r = self.handler.lambda_handler(self._make_event('user001'), None)
         _is_valid_payload_format_v2(r)
         assert r['statusCode'] == 500
-        # ログが出力されること
         captured = capsys.readouterr()
         assert '[ERROR]' in captured.out
         assert 'DynamoDB connection timeout' in captured.out
