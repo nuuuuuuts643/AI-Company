@@ -1,0 +1,25 @@
+{
+  "_comment": "ソースフィルタリングポリシー。docs/decisions/001-source-filtering.md 参照",
+  "tiers": {
+    "A": [
+      "kantei.go.jp",
+      "mofa.go.jp",
+      "mof.go.jp",
+      "cao.go.jp",
+      "nhk.or.jp"
+    ],
+    "B": [
+      "mainichi.jp",
+      "asahi.com",
+      "yomiuri.co.jp",
+      "nikkei.com",
+      "reuters.com",
+      "bloomberg.co.jp"
+    ]
+  },
+  "summarize_tiers": ["A", "B"],
+  "max_articles_per_source": 2,
+  "min_content_length": 100,
+  "dedup_syndicated": true,
+  "syndicated_patterns": ["によると", "（共同）", "（ロイター）", "（AP）", "（時事）", "が報じた"]
+}

@@ -1140,11 +1140,12 @@ _CHAPTER_SYSTEM_PROMPT = """あなたはニュース分析の専門家です。
 """
 
 
-def generate_chapter(topic_data: dict, new_articles: list) -> dict | None:
+def generate_chapter(topic_data: dict, new_articles: list, single_source: bool = False) -> dict | None:
     """Step 6 S2: チャプター型ストーリーの新チャプターを生成する。
 
     topic_data: DynamoDB から取得したトピックメタ（background/keyPoint/chapters/topicTitle を使用）
     new_articles: lastChapterDate 以降の新着記事リスト（title/url/pubDate フィールドを持つ）
+    single_source: True の場合、1ソースのみの単独報道であることをプロンプトに明記する
     Returns: 新チャプター dict または失敗時 None
     """
     if not new_articles:
@@ -1171,6 +1172,8 @@ summary: {latest_chapter.get('summary', '')}
 prediction: {latest_chapter.get('prediction', '')}
 """
 
+    single_source_note = '\n⚠️ 注意: 以下の記事は単独報道です。事実として断定せず「〇〇によると」「〇〇が報じた」のように出典を明記してください。\n' if single_source else ''
+
     prompt = f"""トピック: {topic_title}
 
 【背景・文脈】
@@ -1178,7 +1181,7 @@ prediction: {latest_chapter.get('prediction', '')}
 
 【このトピックの最大の注目点】
 {key_point}
-{prev_chapter_block}
+{prev_chapter_block}{single_source_note}
 【新着記事】
 {articles_block}
 
