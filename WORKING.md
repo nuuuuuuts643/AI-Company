@@ -138,6 +138,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] perspectives物理ガード追加 (PO指示) | Code | proc_storage.py, handler.py, tests/ | 2026-05-04 10:00 | yes |
 
 ### Dispatch継続性
 | 種別 | ID | 内容 | 状態 |
