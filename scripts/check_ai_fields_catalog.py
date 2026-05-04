@@ -54,11 +54,12 @@ def extract_schema_fields() -> set[str]:
 
 
 def _extract_via_ast() -> set[str]:
-    """import 失敗時のフォールバック: proc_ai.py をテキストとして読み、_build_story_schema 内の
+    """import 失敗時のフォールバック: proc_formatter.py をテキストとして読み、_build_story_schema 内の
     base_props に代入されている top-level key のみを拾う。
+    T2026-0504-A で _build_story_schema は proc_ai.py → proc_formatter.py に移動。
     timeline.items.properties (date / event / transition 等) のような nested キーは除外する。
     """
-    src = (PROC_AI_DIR / 'proc_ai.py').read_text(encoding='utf-8')
+    src = (PROC_AI_DIR / 'proc_formatter.py').read_text(encoding='utf-8')
     # _build_story_schema 関数の body を抽出 (次の def まで)。
     m = re.search(r'def _build_story_schema\([^)]*\)[^:]*:\s*\n(.+?)(?=\n(?:def |class )\w)', src, re.DOTALL)
     if not m:
