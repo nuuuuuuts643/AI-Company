@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 
 from proc_config import MAX_API_CALLS, MIN_ARTICLES_FOR_TITLE, MIN_ARTICLES_FOR_SUMMARY, PROCESSOR_SCHEMA_VERSION
 from proc_ai import generate_title, generate_story, judge_prediction, log_skip_reason, generate_chapter
+from proc_sources import filter_articles, load_source_policy
 from proc_storage import (
     get_pending_topics, get_topics_by_ids, get_latest_articles_for_topic,
     update_topic_with_ai, get_all_topics_for_s3,
@@ -45,6 +46,9 @@ _CHAPTER_MODE_GENRES: frozenset = frozenset(
     for g in os.environ.get('CHAPTER_MODE_GENRES', '').split(',')
     if g.strip()
 )
+
+# Step 6 S2.5: チャプターモード用ソースフィルタリングポリシー（起動時に1回ロード）
+_SOURCE_POLICY = load_source_policy()
 
 _PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline'}
 
@@ -336,7 +340,14 @@ def lambda_handler(event, context):
                 skipped += 1
                 log_skip_reason(tid, f'chapter_mode: no_new_articles since={last_chapter_date} cnt={cnt}')
                 continue
-            new_chap = generate_chapter(topic, new_articles)
+            # Step 6 S2.5: ソースフィルタリング（転載除去・重複除去・ソース偏り防止）
+            filtered = filter_articles(new_articles, _SOURCE_POLICY)
+            print(f'[SOURCE_FILTER] topic={tid[:8]} {filtered["summary"]}')
+            if not filtered['selected']:
+                skipped += 1
+                log_skip_reason(tid, f'chapter_mode: all_filtered {filtered["summary"]}')
+                continue
+            new_chap = generate_chapter(topic, filtered['selected'], single_source=filtered['single_source'])
             api_calls += 1
             time.sleep(1.5)
             if new_chap:
