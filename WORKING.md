@@ -138,11 +138,13 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
-| [Code] PR396-CI-FIX PR #396 CI修正 | Code | scripts/check_ai_fields_coverage.py, PR#394/#395/#396 branch updates | 2026-05-04 11:00 | yes |
 
 ### Dispatch継続性
 | 種別 | ID | 内容 | 状態 |
 |---|---|---|---|
-| Dispatch | T2026-0503-TASKS-ADD | TASKS.md に新タスク4件追加（U/V/W/X） + 修正（W） | 実行中・main push bypass中 |
+| Dispatch | Step6-S1 | PR #398 CI待ち・auto-merge設定済み | CI通過待ち |
 
-**理由**: ユーザー指示「ALLOW_MAIN_PUSH=1で直接push、PRは出さない」に従い、chore commit で main に直接 push する。bootstrap sync ではない変更のため pre-push hook で物理拒否されたため、--no-verify bypass を実施。コミット内容は実装変更なし（TASKS.md ドキュメント追加のみ）。Verified-Effect: なし（観測タスク）。
+**次アクション**: PR #398 マージ確認後、即 Step6-S2（processor差分処理）のコードセッション起動。
+- S2スコープ: `lastChapterDate`以降の新着記事のみClaudeに送る・`CHAPTER_MODE_GENRES=politics`環境変数ゲート・新着なしトピックはスキップ（コードで制御）
+- 設計: `docs/intended-design-2026-05-04.md` Step6 S2 参照
+- 効果検証: p003-haiku定期実行に任せる（手動確認禁止）
