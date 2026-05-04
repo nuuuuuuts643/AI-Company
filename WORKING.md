@@ -139,7 +139,6 @@ git add -A && git commit -m "done: [タスク名]" && git push
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
 | [Code] PR396-CI-FIX PR #396 CI修正 | Code | scripts/check_ai_fields_coverage.py, PR#394/#395/#396 branch updates | 2026-05-04 11:00 | yes |
-| [Code] Step6-S1 chapters/background/relatedTopicIds/lastChapterDate pass-through | Code | lambda/processor/proc_storage.py, lambda/processor/handler.py, tests/test_chapter_passthrough.py | 2026-05-04 11:20 | yes |
 
 ### Dispatch継続性
 | 種別 | ID | 内容 | 状態 |
