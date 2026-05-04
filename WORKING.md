@@ -138,6 +138,7 @@ git add -A && git commit -m "done: [タスク名]" && git push
 
 | タスク名 | 種別 | 変更予定ファイル | 開始 JST | needs-push |
 |---|---|---|---|---|
+| [Code] PR396-CI-FIX PR #396 CI修正 | Code | scripts/check_ai_fields_coverage.py, PR#394/#395/#396 branch updates | 2026-05-04 11:00 | yes |
 
 ### Dispatch継続性
 | 種別 | ID | 内容 | 状態 |
