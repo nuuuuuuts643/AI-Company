@@ -38,9 +38,22 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PROC_DIR = REPO_ROOT / 'projects' / 'P003-news-timeline' / 'lambda' / 'processor'
-PROC_AI = PROC_DIR / 'proc_ai.py'
 PROC_STORAGE = PROC_DIR / 'proc_storage.py'
 HANDLER = PROC_DIR / 'handler.py'
+
+
+def _find_normalize_source_path(proc_dir: Path) -> Path:
+    """_normalize_story_result の定義ファイルを探す。
+    T2026-0504-A で proc_ai.py → proc_formatter.py に移動したため両方を確認する。
+    """
+    for name in ('proc_formatter.py', 'proc_ai.py'):
+        p = proc_dir / name
+        if p.exists() and '_normalize_story_result' in p.read_text(encoding='utf-8'):
+            return p
+    return proc_dir / 'proc_ai.py'
+
+
+PROC_AI = _find_normalize_source_path(PROC_DIR)
 
 # proc_storage 経由で DDB に書くが、S3 topic file (handler.ai_updates) には流さない
 # ストレージ専用メタデータ。観測・分析用で UI に出さないため handler 欠落を許容。
@@ -52,7 +65,7 @@ STORAGE_ONLY = {
 
 
 def extract_normalize_output_keys(path: Path) -> set[str]:
-    """proc_ai.py の `_normalize_story_result` 内の Return Dict literal から key を集める。"""
+    """`_normalize_story_result` 内の Return Dict literal から key を集める。"""
     tree = ast.parse(path.read_text(encoding='utf-8'))
     target_fn = None
     for node in ast.walk(tree):

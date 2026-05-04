@@ -61,6 +61,7 @@ def _fully_filled_topic(**override):
                     'エンタープライズ採用は 30 日以内のベンチマーク結果次第になる。',
         'statusLabel': '主要ベンダーが対抗発表',
         'watchPoints': '推論ベンチマークの第三者検証 / 価格改定タイミング',
+        'perspectives': 'OpenAI側: 技術的優位性と差別化を主張。Google側: 既存サービスとの統合・コスト優位性を強調。両社で戦略の方向性が明確に分岐。',
     }
     base.update(override)
     return base
@@ -147,6 +148,39 @@ class IsFullyFilledTest(unittest.TestCase):
     def test_pendingAI_does_not_affect_fully_filled(self):
         """pendingAI=True でも fully filled の判定には影響しない (純粋な品質判定)"""
         item = _fully_filled_topic(pendingAI=True)
+        self.assertTrue(is_fully_filled(item))
+
+    def test_perspectives_missing_ac2_not_fully_filled(self):
+        """ac>=2 で perspectives 欠落 → not fully filled"""
+        item = _fully_filled_topic(perspectives='', articleCount=2, summaryMode='minimal', storyTimeline=[])
+        self.assertFalse(is_fully_filled(item))
+
+    def test_perspectives_missing_ac5_not_fully_filled(self):
+        """ac>=2 (standard/full) で perspectives 欠落 → not fully filled"""
+        item = _fully_filled_topic(perspectives='')
+        self.assertFalse(is_fully_filled(item))
+
+    def test_perspectives_none_ac2_not_fully_filled(self):
+        """perspectives=None は欠落扱い"""
+        item = _fully_filled_topic(perspectives=None, articleCount=2, summaryMode='minimal', storyTimeline=[])
+        self.assertFalse(is_fully_filled(item))
+
+    def test_perspectives_present_ac2_can_be_fully_filled(self):
+        """ac=2 で perspectives あり → 他条件次第で fully filled になれる"""
+        item = _fully_filled_topic(
+            articleCount=2,
+            summaryMode='minimal',
+            storyTimeline=[],
+            statusLabel='',
+            watchPoints='',
+        )
+        self.assertTrue(is_fully_filled(item))
+
+    def test_perspectives_missing_ac1_not_checked(self):
+        """ac=1 (minimal・フロント非表示) は perspectives 不要 → 他条件でブロックされる"""
+        item = _fully_filled_topic(perspectives='', articleCount=1)
+        # ac=1 は needs_ai_processing が早期 False を返すため ac=1 時に fully_filled は
+        # 実運用上参照されないが、_is_fully_filled 自体は ac<2 では perspectives チェックしない
         self.assertTrue(is_fully_filled(item))
 
 

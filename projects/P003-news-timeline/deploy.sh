@@ -14,10 +14,8 @@ BUCKET="p003-news-${ACCOUNT_ID}"
 FETCHER="p003-fetcher"
 PROCESSOR="p003-processor"
 API_FN="p003-api"
-COMMENTS_FN="p003-comments"
 ROLE="p003-lambda-role"
 ENV_VARS="Variables={TABLE_NAME=${TABLE},REGION=${REGION},SITE_URL=https://flotopic.com,S3_BUCKET=${BUCKET}}"
-COMMENTS_ENV_VARS="Variables={COMMENTS_TABLE=${COMMENTS_TABLE},REGION=${REGION},S3_BUCKET=${BUCKET},CLOUDFRONT_DOMAIN=flotopic.com}"
 
 echo ""
 echo "======================================="
@@ -249,60 +247,6 @@ aws lambda add-permission \
 
 echo "  -> API URL: $API_URL"
 
-# ---- 6. Comments Lambda ----
-echo "[6/8] Comments Lambda デプロイ..."
-cd lambda/comments
-zip -q function.zip handler.py
-aws lambda create-function \
-  --function-name "$COMMENTS_FN" \
-  --runtime python3.12 \
-  --role "$ROLE_ARN" \
-  --handler handler.lambda_handler \
-  --zip-file fileb://function.zip \
-  --timeout 10 --memory-size 128 \
-  --environment "$COMMENTS_ENV_VARS" \
-  --region "$REGION" 2>/dev/null \
-  && echo "  -> 新規作成完了" \
-  || {
-    aws lambda update-function-code --function-name "$COMMENTS_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
-    aws lambda wait function-updated --function-name "$COMMENTS_FN" --region "$REGION"
-    aws lambda update-function-configuration --function-name "$COMMENTS_FN" --timeout 10 --memory-size 128 --environment "$COMMENTS_ENV_VARS" --region "$REGION" > /dev/null
-    echo "  -> 更新完了"
-  }
-rm function.zip
-cd ../..
-
-# Comments Function URL
-echo "  -> Comments Function URL 設定..."
-aws lambda wait function-updated --function-name "$COMMENTS_FN" --region "$REGION" 2>/dev/null || true
-aws lambda wait function-active  --function-name "$COMMENTS_FN" --region "$REGION"
-
-COMMENTS_URL=$(aws lambda get-function-url-config \
-  --function-name "$COMMENTS_FN" --region "$REGION" \
-  --query FunctionUrl --output text 2>/dev/null) || COMMENTS_URL=""
-
-if [ -z "$COMMENTS_URL" ] || [ "$COMMENTS_URL" = "None" ]; then
-  COMMENTS_URL=$(aws lambda create-function-url-config \
-    --function-name "$COMMENTS_FN" \
-    --auth-type NONE \
-    --cors '{"AllowOrigins":["*"],"AllowMethods":["GET","POST"],"AllowHeaders":["Content-Type"]}' \
-    --region "$REGION" \
-    --query FunctionUrl --output text)
-  echo "  -> 新規作成: $COMMENTS_URL"
-else
-  echo "  -> 既存URLを使用: $COMMENTS_URL"
-fi
-
-aws lambda add-permission \
-  --function-name "$COMMENTS_FN" \
-  --statement-id AllowPublicAccess \
-  --action lambda:InvokeFunctionUrl \
-  --principal "*" \
-  --function-url-auth-type NONE \
-  --region "$REGION" 2>/dev/null || true
-
-echo "  -> Comments URL: $COMMENTS_URL"
-
 # ---- 4b. Processor Lambda ----
 # ANTHROPIC_API_KEY: 環境変数に設定されていればそれを使い、なければLambdaの現在値を保持
 _CURRENT_ANTHROPIC=$(aws lambda get-function-configuration \
@@ -435,118 +379,8 @@ SITE_URL="https://flotopic.com"
 
 
 
-# ---- 6b. Auth Lambda ----
-AUTH_FN="flotopic-auth"
-AUTH_ENV_VARS="Variables={REGION=${REGION},TABLE_NAME=${TABLE}}"
-echo "[6b] Auth Lambda デプロイ..."
-cd lambda/auth
-zip -q function.zip handler.py
-aws lambda create-function \
-  --function-name "$AUTH_FN" \
-  --runtime python3.12 \
-  --role "$ROLE_ARN" \
-  --handler handler.lambda_handler \
-  --zip-file fileb://function.zip \
-  --timeout 10 --memory-size 128 \
-  --environment "$AUTH_ENV_VARS" \
-  --region "$REGION" 2>/dev/null \
-  && echo "  -> 新規作成完了" \
-  || {
-    aws lambda update-function-code --function-name "$AUTH_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
-    aws lambda wait function-updated --function-name "$AUTH_FN" --region "$REGION"
-    aws lambda update-function-configuration --function-name "$AUTH_FN" --timeout 10 --memory-size 128 --environment "$AUTH_ENV_VARS" --region "$REGION" > /dev/null
-    echo "  -> 更新完了"
-  }
-rm function.zip
-cd ../..
-
-# Auth Function URL
-echo "  -> Auth Function URL 設定..."
-aws lambda wait function-updated --function-name "$AUTH_FN" --region "$REGION" 2>/dev/null || true
-aws lambda wait function-active  --function-name "$AUTH_FN" --region "$REGION"
-
-AUTH_URL=$(aws lambda get-function-url-config \
-  --function-name "$AUTH_FN" --region "$REGION" \
-  --query FunctionUrl --output text 2>/dev/null) || AUTH_URL=""
-
-if [ -z "$AUTH_URL" ] || [ "$AUTH_URL" = "None" ]; then
-  AUTH_URL=$(aws lambda create-function-url-config \
-    --function-name "$AUTH_FN" \
-    --auth-type NONE \
-    --cors '{"AllowOrigins":["*"],"AllowMethods":["POST"],"AllowHeaders":["Content-Type","Authorization"]}' \
-    --region "$REGION" \
-    --query FunctionUrl --output text)
-  echo "  -> 新規作成: $AUTH_URL"
-else
-  echo "  -> 既存URLを使用: $AUTH_URL"
-fi
-
-aws lambda add-permission \
-  --function-name "$AUTH_FN" \
-  --statement-id AllowPublicAccess \
-  --action lambda:InvokeFunctionUrl \
-  --principal "*" \
-  --function-url-auth-type NONE \
-  --region "$REGION" 2>/dev/null || true
-
-echo "  -> Auth URL: $AUTH_URL"
-
-# ---- 6c. Favorites Lambda ----
-FAVORITES_FN="flotopic-favorites"
-FAVORITES_TABLE="flotopic-favorites"
-FAVORITES_ENV_VARS="Variables={REGION=${REGION},FAVORITES_TABLE=${FAVORITES_TABLE}}"
-echo "[6c] Favorites Lambda デプロイ..."
-cd lambda/favorites
-zip -q function.zip handler.py
-aws lambda create-function \
-  --function-name "$FAVORITES_FN" \
-  --runtime python3.12 \
-  --role "$ROLE_ARN" \
-  --handler handler.lambda_handler \
-  --zip-file fileb://function.zip \
-  --timeout 10 --memory-size 128 \
-  --environment "$FAVORITES_ENV_VARS" \
-  --region "$REGION" 2>/dev/null \
-  && echo "  -> 新規作成完了" \
-  || {
-    aws lambda update-function-code --function-name "$FAVORITES_FN" --zip-file fileb://function.zip --region "$REGION" > /dev/null
-    aws lambda wait function-updated --function-name "$FAVORITES_FN" --region "$REGION"
-    aws lambda update-function-configuration --function-name "$FAVORITES_FN" --timeout 10 --memory-size 128 --environment "$FAVORITES_ENV_VARS" --region "$REGION" > /dev/null
-    echo "  -> 更新完了"
-  }
-rm function.zip
-cd ../..
-
-# Favorites Function URL
-echo "  -> Favorites Function URL 設定..."
-aws lambda wait function-updated --function-name "$FAVORITES_FN" --region "$REGION" 2>/dev/null || true
-aws lambda wait function-active  --function-name "$FAVORITES_FN" --region "$REGION"
-
-FAVORITES_URL=$(aws lambda get-function-url-config \
-  --function-name "$FAVORITES_FN" --region "$REGION" \
-  --query FunctionUrl --output text 2>/dev/null) || FAVORITES_URL=""
-
-if [ -z "$FAVORITES_URL" ] || [ "$FAVORITES_URL" = "None" ]; then
-  FAVORITES_URL=$(aws lambda create-function-url-config \
-    --function-name "$FAVORITES_FN" \
-    --auth-type NONE \
-    --cors '{"AllowOrigins":["*"],"AllowMethods":["GET","POST","DELETE"],"AllowHeaders":["Content-Type","Authorization"]}' \
-    --region "$REGION" \
-    --query FunctionUrl --output text)
-  echo "  -> 新規作成: $FAVORITES_URL"
-else
-  echo "  -> 既存URLを使用: $FAVORITES_URL"
-fi
-
-aws lambda add-permission \
-  --function-name "$FAVORITES_FN" \
-  --statement-id AllowPublicAccess \
-  --action lambda:InvokeFunctionUrl \
-  --principal "*" \
-  --function-url-auth-type NONE \
-  --region "$REGION" 2>/dev/null || true
-
-echo "  -> Favorites URL: $FAVORITES_URL"
+# Phase C Lambda (flotopic-auth, flotopic-favorites) はここでは不要。
+# Phase C 実装時に復活させる。コードは lambda/auth/, lambda/favorites/ に残置。
 
 # ---- 6d. Analytics Lambda ----
 ANALYTICS_FN="flotopic-analytics"
@@ -704,21 +538,9 @@ echo "  -> sw.js (no-cache) アップロード完了"
 # concurrency 上限を追加。fetcher / processor は API キー消費するのでコスト爆発防止が重要。
 echo "  -> Lambda 同時実行数制限を設定..."
 aws lambda put-function-concurrency \
-  --function-name "$COMMENTS_FN" \
-  --reserved-concurrent-executions 20 \
-  --region "$REGION" > /dev/null 2>&1 && echo "  -> $COMMENTS_FN: max 20" || true
-aws lambda put-function-concurrency \
-  --function-name "$AUTH_FN" \
-  --reserved-concurrent-executions 10 \
-  --region "$REGION" > /dev/null 2>&1 && echo "  -> $AUTH_FN: max 10" || true
-aws lambda put-function-concurrency \
   --function-name "$ANALYTICS_FN" \
   --reserved-concurrent-executions 10 \
   --region "$REGION" > /dev/null 2>&1 && echo "  -> $ANALYTICS_FN: max 10" || true
-aws lambda put-function-concurrency \
-  --function-name "$FAVORITES_FN" \
-  --reserved-concurrent-executions 20 \
-  --region "$REGION" > /dev/null 2>&1 && echo "  -> $FAVORITES_FN: max 20" || true
 # T2026-0502-SEC17: 追加分
 aws lambda put-function-concurrency \
   --function-name "$FETCHER" \
@@ -732,10 +554,6 @@ aws lambda put-function-concurrency \
   --function-name "flotopic-lifecycle" \
   --reserved-concurrent-executions 1 \
   --region "$REGION" > /dev/null 2>&1 && echo "  -> flotopic-lifecycle: max 1 (SEC17)" || true
-aws lambda put-function-concurrency \
-  --function-name "flotopic-contact" \
-  --reserved-concurrent-executions 5 \
-  --region "$REGION" > /dev/null 2>&1 && echo "  -> flotopic-contact: max 5 (SEC17)" || true
 aws lambda put-function-concurrency \
   --function-name "p003-tracker" \
   --reserved-concurrent-executions 5 \
@@ -808,9 +626,6 @@ echo "  デプロイ完了！"
 echo "======================================="
 echo "  サイトURL      : $SITE_URL"
 echo "  API URL        : $API_URL"
-echo "  Comments URL   : $COMMENTS_URL"
-echo "  Auth URL       : $AUTH_URL"
-echo "  Favorites URL  : $FAVORITES_URL"
 echo "  Analytics URL  : $ANALYTICS_URL"
 echo ""
 echo "  最初のニュース取得を実行中..."
@@ -848,15 +663,7 @@ else
   VERIFY_FAIL=1
 fi
 
-# 3. API Gateway コメント/お気に入りが応答するか
-GW="https://x73mzc0v06.execute-api.ap-northeast-1.amazonaws.com"
-COMMENTS_STATUS=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" -m 5 "$GW/comments/test" -H "Origin: https://flotopic.com")
-FAVS_STATUS=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" -m 5 "$GW/favorites/test" -H "Origin: https://flotopic.com")
-
-[ "$COMMENTS_STATUS" -lt 500 ] && echo "  [OK] GET /comments: $COMMENTS_STATUS" || { echo "  [NG] GET /comments: $COMMENTS_STATUS"; VERIFY_FAIL=1; }
-[ "$FAVS_STATUS" -lt 500 ]    && echo "  [OK] GET /favorites: $FAVS_STATUS"  || { echo "  [NG] GET /favorites: $FAVS_STATUS";  VERIFY_FAIL=1; }
-
-# 4. sw.js のバージョン
+# 3. sw.js のバージョン
 SW_VER=$(/usr/bin/curl -sf "https://flotopic.com/sw.js" 2>/dev/null | head -1 | grep -o "flotopic-v[0-9]*" || echo "不明")
 echo "  [--] sw.js: $SW_VER"
 
