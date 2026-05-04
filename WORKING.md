@@ -11,38 +11,28 @@
 > 現在進行中フェーズ・直近のPO指示・次のアクションを常に最新化する。
 > 1 セクション 5 行以内・全部書き換え可。
 
-**直近のPO指示** (2026-05-02 00:00〜01:00 JST):
-「規則体系のリライト・違反全パターン物理化・自走 Lv2 化・組織として動く Claude・セキュリティ監査強化。プロダクト完成にブレないようにして欲しい」
+**直近のPO指示** (2026-05-04 JST):
+「2軸双方向ナビ（ストーリーカード ↔ 記事要約カード）・記事要約は1回キャッシュ・ソースフィルタ（一次ソース優先・転載除外・偏り防止）・ブラックボックス禁止・設計意図と想定効果を必ず残す・目的にレイヤーがある（L1>L2>L3）・困り事を改善するのがプロ」
 
-**今セッション (Cowork) で完了** (2026-05-02 09:00〜09:30 JST):
-- ✅ **p003-dispatch-auto-v2 本番稼働開始** — 4回/日 (08/13/18/22 JST) Haiku・Slack通知なし・start_code_task不使用版で create + Run now 検証済 (09:18 JST に WORKING.md 自動更新確認)
-- ✅ **scheduled-tasks 環境調査** — `start_code_task` は scheduled session 環境では未提供と確認 (probe タスクで実証済 → tmp_logs に結果あり・auto-sync で削除済)
-- ✅ **ゾンビ scheduled-tasks クリーンアップ** — description 空の orphan 5 件 (rule-monthly-audit / security-audit-aws / dispatch-auto / eng-permission-probe / fetcher-recovery-verify) PO 削除
-- ⚠️ **失敗 + 切り戻し記録** — PR #120/121: 「鮮度モニタの cron 頻度UP+コアタイム除外」依頼を GitHub Actions cron と解釈してしまい revert。実際は scheduled-tasks 自走の話だった。lessons-learned 候補: 「『スケジュール』『cron』『コアタイム』のような複数レイヤー解釈可能語は AskUserQuestion で対象を明示確認」
+**今セッション (Cowork) で完了** (2026-05-04 JST):
+- ✅ PR #398 (Step6 S1: DDB chapters フィールド追加) merge
+- ✅ PR #399 (Step6 S2: チャプター差分処理・CHAPTER_MODE_GENRES=politics) merge + 749テスト全件pass
+- ✅ PR #400 (CI修正: check_sli_field_coverage.sh re.search→re.findall) merge
+- ✅ PR #402 (Step6 S2.5: ソースフィルタ + docs/decisions/ + design-by-intent.md + commit-msgフック) merge・27 checks passed
 
-**次セッション (Dispatch / Code 問わず) でやること**:
-1. **p003-dispatch-auto-v2 観察** — 13:00 / 18:00 / 22:00 JST 自然発火を確認。WORKING.md「最新 Dispatch (auto-v2)」行が毎回更新されてるか・コアタイム前 22:00 で適切に止まるか・明朝 07:08 の p003-haiku と衝突しないか
-2. **T2026-0501-K** 🟡 (フェーズ2) — `lambda/processor/proc_ai.py` の `_STORY_PROMPT_RULES` keyPoint ◎例 をエンタメ+テック差し替え
-3. (フェーズ2 完了条件達成までフェーズ3/4/5 タスクは凍結)
+**次セッション でやること**:
+1. **S3設計ドキュメント作成** (推奨 #1・コード前に設計) — `docs/decisions/002-frontend-2axis-navigation.md` を書く。L1/L2/L3ゴール層・想定効果（数値）・成功基準・変更トリガー必須。2軸ナビ（縦=ストーリーライン・横=関連トピックリンク）・記事要約カード（ストーリーへのバックリンク付き）・コメンタリーはonelinerテーザー→展開で全文。設計完成後PO確認してからコード。
+2. **フェッチャー調査** — DynamoDB に現在 title/URL/description のみか full content もあるか確認 → 記事要約キャッシュの実装ポイント特定
+3. **T2026-0501-K** (keyPoint例 エンタメ+テック差し替え) — フェーズ2タスク・フェーズ2完了条件確認後
 
-**観察 OK なら次に追加検討するスケジュールタスク（保留中・順番に）**:
-- ⭐ #3 `p003-sonnet-weekly-quality` — 週1月曜10:00 Sonnet・SLI実測+品質低下検出時に fix PR の prompt を TASKS.md に積む (~200k トークン/月・効果デカい)
-- #2 `p003-security-audit-aws` — 月1 1日09:30 Haiku・AWS MCP read-only でIAM/S3/secrets チェック (~15k/月)
-- #1 `p003-rule-monthly-audit` — 月1 1日09:00 Haiku・CLAUDE.md/docs/rules/ 整合性チェック (~10k/月)
+**PO設計哲学（セッションまたぎで引き継ぐ）**:
+- L1: ニュースを読まない人が世界をマップとして理解できる / L2: 信頼・偏りなし・持続可能コスト / L3: 実装手段
+- 設計は必ず: 目的レイヤー + 想定効果（数値） + 成功基準（閾値） + 測定方法 + 変更トリガー
+- 「効果測定できない設計はNG」「目的が変わった時に変更箇所が見えないのはNG」
+- `[topicId:xxx]` プレースホルダー: commentary テキスト内でフロントがタップ可能リンクに変換（マップナビ用）
+- 記事要約キャッシュ: processor が初回遭遇時に1回だけ Claude 呼び出し → DDB 保存 → チャプター生成・記事カード両方で再利用
 
-**最新 Dispatch (auto-v2)** 2026-05-04 07:06 JST | staleness=1.7min | 過去2h saves=79 | 直近1h errors=0 | 全SLI healthy・異常なし・次回 13:00 JST run まで観測のみ (outcome=A) ※bootstrap exit=1 は「並走 3 件」WARN のみ (実態 0 件・テンプレ表ヘッダ等を誤計上) ・[Dispatch] T2026-0502-COST-D1 stale 行は p003-haiku 朝次 (07:08) で除去済
-
-**最新 Dispatch (Cowork)** 2026-05-03 10:30 JST PO「Slack通知の絞り込み＋日次keypoint評価スケジュール」→ PR #338 作成済 ✅:
-- PR #291 (削減プラン docs) / #293 (A1 検証結果) / #298 (深掘り §8) / #299 (TASKS.md 整合化) merge ✅
-- 衝撃の発見: Lambda/API GW/CloudFront/CloudWatch は全て無料枠内 ($0)。実コストの 95% は DynamoDB R/W $6.42 + S3 PUT $2.17。当初プラン A2/A3/A5/B1/B2/B3/B4/C2/C3 は撤回。本命は A1-CODE / D1 / C1 / D2 / D3 / D4。
-- 副産物 CI 修正 2 PR: PR #302 (LINT-YAML-FIX2: iam-policy-drift-check.yml の python3 -c → scripts/iam_canon.py) / PR #303 (IAM-CANON-RESCUE: c521a846 不完全 merge で commit 漏れだった iam_canon.py を初 commit) — 両方 effect 確認済 (workflow_dispatch run success)
-- 改訂後の現実的削減見立て: 月 $11 → $7 (約 36% カット)。理想ゼロは脱 AWS 必須
-
-**次セッション (Cowork デスクトップ → Code セッション起動推奨)**:
-1. **T2026-0502-COST-A1-CODE** (推奨 #1・規律タスク) — `docs/code-session-prompts/T2026-0502-COST-A1-CODE.md` の prompt をコピペで Code セッション起動。deploy.sh L69-80 + IAM policy 4 ARN 削除 → PR → 慎重に 1 つずつ delete-table。Sonnet・30 分。
-2. **T2026-0502-COST-D1** (推奨 #2・調査のみ) — `docs/code-session-prompts/T2026-0502-COST-D1-INVESTIGATE.md` の prompt。lambda/ の DDB Read コードパス全網羅 + 1 候補設計案。Sonnet・1〜2 時間。
-3. **T2026-0502-Y** (要 Code セッション) — コスト規律 MCP 物理化 (前回未着手)
-4. (フェーズ2 完了条件達成までフェーズ3/4/5 タスクは凍結)
+**最新 Dispatch (Cowork)** 2026-05-04 JST | Step6 S1/S2/S2.5 完了・main CI green・次は S3 設計ドキュメント
 
 **実在スケジューラー**: p003-haiku (7:08am daily) / p003-dispatch-auto-v2 (4x/日 08/13/18/22 JST) / p003-sonnet (手動のみ) / security-audit.yml (週次・GitHub Actions)
 **FUSE 環境メモ**: Cowork セッションでは git CLI が index.lock を unlink できない場合がある。`scripts/cowork_commit.py "msg" file...` で GitHub API 直接コミットに迂回可能（.git/config の token 自動取得）。
