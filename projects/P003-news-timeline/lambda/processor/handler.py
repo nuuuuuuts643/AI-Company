@@ -486,6 +486,11 @@ def lambda_handler(event, context):
             'genre':                gen_story['genres'][0]            if gen_story and gen_story.get('genres') else None,
             'aiGenerated':          ai_succeeded,
             'imageUrl':             ogp_url,
+            # Step 6 S1: DynamoDB にあれば素通し（AI 生成ではなく DDB が source of truth）
+            'chapters':             topic.get('chapters'),
+            'background':           topic.get('background'),
+            'relatedTopicIds':      topic.get('relatedTopicIds'),
+            'lastChapterDate':      topic.get('lastChapterDate'),
         }
 
     elapsed = time.time() - start_time
