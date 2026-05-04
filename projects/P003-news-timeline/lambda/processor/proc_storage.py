@@ -862,7 +862,8 @@ def get_topics_by_ids(topic_ids, force=False):
     """
     proj = ('topicId,title,articleCount,score,velocityScore,lastUpdated,generatedTitle,'
             'generatedSummary,storyTimeline,storyPhase,aiGenerated,aiGeneratedAt,pendingAI,'
-            'imageUrl,genre,genres,keyPoint,schemaVersion,statusLabel,watchPoints,perspectives,summaryMode')
+            'imageUrl,genre,genres,keyPoint,schemaVersion,statusLabel,watchPoints,perspectives,summaryMode,'
+            'chapters,background,relatedTopicIds,lastChapterDate')
     items = []
     ghost_ids = []
     skipped_ids = []  # 存在するが needs_ai_processing が False
@@ -1375,7 +1376,8 @@ _PENDING_META_PROJ = (
     'topicId,title,articleCount,score,velocityScore,lastUpdated,'
     'generatedTitle,generatedSummary,storyTimeline,storyPhase,'
     'aiGenerated,aiGeneratedAt,pendingAI,imageUrl,genre,genres,'
-    'keyPoint,summaryMode,statusLabel,watchPoints,perspectives,lifecycleStatus,schemaVersion'
+    'keyPoint,summaryMode,statusLabel,watchPoints,perspectives,lifecycleStatus,schemaVersion,'
+    'chapters,background,relatedTopicIds,lastChapterDate'
 )
 
 
@@ -1752,6 +1754,18 @@ def update_topic_s3_file(tid, upd, articles=None, incremental=False):
             meta['genre'] = upd['genres'][0] if upd['genres'] else meta.get('genre')
         if upd.get('imageUrl') and not meta.get('imageUrl'):
             meta['imageUrl'] = upd['imageUrl']
+        # Step 6 S1: chapters/background/relatedTopicIds/lastChapterDate を DynamoDB から S3 に素通し。
+        # 値が None/空の場合はキー自体を書かない（既存トピックの出力を変えない）。
+        # background は一度書いたら変えない（初回のみ）。chapters は DDB が source of truth。
+        if upd.get('background') and not meta.get('background'):
+            meta['background'] = upd['background']
+        _chapters = upd.get('chapters')
+        if isinstance(_chapters, list) and _chapters:
+            meta['chapters'] = _chapters
+        if upd.get('relatedTopicIds'):
+            meta['relatedTopicIds'] = upd['relatedTopicIds']
+        if upd.get('lastChapterDate'):
+            meta['lastChapterDate'] = upd['lastChapterDate']
         data['meta'] = meta
         # T260 (2026-04-30): aiGenerated=False かつ generatedTitle 等の AI フィールドが
         # 一つも無い場合、meta が事実上空 ({topicId, aiGenerated} の 2 フィールドだけ) の
