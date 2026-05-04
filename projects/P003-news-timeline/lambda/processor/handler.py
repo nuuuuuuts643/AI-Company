@@ -17,7 +17,7 @@ import time
 from datetime import datetime, timezone
 
 from proc_config import MAX_API_CALLS, MIN_ARTICLES_FOR_TITLE, MIN_ARTICLES_FOR_SUMMARY, PROCESSOR_SCHEMA_VERSION
-from proc_ai import generate_title, generate_story, judge_prediction
+from proc_ai import generate_title, generate_story, judge_prediction, log_skip_reason
 from proc_storage import (
     get_pending_topics, get_topics_by_ids, get_latest_articles_for_topic,
     update_topic_with_ai, get_all_topics_for_s3,
@@ -34,7 +34,7 @@ from proc_storage import (
     normalize_minimal_phase,
 )
 
-_PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline', 'backgroundContext', 'background'}
+_PROC_INTERNAL = {'SK', 'pendingAI', 'ttl', 'spreadReason', 'forecast', 'storyTimeline'}
 
 # PRED# レコードを topics.json から除外するためのプレフィックスチェックは不要
 # (get_all_topics_for_s3 が SK='META' のみ取得するため自動除外)
@@ -305,6 +305,7 @@ def lambda_handler(event, context):
         # 1件記事トピックはユーザーに表示されないためスキップ（API節約）
         if cnt < MIN_ARTICLES_FOR_TITLE:
             skipped += 1
+            log_skip_reason(tid, f'article_count={cnt}<min')
             continue
 
         articles = get_latest_articles_for_topic(tid)
@@ -388,7 +389,7 @@ def lambda_handler(event, context):
                 if _hours_since_ai < 48 and _no_new_articles and not _kp_inadequate and not _mode_upgrade_needed:
                     needs_story = False
                     skipped += 1
-                    print(f'  [skip] {tid[:8]}... aiGen後{_hours_since_ai:.1f}h・新記事なし・keyPoint充足・mode昇格不要 → 再生成 skip')
+                    log_skip_reason(tid, f'aiGen後{_hours_since_ai:.1f}h・新記事なし・keyPoint充足・mode昇格不要')
                     continue
             except Exception as _e:
                 pass  # パース失敗時は通常処理
@@ -435,6 +436,7 @@ def lambda_handler(event, context):
         archived = auto_archive_incoherent(tid, gen_story)
         if archived:
             skipped += 1
+            log_skip_reason(tid, 'archived_incoherent')
             continue
         processed += 1
         if _is_t0:
